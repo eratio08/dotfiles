@@ -1,0 +1,8 @@
+font=Roboto 10
+background-color=#81a2be
+border-color=#2f2f38
+border-size=1
+padding=10
+anchor=top-center
+icons=1
+default-timeout=100000
