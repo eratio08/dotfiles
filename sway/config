@@ -2,8 +2,8 @@ set $mod Mod4
 
 # KeyboardVars
 input * {
-    xkb_layout de
-    xkb_model thinkpad
+    xkb_layout de(mac_nodeadkeys)
+    xkb_model macbook79
     middle_emulation enabled
     click_method button_areas # none|button_areas|clickfinger
     tap enabled
@@ -22,8 +22,8 @@ set $bemenu bemenu -b -i -l 10 -P ">" -w \
                 --fn "pango:Roboto 12"
 set $menu j4-dmenu-desktop --dmenu='$bemenu' --term='$term' --display-binary
 set $locker swaylock -f
-set $bg1 ~/Pictures/002.png
-set $bg2 ~/Pictures/005.png
+set $bg1 /usr/share/backgrounds/gnome/Icetwigs.jpg
+set $bg2 /usr/share/backgrounds/gnome/Road.jpg
 # set $power ~/.config/rofi/modi/power
 # set $wifi networkmanager_dmenu
 
@@ -72,7 +72,7 @@ client.placeholder      $color8 $background $color8 $color4     $color4
 client.background $background
 
 # Gaps
-gaps inner 15
+gaps inner 10
 gaps outer 0
 smart_gaps on
 
@@ -223,11 +223,12 @@ bindsym $mod+r mode "resize"
 # bindsym XF86TouchpadOn exec synclient Touchpadoff=0
 # bindsym XF86TouchpadOff exec synclient Touchpadoff=1
 
-# set minimal brightness to 1
+# if issues: sudo chmod +s /usr/bin/light
+# set minimal brightness to 0
 exec sudo light -N 0
 # set backlight controlls
-bindsym XF86MonBrightnessUp exec light -A 5
-bindsym XF86MonBrightnessDown exec light -U 5
+bindsym XF86MonBrightnessUp exec light -A 10
+bindsym XF86MonBrightnessDown exec light -U 10
 
 # # set minimal brightness to 1
 # exec brightnessctl -n 1
@@ -271,6 +272,7 @@ bar {
 # Monitor Setup
 # swaymsg -t get_outputs
 output eDP-1 {
+    mode 2560x1600@60Hz
     pos 0 0
     bg $bg1 fill $background
     scale 1
