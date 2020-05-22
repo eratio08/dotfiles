@@ -134,7 +134,9 @@ generate_migration() {
 export JAVA_HOME=/usr/lib/jvm/default
 
 # Snap bin
-export PATH=/var/lib/snapd/snap/bin:$PATH
+export PATH=/snap/bin:$PATH
+# Add symlink for desktop enties
+# ln -s /var/lib/snapd/desktop/applications/ ~/.local/share/applications/snap
 
 # Enable Wayland backends
 # QT 5
