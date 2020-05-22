@@ -138,19 +138,9 @@ export PATH=/snap/bin:$PATH
 # Add symlink for desktop enties
 # ln -s /var/lib/snapd/desktop/applications/ ~/.local/share/applications/snap
 
-# Enable Wayland backends
-# QT 5
-export QT_QPA_PLATFORM=wayland-egl
-# Clutter
-export CLUTTER_BACKEND=wayland
-# Java Wayland Support
-export _JAVA_AWT_WM_NONREPARENTING=1
+# Java Wayland
 # wmname LG3D
-# export XDG_WM_NON_REPARENTING=1
-# firefox wayland
-export MOZ_ENABLE_WAYLAND=1
-# enabled wayland for chrome
-# export GDK_BACKEND=wayland
+
 
 # Git helper
 remove_merged() {

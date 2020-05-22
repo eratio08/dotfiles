@@ -79,15 +79,20 @@ set $ws9 9
 # switch to workspace with urgent window automatically
 for_window [urgent=latest] focus
 
-# Resize window (you can also use the mouse for that)
+#
+# Resizing containers:
+#
 mode "resize" {
-    # same bindings, but for the arrow keys
-    bindsym $left resize shrink width 10 px or 10 ppt
-    bindsym $down resize grow height 10 px or 10 ppt
-    bindsym $up resize shrink height 10 px or 10 ppt
-    bindsym $right resize grow width 10 px or 10 ppt
+    # left will shrink the containers width
+    # right will grow the containers width
+    # up will shrink the containers height
+    # down will grow the containers height
+    bindsym $left resize shrink width 10px
+    bindsym $down resize grow height 10px
+    bindsym $up resize shrink height 10px
+    bindsym $right resize grow width 10px
 
-    # exit resize mode: Enter or Escape
+    # Return to default mode
     bindsym Return mode "default"
     bindsym Escape mode "default"
 }
@@ -220,23 +225,22 @@ bindsym --to-code {
     $mod+Shift+l exec $locker && systemctl suspend
 
     # set backlight controlls
-    XF86MonBrightnessUp exec light -A 10
-    XF86MonBrightnessDown exec light -U 10
+    XF86MonBrightnessUp exec light -A 1
+    XF86MonBrightnessDown exec light -U 1
 
     # bind keyboard backlight
-    XF86KbdBrightnessUp exec light -s "sysfs/leds/smc::kbd_backlight" -A 10
-    XF86KbdBrightnessDown exec light -s "sysfs/leds/smc::kbd_backlight" -U 10
+    --locked XF86KbdBrightnessUp exec light -s "sysfs/leds/smc::kbd_backlight" -A 5
+    --locked XF86KbdBrightnessDown exec light -s "sysfs/leds/smc::kbd_backlight" -U 5
 
     # Pulse Audio controls
-    --locked XF86AudioRaiseVolume exec pactl set-sink-volume $(pacmd list-sinks |awk '/* index:/{print $3}') +5%
-    --locked XF86AudioLowerVolume exec pactl set-sink-volume $(pacmd list-sinks |awk '/* index:/{print $3}') -5%
-    --locked XF86AudioMute exec pactl set-sink-mute $(pacmd list-sinks |awk '/* index:/{print $3}') toggle
-    # XF86XK_AudioMicMute
+    --locked XF86AudioRaiseVolume exec pactl set-sink-volume @DEFAULT_SINK@ +5%
+    --locked XF86AudioLowerVolume exec pactl set-sink-volume @DEFAULT_SINK@ -5%
+    --locked XF86AudioMute exec pactl set-sink-mute @DEFAULT_SINK@ toggle
 
     # Media
-    XF86AudioPlay exec playerctl play-pause
-    XF86AudioNext exec playerctl next
-    XF86AudioPrev exec playerctl previous
+    --locked XF86AudioPlay exec playerctl play-pause
+    --locked XF86AudioNext exec playerctl next
+    --locked XF86AudioPrev exec playerctl previous
     # XF86XK_Bluetooth  player controls
 
     #interactive screenshot by pressing printscreen
@@ -244,15 +248,18 @@ bindsym --to-code {
     # Mod1+Print exec swayshot window
     # Shift+Print exec swayshot region
 
-    Ctrl+Shift+4 exec "slurp | grim -g - $(xdg-user-dir PICTURES)/$(date +'screenshot_%Y-%m-%d-%H%M%S.png')"
+    Ctrl+Shift+1 exec swayshot && exec notify-send 'took screenshot'
+    Ctrl+Shift+2 exec swayshot window && exec notify-send 'took screenshit of window'
+    # Ctrl+Shift+3 exec swayshot region 
+    Ctrl+Shift+3 exec "slurp -d -b #50858b99 | grim -g - $(xdg-user-dir PICTURES)/$(date +'screenshot_%Y-%m-%d-%H%M%S.png')"
 }
 
 # Idle configuration
 exec swayidle \
     timeout 300 'exec $locker' \
-    timeout 600 'swaymsg "output * dpms off"'  resume 'swaymsg "output * dpms on"' \
+    timeout 300 'swaymsg "output * dpms off"' \
     timeout 1800 'systemctl suspend' \
-    after-resume 'swaymsg "output * dpms on"' \
+    resume 'swaymsg "output * dpms on"' \
     before-sleep 'exec $locker'
 
 # Bar
@@ -318,5 +325,5 @@ output HDMI-A-2 {
     scale 1
 }
 
-# load Xdefaults
-# exec xrdb ~/.Xresources
+# load other default configs
+include /etc/sway/config.d/*
