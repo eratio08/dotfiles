@@ -98,6 +98,11 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
+
+#################
+## CUSTOM STUFF##
+#################
+
 ## SSH Agent
 if [ -f ~/.ssh/agent.env ] ; then
     . ~/.ssh/agent.env > /dev/null
@@ -115,18 +120,11 @@ fi
 ## GPG Key for Git
 export GPG_TTY=$(tty)
 
-
-
-#################
-## CUSTOM STUFF##
-#################
 alias untar="tar -zxvf"
 
 # alias vim="nvim"
 # alias vimdiff="nvim -d"
 alias logoff="pkill -u $USER"
-# alias aura="sudo aura"
-# alias update="sudo aura -Syu && sudo aura -Au"
 
 # unalias generate_migration
 generate_migration() {
@@ -135,58 +133,24 @@ generate_migration() {
 
 export JAVA_HOME=/usr/lib/jvm/default
 
-# If you come from bash you might have to change your $PATH.
-# export PATH=$HOME/bin:$PATH
-# export PATH=/usr/local/bin:$PATH
-# export PATH=~/.nix-profile/bin:$PATH
-# export PATH=~/.local/bin:$PATH
-
-# NPM bin
-export PATH=~/.npm-global/bin:$PATH
-
-# Yarn bin
-# export PATH=~/.yarn/bin:$PATH
-
-# Old NPM bin
-# export PATH=~/.npm/bin:$PATH
-
-#Nimble
-# export PATH=/home/eratio/.nimble/bin:$PATH
-
 # Snap bin
 export PATH=/var/lib/snapd/snap/bin:$PATH
-# Snap desktops
-# export PATH=/var/lib/snapd/desktop:$PATH
-
-#SonarCube Scanner
-# export PATH=/home/el/Downloads/SonarScanner/bin:$PATH
-
-# Nu Shell
-# export PATH=/home/el/.cargo/bin:$PATH
-
-# Sourcing Stuff
-# source /etc/profile.d/nix.sh
-# source /etc/profile.d/nix-daemon.sh
-# source /etc/profile
 
 # Enable Wayland backends
 # QT 5
 export QT_QPA_PLATFORM=wayland-egl
-
 # Clutter
 export CLUTTER_BACKEND=wayland
-
 # Java Wayland Support
 export _JAVA_AWT_WM_NONREPARENTING=1
 # wmname LG3D
 # export XDG_WM_NON_REPARENTING=1
-
 # firefox wayland
 export MOZ_ENABLE_WAYLAND=1
-
 # enabled wayland for chrome
 # export GDK_BACKEND=wayland
 
+# Git helper
 remove_merged() {
     git branch --merged | grep -v "\*" | xargs -n 1 git branch -d
 }
@@ -196,11 +160,12 @@ remove_unmerged() {
 }
 
 # Set default editor
-# export EDITOR=code
+export EDITOR=nano
 
-# NVM
-source /usr/share/nvm/init-nvm.sh
-# export NVM_DIR=~/.nvm
+# nvm
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 # IntelliJ
 export IDEA_JDK=/usr/lib/jvm/jetbrains-jre
