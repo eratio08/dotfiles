@@ -140,7 +140,8 @@ export PATH=/snap/bin:$PATH
 
 # Java Wayland
 # wmname LG3D
-
+# export _JAVA_AWT_WM_NONREPARENTING=1
+# export XDG_WM_NON_REPARENTING=1
 
 # Git helper
 remove_merged() {
