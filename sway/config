@@ -257,9 +257,10 @@ bindsym --to-code {
 # Idle configuration
 exec swayidle \
     timeout 300 'exec $locker' \
-    timeout 300 'swaymsg "output * dpms off"' \
+    timeout 310 'swaymsg "output * dpms off"' \
     timeout 1800 'systemctl suspend' \
     resume 'swaymsg "output * dpms on"' \
+    after-resume 'swaymsg "output * dpms on"' \
     before-sleep 'exec $locker'
 
 # Bar
@@ -324,6 +325,9 @@ output HDMI-A-2 {
     bg $bg2 fill $background
     scale 1
 }
+
+## exports
+exec "export MOZ_ENABLE_WAYLAND=1 firefox"
 
 # load other default configs
 include /etc/sway/config.d/*
