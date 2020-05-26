@@ -225,8 +225,8 @@ bindsym --to-code {
     $mod+Shift+l exec $locker && systemctl suspend
 
     # set backlight controlls
-    XF86MonBrightnessUp exec light -A 1
-    XF86MonBrightnessDown exec light -U 1
+    XF86MonBrightnessUp exec light -A 2
+    XF86MonBrightnessDown exec light -U 2
 
     # bind keyboard backlight
     --locked XF86KbdBrightnessUp exec light -s "sysfs/leds/smc::kbd_backlight" -A 5
@@ -255,10 +255,11 @@ bindsym --to-code {
 }
 
 # Idle configuration
-exec swayidle \
+exec swayidle -w \
     timeout 300 'exec $locker' \
     timeout 310 'swaymsg "output * dpms off"' \
-    timeout 1800 'systemctl suspend' \
+    resume 'swaymsg "output * dpms on"' \
+    timeout 900 'systemctl suspend' \
     resume 'swaymsg "output * dpms on"' \
     after-resume 'swaymsg "output * dpms on"' \
     before-sleep 'exec $locker'
