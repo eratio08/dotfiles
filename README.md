@@ -38,7 +38,7 @@ yay -S base-devel
 
 Install sway and the rest
 ```Shell
-yay -S sway swayidle swaylock swaybg waybar mako alacritty hunter
+yay -S sway swayidle swaylock swaybg waybar mako alacritty hunter redshift-wayland-git
 ```
 
 Install oh-my-zsh

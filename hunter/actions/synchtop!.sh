@@ -1,3 +1,3 @@
 #!/bin/sh
 
-exec htop
+exec ytop

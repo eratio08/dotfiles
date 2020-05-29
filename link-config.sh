@@ -22,7 +22,7 @@ configs=(
     'environment.d' 
     'hunter' 
     'mako' 
-    'redshift' 
+    'redshift'
     'sway' 
     'swaylock'
     'waybar'
