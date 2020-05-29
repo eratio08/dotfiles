@@ -1,8 +1,8 @@
 [movement]
-Up(1)=k, Up
-Down(1)=j, Down
-Left=h, Left
-Right=l, Right
+Up(1)=Up
+Down(1)=Down
+Left=Left
+Right=Right
 Top=<, Home
 Bottom=>, End
 Up(10)=K

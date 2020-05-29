@@ -1,6 +1,6 @@
 animation=on
 animation_refresh_frequency=60
-show_hidden=on
+show_hidden=off
 select_cmd=find -type f | fzf -m
 cd_cmd=find -type d | fzf
 icons=on
