@@ -11,13 +11,15 @@
     // "custom/media"
     // "sway/window"
   ],
-  "modules-center": ["sway/workspaces"],
+  "modules-center": [
+    "sway/workspaces"
+  ],
   "modules-right": [
     // "mpd",
     // "network",
-    "temperature",
-    "cpu",
-    "memory",
+    // "temperature",
+    // "cpu",
+    // "memory",
     "backlight",
     "idle_inhibitor",
     "pulseaudio",
@@ -82,13 +84,13 @@
     }
   },
   "tray": {
-    // "icon-size": 21,
-    "spacing": 0
+    "icon-size": 22,
+    "spacing": 2
   },
   "clock": {
-    "format": "{:%H:%M}",
-    "tooltip-format": "{:%Y-%m-%d | %H:%M}",
-    "format-alt": "{:%H:%M - %d.%m.%Y}"
+    "format": "{:%H:%M | %Y-%m-%d}",
+    "tooltip-format": "{:%H:%M:%S | %Y-%m-%d}",
+    "format-alt": "{:%H:%M | %d.%m.%Y}"
   },
   "cpu": {
     "interval": 2,
@@ -119,7 +121,10 @@
   "backlight": {
     // "device": "acpi_video1",
     "format": "{percent}% {icon}",
-    "format-icons": ["", ""]
+    "format-icons": [
+      "",
+      ""
+    ]
   },
   "battery": {
     "states": {
@@ -130,7 +135,13 @@
     "format": "{capacity}% {icon}",
     // "format-good": "", // An empty format will hide the module
     // "format-full": "",
-    "format-icons": ["", "", "", "", ""]
+    "format-icons": [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
   },
   "battery#bat2": {
     "bat": "BAT2"
@@ -154,7 +165,10 @@
       "phone": "",
       "portable": "",
       "car": "",
-      "default": ["", ""]
+      "default": [
+        "",
+        ""
+      ]
     },
     "on-click": "pavucontrol"
   }
