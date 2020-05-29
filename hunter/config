@@ -1,7 +1,7 @@
 animation=on
-show_hidden=off
+show_hidden=on
 select_cmd=find -type f | fzf -m
 cd_cmd=find -type d | fzf
-icons=off
+icons=on
 media_autostart=off
 media_mute=off
