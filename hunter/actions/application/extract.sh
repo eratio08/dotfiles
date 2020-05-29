@@ -5,6 +5,6 @@ which 7z >/dev/null && EXTRACTOR="7z x"
 which aunpack >/dev/null && EXTRACTOR=aunpack
 
 
-for file in "$@"; do
-    echo $EXTRACTOR "$file";
+for file in "${@}"; do
+    $EXTRACTOR "${file}";
 done
