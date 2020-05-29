@@ -48,15 +48,12 @@ ToNextMtime=K
 ToPrevMtime=k
 ToggleDirsFirst=d
 
-
-
 [tabs]
 NewTab=C-t
 CloseTab=C-w
 NextTab=Tab
 PrevTab=BackTab
 GotoTab(_)=F_
-
 
 [media]
 TogglePause=M-m
@@ -97,7 +94,6 @@ ClearLine=C-u
 DeleteWord=C-h
 CursorToStart=C-a, Home
 CursorToEnd=C-e, End
-
 
 [fold]
 ToggleFold=t,Tab
