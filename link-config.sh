@@ -50,7 +50,7 @@ link_to_etc() {
     link_to $PWD/$1 /etc/$1
 }
 
- etc_files=('tlp.conf')
+ etc_files=('tlp.conf' 'mbpfan.conf')
 
  zsudo() { 
     print -P "%BSudo%b is required for next action" 

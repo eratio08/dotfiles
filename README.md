@@ -94,3 +94,12 @@ Test mako styling with
 ```Shell
 notify-send 'Hello world!' 'This is an example notification.'
 ```
+
+## Fan Controll
+
+Use [mbpfan](https://github.com/linux-on-mac/mbpfan) as of 2020-05-30 only the repo version (self build) works
+
+If it got fixed use 
+```
+yay -S mbpfan-git
+```
