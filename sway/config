@@ -43,6 +43,7 @@ floating_modifier $mod
 
 # Autostarts
 exec mako
+exec redshift
 
 # Theme colors
 set $color8         "#b0c4bb"
