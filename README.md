@@ -87,3 +87,10 @@ Use for more informations
 ```
 man 5 sway
 ```
+
+## Mako
+
+Test mako styling with
+```Shell
+notify-send 'Hello world!' 'This is an example notification.'
+```

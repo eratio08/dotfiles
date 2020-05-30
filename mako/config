@@ -1,8 +1,28 @@
-font=Roboto 10
-background-color=#81a2be
-border-color=#2f2f38
-border-size=1
-padding=10
+# Global
+max-visible=3
+#sort=-time
+#output=
+layer=top
 anchor=top-center
+
+# Style
+font=JetBrains Mono 12
+background-color=#2f2f38
+text-color=#b0c4bb
+width=400
+height=300
+margin=5
+padding=20
+border-size=1
+border-color=#b0c4bb
+#border-radius=0.5
+#progress-color=over #5588AAFF
 icons=1
-default-timeout=100000
+#max-icon-size=64
+#icon-path=
+#markup=1
+#action=1
+#format=<b>%s</b>\n%b Default when grouped: (%g) <b>%s</b>\n%b
+#default-timeout=100000
+#ignore-timeout=0
+#group-by=none
