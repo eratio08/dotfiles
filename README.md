@@ -46,6 +46,11 @@ Install oh-my-zsh
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 ``` 
 
+Install tlp for laptop power management
+```Shell
+yay -S tlp
+```
+
 Optional: Use linux kernal for macbooks
 ```Shell
 yay -S linux-macbook

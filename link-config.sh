@@ -17,7 +17,7 @@ link_to_config() {
     link_to $PWD/$1 $HOME/.config/$1
 }
 
-configs=(
+config_files=(
     'alacritty' 
     'environment.d' 
     'hunter' 
@@ -28,19 +28,31 @@ configs=(
     'waybar'
     )
 
-for config in $configs
+for file in $config_files
 do
-    link_to_config $config
+    link_to_config $file
 done
 
-# Others
+# Links to home
 link_to_home() {
     link_to $PWD/$1 $HOME/$1
 }
 
-files=('.zshrc' '.Xresources')
+home_files=('.zshrc' '.Xresources')
 
-for file in $files
+for file in $home_files
 do
     link_to_home $file
 done
+
+#links to etc
+link_to_etc() {
+    link_to $PWD/$1 /etc/$1
+}
+
+ etc_files=('tlp.conf')
+
+ for file in $etc_files
+ do
+    link_to_etc $file
+ done
