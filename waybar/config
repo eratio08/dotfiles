@@ -89,7 +89,7 @@
   },
   "clock": {
     "format": "{:%H:%M | %Y-%m-%d}",
-    "tooltip-format": "{:%H:%M:%S | %Y-%m-%d}",
+    "tooltip-format": "{:%H:%M:%S}",
     "format-alt": "{:%H:%M | %d.%m.%Y}"
   },
   "cpu": {
