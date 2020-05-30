@@ -52,7 +52,12 @@ link_to_etc() {
 
  etc_files=('tlp.conf')
 
+ zsudo() { 
+    print -P "%BSudo%b is required for next action" 
+    sudo zsh -c "$(functions); $1 $2"
+}
+
  for file in $etc_files
  do
-    link_to_etc $file
+   zsudo link_to_etc $file
  done
