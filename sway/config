@@ -36,7 +36,7 @@ default_floating_border normal
 hide_edge_borders none
 
 # Font
-font pango:Roboto 11
+font pango:JetBrains Mono 11
 
 # Floating
 floating_modifier $mod

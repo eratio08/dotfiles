@@ -36,6 +36,11 @@ Install dev package (used by some AUR packages)
 yay -S base-devel
 ```
 
+Install main font
+```Shell
+yay -S ttf-jetbrains-mono
+```
+
 Install sway and the rest
 ```Shell
 yay -S sway swayidle swaylock swaybg waybar mako alacritty hunter redshift-wayland-git
@@ -56,10 +61,29 @@ Optional: Use linux kernal for macbooks
 yay -S linux-macbook
 ```
 
+### Dev Stuff
+
+Node Version Manager, Rustup
+```Shell
+yay -S nvm rustup
+```
+
+SDKMAN
+```Shell
+curl -s "https://get.sdkman.io" | bash 
+```
+
 ## Link configuration files
 
 Create links to `.config` and resources located in `$HOME`
 
 ```Shell
 chmod +x link-config.sh && ./link-config.sh
+```
+
+## Sway
+
+Use for more informations
+```
+man 5 sway
 ```
