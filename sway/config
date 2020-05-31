@@ -226,8 +226,8 @@ bindsym --to-code {
     $mod+Shift+l exec $locker && systemctl suspend
 
     # set backlight controlls
-    XF86MonBrightnessUp exec light -A 2
-    XF86MonBrightnessDown exec light -U 2
+    --locked XF86MonBrightnessUp exec light -A 2
+    --locked XF86MonBrightnessDown exec light -U 2
 
     # bind keyboard backlight
     --locked XF86KbdBrightnessUp exec light -s "sysfs/leds/smc::kbd_backlight" -A 5
