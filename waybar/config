@@ -19,12 +19,12 @@
     "backlight",
     "idle_inhibitor",
     "pulseaudio",
-    "battery",
-    "clock"
+    "clock",
+    "battery"
   ],
   // Modules configuration
   "sway/window": {
-    "format": "[ {} ]",
+    "format": "  {}",
     "max-length": 50
   },
   "sway/workspaces": {
@@ -87,9 +87,9 @@
     "spacing": 2
   },
   "clock": {
-    "format": "{:%H:%M | %Y-%m-%d}",
-    "tooltip-format": "{:%H:%M:%S}",
-    "format-alt": "{:%H:%M | %d.%m.%Y}"
+    "format": "{:%H:%M  | %Y-%m-%d }",
+    "tooltip-format": "{:%H:%M:%S }",
+    "format-alt": "{:%H:%M  | %d.%m.%Y }"
   },
   "cpu": {
     "interval": 3,
@@ -110,7 +110,7 @@
   },
   "temperature": {
     "interval": 3,
-    "hwmon-path": "/sys/class/hwmon/hwmon4/temp1_input",
+    "hwmon-path": "/sys/class/thermal/thermal_zone1/temp",
     "critical-threshold": 80,
     "tooltip": true,
     "format": "{temperatureC}°C {icon}",
@@ -142,11 +142,13 @@
     "max-length": 25
   },
   "network": {
-    "format-wifi": " {essid} {signalStrength}%",
+    "format-wifi": " {essid} {signalStrength}% [ {bandwidthDownBits}  {bandwidthUpBits}  ]",
     "format-ethernet": " {ifname}: {ipaddr}/{cidr}",
     "format-disconnected": "⚠ Disconnected",
-    "interval": 10,
-    "max-length": 50
+    "interval": 3,
+    "max-length": 50,
+    "tooltip-format": "{ipaddr} | {netmask}/{cidr}",
+    "tooltip-format-wifi": "[{ifname}] {signaldBm}dBm | {frequency}GHz | {ipaddr} | {netmask}/{cidr}"
   },
   "pulseaudio": {
     "format": "{volume}% {icon}",
