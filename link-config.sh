@@ -38,7 +38,7 @@ link_to_home() {
     link_to $PWD/$1 $HOME/$1
 }
 
-home_files=('.zshrc')
+home_files=('.zshrc' '.ghci')
 
 for file in $home_files
 do

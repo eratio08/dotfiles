@@ -1,0 +1,20 @@
+:set prompt "\ESC[38;5;208m\STX λ >\ESC[m\STX "
+
+:def hlint const . return $ ":! hlint \"src\""
+:def hoogle \s -> return $ ":! hoogle --count=15 \"" ++ s ++ "\""
+
+-- Better error messages
+:set -ferror-spans -freverse-errors -fprint-expanded-synonyms
+
+-- pritty print
+:set -package pretty-simple 
+-- :set -ignore-package pretty-simple
+:def! pretty \ _ -> pure ":set -interactive-print Text.Pretty.Simple.pPrint"
+:pretty
+
+-- prelude
+:seti -XNoImplicitPrelude
+:seti -XFlexibleContexts
+:seti -XFlexibleInstances
+:seti -XOverloadedStrings
+-- import Protolude -- or any other preferred preludecode 
