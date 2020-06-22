@@ -7,14 +7,17 @@
 :set -ferror-spans -freverse-errors -fprint-expanded-synonyms
 
 -- pritty print
-:set -package pretty-simple 
--- :set -ignore-package pretty-simple
+:set -ignore-package pretty-simple -package pretty-simple
 :def! pretty \ _ -> pure ":set -interactive-print Text.Pretty.Simple.pPrint"
 :pretty
 
 -- prelude
-:seti -XNoImplicitPrelude
-:seti -XFlexibleContexts
-:seti -XFlexibleInstances
-:seti -XOverloadedStrings
+-- :seti -XNoImplicitPrelude
+-- :seti -XFlexibleContexts
+-- :seti -XFlexibleInstances
+-- :seti -XOverloadedStrings
 -- import Protolude -- or any other preferred preludecode 
+
+:set -Wall
+:set -fwarn-incomplete-patterns
+:set -fwarn-incomplete-uni-patterns
