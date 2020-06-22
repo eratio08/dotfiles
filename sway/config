@@ -141,8 +141,8 @@ bindsym --to-code {
     $mod+Shift+$right move right
 
     # Split orientation
-    $mod+h split h; exec notify-send 'tile horizontally'
-    $mod+v split v; exec notify-send 'tile vertically'
+    $mod+h split h; exec notify-send -t 3000 'tile horizontally'
+    $mod+v split v; exec notify-send -t 3000 'tile vertically'
     $mod+q split toggle
 
     # Toggle fullscreen mode for the focused container
