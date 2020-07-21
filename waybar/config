@@ -111,7 +111,7 @@
   "temperature": {
     "interval": 3,
     "hwmon-path": "/sys/class/thermal/thermal_zone1/temp",
-    "critical-threshold": 80,
+    "critical-threshold": 95,
     "tooltip": true,
     "format": "{temperatureC}°C {icon}",
     "format-icons": [
