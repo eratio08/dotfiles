@@ -103,3 +103,7 @@ If it got fixed use
 ```
 yay -S mbpfan-git
 ```
+
+## ⌨️ Keyboard
+
+Use `echo 2 | sudo tee -a /sys/module/hid_apple/parameters/fnmode` to disable fn-look. Or use the alias `fn-lock`/`fn-lock-off`

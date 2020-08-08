@@ -162,3 +162,6 @@ export NVM_DIR="$HOME/.nvm"
 
 # IntelliJ
 export IDEA_JDK=/usr/lib/jvm/jetbrains-jre
+
+alias fn-lock="echo 2 | sudo tee -a /sys/module/hid_apple/parameters/fnmode"
+alias fn-lock-off="echo 1 | sudo tee -a /sys/module/hid_apple/parameters/fnmode"
