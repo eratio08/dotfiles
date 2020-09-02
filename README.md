@@ -95,6 +95,12 @@ Test mako styling with
 notify-send 'Hello world!' 'This is an example notification.'
 ```
 
+## 🎶 Spotify
+A light weight alternative to the electron client it `spotify-tui` + `spotifyd`. 
+To setup `spotify-tui` follow the [instruction](https://github.com/Rigellute/spotify-tui#connecting-to-spotifys-api) shown in the repo.
+To actually play something you need to setup `spotifyd` as a backend.
+The [instructions](https://github.com/Spotifyd/spotifyd#configuration-file) are found in the repo.
+
 ## 💨 Fan Controll
 
 Use [mbpfan](https://github.com/linux-on-mac/mbpfan) as of 2020-05-30 only the repo version (self build) works
