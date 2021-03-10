@@ -98,10 +98,6 @@ mode "resize" {
     bindsym Escape mode "default"
 }
 
-# to run light without sudo: sudo chmod +s /usr/bin/light
-# set minimal light level
-exec light -N 0
-
 ## Key bindings ##
 bindsym --to-code {
     # Open new shell
@@ -230,9 +226,6 @@ bindsym --to-code {
     --locked XF86MonBrightnessDown exec macbook-lighter-screen --dec 10
 
     # bind keyboard backlight
-    # --locked XF86KbdBrightnessUp exec light -s "sysfs/leds/smc::kbd_backlight" -A 5
-    # --locked XF86KbdBrightnessDown exec light -s "sysfs/leds/smc::kbd_backlight" -U 5
-
     --locked XF86KbdBrightnessUp exec macbook-lighter-kbd --inc 10
     --locked XF86KbdBrightnessDown exec macbook-lighter-kbd --dec 10
 
