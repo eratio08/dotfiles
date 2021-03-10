@@ -9,6 +9,7 @@
 * [Alacritty](https://github.com/alacritty/alacritty) - terminal emulator in rust
 * [Swaylock](https://github.com/swaywm/swaylock) - screen locker for sway
 * [Waybar](https://github.com/Alexays/Waybar) - status bar for wayland
+* [macbook-lighter](https://github.com/harttle/macbook-lighter) - screen/keyboard backlight helper
 
 ## Steps
 
