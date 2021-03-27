@@ -289,54 +289,6 @@ output eDP-1 {
     scale 1
 }
 
-output DP-1 {
-    mode 3840x2160@60Hz
-    pos 2560 0
-    bg $bg2 fill $background
-    scale 1
-}
-
-output DP-2 {
-    mode 3840x2160@60Hz
-    pos 2560 0
-    bg $bg2 fill $background
-    scale 1
-}
-
-output DP-3 {
-    mode 3840x2160@60Hz
-    pos 2560 0
-    bg $bg2 fill $background
-    scale 1
-}
-
-output DP-4 {
-    mode 3840x2160@60Hz
-    pos 2560 0
-    bg $bg2 fill $background
-    scale 1
-}
-
-output DP-5 {
-    mode 3840x2160@60Hz
-    pos 2560 0
-    bg $bg2 fill $background
-    scale 1
-}
-
-output DP-6 {
-    mode 3840x2160@60Hz
-    pos 2560 0
-    bg $bg2 fill $background
-    scale 1
-}
-
-output HDMI-A-2 {
-    mode 3840x2160@60Hz
-    pos 2560 0
-    bg $bg2 fill $background
-    scale 1
-}
 
 # load other default configs
 include /etc/sway/config.d/*
