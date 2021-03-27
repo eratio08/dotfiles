@@ -222,12 +222,12 @@ bindsym --to-code {
     $mod+Shift+l exec $locker && systemctl suspend
 
     # set backlight controlls
-    --locked XF86MonBrightnessUp exec macbook-lighter-screen --inc 10
-    --locked XF86MonBrightnessDown exec macbook-lighter-screen --dec 10
+    --locked XF86MonBrightnessUp exec macbook-lighter-screen --inc 50
+    --locked XF86MonBrightnessDown exec macbook-lighter-screen --dec 50
 
     # bind keyboard backlight
-    --locked XF86KbdBrightnessUp exec macbook-lighter-kbd --inc 10
-    --locked XF86KbdBrightnessDown exec macbook-lighter-kbd --dec 10
+    --locked XF86KbdBrightnessUp exec macbook-lighter-kbd --inc 50
+    --locked XF86KbdBrightnessDown exec macbook-lighter-kbd --dec 50
 
     # Pulse Audio controls
     --locked XF86AudioRaiseVolume exec pactl set-sink-volume @DEFAULT_SINK@ +5%
