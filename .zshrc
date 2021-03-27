@@ -167,3 +167,6 @@ alias fn-lock="echo 2 | sudo tee -a /sys/module/hid_apple/parameters/fnmode"
 alias fn-lock-off="echo 1 | sudo tee -a /sys/module/hid_apple/parameters/fnmode"
 
 alias fix-suspend="sudo echo XHC1 > /proc/acpi/wakeup"
+
+# enable wayland support for firefox
+export MOZ_ENABLE_WAYLAND=1
