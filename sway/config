@@ -11,16 +11,24 @@ input * {
 
 # Vars
 set $term alacritty
-set $bemenu bemenu -b -i -l 10 -P ">" -w \
-                --nb "#000" \
-                --nf "#b0c4bb" \
-                --hb "#34343e" \
-                --hf "#b0c4bb" \
-                --tb "#000" \
-                --tf "#b0c4bb" \
-                --fn "pango:Roboto 12"
+set $bemenu bemenu \
+    --bottom \
+    --ignorecase \
+    --list=10 \
+    --prefix=">" \
+    --prompt=run \
+    --scrollbar=autohide \
+    --wrap \
+    --scf="#b0c4bb" \
+    --nb="#000" \
+    --nf="#b0c4bb" \
+    --hb="#34343e" \
+    --hf="#b0c4bb" \
+    --tb="#000" \
+    --tf="#b0c4bb" \
+    --fn="pango:Roboto 12"
 set $menu j4-dmenu-desktop --dmenu='$bemenu' --term='$term' --display-binary
-set $locker swaylock -f
+set $locker swaylock --daemonize
 set $bg1 /usr/share/backgrounds/gnome/Icetwigs.jpg
 set $bg2 /usr/share/backgrounds/gnome/Road.jpg
 
@@ -257,12 +265,9 @@ set $screenOn 'swaymsg "output * dpms on"'
 # Idle configuration
 exec swayidle -w \
     timeout 300 '$locker' \
-    timeout 310 $screenOff \
-        resume $screenOn \
-    timeout 900 'systemctl suspend' \
-    before-sleep '$locker' \
-    after-resume $screenOn \
-    lock '$locker'
+    timeout 310 $screenOff resume $screenOn \
+    timeout 900 'systemctl suspend' resume $screenOn \
+    before-sleep '$locker'
 
 # Bar
 bar {
