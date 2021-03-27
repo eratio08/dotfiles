@@ -27,7 +27,10 @@ set $bemenu bemenu \
     --tb="#000" \
     --tf="#b0c4bb" \
     --fn="pango:Roboto 12"
-set $menu j4-dmenu-desktop --dmenu='$bemenu' --term='$term' --display-binary
+set $menu j4-dmenu-desktop \
+    --dmenu='$bemenu' \
+    --term='$term' \
+    --display-binary
 set $locker swaylock --daemonize
 set $bg1 /usr/share/backgrounds/gnome/Icetwigs.jpg
 set $bg2 /usr/share/backgrounds/gnome/Road.jpg
@@ -223,7 +226,10 @@ bindsym --to-code {
     $mod+Shift+c reload
 
     # exit sway (logs you out of your Wayland session)
-    $mod+Shift+e exec swaynag -t warning -m 'You pressed the exit shortcut. Do you really want to exit sway? This will end your Wayland session.' -b 'Yes, exit sway' 'swaymsg exit'
+    $mod+Shift+e exec swaynag \
+        --type warning \
+        --message 'You pressed the exit shortcut. Do you really want to exit sway? This will end your Wayland session.' \
+        --button 'Yes, exit sway' 'swaymsg exit'
 
     # Set locking featurespower
     $mod+l exec $locker
@@ -331,9 +337,6 @@ output HDMI-A-2 {
     bg $bg2 fill $background
     scale 1
 }
-
-## exports
-exec "export MOZ_ENABLE_WAYLAND=1 firefox"
 
 # load other default configs
 include /etc/sway/config.d/*
