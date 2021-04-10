@@ -32,8 +32,8 @@ set $menu j4-dmenu-desktop \
     --term='$term' \
     --display-binary
 set $locker swaylock --daemonize
-set $bg1 /usr/share/backgrounds/gnome/Icetwigs.jpg
-set $bg2 /usr/share/backgrounds/gnome/Road.jpg
+set $bg1 ../wallpapers/wallhaven-kw2rp7.jpg
+set $bg2 ../wallpapers/wallhaven-kw2rp7.jpg
 
 # Directions
 set $left Left
@@ -236,12 +236,12 @@ bindsym --to-code {
     $mod+Shift+l exec $locker && systemctl suspend
 
     # set backlight controlls
-    --locked XF86MonBrightnessUp exec macbook-lighter-screen --inc 50
-    --locked XF86MonBrightnessDown exec macbook-lighter-screen --dec 50
+    --locked XF86MonBrightnessUp exec macbook-lighter-screen --inc 25
+    --locked XF86MonBrightnessDown exec macbook-lighter-screen --dec 25
 
     # bind keyboard backlight
-    --locked XF86KbdBrightnessUp exec macbook-lighter-kbd --inc 50
-    --locked XF86KbdBrightnessDown exec macbook-lighter-kbd --dec 50
+    --locked XF86KbdBrightnessUp exec macbook-lighter-kbd --inc 25
+    --locked XF86KbdBrightnessDown exec macbook-lighter-kbd --dec 25
 
     # Pulse Audio controls
     --locked XF86AudioRaiseVolume exec pactl set-sink-volume @DEFAULT_SINK@ +5%
