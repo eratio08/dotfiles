@@ -57,12 +57,14 @@ exec mako
 exec redshift
 
 # Theme colors
-set $color8         "#b0c4bb"
 set $background     "#2f2f38"
+set $color1         "#61798e" 
 set $color12        "#81a2be"
 set $color4         "#688486"
+set $color8         "#b0c4bb"
+
 # class                 border  backgr.     text    indicator   child_border
-client.focused          $color8 $background $color8 $color12    $color12
+client.focused          $color8 $background $color8 $color1     $color12
 client.focused_inactive $color8 $background $color8 $color4     $color4
 client.unfocused        $color8 $background $color8 $color4     $color4
 client.urgent           $color8 $background $color8 $color4     $color4
