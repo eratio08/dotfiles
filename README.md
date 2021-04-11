@@ -146,3 +146,7 @@ Disable it using:
 ```shell
 echo XHC1 > /proc/acpi/wakeup
 ```
+
+## References
+
+* [Vim Guide](https://danielmiessler.com/study/vim/)
