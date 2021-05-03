@@ -1,87 +1,190 @@
+" Maintainer: Eike Lurz <moin@elurz.de>
 
-" An example for a vimrc file.
-"
-" Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last change:	2019 Dec 17
-"
-" To use it, copy it to
-"	       for Unix:  ~/.vimrc
-"	      for Amiga:  s:.vimrc
-"	 for MS-Windows:  $VIM\_vimrc
-"	      for Haiku:  ~/config/settings/vim/vimrc
-"	    for OpenVMS:  sys$login:.vimrc
+" set tab width to 2 spaces 
+setlocal tabstop=2
 
-" When started as "evim", evim.vim will already have done these settings, bail
-" out.
-if v:progname =~? "evim"
-  finish
-endif
+" set indentation width to 2 spaces
+setlocal shiftwidth=2
 
-" Get the defaults that most users want.
-source $VIMRUNTIME/defaults.vim
+" replace tabs with spaces on insert
+setlocal expandtab
 
-if has("vms")
-  set nobackup		" do not keep a backup file, use versions instead
-else
-  set backup		" keep a backup file (restore to previous version)
-  if has('persistent_undo')
-    set undofile	" keep an undo file (undo changes after closing)
-  endif
-endif
+" improve message display
+setlocal cmdheight=2
 
-if &t_Co > 2 || has("gui_running")
-  " Switch on highlighting the last used search pattern.
-  set hlsearch
-endif
+" decrease update time
+setlocal updatetime=300
 
-" Put these in an autocmd group, so that we can delete them easily.
-augroup vimrcEx
-  au!
+" don't give |ins-completion-menu| messages.
+setlocal shortmess+=c
 
-  " For all text files set 'textwidth' to 78 characters.
-  autocmd FileType text setlocal textwidth=78
-augroup END
+" always show signcolumns
+setlocal signcolumn=yes
 
-" Add optional packages.
-"
-" The matchit plugin makes the % command work better, but it is not backwards
-" compatible.
-" The ! means the package won't be loaded right away but when plugins are
-" loaded during initialization.
-if has('syntax') && has('eval')
-  packadd! matchit
-endif
+" enabled syntax highlighting
+syntax on 
 
-" Custom settings
-set tabstop=2
-set shiftwidth=2
-set expandtab
+" show line numbers
+setlocal number 
 
-syntax on " highlight syntax
-set number " show line numbers
-set noswapfile " disable the swapfile
-set hlsearch " highlight all results
-set ignorecase " ignore case in search
-set incsearch " show search results as you type
+" disable swap files
+setlocal noswapfile 
 
+" highlight all search results
+setlocal hlsearch 
+
+" search case insensitive by default
+setlocal ignorecase 
+
+" sow search results immediately 
+setlocal incsearch
+
+" set spell checking language to en_us
+setlocal spell spelllang=en_us
+
+" enable auto indentation on next line
+setlocal smartindent
+
+" Plugins
+ 
+" add minpac package manager
+" https://github.com/k-takata/minpac.git
 packadd minpac
-call minpac#init()
 
-call minpac#add('tpope/vim-scriptease', {'type': 'opt'})
-call minpac#add('dense-analysis/ale')
-call minpac#add('neoclide/coc.nvim')
-call minpac#add('preservim/tagbar')
-"call minpac#add('ap/vim-css-color', {'type': 'opt'})
-call minpac#add('vim-test/vim-test')
-call minpac#add('junegunn/fzf')
-call minpac#add('arcticicestudio/nord-vim', {'type': 'opt'})
-call minpac#add('chrisbra/Colorizer')
+if exists('g:loaded_minpac')
+  call minpac#init()
 
-command! PackUpdate call minpac#update()
-command! PackClean call minpac#clean()
+  " add plugins
+  call minpac#add('neoclide/coc.nvim')
+ "call minpac#add('dense-analysis/ale')
+  call minpac#add('junegunn/fzf')
+  call minpac#add('preservim/tagbar')
+  call minpac#add('sheerun/vim-polyglot')
+  call minpac#add('itchyny/lightline.vim')
+  call minpac#add('itchyny/vim-gitbranch')
+  "call minpac#add('ap/vim-css-color', {'type': 'opt'})
+  "call minpac#add('vim-test/vim-test')
+  "call minpac#add('chrisbra/Colorizer')
+  "call minpac#add('tpope/vim-projectionist')
 
+
+  " helper command to update plugins
+  command! PackUpdate call minpac#update()
+  " helper command to cleanup plugins
+  command! PackClean call minpac#clean()
+
+  " lightline
+  setlocal laststatus=2
+  let g:lightline = {}
+  let g:lightline.colorscheme = 'wombat'
+
+  colorscheme default
+      
+  let g:lightline.active = {
+        \   'left': [
+        \     ['mode'],
+        \   ],
+        \   'right': [
+        \     ['readonly', 'modified'],
+        \     ['filename'],
+        \     ['gitbranch'],
+        \     ['fileformat', 'fileencoding', 'filetype'],
+        \     ['lineinfo', 'percent']
+        \   ],
+        \ }
+
+  " coc configurations
+  let g:coc_global_extensions = [
+   "\ 'coc-tsserver',
+   "\ 'coc-json',
+   "\ 'coc-eslint',
+   "\ 'coc-prettier',
+   "\ 'coc-jest',
+   "\ 'coc-python',
+    \ 'coc-java',
+    \ 'coc-kotlin',
+   "\ 'coc-pairs'
+    \ 'coc-rls'
+    \ ]
+
+  function! s:check_back_space() abort
+    let col = col('.') - 1
+    return !col || getline('.')[col - 1]  =~# '\s'
+  endfunction
+
+  " Use tab for trigger completion with characters ahead and navigate.
+  " NOTE: Use command ':verbose imap <tab>' to make sure tab is not mapped by
+  " other plugin before putting this into your config.
+  inoremap <silent><expr> <TAB>
+      \ pumvisible() ? "\<C-n>" :
+      \ <SID>check_back_space() ? "\<TAB>" :
+      \ coc#refresh()
+
+  inoremap <expr><S-TAB> pumvisible() ? "\<C-p>" : "\<C-h>"
+ 
+  " Use <c-space> to trigger completion.
+  if has('nvim')
+    inoremap <silent><expr> <c-space> coc#refresh()
+  else
+    inoremap <silent><expr> <c-@> coc#refresh()
+  endif
+  
+  " Make <CR> auto-select the first completion item and notify coc.nvim to
+  " format on enter, <cr> could be remapped by other vim plugin
+  "inoremap <silent><expr> <cr> pumvisible() ? coc#_select_confirm()
+  "                              \: "\C-g><u\<CR>\<c-r>=coc#on_enter()\<CR>"
+
+  " Use K to show documentation in preview window.
+  nnoremap <silent> K :call <SID>show_documentation()<CR>
+
+  function! s:show_documentation()
+    if (index(['vim','help'], &filetype) >= 0)
+      execute 'h '.expand('<cword>')
+    elseif (coc#rpc#ready())
+      call CocActionAsync('doHover')
+    else
+      execute '!' . &keywordprg . " " . expand('<cword>')
+    endif
+  endfunction
+
+  " Highlight the symbol and its references when holding the cursor.
+  autocmd CursorHold * silent call CocActionAsync('highlight')
+
+  " Symbol renaming.
+  "nmap <leader>rn <Plug>(coc-rename)
+
+  " Formatting selected code.
+  "xmap <leader>f  <Plug>(coc-format-selected)
+  "nmap <leader>f  <Plug>(coc-format-selected)  
+
+  " GoTo code navigation.
+  nmap <silent> gd <Plug>(coc-definition)
+  nmap <silent> gy <Plug>(coc-type-definition)
+  nmap <silent> gi <Plug>(coc-implementation)
+  nmap <silent> gr <Plug>(coc-references)
+
+  nmap <silent> ga <Plug>(coc-codeaction)
+  nmap <silent> gf <Plug>(coc-fix-current)
+  nmap <silent> ge <Plug>(coc-diagnostic-next)
+  nmap <silent> gE <Plug>(coc-diagnostic-prev)
+  nmap <silent> GE <Plug>(coc-diagnostic-prev)
+  "nmap <silent> gD <Plug>(coc-references)
+  "nmap <silent> GD <Plug>(coc-references)
+  nmap <silent> gr <Plug>(coc-refactor)
+  nmap <silent> grf :CocCommand workspace.renameCurrentFile<CR>
+  nmap <silent> gp <Plug>(coc-format)"
+
+endif
+
+" Bindings
+
+" bind fuzzy search
 nnoremap <C-p> :<C-u>FZF<CR>
 nnoremap <leader>f 1z=
 nnoremap <leader>s :set spell! 
 
-set spell spelllang=en_us
+" set buffer navigation bindings
+nnoremap <silent> [b :bprevious<CR>
+nnoremap <silent> ]b :bnext<CR>
+nnoremap <silent> [B :bfirst<CR>
+nnoremap <silent> ]B :blast<CR>
