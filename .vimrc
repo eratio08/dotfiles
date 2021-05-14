@@ -10,7 +10,10 @@ setlocal shiftwidth=2
 setlocal expandtab
 
 " improve message display
-setlocal cmdheight=2
+setlocal cmdheight=1
+
+" for lightline
+set laststatus=2
 
 " decrease update time
 setlocal updatetime=300
@@ -45,6 +48,15 @@ setlocal spell spelllang=en_us
 " enable auto indentation on next line
 setlocal smartindent
 
+" enable vim-native fuzzy find 
+setlocal path+=**
+
+" enable wild match window
+setlocal wildmenu
+
+" enable native netrw plugin
+filetype plugin on
+
 " Plugins
  
 " add minpac package manager
@@ -56,7 +68,7 @@ if exists('g:loaded_minpac')
 
   " add plugins
   call minpac#add('neoclide/coc.nvim')
- "call minpac#add('dense-analysis/ale')
+  "call minpac#add('dense-analysis/ale')
   call minpac#add('junegunn/fzf')
   call minpac#add('preservim/tagbar')
   call minpac#add('sheerun/vim-polyglot')
@@ -66,7 +78,16 @@ if exists('g:loaded_minpac')
   "call minpac#add('vim-test/vim-test')
   "call minpac#add('chrisbra/Colorizer')
   "call minpac#add('tpope/vim-projectionist')
+  "call minpac#add('cocopon/iceberg.vim')
+  "call minpac#add('cocopon/pgmnt.vim')
+  "call minpac#add('rakr/vim-one')
+  "call minpac#add('joshdick/onedark.vim')
+  "call minpac#add('jacoborus/tender.vim')
+  call minpac#add('arcticicestudio/nord-vim')
+  call minpac#add('rust-lang/rust.vim')
 
+  colo nord 
+  setlocal background=dark
 
   " helper command to update plugins
   command! PackUpdate call minpac#update()
@@ -78,7 +99,6 @@ if exists('g:loaded_minpac')
   let g:lightline = {}
   let g:lightline.colorscheme = 'wombat'
 
-  colorscheme default
       
   let g:lightline.active = {
         \   'left': [
@@ -96,15 +116,16 @@ if exists('g:loaded_minpac')
   " coc configurations
   let g:coc_global_extensions = [
    "\ 'coc-tsserver',
-   "\ 'coc-json',
+    \ 'coc-json',
    "\ 'coc-eslint',
    "\ 'coc-prettier',
    "\ 'coc-jest',
    "\ 'coc-python',
     \ 'coc-java',
     \ 'coc-kotlin',
-   "\ 'coc-pairs'
-    \ 'coc-rls'
+   "\ 'coc-pairs',
+   "\ 'coc-rls',
+    \ 'coc-explorer'
     \ ]
 
   function! s:check_back_space() abort
@@ -174,6 +195,8 @@ if exists('g:loaded_minpac')
   nmap <silent> grf :CocCommand workspace.renameCurrentFile<CR>
   nmap <silent> gp <Plug>(coc-format)"
 
+  " rust-vim
+  let g:rustfmt_autosave = 0 
 endif
 
 " Bindings

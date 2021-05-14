@@ -2,12 +2,15 @@ set $mod Mod4
 
 # KeyboardVars
 input * {
-    xkb_layout de(mac_nodeadkeys)
+    #xkb_layout de(mac_nodeadkeys)
     xkb_model macbook79
     middle_emulation enabled
     click_method button_areas # none|button_areas|clickfinger
     tap enabled
+    # rebind caps lock to escape for vim
+    xkb_options caps:escape
 }
+
 
 # Vars
 set $term alacritty
@@ -74,7 +77,7 @@ client.background $background
 # Gaps
 gaps inner 10
 gaps outer 0
-smart_gaps on
+smart_gaps off
 
 # workspace back and forth (with/without active container)
 workspace_auto_back_and_forth yes
@@ -291,6 +294,12 @@ output eDP-1 {
     scale 1
 }
 
+output HDMI-A-2 {
+		#mode 4096x2160@60Hz	
+		mode 3840x2160@60Hz
+		bg $bg1 fill $background
+    scale 1
+}
 
 # load other default configs
 include /etc/sway/config.d/*
