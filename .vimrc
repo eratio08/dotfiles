@@ -3,6 +3,9 @@
 " set tab width to 2 spaces 
 setlocal tabstop=2
 
+" spaces inserted for a tab
+setlocal softtabstop=2
+
 " set indentation width to 2 spaces
 setlocal shiftwidth=2
 
@@ -30,6 +33,9 @@ syntax on
 " show line numbers
 setlocal number 
 
+" enable relative line numbers
+setlocal relativenumber
+
 " disable swap files
 setlocal noswapfile 
 
@@ -38,12 +44,14 @@ setlocal hlsearch
 
 " search case insensitive by default
 setlocal ignorecase 
+" if capital letter is used be case sensitive
+setlocal smartcase
 
 " sow search results immediately 
 setlocal incsearch
 
 " set spell checking language to en_us
-setlocal spell spelllang=en_us
+setlocal spell spelllang=en_us ",de_de
 
 " enable auto indentation on next line
 setlocal smartindent
@@ -54,11 +62,33 @@ setlocal path+=**
 " enable wild match window
 setlocal wildmenu
 
-" enable native netrw plugin
-filetype plugin on
+" keep buffers on navigation
+setlocal hidden
+
+" set background color brightness
+setlocal background=dark
+
+" enable undo file
+setlocal undofile
+
+" set undo file location
+setlocal undodir=~/.vim/undodir
+
+" add scroll offset
+setlocal scrolloff=10
+
+" vertical marker at column
+setlocal colorcolumn=80,100,120
+
 
 " Plugins
  
+" enable native netrw plugin
+filetype plugin on
+
+" open netrw in tree mode
+let g:netrw_liststyle = 3
+
 " add minpac package manager
 " https://github.com/k-takata/minpac.git
 packadd minpac
@@ -86,8 +116,7 @@ if exists('g:loaded_minpac')
   call minpac#add('arcticicestudio/nord-vim')
   call minpac#add('rust-lang/rust.vim')
 
-  colo nord 
-  setlocal background=dark
+  colorscheme nord 
 
   " helper command to update plugins
   command! PackUpdate call minpac#update()
@@ -95,7 +124,6 @@ if exists('g:loaded_minpac')
   command! PackClean call minpac#clean()
 
   " lightline
-  setlocal laststatus=2
   let g:lightline = {}
   let g:lightline.colorscheme = 'wombat'
 
@@ -176,7 +204,7 @@ if exists('g:loaded_minpac')
 
   " Formatting selected code.
   "xmap <leader>f  <Plug>(coc-format-selected)
-  "nmap <leader>f  <Plug>(coc-format-selected)  
+  nmap <leader>f  <Plug>(coc-format-selected)  
 
   " GoTo code navigation.
   nmap <silent> gd <Plug>(coc-definition)
@@ -199,7 +227,9 @@ if exists('g:loaded_minpac')
   let g:rustfmt_autosave = 0 
 endif
 
-" Bindings
+" Re-Mappings 
+" map leader
+let mapleader = " "
 
 " bind fuzzy search
 nnoremap <C-p> :<C-u>FZF<CR>
@@ -211,3 +241,6 @@ nnoremap <silent> [b :bprevious<CR>
 nnoremap <silent> ]b :bnext<CR>
 nnoremap <silent> [B :bfirst<CR>
 nnoremap <silent> ]B :blast<CR>
+
+" open explorer in new vertical resized split
+nnoremap <leader>pv :wincmd v<bar> :Ex <bar> :vertical resize 30<CR>
