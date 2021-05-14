@@ -68,7 +68,7 @@ ZSH_THEME="norm"
 # Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git vscode archlinux nvm npm npx sdk docker docker-compose)
+plugins=(git vscode archlinux nvm npm npx sdk docker docker-compose rust rustup)
 
 source $ZSH/oh-my-zsh.sh
 
