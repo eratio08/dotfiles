@@ -13,7 +13,7 @@ setlocal shiftwidth=2
 setlocal expandtab
 
 " improve message display
-setlocal cmdheight=1
+"setlocal cmdheight=1
 
 " for lightline
 set laststatus=2
@@ -24,7 +24,7 @@ setlocal updatetime=300
 " don't give |ins-completion-menu| messages.
 setlocal shortmess+=c
 
-" always show signcolumns
+" always show sign columns
 setlocal signcolumn=yes
 
 " enabled syntax highlighting
@@ -80,9 +80,12 @@ setlocal scrolloff=10
 " vertical marker at column
 setlocal colorcolumn=80,100,120
 
+" show invisible characters
+setlocal list listchars=tab:▸\ ,space:·
+
 
 " Plugins
- 
+
 " enable native netrw plugin
 filetype plugin on
 
@@ -100,19 +103,10 @@ if exists('g:loaded_minpac')
   call minpac#add('neoclide/coc.nvim')
   "call minpac#add('dense-analysis/ale')
   call minpac#add('junegunn/fzf')
-  call minpac#add('preservim/tagbar')
   call minpac#add('sheerun/vim-polyglot')
   call minpac#add('itchyny/lightline.vim')
   call minpac#add('itchyny/vim-gitbranch')
-  "call minpac#add('ap/vim-css-color', {'type': 'opt'})
   "call minpac#add('vim-test/vim-test')
-  "call minpac#add('chrisbra/Colorizer')
-  "call minpac#add('tpope/vim-projectionist')
-  "call minpac#add('cocopon/iceberg.vim')
-  "call minpac#add('cocopon/pgmnt.vim')
-  "call minpac#add('rakr/vim-one')
-  "call minpac#add('joshdick/onedark.vim')
-  "call minpac#add('jacoborus/tender.vim')
   call minpac#add('arcticicestudio/nord-vim')
   call minpac#add('rust-lang/rust.vim')
 
@@ -127,17 +121,21 @@ if exists('g:loaded_minpac')
   let g:lightline = {}
   let g:lightline.colorscheme = 'wombat'
 
-      
+  let g:lightline.component_function = {
+        \   'gitbranch': 'gitbranch#name'
+        \ }
+
   let g:lightline.active = {
         \   'left': [
         \     ['mode'],
+        \     ['gitbranch'],
+        \     ['filename']
         \   ],
         \   'right': [
         \     ['readonly', 'modified'],
-        \     ['filename'],
-        \     ['gitbranch'],
-        \     ['fileformat', 'fileencoding', 'filetype'],
-        \     ['lineinfo', 'percent']
+        \     ['fileencoding'],
+        \     ['lineinfo'],
+        \     ['percent']
         \   ],
         \ }
 
@@ -200,47 +198,101 @@ if exists('g:loaded_minpac')
   autocmd CursorHold * silent call CocActionAsync('highlight')
 
   " Symbol renaming.
-  "nmap <leader>rn <Plug>(coc-rename)
+  "nnoremap <leader>rn <Plug>(coc-rename)
 
   " Formatting selected code.
-  "xmap <leader>f  <Plug>(coc-format-selected)
-  nmap <leader>f  <Plug>(coc-format-selected)  
+  "xnoremap <leader>f  <Plug>(coc-format-selected)
+  nnoremap <silent> <leader>f <Plug>(coc-format-selected)  
 
   " GoTo code navigation.
-  nmap <silent> gd <Plug>(coc-definition)
-  nmap <silent> gy <Plug>(coc-type-definition)
-  nmap <silent> gi <Plug>(coc-implementation)
-  nmap <silent> gr <Plug>(coc-references)
+  nnoremap <silent> gd <Plug>(coc-definition)
+  nnoremap <silent> gy <Plug>(coc-type-definition)
+  nnoremap <silent> gi <Plug>(coc-implementation)
+  nnoremap <silent> gr <Plug>(coc-references)
 
-  nmap <silent> ga <Plug>(coc-codeaction)
-  nmap <silent> gf <Plug>(coc-fix-current)
-  nmap <silent> ge <Plug>(coc-diagnostic-next)
-  nmap <silent> gE <Plug>(coc-diagnostic-prev)
-  nmap <silent> GE <Plug>(coc-diagnostic-prev)
-  "nmap <silent> gD <Plug>(coc-references)
-  "nmap <silent> GD <Plug>(coc-references)
-  nmap <silent> gr <Plug>(coc-refactor)
-  nmap <silent> grf :CocCommand workspace.renameCurrentFile<CR>
-  nmap <silent> gp <Plug>(coc-format)"
+  nnoremap <silent> ga <Plug>(coc-codeaction)
+  nnoremap <silent> gf <Plug>(coc-fix-current)
+  nnoremap <silent> ge <Plug>(coc-diagnostic-next)
+  nnoremap <silent> gE <Plug>(coc-diagnostic-prev)
+  nnoremap <silent> GE <Plug>(coc-diagnostic-prev)
+  "nnoremap <silent> gD <Plug>(coc-references)
+  "nnoremap <silent> GD <Plug>(coc-references)
+  nnoremap <silent> gr <Plug>(coc-refactor)
+  nnoremap <silent> grf :CocCommand workspace.renameCurrentFile<CR>
+  nnoremap <silent> gp <Plug>(coc-format)"
 
   " rust-vim
-  let g:rustfmt_autosave = 0 
+  let g:rustfmt_autosave = 1 
 endif
 
-" Re-Mappings 
-" map leader
+" Mappings 
+" use 'sed -n l' if binding behave strangely to see actual
+" codes send by terminal
+"
+" map leader to <space>
 let mapleader = " "
 
 " bind fuzzy search
-nnoremap <C-p> :<C-u>FZF<CR>
-nnoremap <leader>f 1z=
-nnoremap <leader>s :set spell! 
+nnoremap <silent> <C-p> :<C-u>FZF<CR>
 
-" set buffer navigation bindings
+" spelling 
+" replace spelling mistake with first match
+nnoremap <silent> <leader>f 1z=
+" toggle spelling
+nnoremap <silent> <leader>s :set spell! 
+
+" buffer navigation bindings
 nnoremap <silent> [b :bprevious<CR>
 nnoremap <silent> ]b :bnext<CR>
 nnoremap <silent> [B :bfirst<CR>
 nnoremap <silent> ]B :blast<CR>
 
+" quickfix navigation
+nnoremap <silent> [q :cprev<CR>
+nnoremap <silent> ]q :cnext<CR>
+nnoremap <silent> [Q :cfirst<CR>
+nnoremap <silent> ]Q :clast<CR>
+
 " open explorer in new vertical resized split
-nnoremap <leader>pv :wincmd v<bar> :Ex <bar> :vertical resize 30<CR>
+nnoremap <silent> <leader>pv :wincmd v<bar> :Ex <bar> :vertical resize 30<CR>
+
+" open to edit helpers - expand %% to current working directory
+cnoremap <silent> %% <C-R>=fnameescape(expand('%:h')).'/'<CR>
+" edit in windows
+noremap <silent> <leader>ew :e %%
+" edit in split
+noremap <silent> <leader>es :sp %%
+" edit in vertical split
+noremap <silent> <leader>ev :vsp %%
+" edit in tab
+noremap <silent> <leader>et :tabe %%
+
+" improve window navigation
+noremap <silent> <C-h> <C-w>h
+noremap <silent> <C-j> <C-w>j
+noremap <silent> <C-k> <C-w>k
+noremap <silent> <C-l> <C-w>l
+
+" edit vimrc in tab
+nnoremap <silent> <leader>, :tabedit $MYVIMRC<CR>
+" source vimrc
+nnoremap <silent> <leader>src :source $MYVIMRC<CR>
+
+" fix alt key mapping
+map <Esc>h <A-h>
+map <Esc>j <A-j>
+map <Esc>k <A-k>
+map <Esc>l <A-l>
+
+" move single line down
+nnoremap <A-j> ddp
+vnoremap <A-j> xp`[V`]
+" move single line up
+nnoremap <A-k> ddkP
+vnoremap <A-k> xkP`[V`]
+
+" disable arrow keys in normal mode
+noremap <Up> <Nop>
+noremap <Down> <Nop>
+noremap <Left> <Nop>
+noremap <Right> <Nop>

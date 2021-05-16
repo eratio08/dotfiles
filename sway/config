@@ -295,9 +295,9 @@ output eDP-1 {
 }
 
 output HDMI-A-2 {
-		#mode 4096x2160@60Hz	
-		mode 3840x2160@60Hz
-		bg $bg1 fill $background
+    #mode 4096x2160@60Hz	
+    mode 3840x2160@60Hz
+    bg $bg1 fill $background
     scale 1
 }
 
