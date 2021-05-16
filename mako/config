@@ -3,7 +3,7 @@ max-visible=3
 #sort=-time
 #output=
 layer=top
-anchor=top-center
+anchor=top-right
 
 # Style
 font=JetBrains Mono 12
@@ -23,6 +23,6 @@ icons=1
 #markup=1
 #action=1
 #format=<b>%s</b>\n%b Default when grouped: (%g) <b>%s</b>\n%b
-#default-timeout=100000
+default-timeout=30000
 #ignore-timeout=0
 #group-by=none
