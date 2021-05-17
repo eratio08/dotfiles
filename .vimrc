@@ -13,7 +13,7 @@ setlocal shiftwidth=2
 setlocal expandtab
 
 " improve message display
-"setlocal cmdheight=1
+setlocal cmdheight=2
 
 " for lightline
 set laststatus=2
@@ -100,7 +100,7 @@ if exists('g:loaded_minpac')
   call minpac#init()
 
   " add plugins
-  call minpac#add('neoclide/coc.nvim')
+  call minpac#add('neoclide/coc.nvim', { 'branch': 'release' })
   "call minpac#add('dense-analysis/ale')
   call minpac#add('junegunn/fzf')
   call minpac#add('sheerun/vim-polyglot')
@@ -108,9 +108,7 @@ if exists('g:loaded_minpac')
   call minpac#add('itchyny/vim-gitbranch')
   "call minpac#add('vim-test/vim-test')
   call minpac#add('arcticicestudio/nord-vim')
-  call minpac#add('rust-lang/rust.vim')
-
-  colorscheme nord 
+  "call minpac#add('rust-lang/rust.vim')
 
   " helper command to update plugins
   command! PackUpdate call minpac#update()
@@ -147,11 +145,10 @@ if exists('g:loaded_minpac')
    "\ 'coc-prettier',
    "\ 'coc-jest',
    "\ 'coc-python',
-    \ 'coc-java',
-    \ 'coc-kotlin',
+   "\ 'coc-java',
+   "\ 'coc-kotlin',
    "\ 'coc-pairs',
-   "\ 'coc-rls',
-    \ 'coc-explorer'
+    \ 'coc-rust-analyzer'
     \ ]
 
   function! s:check_back_space() abort
@@ -202,7 +199,7 @@ if exists('g:loaded_minpac')
 
   " Formatting selected code.
   "xnoremap <leader>f  <Plug>(coc-format-selected)
-  nnoremap <silent> <leader>f <Plug>(coc-format-selected)  
+  nnoremap <leader>f <Plug>(coc-format-selected)  
 
   " GoTo code navigation.
   nnoremap <silent> gd <Plug>(coc-definition)
@@ -217,18 +214,23 @@ if exists('g:loaded_minpac')
   nnoremap <silent> GE <Plug>(coc-diagnostic-prev)
   "nnoremap <silent> gD <Plug>(coc-references)
   "nnoremap <silent> GD <Plug>(coc-references)
-  nnoremap <silent> gr <Plug>(coc-refactor)
+  nnoremap gr <Plug>(coc-refactor)
   nnoremap <silent> grf :CocCommand workspace.renameCurrentFile<CR>
   nnoremap <silent> gp <Plug>(coc-format)"
 
+  nnoremap <S-p> :CocCommand<CR>
+
   " rust-vim
   let g:rustfmt_autosave = 1 
+
+  colorscheme nord 
+
 endif
 
 " Mappings 
 " use 'sed -n l' if binding behave strangely to see actual
 " codes send by terminal
-"
+
 " map leader to <space>
 let mapleader = " "
 
