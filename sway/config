@@ -39,10 +39,10 @@ set $bg1 ../wallpapers/wallhaven-kw2rp7.jpg
 set $bg2 ../wallpapers/wallhaven-kw2rp7.jpg
 
 # Directions
-set $left Left
-set $down Down
-set $up Up
-set $right Right
+set $left h
+set $down j
+set $up k
+set $right l
 
 # Window borders
 default_border pixel 1
@@ -153,7 +153,7 @@ bindsym --to-code {
     $mod+Shift+$right move right
 
     # Split orientation
-    $mod+h split h; exec notify-send -t 3000 'tile horizontally'
+    $mod+Shift+v split h; exec notify-send -t 3000 'tile horizontally'
     $mod+v split v; exec notify-send -t 3000 'tile vertically'
     $mod+q split toggle
 
@@ -237,8 +237,7 @@ bindsym --to-code {
         --button 'Yes, exit sway' 'swaymsg exit'
 
     # Set locking featurespower
-    $mod+l exec $locker
-    $mod+Shift+l exec $locker && systemctl suspend
+    $mod+Alt+l exec $locker
 
     # set backlight controlls
     --locked XF86MonBrightnessUp exec macbook-lighter-screen --inc 25
