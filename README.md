@@ -1,6 +1,6 @@
 # 🔵 Dotfiles 
 
-This repo uses the ['bare repo' approach](https://www.atlassian.com/git/tutorials/dotfiles) to manage the dot files.
+This repo uses the ['bare repo' approach](https://www.atlassian.com/git/tutorials/dotfiles) to manage dotfiles.
 
 For a fresh install use the following commands
 ```shell
