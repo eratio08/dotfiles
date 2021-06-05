@@ -1,6 +1,26 @@
-# 🐧 Archlinux on MacBookPro11.1 🍎
+# 🔵 Dotfiles 
 
-## 🧑‍💻 Software
+This repo uses the ['bare repo' approach](https://www.atlassian.com/git/tutorials/dotfiles) to manage the dot files.
+
+For a fresh install use the following commands
+```shell
+alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
+echo ".cfg" >> .gitignore
+git clone --bare <git-repo-url> $HOME/.cfg
+config checkout
+```
+
+If some default config are in the way use
+```shell
+mkdir -p .config-backup && \
+config checkout 2>&1 | egrep "\s+\." | awk {'print $1'} | \
+xargs -I{} mv {} .config-backup/{}
+```
+
+
+## 🐧 Archlinux on MacBookPro11.1 🍎
+
+### 🧑‍💻 Software
 
 * [Sway](https://github.com/swaywm/sway) - windows manager
 * [Mako](https://github.com/emersion/mako) - notifications
@@ -11,7 +31,7 @@
 * [Waybar](https://github.com/Alexays/Waybar) - status bar for wayland
 * [macbook-lighter](https://github.com/harttle/macbook-lighter) - screen/keyboard backlight helper
 
-## Steps
+### Steps
 
 Setup via BT tethering as WiFi will not work yet.
 
@@ -62,7 +82,7 @@ Optional: Use linux kernel for macbooks
 yay -S linux-macbook
 ```
 
-### Dev Stuff
+#### Dev Stuff
 
 Node Version Manager, Rustup
 ```shell
@@ -74,7 +94,7 @@ SDKMAN
 curl -s "https://get.sdkman.io" | bash 
 ```
 
-## Link configuration files
+### Link configuration files
 
 Create links to `.config` and resources located in `$HOME`
 
@@ -82,27 +102,27 @@ Create links to `.config` and resources located in `$HOME`
 chmod +x link-config.sh && ./link-config.sh
 ```
 
-## 🪟 Sway
+### 🪟 Sway
 
 For more information use:
 ```shell
 man 5 sway
 ```
 
-## Mako
+### Mako
 
 Test mako styling with
 ```shell
 notify-send 'Hello world!' 'This is an example notification.'
 ```
 
-## 🎶 Spotify
+### 🎶 Spotify
 A light weight alternative to the electron client it `spotify-tui` + `spotifyd`. 
 To setup `spotify-tui` follow the [instruction](https://github.com/Rigellute/spotify-tui#connecting-to-spotifys-api) shown in the repo.
 To actually play something you need to setup `spotifyd` as a backend.
 The [instructions](https://github.com/Spotifyd/spotifyd#configuration-file) are found in the repo.
 
-## 💨 Fan Controll
+### 💨 Fan Controll
 
 Use [mbpfan](https://github.com/linux-on-mac/mbpfan) as of 2020-05-30 only the repo version (self build) works
 
@@ -111,9 +131,9 @@ If it got fixed use:
 yay -S mbpfan-git
 ```
 
-## ⌨️ Keyboard
+### ⌨️ Keyboard
 
-### Fn Keys
+#### Fn Keys
 To disable fn-look use:
 
 ```
@@ -130,7 +150,7 @@ fn-lock
 fn-lock-off
 ```
 
-## 🔋 Immediate Wake Up after Standby Issue
+### 🔋 Immediate Wake Up after Standby Issue
 
 There is an issue with the power management where the os wakes up immediately after standby sometimes.
 
@@ -147,6 +167,6 @@ Disable it using:
 echo XHC1 > /proc/acpi/wakeup
 ```
 
-## References
+### References
 
 * [Vim Guide](https://danielmiessler.com/study/vim/)
