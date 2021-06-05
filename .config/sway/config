@@ -1,0 +1,304 @@
+set $mod Mod4
+
+# KeyboardVars
+input * {
+    #xkb_layout de(mac_nodeadkeys)
+    xkb_model macbook79
+    middle_emulation enabled
+    click_method button_areas # none|button_areas|clickfinger
+    tap enabled
+    # rebind caps lock to escape for vim
+    xkb_options caps:escape
+}
+
+
+# Vars
+set $term alacritty
+set $bemenu bemenu \
+    --bottom \
+    --ignorecase \
+    --list=10 \
+    --prefix=">" \
+    --prompt=run \
+    --scrollbar=autohide \
+    --wrap \
+    --scf="#b0c4bb" \
+    --nb="#000" \
+    --nf="#b0c4bb" \
+    --hb="#34343e" \
+    --hf="#b0c4bb" \
+    --tb="#000" \
+    --tf="#b0c4bb" \
+    --fn="pango:Roboto 12"
+set $menu j4-dmenu-desktop \
+    --dmenu='$bemenu' \
+    --term='$term' \
+    --display-binary
+set $locker swaylock --daemonize
+set $bg1 ../wallpapers/wallhaven-kw2rp7.jpg
+set $bg2 ../wallpapers/wallhaven-kw2rp7.jpg
+
+# Directions
+set $left h
+set $down j
+set $up k
+set $right l
+
+# Window borders
+default_border pixel 1
+default_floating_border normal
+hide_edge_borders none
+
+# Font
+font pango:JetBrains Mono 11
+
+# Floating
+floating_modifier $mod
+
+# Autostarts
+exec mako
+exec redshift
+
+# Theme colors
+set $background     "#2f2f38"
+set $color1         "#61798e" 
+set $color12        "#81a2be"
+set $color4         "#688486"
+set $color8         "#b0c4bb"
+
+# class                 border  backgr.     text    indicator   child_border
+client.focused          $color8 $background $color8 $color1     $color12
+client.focused_inactive $color8 $background $color8 $color4     $color4
+client.unfocused        $color8 $background $color8 $color4     $color4
+client.urgent           $color8 $background $color8 $color4     $color4
+client.placeholder      $color8 $background $color8 $color4     $color4
+client.background $background
+
+# Gaps
+gaps inner 10
+gaps outer 0
+smart_gaps off
+
+# workspace back and forth (with/without active container)
+workspace_auto_back_and_forth yes
+
+# workspaces
+set $ws1 1
+set $ws2 2
+set $ws3 3
+set $ws4 4
+set $ws5 5
+set $ws6 6
+set $ws7 7
+set $ws8 8
+set $ws9 9
+
+# switch to workspace with urgent window automatically
+for_window [urgent=latest] focus
+
+#
+# Resizing containers:
+#
+mode "resize" {
+    # left will shrink the containers width
+    # right will grow the containers width
+    # up will shrink the containers height
+    # down will grow the containers height
+    bindsym $left resize shrink width 10px
+    bindsym $down resize grow height 10px
+    bindsym $up resize shrink height 10px
+    bindsym $right resize grow width 10px
+
+    # Return to default mode
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+
+## Key bindings ##
+bindsym --to-code {
+    # Open new shell
+    $mod+Return exec $term
+
+    # WiFi & Power
+    # $mod+Escape exec $power
+    # $mod+End exec $wifi
+
+    # Window kill command
+    $mod+Shift+q kill
+
+    # Open program launcher
+    $mod+d exec $menu
+
+    # Window borders
+    $mod+u border none
+    $mod+n border normal
+
+    # Window back and forth toogle
+    $mod+b workspace back_and_forth
+    $mod+Shift+b move container to workspace back_and_forth; workspace back_and_forth
+
+    # Resize
+    $mod+r mode "resize"
+
+    # Change focus
+    $mod+$left focus left
+    $mod+$down focus down
+    $mod+$up focus up
+    $mod+$right focus right
+
+    # Move focused window
+    $mod+Shift+$left move left
+    $mod+Shift+$down move down
+    $mod+Shift+$up move up
+    $mod+Shift+$right move right
+
+    # Split orientation
+    $mod+Shift+v split h; exec notify-send -t 3000 'tile horizontally'
+    $mod+v split v; exec notify-send -t 3000 'tile vertically'
+    $mod+q split toggle
+
+    # Toggle fullscreen mode for the focused container
+    $mod+f fullscreen toggle
+
+    # change container layout (stacked, tabbed, toggle split)
+    $mod+s layout stacking
+    $mod+w layout tabbed
+    $mod+e layout toggle split
+
+    # toggle tiling / floating
+    $mod+Shift+space floating toggle
+
+    # change focus between tiling / floating windows
+    $mod+space focus mode_toggle
+
+    # toggle sticky
+    $mod+Shift+s sticky toggle
+
+    # focus the parent container
+    $mod+a focus parent
+
+    # move the currently focused window to the scratchpad
+    $mod+Shift+minus move scratchpad
+
+    # Show the next scratchpad window or hide the focused scratchpad window.
+    # If there are multiple scratchpad windows, this command cycles through them.
+    $mod+minus scratchpad show
+
+    # navigate workspaces next / previous
+    # $mod+Ctrl+Right workspace next
+    # $mod+Ctrl+Left workspace prev
+
+    # move workspace to screen
+    $mod+Ctrl+$up move workspace to output up
+    $mod+Ctrl+$down move workspace to output down
+    $mod+Ctrl+$left move workspace to output left
+    $mod+Ctrl+$right move workspace to output right
+
+    # switch to workspace
+    $mod+1 workspace $ws1
+    $mod+2 workspace $ws2
+    $mod+3 workspace $ws3
+    $mod+4 workspace $ws4
+    $mod+5 workspace $ws5
+    $mod+6 workspace $ws6
+    $mod+7 workspace $ws7
+    $mod+8 workspace $ws8
+    $mod+9 workspace $ws9
+
+    # Move focused container to workspace
+    $mod+Ctrl+1 move container to workspace $ws1
+    $mod+Ctrl+2 move container to workspace $ws2
+    $mod+Ctrl+3 move container to workspace $ws3
+    $mod+Ctrl+4 move container to workspace $ws4
+    $mod+Ctrl+5 move container to workspace $ws5
+    $mod+Ctrl+6 move container to workspace $ws6
+    $mod+Ctrl+7 move container to workspace $ws7
+    $mod+Ctrl+8 move container to workspace $ws8
+    $mod+Ctrl+9 move container to workspace $ws9
+
+    # Move to workspace with focused container
+    $mod+Shift+1 move container to workspace $ws1; workspace $ws1
+    $mod+Shift+2 move container to workspace $ws2; workspace $ws2
+    $mod+Shift+3 move container to workspace $ws3; workspace $ws3
+    $mod+Shift+4 move container to workspace $ws4; workspace $ws4
+    $mod+Shift+5 move container to workspace $ws5; workspace $ws5
+    $mod+Shift+6 move container to workspace $ws6; workspace $ws6
+    $mod+Shift+7 move container to workspace $ws7; workspace $ws7
+    $mod+Shift+8 move container to workspace $ws8; workspace $ws8
+    $mod+Shift+9 move container to workspace $ws9; workspace $ws9
+
+    # reload the configuration file
+    $mod+Shift+c reload
+
+    # exit sway (logs you out of your Wayland session)
+    $mod+Shift+e exec swaynag \
+        --type warning \
+        --message 'You pressed the exit shortcut. Do you really want to exit sway? This will end your Wayland session.' \
+        --button 'Yes, exit sway' 'swaymsg exit'
+
+    # Set locking featurespower
+    $mod+Alt+l exec $locker
+
+    # set backlight controlls
+    --locked XF86MonBrightnessUp exec macbook-lighter-screen --inc 25
+    --locked XF86MonBrightnessDown exec macbook-lighter-screen --dec 25
+
+    # bind keyboard backlight
+    --locked XF86KbdBrightnessUp exec macbook-lighter-kbd --inc 25
+    --locked XF86KbdBrightnessDown exec macbook-lighter-kbd --dec 25
+
+    # Pulse Audio controls
+    --locked XF86AudioRaiseVolume exec pactl set-sink-volume @DEFAULT_SINK@ +5%
+    --locked XF86AudioLowerVolume exec pactl set-sink-volume @DEFAULT_SINK@ -5%
+    --locked XF86AudioMute exec pactl set-sink-mute @DEFAULT_SINK@ toggle
+
+    # Media
+    --locked XF86AudioPlay exec playerctl play-pause
+    --locked XF86AudioNext exec playerctl next
+    --locked XF86AudioPrev exec playerctl previous
+    # XF86XK_Bluetooth  player controls
+
+    #interactive screenshot by pressing printscreen
+    # Print exec swayshot
+    # Mod1+Print exec swayshot window
+    # Shift+Print exec swayshot region
+
+    Ctrl+Shift+1 exec swayshot && exec notify-send 'took screenshot'
+    Ctrl+Shift+2 exec swayshot window && exec notify-send 'took screenshit of window'
+    # Ctrl+Shift+3 exec swayshot region 
+    Ctrl+Shift+3 exec "slurp -d -b #50858b99 | grim -g - $(xdg-user-dir PICTURES)/$(date +'screenshot_%Y-%m-%d-%H%M%S.png')"
+}
+
+set $screenOff 'swaymsg "output * dpms off"'
+set $screenOn 'swaymsg "output * dpms on"'
+
+# Idle configuration
+exec swayidle -w \
+    timeout 300 '$locker' \
+    timeout 310 $screenOff resume $screenOn \
+    timeout 900 'systemctl suspend' resume $screenOn \
+    before-sleep '$locker'
+
+# Bar
+bar {
+    swaybar_command waybar
+}
+
+# Monitor Setup
+# swaymsg -t get_outputs
+output eDP-1 {
+    mode 2560x1600@60Hz
+    pos 0 0
+    bg $bg1 fill $background
+    scale 1
+}
+
+output HDMI-A-2 {
+    #mode 4096x2160@60Hz	
+    mode 3840x2160@60Hz
+    bg $bg1 fill $background
+    scale 1
+}
+
+# load other default configs
+include /etc/sway/config.d/*

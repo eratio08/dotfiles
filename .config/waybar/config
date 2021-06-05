@@ -1,0 +1,171 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 30,
+  // Choose the order of the modules
+  "modules-left": [
+    "tray",
+    "network",
+    "sway/window"
+  ],
+  "modules-center": [
+    "sway/workspaces",
+    "sway/mode"
+  ],
+  "modules-right": [
+    "temperature",
+    "cpu",
+    "memory",
+    "backlight",
+    "idle_inhibitor",
+    "pulseaudio",
+    "clock",
+    "battery"
+  ],
+  // Modules configuration
+  "sway/window": {
+    "format": "  {}",
+    "max-length": 50
+  },
+  "sway/workspaces": {
+    "disable-scroll": true,
+    "all-outputs": true,
+    "format": "{index}: {icon}",
+    "format-icons": {
+      "1": "",
+      "2": "",
+      "3": "",
+      "4": "",
+      "5": "",
+      "6": "",
+      "7": "",
+      "8": "",
+      "urgent": "",
+      "focused": "",
+      "default": ""
+    }
+  },
+  "sway/mode": {
+    "format": "<span style=\"italic\">{}</span>",
+    "max-length": 50
+  },
+  "mpd": {
+    "format": "{stateIcon} {consumeIcon}{randomIcon}{repeatIcon}{singleIcon}{artist} - {album} - {title} ({elapsedTime:%M:%S}/{totalTime:%M:%S}) ",
+    "format-disconnected": "Disconnected ",
+    "format-stopped": "{consumeIcon}{randomIcon}{repeatIcon}{singleIcon}Stopped ",
+    "unknown-tag": "N/A",
+    "interval": 2,
+    "consume-icons": {
+      "on": " "
+    },
+    "random-icons": {
+      "off": "<span color=\"#f53c3c\"></span> ",
+      "on": " "
+    },
+    "repeat-icons": {
+      "on": " "
+    },
+    "single-icons": {
+      "on": "1 "
+    },
+    "state-icons": {
+      "paused": "",
+      "playing": ""
+    },
+    "tooltip-format": "MPD (connected)",
+    "tooltip-format-disconnected": "MPD (disconnected)"
+  },
+  "idle_inhibitor": {
+    "format": "{icon}",
+    "format-icons": {
+      "activated": "",
+      "deactivated": ""
+    }
+  },
+  "tray": {
+    "icon-size": 22,
+    "spacing": 2
+  },
+  "clock": {
+    "format": "{:%H:%M  | %Y-%m-%d }",
+    "tooltip-format": "{:%H:%M:%S }",
+    "format-alt": "{:%H:%M  | %d.%m.%Y }"
+  },
+  "cpu": {
+    "interval": 3,
+    "format": "{usage}% ",
+    "tooltip": true,
+    "state": {
+      "half": 50,
+      "full": 85
+    }
+  },
+  "memory": {
+    "interval": 3,
+    "format": "{}% ",
+    "state": {
+      "half": 50,
+      "full": 85
+    }
+  },
+  "temperature": {
+    "interval": 3,
+    "hwmon-path": "/sys/class/thermal/thermal_zone1/temp",
+    "critical-threshold": 95,
+    "tooltip": true,
+    "format": "{temperatureC}°C {icon}",
+    "format-icons": [
+      "",
+      ""
+    ]
+  },
+  "backlight": {
+    "format": "{percent}% {icon}",
+    "format-icons": [
+      "",
+      ""
+    ]
+  },
+  "battery": {
+    "states": {
+      "warning": 20,
+      "critical": 10
+    },
+    "format": "{capacity}% {icon}",
+    "format-icons": [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "max-length": 25
+  },
+  "network": {
+    "format-wifi": " {essid} {signalStrength}% [ {bandwidthDownBits}  {bandwidthUpBits}  ]",
+    "format-ethernet": " {ifname}: {ipaddr}/{cidr}",
+    "format-disconnected": "⚠ Disconnected",
+    "interval": 3,
+    "max-length": 50,
+    "tooltip-format": "{ipaddr} | {netmask}/{cidr}",
+    "tooltip-format-wifi": "[{ifname}] {signaldBm}dBm | {frequency}GHz | {ipaddr} | {netmask}/{cidr}"
+  },
+  "pulseaudio": {
+    "format": "{volume}% {icon}",
+    "format-bluetooth": "{volume}% {icon}",
+    "format-muted": "",
+    "format-icons": {
+      "headphones": "",
+      "handsfree": "",
+      "headset": "",
+      "phone": "",
+      "portable": "",
+      "car": "",
+      "default": [
+        "",
+        ""
+      ]
+    },
+    "on-click": "pavucontrol"
+  }
+}
