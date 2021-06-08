@@ -157,4 +157,5 @@ echo XHC1 > /proc/acpi/wakeup
 
 ## References
 
+* [NeoVim Quick Ref](https://neovim.io/doc/user/quickref.html)
 * [Vim Guide](https://danielmiessler.com/study/vim/)
