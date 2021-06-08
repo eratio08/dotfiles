@@ -6,7 +6,7 @@ For a fresh install use the following commands
 ```shell
 alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 echo ".cfg" >> .gitignore
-git clone --bare <git-repo-url> $HOME/.cfg
+git clone --bare git@github.com:eratio08/dotfiles.git $HOME/.cfg
 config checkout
 ```
 
@@ -157,4 +157,5 @@ echo XHC1 > /proc/acpi/wakeup
 
 ## References
 
+* [NeoVim Quick Ref](https://neovim.io/doc/user/quickref.html)
 * [Vim Guide](https://danielmiessler.com/study/vim/)
