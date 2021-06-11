@@ -1,5 +1,6 @@
 " Maintainer: Eike Lurz <moin@elurz.de>
-"
+
+" inspired by https://github.com/awesome-streamers/awesome-streamerrc/tree/master/ThePrimeagen
 " set tab width to 2 spaces
 setlocal tabstop=2
 " spaces inserted for a tab
@@ -57,6 +58,7 @@ setlocal colorcolumn=80,100,120
 " show invisible characters
 setlocal list listchars=tab:▸\ ,space:·
 
+" inspired by https://github.com/David-Kunz/vim
 " show auto completion menu even for single item
 setlocal completeopt=menuone
 " enable mouse support for all modes
@@ -76,226 +78,137 @@ let g:markdown_fenced_languages = ['javascript', 'js=javascript', 'json=javascri
 
 
 " Plugins
-
 " enable native netrw plugin
 filetype plugin indent on
-
 " open netrw in tree mode
 let g:netrw_liststyle = 3
 " remove banner from netrw
 let g:netrw_banner=0
 
-" add minpac package manager
-" Vim
-" git clone https://github.com/k-takata/minpac.git ~/.vim/pack/minpac/opt/minpac
-" Neovim
-" git clone https://github.com/k-takata/minpac.git ~/.config/nvim/pack/minpac/opt/minpac
-packadd minpac
-
-if exists('g:loaded_minpac')
-  call minpac#init()
-
-  " helper command to update plugins
-  command! PackUpdate call minpac#update()
-  " helper command to cleanup plugins
-  command! PackClean call minpac#clean()
-
-  " add plugins
-  "call minpac#add('neoclide/coc.nvim', { 'branch': 'release' })
-  "call minpac#add('dense-analysis/ale')
-  call minpac#add('junegunn/fzf')
-  call minpac#add('junegunn/fzf.vim')
-  call minpac#add('sheerun/vim-polyglot')
-  call minpac#add('itchyny/lightline.vim')
-  call minpac#add('itchyny/vim-gitbranch')
-  call minpac#add('arcticicestudio/nord-vim')
-  "call minpac#add('rust-lang/rust.vim')
-  call minpac#add('szw/vim-maximizer')
-  call minpac#add('kassio/neoterm')
-  call minpac#add('tpope/vim-commentary')
-  call minpac#add('tpope/vim-fugitive')
-  call minpac#add('airblade/vim-gitgutter')
-  call minpac#add('sbdchd/neoformat')
-  call minpac#add('neovim/nvim-lspconfig') 
-  call minpac#add('nvim-lua/completion-nvim')
-  call minpac#add('vim-test/vim-test')
-
-  " lightline
-  let g:lightline = {}
-  let g:lightline.colorscheme = 'wombat'
-  let g:lightline.component_function = {
-        \   'gitbranch': 'gitbranch#name'
-        \ }
-  let g:lightline.active = {
-        \   'left': [
-        \     ['mode'],
-        \     ['gitbranch'],
-        \     ['filename']
-        \   ],
-        \   'right': [
-        \     ['readonly', 'modified'],
-        \     ['fileencoding'],
-        \     ['lineinfo'],
-        \     ['percent']
-        \   ],
-        \ }
-
-"  " coc configurations
-"  let g:coc_global_extensions = [
-"   "\ 'coc-tsserver',
-"    \ 'coc-json',
-"   "\ 'coc-eslint',
-"   "\ 'coc-prettier',
-"   "\ 'coc-jest',
-"   "\ 'coc-python',
-"   "\ 'coc-java',
-"   "\ 'coc-kotlin',
-"   "\ 'coc-pairs',
-"    \ 'coc-rust-analyzer'
-"    \ ]
-
-"  function! s:check_back_space() abort
-"    let col = col('.') - 1
-"    return !col || getline('.')[col - 1]  =~# '\s'
-"  endfunction
-
-"    " Use tab for trigger completion with characters ahead and navigate.
-"  " NOTE: Use command ':verbose imap <tab>' to make sure tab is not mapped by
-"  " other plugin before putting this into your config.
-"  inoremap <silent><expr> <TAB>
-"      \ pumvisible() ? "\<C-n>" :
-"      \ <SID>check_back_space() ? "\<TAB>" :
-"      \ coc#refresh()
-
-"  inoremap <expr><S-TAB> pumvisible() ? "\<C-p>" : "\<C-h>"
-
-"  " Use <c-space> to trigger completion.
-"  if has('nvim')
-"    inoremap <silent><expr> <c-space> coc#refresh()
-"  else
-"    inoremap <silent><expr> <c-@> coc#refresh()
-"  endif
-
-"  " Make <CR> auto-select the first completion item and notify coc.nvim to
-"  " format on enter, <cr> could be remapped by other vim plugin
-"  "inoremap <silent><expr> <cr> pumvisible() ? coc#_select_confirm()
-"  "                              \: "\C-g><u\<CR>\<c-r>=coc#on_enter()\<CR>"
-
-"  " Use K to show documentation in preview window.
-"  nnoremap <silent> K :call <SID>show_documentation()<CR>
-
-"  function! s:show_documentation()
-"    if (index(['vim','help'], &filetype) >= 0)
-"      execute 'h '.expand('<cword>')
-"    elseif (coc#rpc#ready())
-"      call CocActionAsync('doHover')
-"    else
-"      execute '!' . &keywordprg . " " . expand('<cword>')
-"    endif
-"  endfunction
-
-"  " Highlight the symbol and its references when holding the cursor.
-"  autocmd CursorHold * silent call CocActionAsync('highlight')
-
-"  " Symbol renaming.
-"  "nnoremap <leader>rn <Plug>(coc-rename)
-
-"  " Formatting selected code.
-"  "xnoremap <leader>f  <Plug>(coc-format-selected)
-"  nnoremap <leader>f <Plug>(coc-format-selected)
-
-"  " GoTo code navigation.
-"  nnoremap <silent> gd <Plug>(coc-definition)
-"  nnoremap <silent> gy <Plug>(coc-type-definition)
-"  nnoremap <silent> gi <Plug>(coc-implementation)
-"  nnoremap <silent> gr <Plug>(coc-references)
-"  nnoremap <silent> ga <Plug>(coc-codeaction)
-"  nnoremap <silent> gf <Plug>(coc-fix-current)
-"  nnoremap <silent> ge <Plug>(coc-diagnostic-next)
-"  nnoremap <silent> gE <Plug>(coc-diagnostic-prev)
-"  nnoremap <silent> GE <Plug>(coc-diagnostic-prev)
-"  "nnoremap <silent> gD <Plug>(coc-references)
-"  "nnoremap <silent> GD <Plug>(coc-references)
-"  nnoremap gr <Plug>(coc-refactor)
-"  nnoremap <silent> grf :CocCommand workspace.renameCurrentFile<CR>
-"  nnoremap <silent> gp <Plug>(coc-format)"
-
-"  nnoremap <S-p> :CocCommand<CR>
-
-  " rust-lang/rust.vim
-  let g:rustfmt_autosave = 1
-  "
-  " narcticicestudio/nord-vim
-  colorscheme nord
-  "
-  " szw/vim-maximizer
-  noremap <leader>m :MaximizerToggle!<CR>
-  "
-  " kassio/neoterm
-  let g:neoterm_default_mod = 'vertical'
-  let g:neoterm_size = 60
-  let g:neoterm_autoinsert = 1
-  nnoremap <C-q> :Ttoggle<CR>
-  inoremap <C-q> <Esc>:Ttoggle<CR>
-  tnoremap <C-q> <C-\><C-n>:Ttoggle<CR>
-
-  " sbdchd/neoformat
-  nnoremap <leader>F :Neoformat<CR>
-
-  " junegunn/fzf.vim
-  nnoremap <leader><space> :GFiles<CR>
-  nnoremap <leader>ff :Rg<CR>
-  inoremap <expr> <C-x><C-f> fzf#vim#complete#path(
-    \ "find . -path '*/\.*' -prune -o -print \| sed '1d;s:^..::'",
-    \ fzf#wrap({'dir': expand('%:p:h')})
-    \ )
-  if has('nvim')
-    au! TermOpen * tnoremap <buffer> <Esc> <C-\><C-n>
-    au! FileType fzf tunmap <buffer> <Esc>
-  endif
-
-  " neovim/nvim-lspconfig & nvim-lua/completion-nvim
-  nnoremap <silent> gd <CMD>lua vim.lsp.buf.definition()<CR>
-  nnoremap <silent> gh <CMD>lua vim.lsp.buf.hover()<CR>
-  nnoremap <silent> gH <CMD>lua vim.lsp.buf.code_action()<CR>
-  nnoremap <silent> gD <CMD>lua vim.lsp.buf.implementation<CR>
-  nnoremap <silent> <C-k> <CMD>lua vim.lsp.buf.signature_help()<CR>
-  nnoremap <silent> gr <CMD>lua vim.lsp.buf.references()<CR>
-  nnoremap <silent> gR <CMD>lua vim.lsp.buf.rename()<CR>
-
+" Install vim-plug if not found
+let data_dir = has('nvim') ? stdpath('data') . '/site' : '~/.vim'
+if empty(glob(data_dir . '/autoload/plug.vim'))
+  silent execute '!curl -fLo '.data_dir.'/autoload/plug.vim --create-dirs  https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim'
+  autocmd VimEnter * PlugInstall --sync | source $MYVIMRC
 endif
 
-" Mappings
-" use 'sed -n l' if binding behave strangely to see actual
-" codes send by terminal
+" Run PlugInstall if there are missing plugins
+autocmd VimEnter * if len(filter(values(g:plugs), '!isdirectory(v:val.dir)'))
+  \| PlugInstall --sync | source $MYVIMRC
+\| endif
+
+call plug#begin('~/.vim/plugged')
+  Plug 'junegunn/fzf'
+  Plug 'junegunn/fzf.vim'
+  Plug 'sheerun/vim-polyglot'
+  Plug 'itchyny/lightline.vim'
+  Plug 'itchyny/vim-gitbranch'
+  Plug 'arcticicestudio/nord-vim'
+  Plug 'rust-lang/rust.vim'
+  Plug 'szw/vim-maximizer'
+  Plug 'kassio/neoterm'
+  Plug 'tpope/vim-commentary'
+  Plug 'tpope/vim-fugitive'
+  Plug 'airblade/vim-gitgutter'
+  Plug 'sbdchd/neoformat'
+  Plug 'neovim/nvim-lspconfig'
+  Plug 'nvim-lua/completion-nvim'
+  Plug 'vim-test/vim-test'
+call plug#end()
+
+" lightline
+let g:lightline = {}
+let g:lightline.colorscheme = 'wombat'
+let g:lightline.component_function = {
+      \   'gitbranch': 'gitbranch#name'
+      \ }
+let g:lightline.active = {
+      \   'left': [
+      \     ['mode'],
+      \     ['gitbranch'],
+      \     ['filename']
+      \   ],
+      \   'right': [
+      \     ['readonly', 'modified'],
+      \     ['fileencoding'],
+      \     ['lineinfo'],
+      \     ['percent']
+      \   ],
+      \ }
+
+" rust-lang/rust.vim
+let g:rustfmt_autosave = 1
+
+" narcticicestudio/nord-vim
+colorscheme nord
+
+" szw/vim-maximizer
+noremap <leader>m :MaximizerToggle!<CR>
+
+" kassio/neoterm
+let g:neoterm_default_mod = 'vertical'
+let g:neoterm_size = 60
+let g:neoterm_autoinsert = 1
+nnoremap <C-q> :Ttoggle<CR>
+inoremap <C-q> <Esc>:Ttoggle<CR>
+tnoremap <C-q> <C-\><C-n>:Ttoggle<CR>
+
+" sbdchd/neoformat
+nnoremap <leader>F :Neoformat<CR>
+
+" junegunn/fzf.vim
+nnoremap <leader><space> :GFiles<CR>
+nnoremap <leader>ff :Rg<CR>
+inoremap <expr> <C-x><C-f> fzf#vim#complete#path(
+  \ "find . -path '*/\.*' -prune -o -print \| sed '1d;s:^..::'",
+  \ fzf#wrap({'dir': expand('%:p:h')})
+  \ )
+if has('nvim')
+  au! TermOpen * tnoremap <buffer> <Esc> <C-\><C-n>
+  au! FileType fzf tunmap <buffer> <Esc>
+endif
+
+" neovim/nvim-lspconfig
+nnoremap <silent> gd <CMD>lua vim.lsp.buf.definition()<CR>
+nnoremap <silent> gh <CMD>lua vim.lsp.buf.hover()<CR>
+nnoremap <silent> gH <CMD>lua vim.lsp.buf.code_action()<CR>
+nnoremap <silent> gD <CMD>lua vim.lsp.buf.implementation<CR>
+nnoremap <silent> <C-k> <CMD>lua vim.lsp.buf.signature_help()<CR>
+nnoremap <silent> gr <CMD>lua vim.lsp.buf.references()<CR>
+nnoremap <silent> gR <CMD>lua vim.lsp.buf.rename()<CR>
+
+" nvim-lua/completion-nvim
+" Use completion-nvim in every buffer
+autocmd BufEnter * lua require'completion'.on_attach()
+" Use <Tab> and <S-Tab> to navigate through popup menu
+inoremap <expr> <Tab>   pumvisible() ? "\<C-n>" : "\<Tab>"
+inoremap <expr> <S-Tab> pumvisible() ? "\<C-p>" : "\<S-Tab>"
+"map <c-p> to manually trigger completion
+imap <silent> <C-Space> <Plug>(completion_trigger)
+
+" Other Mappings
+" use 'sed -n l' if binding behave strangely to see actual codes send by terminal
 
 " map leader to <space>
 let mapleader = " "
-
 " bind fuzzy search
 nnoremap <silent> <C-p> :<C-u>FZF<CR>
-
-" spelling
 " replace spelling mistake with first match
 nnoremap <silent> <leader>f 1z=
 " toggle spelling
 nnoremap <silent> <leader>s :set spell!
-
 " buffer navigation bindings
 nnoremap <silent> [b :bprevious<CR>
 nnoremap <silent> ]b :bnext<CR>
 nnoremap <silent> [B :bfirst<CR>
 nnoremap <silent> ]B :blast<CR>
-
 " quickfix navigation
 nnoremap <silent> [q :cprev<CR>
 nnoremap <silent> ]q :cnext<CR>
 nnoremap <silent> [Q :cfirst<CR>
 nnoremap <silent> ]Q :clast<CR>
-
 " open explorer in new vertical resized split
 nnoremap <silent> <leader>pv :wincmd v<bar> :Ex <bar> :vertical resize 30<CR>
-
 " open to edit helpers - expand %% to current working directory
 cnoremap <silent> %% <C-R>=fnameescape(expand('%:h')).'/'<CR>
 " edit in windows
@@ -306,31 +219,26 @@ noremap <silent> <leader>es :sp %%
 noremap <silent> <leader>ev :vsp %%
 " edit in tab
 noremap <silent> <leader>et :tabe %%
-
 " improve window navigation
 noremap <silent> <C-h> <C-w>h
 noremap <silent> <C-j> <C-w>j
 noremap <silent> <C-k> <C-w>k
 noremap <silent> <C-l> <C-w>l
-
 " edit vimrc in tab
 nnoremap <silent> <leader>, :tabedit $MYVIMRC<CR>
 " source vimrc
 nnoremap <silent> <leader>src :source $MYVIMRC<CR>
-
 " fix alt key mapping
 map <Esc>h <A-h>
 map <Esc>j <A-j>
 map <Esc>k <A-k>
 map <Esc>l <A-l>
-
 " move single line down
 nnoremap <A-j> ddp
 vnoremap <A-j> xp`[V`]
 " move single line up
 nnoremap <A-k> ddkP
 vnoremap <A-k> xkP`[V`]
-
 " disable arrow keys in normal mode
 noremap <Up> <Nop>
 noremap <Down> <Nop>

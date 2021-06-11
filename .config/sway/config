@@ -11,7 +11,6 @@ input * {
     xkb_options caps:escape
 }
 
-
 # Vars
 set $term alacritty
 set $bemenu bemenu \
@@ -35,8 +34,8 @@ set $menu j4-dmenu-desktop \
     --term='$term' \
     --display-binary
 set $locker swaylock --daemonize
-set $bg1 ../wallpapers/wallhaven-kw2rp7.jpg
-set $bg2 ../wallpapers/wallhaven-kw2rp7.jpg
+set $bg1 ~/wallpapers/wallhaven-kw2rp7.jpg
+set $bg2 ~/wallpapers/wallhaven-kw2rp7.jpg
 
 # Directions
 set $left h
@@ -96,9 +95,7 @@ set $ws9 9
 # switch to workspace with urgent window automatically
 for_window [urgent=latest] focus
 
-#
 # Resizing containers:
-#
 mode "resize" {
     # left will shrink the containers width
     # right will grow the containers width
