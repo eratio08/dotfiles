@@ -16,8 +16,6 @@ autocmd VimEnter * if len(filter(values(g:plugs), '!isdirectory(v:val.dir)'))
 
 call plug#begin('~/.vim/plugged')
   Plug 'arcticicestudio/nord-vim'
-  Plug 'neovim/nvim-lspconfig'
-  Plug 'nvim-lua/completion-nvim'
   Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
   Plug 'junegunn/fzf.vim'
   Plug 'itchyny/lightline.vim'
@@ -30,7 +28,12 @@ call plug#begin('~/.vim/plugged')
   Plug 'tpope/vim-commentary'
   Plug 'sbdchd/neoformat'
   Plug 'vim-test/vim-test'
-  Plug 'rust-lang/rust.vim'
+"  Plug 'rust-lang/rust.vim'
+  if has('nvim')
+    Plug 'neovim/nvim-lspconfig'
+    Plug 'nvim-lua/lsp_extensions.nvim'
+    Plug 'nvim-lua/completion-nvim'
+  endif
 call plug#end()
 
 " narcticicestudio/nord-vim

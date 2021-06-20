@@ -60,7 +60,7 @@ set list listchars=tab:▸\ ,space:·
 
 " inspired by https://github.com/David-Kunz/vim
 " show auto completion menu even for single item
-set completeopt=menuone
+set completeopt=menuone,noinsert,noselect
 " enable mouse support for all modes
 set mouse=a
 " horizontal split windows to the right

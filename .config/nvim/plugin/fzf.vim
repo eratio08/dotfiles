@@ -5,7 +5,7 @@
 " bind fuzzy search
 nnoremap <silent> <C-p> :<C-u>FZF<CR>
 " search for all files tracked by git
-nnoremap <leader><space> :GFiles<CR>
+nnoremap <leader><Space> :GFiles<CR>
 " bind rip-grep
 nnoremap <leader>ff :Rg<CR>
 " use path relative to open buffer for filepath completion
