@@ -2,17 +2,22 @@
 
 " neovim/nvim-lspconfig
 
-if has('nvim')
+if has('nvim') && exists('g:plugs["nvim-lspconfig"]')
 
 " enable lsp for languages
 lua << EOF
--- enable typescript lsp and completion
+-- enable lsp and completion
 local nvim_lsp = require'lspconfig'
 
-nvim_lsp.tsserver.setup{}
-nvim_lsp.kotlin_language_server.setup{}
-nvim_lsp.elmls.setup{}
-nvim_lsp.rust_analyzer.setup{}
+local completion = require'completion'.on_attach
+
+-- nvim_lsp.tsserver.setup{}
+nvim_lsp.kotlin_language_server.setup{
+  on_attach= completion,
+  root_dir = nvim_lsp.util.root_pattern("settings.gradle.kts")
+}
+-- nvim_lsp.elmls.setup{}
+-- nvim_lsp.rust_analyzer.setup{}
 
 -- set the path to the sumneko installation; if you previously installed via the now deprecated :LspInstall, use
 local sumneko_binary = '/usr/bin/lua-language-server'

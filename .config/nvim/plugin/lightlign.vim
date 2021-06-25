@@ -1,6 +1,9 @@
 " Maintainer: Eike Lurz <moin@elurz.de>
 
 " itchyny/lightline.vim
+
+if exists('g:plugs["lightline.vim"]')
+
 let g:lightline = {}
 let g:lightline.colorscheme = 'wombat'
 let g:lightline.component_function = {
@@ -10,7 +13,8 @@ let g:lightline.active = {
       \   'left': [
       \     ['mode'],
       \     ['gitbranch'],
-      \     ['filename']
+      \     ['filename'],
+      \     ['filetype']
       \   ],
       \   'right': [
       \     ['readonly', 'modified'],
@@ -19,3 +23,5 @@ let g:lightline.active = {
       \     ['percent']
       \   ],
       \ }
+
+endif

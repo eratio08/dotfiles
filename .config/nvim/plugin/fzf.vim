@@ -2,6 +2,7 @@
 
 " junegunn/fzf.vim
 
+if exists('g:plugs["fzf.vim"]')
 " bind fuzzy search
 nnoremap <silent> <C-p> :<C-u>FZF<CR>
 " search for all files tracked by git
@@ -17,4 +18,6 @@ inoremap <expr> <C-x><C-f> fzf#vim#complete#path(
 if has('nvim')
   au! TermOpen * tnoremap <buffer> <Esc> <C-\><C-n>
   au! FileType fzf tunmap <buffer> <Esc>
+endif
+
 endif

@@ -1,6 +1,9 @@
 " Maintainer: Eike Lurz <moin@elurz.de>
 
 " puremourning/vimspector
+
+if exists('g:plugs["vimspector"]')
+
 nnoremap <leader>da :call vimspector#Launch()<CR>
 nnoremap <leader>dx :call vimspector#Reste()<CR>
 nnoremap <S-k> :call vimspector#StepOut()<CR>
@@ -19,3 +22,5 @@ func! AddToWatch()
   call vimspector#AddWatch(word)
 endfunction
 let g:vimspector_base_dir = expand('$HOME/.config/vimspector-config')
+
+endif
