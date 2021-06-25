@@ -237,8 +237,8 @@ bindsym --to-code {
     $mod+Alt+l exec $locker
 
     # set backlight controlls
-    --locked XF86MonBrightnessUp exec macbook-lighter-screen --inc 25
-    --locked XF86MonBrightnessDown exec macbook-lighter-screen --dec 25
+    --locked XF86MonBrightnessUp exec macbook-lighter-screen --inc 10
+    --locked XF86MonBrightnessDown exec macbook-lighter-screen --dec 10
 
     # bind keyboard backlight
     --locked XF86KbdBrightnessUp exec macbook-lighter-kbd --inc 25

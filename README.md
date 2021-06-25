@@ -117,6 +117,17 @@ If it got fixed use:
 yay -S mbpfan-git
 ```
 
+### Restic
+
+Use the following crontab to schedule the backups.
+When using cronie/anachron make sure to not include the `.sh`.
+
+```shell
+# mm hh DD MM W
+0  6-23/2  *  *  * /home/.../backup
+```
+
+
 ### ⌨️ Keyboard
 
 #### Fn Keys
