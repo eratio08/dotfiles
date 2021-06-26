@@ -11,11 +11,13 @@
     # set spacevim theme. by default colorscheme layer is not loaded,
     # if you want to use more colorscheme, please load the colorscheme
     # layer
-      colorscheme = "gruvbox"
+    colorscheme = "gruvbox"
     colorscheme_bg = "dark"
     # Disable guicolors in basic mode, many terminal do not support 24bit
     # true colors
     enable_guicolors = true
+    # guifont = "SourceCodePro Nerd Font Mono:h11"
+    # guifont = "JetBrains Mono:h13"
     # Disable statusline separator, if you want to use other value, please
     # install nerd fonts
     statusline_separator = "arrow"
@@ -23,31 +25,40 @@
     buffer_index_type = 4
     enable_tabline_filetype_icon = true
     enable_statusline_mode = false
-    automatic_update = true
+    automatic_update = false
 
 # Enable autocomplete layer
 [[layers]]
-name = 'autocomplete'
-auto_completion_return_key_behavior = "complete"
-auto_completion_tab_key_behavior = "smart"
+    name = 'autocomplete'
+    auto_completion_return_key_behavior = "complete"
+    auto_completion_tab_key_behavior = "smart"
 
 [[layers]]
-name = 'shell'
-default_position = 'top'
-default_height = 30
+    name = 'shell'
+    default_position = 'top'
+    default_height = 30
 
 [[layers]]
-name = "fzf"
+    name = "format"
 
 [[layers]]
-name = 'git'
+    name = "ui"
 
 [[layers]]
-name = 'VersionControl'
+    name = "fzf"
 
 [[layers]]
-name = "lang#kotlin"
+    name = 'git'
 
 [[layers]]
-name = "lang#toml"
+    name = 'VersionControl'
 
+[[layers]]
+    name = "lang#kotlin"
+
+[[layers]]
+    name = "lang#toml"
+
+[[layers]]
+    name = 'lsp'
+    enable = false
