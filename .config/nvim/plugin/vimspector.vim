@@ -4,18 +4,18 @@
 
 if exists('g:plugs["vimspector"]')
 
-nnoremap <leader>da :call vimspector#Launch()<CR>
-nnoremap <leader>dx :call vimspector#Reste()<CR>
+nnoremap <Space>da :call vimspector#Launch()<CR>
+nnoremap <Space>dx :call vimspector#Reste()<CR>
 nnoremap <S-k> :call vimspector#StepOut()<CR>
 nnoremap <S-l> :call vimspector#StepInto()<CR>
 nnoremap <S-j> :call vimspector#StepOver()<CR>
-nnoremap <leader>d_ :call vimspector#Restart()<CR>
-nnoremap <leader>dn :call vimspector#Continue()<CR>
-nnoremap <leader>drc :call vimspector#RunToCursor()<CR>
-nnoremap <leader>dh :call vimspector#ToggleBreakpoint()<CR>
-nnoremap <leader>de :call vimspector#ToggleConditionalBreakpoint()<CR>
-nnoremap <leader>dX :call vimspector#ClearBrealpoints()<CR>
-nnoremap <leader>d? :call AddToWatch()<CR>
+nnoremap <Space>d_ :call vimspector#Restart()<CR>
+nnoremap <Space>dn :call vimspector#Continue()<CR>
+nnoremap <Space>drc :call vimspector#RunToCursor()<CR>
+nnoremap <Space>dh :call vimspector#ToggleBreakpoint()<CR>
+nnoremap <Space>de :call vimspector#ToggleConditionalBreakpoint()<CR>
+nnoremap <Space>dX :call vimspector#ClearBrealpoints()<CR>
+nnoremap <Space>d? :call AddToWatch()<CR>
 
 func! AddToWatch()
   let word = expand("<cexpr>")

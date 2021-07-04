@@ -4,11 +4,11 @@
 
 if exists('g:plugs["fzf.vim"]')
 " bind fuzzy search
-nnoremap <silent> <C-p> :<C-u>FZF<CR>
+nnoremap <silent> <Space>fd :<C-u>FZF<CR>
 " search for all files tracked by git
-nnoremap <leader><Space> :GFiles<CR>
+nnoremap <Space>fg :GFiles<CR>
 " bind rip-grep
-nnoremap <leader>ff :Rg<CR>
+nnoremap <Space>ff :Rg<CR>
 " use path relative to open buffer for filepath completion
 inoremap <expr> <C-x><C-f> fzf#vim#complete#path(
   \ "find . -path '*/\.*' -prune -o -print \| sed '1d;s:^..::'",

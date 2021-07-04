@@ -150,8 +150,8 @@ bindsym --to-code {
     $mod+Shift+$right move right
 
     # Split orientation
-    $mod+Shift+v split h; exec notify-send -t 3000 'tile horizontally'
-    $mod+v split v; exec notify-send -t 3000 'tile vertically'
+    $mod+v split h; exec notify-send -t 3000 'split vertical'
+    $mod+Shift+v split v; exec notify-send -t 3000 'split horizontal'
     $mod+q split toggle
 
     # Toggle fullscreen mode for the focused container
@@ -237,8 +237,8 @@ bindsym --to-code {
     $mod+Alt+l exec $locker
 
     # set backlight controlls
-    --locked XF86MonBrightnessUp exec macbook-lighter-screen --inc 10
-    --locked XF86MonBrightnessDown exec macbook-lighter-screen --dec 10
+    --locked XF86MonBrightnessUp exec macbook-lighter-screen --inc 25
+    --locked XF86MonBrightnessDown exec macbook-lighter-screen --dec 25
 
     # bind keyboard backlight
     --locked XF86KbdBrightnessUp exec macbook-lighter-kbd --inc 25

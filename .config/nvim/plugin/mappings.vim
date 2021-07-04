@@ -2,49 +2,50 @@
 
 " use 'sed -n l' if binding behave strangely to see actual codes send by terminal
 
-" map leader to <space>
-let mapleader = " "
+" open help in vertical split
+" cnoreabbrev H vert bo h
+cnoremap H vert bo h 
 
 " replace spelling mistake with first match
-nnoremap <silent> <leader>s 1z=
+nnoremap <Space>s 1z=
 " toggle spelling
-"nnoremap <silent> <Leader>s :Set Spill!
+"nnoremap  <Space>s :Set Spill!
 " buffer navigation bindings
-nnoremap <silent> [b :bprevious<CR>
-nnoremap <silent> ]b :bnext<CR>
-nnoremap <silent> [B :bfirst<CR>
-nnoremap <silent> ]B :blast<CR>
+nnoremap [b :bprevious<CR>
+nnoremap ]b :bnext<CR>
+nnoremap [B :bfirst<CR>
+nnoremap ]B :blast<CR>
 " quickfix navigation
-nnoremap <silent> [q :cprev<CR>
-nnoremap <silent> ]q :cnext<CR>
-nnoremap <silent> [Q :cfirst<CR>
-nnoremap <silent> ]Q :clast<CR>
+nnoremap [q :cprev<CR>
+nnoremap ]q :cnext<CR>
+nnoremap [Q :cfirst<CR>
+nnoremap ]Q :clast<CR>
 " open explorer in new vertical resized split
-nnoremap <silent> <leader>pv :wincmd v<bar> :Ex <bar> :vertical resize 30<CR>
+nnoremap <Space>pv :wincmd v<bar> :Ex <bar> :vertical resize 30<CR>
 " open to edit helpers - expand %% to current working directory
-cnoremap <silent> %% <C-R>=fnameescape(expand('%:h')).'/'<CR>
+cnoremap %% <C-R>=fnameescape(expand('%:h')).'/'<CR>
 " edit in windows
-noremap <silent> <leader>ew :e %%
+noremap <Space>ew :e %%
 " edit in split
-noremap <silent> <leader>es :sp %%
+noremap <Space>es :sp %%
 " edit in vertical split
-noremap <silent> <leader>ev :vsp %%
+noremap <Space>ev :vsp %%
 " edit in tab
-noremap <silent> <leader>et :tabe %%
+noremap <Space>et :tabe %%
 " improve window navigation
-noremap <silent> <C-h> <C-w>h
-noremap <silent> <C-j> <C-w>j
-noremap <silent> <C-k> <C-w>k
-noremap <silent> <C-l> <C-w>l
+noremap <Space>wh <C-w>h
+noremap <Space>wj <C-w>j
+noremap <Space>wk <C-w>k
+noremap <Space>wl <C-w>l
 " edit vimrc in tab
-nnoremap <silent> <leader>, :tabedit $MYVIMRC<CR>
+nnoremap <Space>, :tabedit $MYVIMRC<CR>
 " source vimrc
-nnoremap <silent> <leader>src :source $MYVIMRC<CR>
+nnoremap <Space>src :source $MYVIMRC<CR>
 " fix alt key mapping
-map <Esc>h <A-h>
-map <Esc>j <A-j>
-map <Esc>k <A-k>
-map <Esc>l <A-l>
+" map <Esc>h <A-h>
+" map <Esc>j <A-j>
+" map <Esc>k <A-k>
+" map <Esc>l <A-l>
 " move single line down
 nnoremap <A-j> ddp
 vnoremap <A-j> xp`[V`]
