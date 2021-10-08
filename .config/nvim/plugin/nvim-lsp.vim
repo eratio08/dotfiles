@@ -3,52 +3,59 @@
 if has('nvim') && exists('g:plugs["nvim-lspconfig"]')
 
 " 'go-to' mappings
-nnoremap gd <Cmd>lua vim.lsp.buf.definition()<CR>
-nnoremap gD <Cmd>lua vim.lsp.buf.declaration()<CR>
-nnoremap gh <Cmd>lua vim.lsp.buf.hover()<CR>
-nnoremap ga <Cmd>lua vim.lsp.buf.code_action()<CR>
-nnoremap gi <Cmd>lua vim.lsp.buf.implementation<CR>
-nnoremap gt <Cmd>lua vim.lsp.buf.type_definition()<CR>'
-nnoremap <Space>k <Cmd>lua vim.lsp.buf.signature_help()<CR>
-nnoremap gr <Cmd>lua vim.lsp.buf.references()<CR>
-nnoremap gR <Cmd>lua vim.lsp.buf.rename()<CR>
-nnoremap ge <Cmd>lua vim.lsp.diagnostic.show_line_diagnostics()<CR>
-nnoremap [e <Cmd>lua vim.lsp.diagnostic.goto_prev()<CR>
-nnoremap ]e <Cmd>lua vim.lsp.diagnostic.goto_next()<CR>
+nnoremap gd :lua vim.lsp.buf.definition()<CR>
+nnoremap gi :lua vim.lsp.buf.implementation<CR>
+nnoremap gsh :lua vim.lsp.buf.signature_help()<CR>
+nnoremap grr :lua vim.lsp.buf.references()<CR>
+nnoremap grn :lua vim.lsp.buf.rename()<CR>
+nnoremap gh :lua vim.lsp.buf.hover()<CR>
+nnoremap gca :lua vim.lsp.buf.code_action()<CR>
+nnoremap ge :lua vim.lsp.diagnostic.show_line_diagnostics(); vim.lsp.util.show_line_diagnostics()<CR> 
+nnoremap ]e :lua vim.lsp.diagnostic.goto_next()<CR>
+nnoremap [e :lua vim.lsp.diagnostic.goto_prev()<CR>
+
+nnoremap gdc :lua vim.lsp.buf.declaration()<CR>
+nnoremap gtd :lua vim.lsp.buf.type_definition()<CR>'
 
 " workspace files
-nnoremap <Space>wfa <Cmd>lua vim.lsp.buf.add_workspace_folder()<CR>
-nnoremap <Space>wfr <Cmd>lua vim.lsp.buf.remove_workspace_folder()<CR>
-nnoremap <Space>wfl <Cmd>lua print(vim.inspect(vim.lsp.buf.list_workspace_folders()))<CR>
+nnoremap <Space>wfa :lua vim.lsp.buf.add_workspace_folder()<CR>
+nnoremap <Space>wfr :lua vim.lsp.buf.remove_workspace_folder()<CR>
+nnoremap <Space>wfl :lua print(vim.inspect(vim.lsp.buf.list_workspace_folders()))<CR>
 
-" trigger formating
-nnoremap <Space>F <Cmd>lua vim.lsp.buf.formatting()<CR>
-" use LSP format on save
+" trigger formatting
+noremap <Space>cf :lua vim.lsp.buf.formatting()<CR>
+"
+" use LSP format on save 
 augroup fmt
   autocmd!
-  autocmd BufWritePre * undojoin | lua vim.lsp.buf.formatting()
+  autocmd BufWritePre *.elm lua vim.lsp.buf.formatting_sync(nil, 100)
+  autocmd BufWritePre *.js lua vim.lsp.buf.formatting_sync(nil, 100)
+  autocmd BufWritePre *.ts lua vim.lsp.buf.formatting_sync(nil, 100)
+  autocmd BufWritePre *.kt lua vim.lsp.buf.formatting_sync(nil, 100)
+  autocmd BufWritePre *.lua lua vim.lsp.buf.formatting_sync(nil, 100)
+  autocmd BufWritePre *.html lua vim.lsp.buf.formatting_sync(nil, 100)
 augroup END
 
 
 lua << EOF
 
 local nvim_lsp = require'lspconfig'
-local completion = require'completion'.on_attach
+local nvim_cmp = require('cmp_nvim_lsp')
 
 -- TypeScript LSP
 nvim_lsp.tsserver.setup{
-  on_attach = completion
+  capabilities = nvim_cmp.update_capabilities(vim.lsp.protocol.make_client_capabilities()),
 }
 
 -- Kotlin LSP
 nvim_lsp.kotlin_language_server.setup{
-  on_attach = completion,
+  capabilities = nvim_cmp.update_capabilities(vim.lsp.protocol.make_client_capabilities()),
   root_dir = nvim_lsp.util.root_pattern("settings.gradle.kts")
 }
 
 -- Elm LSP
 nvim_lsp.elmls.setup{
-  on_attach = completion,
+  capabilities = nvim_cmp.update_capabilities(vim.lsp.protocol.make_client_capabilities()),
   init_options = {
     elmReviewDiagnostics = "warning"
     }
@@ -88,6 +95,7 @@ nvim_lsp.sumneko_lua.setup {
       },
     },
   },
+  capabilities = nvim_cmp.update_capabilities(vim.lsp.protocol.make_client_capabilities()),
 }
 
 EOF

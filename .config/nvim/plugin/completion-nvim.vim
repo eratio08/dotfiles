@@ -16,4 +16,7 @@ inoremap <expr> <S-Tab> pumvisible() ? "\<C-p>" : "\<S-Tab>"
 " map <c-p> to manually trigger completion
 imap <silent> <C-Space> <Plug>(completion_trigger)
 
+let g:completion_matching_strategy_list = ['exact', 'substring', 'fuzzy']
+let g:completion_matching_smart_case = 1
+
 endif

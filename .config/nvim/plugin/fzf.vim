@@ -4,7 +4,7 @@
 
 if exists('g:plugs["fzf.vim"]')
 " bind fuzzy search
-nnoremap <silent> <Space>fd :<C-u>FZF<CR>
+nnoremap <silent> <Space>fp :<C-u>FZF<CR>
 " search for all files tracked by git
 nnoremap <Space>fg :GFiles<CR>
 " bind rip-grep

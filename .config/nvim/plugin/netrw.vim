@@ -16,7 +16,7 @@ let g:netrw_browser_split = 0
 " let g:netrw_browse_split = 4
 
 " set initial windows size
-let g:netrw_winsize = 15
+let g:netrw_winsize = 25
 
 " view on the left
 let g:netrw_altv = 1

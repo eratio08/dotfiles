@@ -4,7 +4,7 @@
 
 " open help in vertical split
 " cnoreabbrev H vert bo h
-cnoremap H vert bo h 
+cnoremap HR vert bo h 
 
 " replace spelling mistake with first match
 nnoremap <Space>s 1z=

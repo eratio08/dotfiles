@@ -13,8 +13,8 @@ set expandtab
 set cmdheight=1
 " for lightline
 set laststatus=2
-" time until vim upfates the frame
-set updatetime=100
+" time until vim updates the frame, time for combined commands
+set updatetime=50
 " don't give |ins-completion-menu| messages.
 set shortmess+=c
 " always show sign columns
@@ -27,8 +27,16 @@ set number
 set relativenumber
 " disable swap files
 set noswapfile
+" no backup files
+set nobackup
 " highlight all search results
 set hlsearch
+" turn off highlight search
+" set nohlsearch
+" disable the error bells
+set noerrorbells
+" disable wrapping
+set nowrap
 " search case insensitive by default
 set ignorecase
 " if capital letter is used be case sensitive
@@ -43,6 +51,16 @@ set smartindent
 set path+=**
 " enable wild match window
 set wildmenu
+" Nice menu when typing `:find *.py`
+set wildmode=longest,list,full
+" Ignore files
+set wildignore+=*.pyc
+set wildignore+=*_build/*
+set wildignore+=**/coverage/*
+set wildignore+=**/node_modules/*
+set wildignore+=**/android/*
+set wildignore+=**/ios/*
+set wildignore+=**/.git/*
 " keep buffers on navigation
 set hidden
 " set background color brightness
@@ -57,10 +75,16 @@ set scrolloff=10
 set colorcolumn=80,100,120
 " show invisible characters
 set list listchars=tab:▸\ ,space:·
+" disable cursor styles
+set guicursor=
+" enable termguicolors
+set termguicolors
+" set how files names are displayed
+set isfname+=@-@
 
 " inspired by https://github.com/David-Kunz/vim
 " show auto completion menu even for single item
-set completeopt=menuone,noinsert ",noselect
+set completeopt=menuone ",noinsert ",noselect
 " enable mouse support for all modes
 set mouse=a
 " horizontal split windows to the right
