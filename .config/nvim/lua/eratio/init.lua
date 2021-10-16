@@ -9,6 +9,9 @@ require('eratio.netrw')
 require('eratio.nvim-lsp')
 require('eratio.nvim-cmp')
 
+-- snippets
+require('eratio.friendly-snippets')
+
 -- fallback formatter
 require('eratio.neoformat')
 
@@ -20,3 +23,12 @@ require('eratio.lightline')
 
 -- git
 require('eratio.vim-fugitive')
+
+-- testing
+require('eratio.vim-test')
+
+-- debugger
+require('eratio.nvim-dap')
+
+-- rust
+require('eratio.rust-vim')
