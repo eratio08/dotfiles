@@ -84,7 +84,5 @@ call plug#begin(stdpath('data') . '/plugged')
 
 call plug#end()
 
-" narcticicestudio/nord-vim
-colorscheme nord
-
+" load lua config
 lua require 'eratio'
