@@ -18,7 +18,7 @@ map('n', '<space>,', ':tabedit $MYVIMRC<CR>') -- edit vimrc
 map('n', '<space>src', ':source $MYVIMRC<CR>') -- source vimrc
 -- move single line down
 map('n', '<A-j>', 'ddp')
-map('v', '<A-j>', 'xp`[`V`]')
+map('v', '<A-j>', 'xp`[V`]')
 -- move single line up
 map('n', '<A-k>', 'ddkP')
 map('v', '<A-k>', 'xkP`[V`]')

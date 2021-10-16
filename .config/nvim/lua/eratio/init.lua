@@ -9,8 +9,14 @@ require('eratio.netrw')
 require('eratio.nvim-lsp')
 require('eratio.nvim-cmp')
 
+-- fallback formatter
+require('eratio.neoformat')
+
 -- file finder
 require('eratio.telescope')
 
 -- status bar
 require('eratio.lightline')
+
+-- git
+require('eratio.vim-fugitive')
