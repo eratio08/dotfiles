@@ -54,6 +54,7 @@ local function config(_config)
 end
 
 -- TypeScript LSP
+-- npm install -g typescript typescript-language-server
 nvim_lsp.tsserver.setup(config())
 
 -- Kotlin LSP
@@ -103,5 +104,17 @@ nvim_lsp.sumneko_lua.setup(config({
     },
   },
 }))
+
+-- ESLint
+-- npm i -g vscode-langservers-extracted
+nvim_lsp.eslint.setup(config())
+
+-- Tailwindcss
+-- npm install -g @tailwindcss/language-server
+nvim_lsp.tailwindcss.setup(config())
+
+-- Volar
+-- npm install -g @volar/server
+nvim_lsp.volar.setup(config())
 
 end
