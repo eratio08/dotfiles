@@ -42,7 +42,7 @@ opt.wildignore:append('**/.git/*')
 opt.hidden = true -- keep buffers on navigation
 opt.background = 'dark' -- opt.background color brightness
 opt.undofile = true -- enable undo file
-opt.undodir = '~/.vim/undodir' -- opt.undo file location
+-- opt.undodir = '~/.vim/undodir' -- opt.undo file location
 opt.scrolloff = 10 --- opt.undo file location- add scroll offset
 opt.colorcolumn = { 80, 120 } -- vertical marker at column
 opt.list = true -- show invisible characters
