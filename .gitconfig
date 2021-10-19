@@ -1,0 +1,8 @@
+[user]
+	email = eike.lurz@tuta.io
+	name = Eike Lurz
+	signingkey = 8FE5A66FF93A17F3
+[push]
+	default = current
+[commit]
+	gpgsign = true
