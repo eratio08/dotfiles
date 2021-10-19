@@ -92,6 +92,16 @@ SDKMAN
 curl -s "https://get.sdkman.io" | bash 
 ```
 
+Elliptic Curve SSH Key ([source](https://cryptsus.com/blog/how-to-secure-your-ssh-server-with-public-key-elliptic-curve-ed25519-crypto.html))
+```shell
+ssh-keygen -o -a 256 -t ed25519 -C "$(hostname)-$(date +'%d-%m-%Y')"
+```
+
+Elliptic Curve GPG Key ([source](https://www.gniibe.org/memo/software/gpg/keygen-25519.html))
+```shell
+gpg2 --expert --full-gen-key
+```
+
 ---
 
 ### 🪟 Sway
