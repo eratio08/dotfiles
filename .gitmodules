@@ -1,0 +1,3 @@
+[submodule "private-dotfiles"]
+	path = private-dotfiles
+	url = https://github.com/eratio08/private-dotfiles

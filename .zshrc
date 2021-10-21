@@ -9,7 +9,7 @@ fi
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
 
 # Path to your oh-my-zsh installation.
-export ZSH="/home/el/.oh-my-zsh"
+export ZSH="$HOME/.oh-my-zsh"
 
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,
@@ -23,7 +23,11 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git archlinux sdk docker docker-compose rustup)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    plugins=(git docker kubectl docker-compose aws mvn gradle terraform helm)
+else
+    plugins=(git archlinux sdk docker docker-compose rustup)
+fi
 
 source $ZSH/oh-my-zsh.sh
 
@@ -48,13 +52,11 @@ fi
 ## GPG Key for Git
 export GPG_TTY=$(tty)
 
+# Linux Helpers
 alias untar="tar -zxvf"
 alias logoff="pkill -u $USER"
 
-generate_migration() {
-    touch migrations/$(date +%s)-$1.js
-}
-
+# JVM
 export JAVA_HOME=~/.sdkman/candidates/java/current
 
 # Snap bin
@@ -62,7 +64,7 @@ export PATH=/snap/bin:$PATH
 
 # Git helper
 remove_merged() {
-    git branch --merged | grep -v "\*" | xargs -n 1 git branch -d
+    git branch --merged | grep -v "\*" | xargs -n 1 git branch -D
 }
 
 remove_unmerged() {
@@ -83,14 +85,19 @@ export IDEA_JDK=/usr/lib/jvm/jetbrains-jre
 alias fn-lock="echo 2 | sudo tee -a /sys/module/hid_apple/parameters/fnmode"
 alias fn-lock-off="echo 1 | sudo tee -a /sys/module/hid_apple/parameters/fnmode"
 alias fix-suspend="sudo echo XHC1 > /proc/acpi/wakeup"
-alias ls="exa -la"
+alias ls="exa -lah"
 alias cat="bat"
 alias vim="nvim"
 
 # enable wayland support for firefox
 export MOZ_ENABLE_WAYLAND=1
 
+# fzf support
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+# load work helpers
+SPA_HELPERS=./private-dotfiles/spa-helpers.sh
+if [ -f "$SPA_HELPERS" ] && source "$SPA_HELPERS"
 
 # node version manager
 export NVM_DIR="$HOME/.nvm"
@@ -101,6 +108,5 @@ export NVM_DIR="$HOME/.nvm"
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
-export SDKMAN_DIR="/home/el/.sdkman"
-[[ -s "/home/el/.sdkman/bin/sdkman-init.sh" ]] && source "/home/el/.sdkman/bin/sdkman-init.sh"
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+export SDKMAN_DIR="$HOME/.sdkman"
+[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
