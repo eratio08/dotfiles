@@ -97,7 +97,7 @@ export MOZ_ENABLE_WAYLAND=1
 
 # load work helpers
 SPA_HELPERS=./private-dotfiles/spa-helpers.sh
-if [ -f "$SPA_HELPERS" ] && source "$SPA_HELPERS"
+[ -f "$SPA_HELPERS" ] && source "$SPA_HELPERS"
 
 # node version manager
 export NVM_DIR="$HOME/.nvm"
@@ -109,4 +109,4 @@ export NVM_DIR="$HOME/.nvm"
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
-[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh34560000"
