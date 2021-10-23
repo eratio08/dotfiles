@@ -76,7 +76,7 @@ call plug#begin(stdpath('data') . '/plugged')
   " telescope, file finder
   Plug 'nvim-lua/plenary.nvim'
   Plug 'nvim-telescope/telescope.nvim'
-  Plug 'nvim-telescope/telescope-fzf-native.nvim', { 'do': 'make' }
+  Plug 'nvim-telescope/telescope-fzy-native.nvim'
 
   " nvim tree sitter
   Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}

@@ -24,7 +24,7 @@
   ],
   // Modules configuration
   "sway/window": {
-    "format": "  {}",
+    "format": " | {}",
     "max-length": 50
   },
   "sway/workspaces": {
@@ -87,13 +87,13 @@
     "spacing": 2
   },
   "clock": {
-    "format": "{:%H:%M  | %Y-%m-%d }",
-    "tooltip-format": "{:%H:%M:%S }",
-    "format-alt": "{:%H:%M  | %d.%m.%Y }"
+    "format": " {:%H:%M  %Y-%m-%d}",
+    "tooltip-format": " {:%H:%M:%S}",
+    "format-alt": " {:%H:%M  %d.%m.%Y}"
   },
   "cpu": {
     "interval": 3,
-    "format": "{usage}% ",
+    "format": " {usage}%",
     "tooltip": true,
     "state": {
       "half": 50,
@@ -102,7 +102,7 @@
   },
   "memory": {
     "interval": 3,
-    "format": "{}% ",
+    "format": " {}%",
     "state": {
       "half": 50,
       "full": 85
@@ -113,14 +113,14 @@
     "hwmon-path": "/sys/class/thermal/thermal_zone1/temp",
     "critical-threshold": 95,
     "tooltip": true,
-    "format": "{temperatureC}°C {icon}",
+    "format": "{icon} {temperatureC}°C",
     "format-icons": [
       "",
       ""
     ]
   },
   "backlight": {
-    "format": "{percent}% {icon}",
+    "format": "{icon} {percent}%",
     "format-icons": [
       "",
       ""
@@ -131,7 +131,7 @@
       "warning": 20,
       "critical": 10
     },
-    "format": "{capacity}% {icon}",
+    "format": "{icon}  {capacity}%",
     "format-icons": [
       "",
       "",
@@ -142,7 +142,7 @@
     "max-length": 25
   },
   "network": {
-    "format-wifi": " {essid} {signalStrength}% [ {bandwidthDownBits}  {bandwidthUpBits}  ]",
+    "format-wifi": " {essid} {signalStrength}% | {bandwidthDownOctets}  {bandwidthUpOctets}  |",
     "format-ethernet": " {ifname}: {ipaddr}/{cidr}",
     "format-disconnected": "⚠ Disconnected",
     "interval": 3,

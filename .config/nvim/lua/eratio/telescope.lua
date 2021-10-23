@@ -5,26 +5,35 @@ if g.plugs["telescope.nvim"] then
 
 local map = require('eratio/utils').map
 
-map('n', '<Space>ff', '<cmd>Telescope find_files<cr>')
-map('n', '<Space>fg', '<cmd>Telescope live_grep<cr>')
-map('n', '<Space>fb', '<cmd>Telescope buffers<cr>')
-map('n', '<Space>fh', '<cmd>Telescope help_tags<cr>')
+-- find in files or buffer
+map('n', '<Space>ff', ':Telescope find_files<CR>')
+map('n', '<Space>fg', ':Telescope live_grep<CR>')
+map('n', '<Space>fb', ':Telescope buffers<CR>')
 
-require('telescope').setup {
+-- find in vim
+map('n', '<Space>fh', ':Telescope help_tags<CR>')
+map('n', '<Space>fvo', ': Telescope vim_options<CR>')
+map('n', '<Space>fc', ': Telescope commands<CR>')
+
+local telescope = require('telescope')
+
+telescope.setup {
   extensions = {
-    fzf = {
-      fuzzy = true, -- false will only do exact matching
-      override_generic_sorter = true,
-      override_file_sorter = true,
-      case_mode = "smart_case",
+    fzy_native = {
+            override_generic_sorter = false,
+            override_file_sorter = true,
     }
   },
   defaults = {
-    -- defaults here
+    -- setting here
+    prompt_prefix = ' >',
+    color_devicons = true,
+    
+
   }
 }
 
--- load fzf
-require('telescope').load_extension('fzf')
+-- load native fyz plugin
+telescope.load_extension('fzy_native')
 
 end

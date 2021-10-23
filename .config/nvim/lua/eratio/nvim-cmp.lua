@@ -5,7 +5,7 @@ local g = vim.g
 if g.plugs["nvim-cmp"] then
 
 -- Setup nvim-cmp.
-local cmp = require'cmp'
+local cmp = require('cmp')
 
 cmp.setup({
   completion = {

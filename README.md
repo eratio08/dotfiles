@@ -60,7 +60,7 @@ yay -S base-devel
 
 Install main font
 ```shell
-yay -S ttf-jetbrains-mono
+yay -S nerd-fonts-jetbrains-mono
 ```
 
 Install sway and the rest

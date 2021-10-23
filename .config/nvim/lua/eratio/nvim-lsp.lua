@@ -107,7 +107,14 @@ nvim_lsp.sumneko_lua.setup(config({
 
 -- ESLint
 -- npm i -g vscode-langservers-extracted
-nvim_lsp.eslint.setup(config())
+nvim_lsp.eslint.setup(config({
+  settings = {
+   codeActionOnSave = {
+      enable = false,
+      mode = "all"
+    },
+  }
+}))
 
 -- Tailwindcss
 -- npm install -g @tailwindcss/language-server
