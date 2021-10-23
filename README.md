@@ -106,7 +106,9 @@ Elliptic Curve GPG Key ([source](https://www.gniibe.org/memo/software/gpg/keygen
 ```shell
 gpg2 --expert --full-gen-key
 ```
+
 Also checkout the [Archwiki gpg page](https://wiki.archlinux.org/title/GnuPG) about how to configure `pinentry-tty` to allow gpg key password in shell.
+
 ---
 
 ### 🪟 Sway
@@ -116,7 +118,7 @@ For more information use:
 man 5 sway
 ```
 
-### Mako
+### 📔 Mako
 
 Test mako styling with
 ```shell
@@ -132,7 +134,7 @@ If it got fixed use:
 yay -S mbpfan-git
 ```
 
-### Restic
+### 🗄 Restic
 
 Use the following crontab to schedule the backups.
 When using cronie/anachron make sure to not include the `.sh`.
