@@ -78,6 +78,9 @@ call plug#begin(stdpath('data') . '/plugged')
   Plug 'nvim-telescope/telescope.nvim'
   Plug 'nvim-telescope/telescope-fzy-native.nvim'
 
+  " icons
+  Plug 'kyazdani42/nvim-web-devicons'
+
   " nvim tree sitter
   Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
   " Plug 'nvim-treesitter/completion-treesitter'

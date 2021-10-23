@@ -29,7 +29,6 @@ telescope.setup {
     prompt_prefix = ' >',
     color_devicons = true,
     
-
   }
 }
 
