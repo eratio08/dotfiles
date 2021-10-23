@@ -17,6 +17,7 @@ require('eratio.neoformat')
 
 -- file finder
 require('eratio.telescope')
+require('eratio.telescope-helpers')
 
 -- status bar
 require('eratio.lightline')
