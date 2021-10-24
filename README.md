@@ -144,6 +144,13 @@ When using cronie/anachron make sure to not include the `.sh`.
 0  6-23/2  *  *  * /home/.../backup
 ```
 
+### 🦊 Firefox
+
+To force darkmode on websites, visit `about:config` and create a new entry with the value of `1`.
+
+```shell
+ui.systemUsesDarkTheme
+```
 
 ### ⌨️ Keyboard
 
