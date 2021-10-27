@@ -5,6 +5,9 @@ require('eratio.settings')
 require('eratio.mappings')
 require('eratio.netrw')
 
+-- load extensions
+require('eratio.tbl-ext')
+
 -- lsp stuff
 require('eratio.nvim-lsp')
 require('eratio.nvim-cmp')
@@ -33,3 +36,5 @@ require('eratio.nvim-dap')
 
 -- rust
 require('eratio.rust-vim')
+
+print('...done loading the "eratio" configuration.')

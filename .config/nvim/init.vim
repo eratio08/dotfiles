@@ -24,7 +24,7 @@ call plug#begin(stdpath('data') . '/plugged')
   Plug 'sheerun/vim-polyglot'
 
   " formatter, fall back if lsp fails
-  Plug 'sbdchd/neoformat'
+  " Plug 'sbdchd/neoformat'
 
   " test runner
   Plug 'vim-test/vim-test'

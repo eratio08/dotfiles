@@ -32,16 +32,13 @@ map('n', '<space>cf', ':lua vim.lsp.buf.formatting()<CR>')
 
 -- use LSP formatting on save
 local augroup = require('eratio/utils').augroup
-local exts = { 'elm', 'js', 'ts', 'kt', 'lua', 'html' }
+local exts = vim.tbl_foldr(
+  function(s, acc) return acc .. '*.'.. s .. ',' end,
+  '',
+  { 'elm', 'js', 'ts', 'kt', 'lua', 'html' }
+)
 
-local autocmd_lines = {}
-for _, ext in pairs(exts) do
-  local line = { 'BufWritePre', '*.' ..ext, 'lua vim.lsp.buf.formatting_sync(nil, 100)'}
-  table.insert(autocmd_lines, line)
-end
-
-augroup(autocmd_lines, 'fmt')
-
+augroup({{ 'BufWritePre',exts , 'lua vim.lsp.buf.formatting_sync(nil, 100)'}}, 'fmt')
 
 -- configure LSPs
 local nvim_lsp = require('lspconfig')
@@ -109,12 +106,16 @@ nvim_lsp.sumneko_lua.setup(config({
 -- npm i -g vscode-langservers-extracted
 nvim_lsp.eslint.setup(config({
   settings = {
-   codeActionOnSave = {
-      enable = false,
+    codeActionOnSave = {
+      enable = true,
       mode = "all"
     },
+    format = true,
   }
 }))
+
+-- trigger EslintFixAll on save
+vim.cmd('autocmd BufWritePre *.ts,*.js EslintFixAll')
 
 -- Tailwindcss
 -- npm install -g @tailwindcss/language-server

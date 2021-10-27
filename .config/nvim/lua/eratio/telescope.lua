@@ -10,6 +10,11 @@ map('n', '<Space>ff', ':Telescope find_files<CR>')
 map('n', '<Space>fg', ':Telescope live_grep<CR>')
 map('n', '<Space>fb', ':Telescope buffers<CR>')
 
+-- git
+map('n', '<Space>fgs', ':Telescope git_status<CR>')
+map('n', '<Space>fgc', ':Telescope git_commits<CR>')
+map('n', '<Space>fgb', ':Telescope git_branches<CR>')
+
 -- find in vim
 map('n', '<Space>fh', ':Telescope help_tags<CR>')
 map('n', '<Space>fvo', ': Telescope vim_options<CR>')
