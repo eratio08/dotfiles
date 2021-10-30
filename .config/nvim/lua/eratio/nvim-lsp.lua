@@ -52,7 +52,23 @@ end
 
 -- TypeScript LSP
 -- npm install -g typescript typescript-language-server
-nvim_lsp.tsserver.setup(config())
+local function organize_imports()
+  local params = {
+    command = "_typescript.organizeImports",
+    arguments = {vim.api.nvim_buf_get_name(0)},
+    title = ""
+  }
+  vim.lsp.buf.execute_command(params)
+end
+
+nvim_lsp.tsserver.setup(config({
+  commands = {
+    OrganizeImports = {
+      organize_imports,
+      description = "Organize Imports"
+    }
+  }
+}))
 
 -- Kotlin LSP
 nvim_lsp.kotlin_language_server.setup(config({
