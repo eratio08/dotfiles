@@ -52,9 +52,14 @@ local opt = vim.opt
 opt.foldmethod='expr'
 opt.foldexpr='nvim_treesitter#foldexpr()'
 
-if vim.g.plugs['spellsitter'] then
+local spellsitter = require('spellsitter')
+if spellsitter then
   -- prevents treesitter from spellchecking code
-  require('spellsitter').setup()
+  spellsitter.setup({
+    enable = true,
+    hl = 'SpellBad',
+    spellchecker = 'vimfn'
+  })
 end
 
 end
