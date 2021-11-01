@@ -14,11 +14,12 @@ autocmd VimEnter * if len(filter(values(g:plugs), '!isdirectory(v:val.dir)'))
 
 call plug#begin(stdpath('data') . '/plugged')
   " Theme
-  Plug 'arcticicestudio/nord-vim'
+  Plug 'shaunsingh/nord.nvim'
 
   " Status bar
-  Plug 'itchyny/lightline.vim'
-  Plug 'itchyny/vim-gitbranch'
+  " Plug 'itchyny/lightline.vim'
+  " Plug 'itchyny/vim-gitbranch'
+  Plug 'nvim-lualine/lualine.nvim'
 
   " test runner
   Plug 'vim-test/vim-test'
@@ -79,7 +80,8 @@ call plug#begin(stdpath('data') . '/plugged')
   " nvim tree sitter
   Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
   Plug 'lewis6991/spellsitter.nvim'
-  " Plug 'JoosepAlviste/nvim-ts-context-commentstring'
+  Plug 'p00f/nvim-ts-rainbow'
+  Plug 'JoosepAlviste/nvim-ts-context-commentstring'
 
 call plug#end()
 

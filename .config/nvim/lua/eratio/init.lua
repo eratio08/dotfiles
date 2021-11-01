@@ -10,7 +10,6 @@ require('eratio.tbl-ext')
 
 -- lsp stuff
 require('eratio.nvim-lsp')
-require('eratio.lsp-extensions')
 
 -- completion
 require('eratio.nvim-cmp')
@@ -31,6 +30,7 @@ require('nvim-web-devicons')
 
 -- status bar
 require('eratio.lightline')
+require('eratio.lualine')
 
 -- git
 require('eratio.vim-fugitive')

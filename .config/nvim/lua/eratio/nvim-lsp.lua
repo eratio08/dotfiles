@@ -144,7 +144,7 @@ nvim_lsp.eslint.setup(config({
 }))
 
 -- trigger EslintFixAll on save
-vim.cmd('autocmd BufWritePre *.ts,*.js EslintFixAll')
+vim.cmd('autocmd BufWritePre *.ts,*.js,*.vue, EslintFixAll')
 
 -- Tailwindcss
 -- npm install -g @tailwindcss/language-server

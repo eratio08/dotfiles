@@ -30,7 +30,7 @@ nvim_treesitter.setup {
       -- node_incremental = "<Space>sn",
       -- node_decremental = "<Space>snd",
       -- scope_incremental = "<Space>ss",
-    },
+      },
   },
   textobjects = {
     enable = false,
@@ -40,6 +40,11 @@ nvim_treesitter.setup {
     enable = true,
     enable_autocmd = false,
   },
+   rainbow = {
+    enable = true,
+    extended_mode = false,
+    max_file_lines = nil,
+  }
 }
 
 -- enabled folding with treesitter

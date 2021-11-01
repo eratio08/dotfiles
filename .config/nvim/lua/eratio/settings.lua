@@ -1,8 +1,12 @@
 -- Vim settings
 
+local g = vim.g
+g.nord_italic = false -- disable italic of the color scheme
+
 local cmd = vim.cmd  -- to execute Vim commands e.g. cmd('pwd')
 cmd('colorscheme nord') -- narcticicestudio/nord-vim
 cmd('syntax on') -- enabled syntax highlighting
+
 
 local opt = vim.opt  -- to set options
 opt.tabstop = 2 -- set tab width to 2 spaces
