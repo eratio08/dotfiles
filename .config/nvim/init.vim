@@ -20,17 +20,8 @@ call plug#begin(stdpath('data') . '/plugged')
   Plug 'itchyny/lightline.vim'
   Plug 'itchyny/vim-gitbranch'
 
-  " A collection of language packs for Vim.
-  Plug 'sheerun/vim-polyglot'
-
-  " formatter, fall back if lsp fails
-  " Plug 'sbdchd/neoformat'
-
   " test runner
   Plug 'vim-test/vim-test'
-
-  " unicode inserion helper
-  Plug 'chrisbra/unicode.vim'
 
   " editor config support
   Plug 'editorconfig/editorconfig-vim'
@@ -48,7 +39,7 @@ call plug#begin(stdpath('data') . '/plugged')
   Plug 'tpope/vim-commentary'
 
   " Surround.vim is all about surroundings: parentheses, brackets, quotes, XML tags, and more.
-  Plug 'tpope/vim-surround'
+  " Plug 'tpope/vim-surround'
 
   " Collection of ][ helper mappings
   Plug 'tpope/vim-unimpaired'
@@ -58,19 +49,23 @@ call plug#begin(stdpath('data') . '/plugged')
 
   " nvim lsp configuration helper
   Plug 'neovim/nvim-lspconfig'
-  Plug 'nvim-lua/lsp_extensions.nvim'
+  " Plug 'nvim-lua/lsp_extensions.nvim'
 
   " completion
+  Plug 'hrsh7th/nvim-cmp'
   Plug 'hrsh7th/cmp-nvim-lsp'
   Plug 'hrsh7th/cmp-buffer'
-  Plug 'hrsh7th/nvim-cmp'
+  Plug 'hrsh7th/cmp-path'
+  Plug 'hrsh7th/cmp-cmdline'
+  Plug 'hrsh7th/cmp-emoji'
 
   " snippets
   Plug 'L3MON4D3/LuaSnip'
-  Plug 'rafamadriz/friendly-snippets'
+  Plug 'saadparwaiz1/cmp_luasnip'
+  " Plug 'rafamadriz/friendly-snippets' 
   
   " debugger protocol support
-  Plug 'mfussenegger/nvim-dap'
+  " Plug 'mfussenegger/nvim-dap'
   " Plug 'David-Kunz/jester' " jest debugger
 
   " telescope, file finder
@@ -83,7 +78,8 @@ call plug#begin(stdpath('data') . '/plugged')
 
   " nvim tree sitter
   Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
-  " Plug 'nvim-treesitter/completion-treesitter'
+  Plug 'lewis6991/spellsitter.nvim'
+  " Plug 'JoosepAlviste/nvim-ts-context-commentstring'
 
 call plug#end()
 

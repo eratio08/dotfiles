@@ -54,5 +54,6 @@ opt.mouse = 'a' -- enable mouse support for all modes
 opt.splitright = true -- horizontal split windows to the right
 opt.splitbelow = true -- vertical split windows to below
 opt.diffopt:append('vertical') -- diff windows split to vertical
-opt.completeopt = 'menuone' -- show auto completion menu even for single item
-opt.splitright = true
+opt.completeopt = 'menu,menuone' -- show auto completion menu even for single item
+opt.splitright = true -- split to the right
+opt.foldenable = false -- unfold all by default

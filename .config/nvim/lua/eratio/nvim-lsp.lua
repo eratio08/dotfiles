@@ -38,17 +38,30 @@ local exts = vim.tbl_foldr(
   { 'elm', 'js', 'ts', 'kt', 'lua', 'html' }
 )
 
-augroup({{ 'BufWritePre',exts , 'lua vim.lsp.buf.formatting_sync(nil, 100)'}}, 'fmt')
+augroup({{ 'BufWritePre', exts, 'lua vim.lsp.buf.formatting_sync(nil, 100)'}}, 'fmt')
 
 -- configure LSPs
 local nvim_lsp = require('lspconfig')
 
+
 -- wrapper for common configurations
 local function config(_config)
-    return vim.tbl_deep_extend("force", {
-        capabilities = require('cmp_nvim_lsp').update_capabilities(vim.lsp.protocol.make_client_capabilities())
-    }, _config or {})
+  local capabilities=vim.lsp.protocol.make_client_capabilities()
+  capabilities=require('cmp_nvim_lsp').update_capabilities(capabilities)
+
+  return vim.tbl_deep_extend("force", {
+      capabilities = capabilities
+  }, _config or {})
 end
+
+
+-- diagnostics highlighting touchup
+vim.lsp.handlers["textDocument/publishDiagnostics"] =
+    vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
+        -- Disable underline, it's very annoying
+        underline = false,
+    })
+
 
 -- TypeScript LSP
 -- npm install -g typescript typescript-language-server
