@@ -52,7 +52,7 @@ opt.colorcolumn = { 80, 120 } -- vertical marker at column
 opt.list = true -- show invisible characters
 opt.listchars = 'tab:▸\\ ,space:·'
 opt.guicursor = '' -- disable cursor styles
-opt.termguicolors = true -- enable termguicolors
+opt.termguicolors = true -- disable to prevent tmux overlay
 opt.isfname:append('@-@') -- opt.how files names are displayed
 opt.mouse = 'a' -- enable mouse support for all modes
 opt.splitright = true -- horizontal split windows to the right

@@ -15,6 +15,7 @@ autocmd VimEnter * if len(filter(values(g:plugs), '!isdirectory(v:val.dir)'))
 call plug#begin(stdpath('data') . '/plugged')
   " Theme
   Plug 'shaunsingh/nord.nvim'
+  " Plug 'arcticicestudio/nord-vim'
 
   " Status bar
   " Plug 'itchyny/lightline.vim'

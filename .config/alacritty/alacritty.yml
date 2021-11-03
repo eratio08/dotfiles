@@ -10,7 +10,7 @@ env:
   # each instance of Alacritty. If it is not present, alacritty will
   # check the local terminfo database and use `alacritty` if it is
   # available, otherwise `xterm-256color` is used.
-  TERM: alacritty
+  TERM: xterm-256color
 
 #window:
   # Window dimensions (changes require restart)
@@ -238,114 +238,56 @@ font:
   # cyan:    '#79b2b2'
   # white:   '#dbdbdb'
   #
-  
-  # Nord Theme
+
+# Nord Theme
 colors:
   primary:
     background: '#2e3440'
     foreground: '#d8dee9'
-#    dim_foreground: '#a5abb6'
+    dim_foreground: '#a5abb6'
   cursor:
     text: '#2e3440'
     cursor: '#d8dee9'
-#  vi_mode_cursor:
-#    text: '#2e3440'
-#    cursor: '#d8dee9'
-#  selection:
-#    text: CellForeground
-#    background: '#4c566a'
-#   search:
-#     matches:
-#       foreground: CellBackground
-#       background: '#88c0d0'
-#     bar:
-#       background: '#434c5e'
-#       foreground: '#d8dee9'
-#   normal:
-#     black: '#3b4252'
-#     red: '#bf616a'
-#     green: '#a3be8c'
-#     yellow: '#ebcb8b'
-#     blue: '#81a1c1'
-#     magenta: '#b48ead'
-#     cyan: '#88c0d0'
-#     white: '#e5e9f0'
-#   bright:
-#     black: '#4c566a'
-#     red: '#bf616a'
-#     green: '#a3be8c'
-#     yellow: '#ebcb8b'
-#     blue: '#81a1c1'
-#     magenta: '#b48ead'
-#     cyan: '#8fbcbb'
-#     white: '#eceff4'
-#   dim:
-#     black: '#373e4d'
-#     red: '#94545d'
-#     green: '#809575'
-#     yellow: '#b29e75'
-#     blue: '#68809a'
-#     magenta: '#8c738c'
-#     cyan: '#6d96a5'
-#     white: '#aeb3bb'
-
-# (Iceberg Dark)
-#colors:
-#  # Default colors
-#  primary:
-#    background: '#161821'
-#    foreground: '#d2d4de'
-#
-#  # Normal colors
-#  normal:
-#    black:   '#161821'
-#    red:     '#e27878'
-#    green:   '#b4be82'
-#    yellow:  '#e2a478'
-#    blue:    '#84a0c6'
-#    magenta: '#a093c7'
-#    cyan:    '#89b8c2'
-#    white:   '#c6c8d1'
-#
-#  # Bright colors
-#  bright:
-#    black:   '#6b7089'
-#    red:     '#e98989'
-#    green:   '#c0ca8e'
-#    yellow:  '#e9b189'
-#    blue:    '#91acd1'
-#    magenta: '#ada0d3'
-#    cyan:    '#95c4ce'
-#    white:   '#d2d4de'
-
-# Colors (Nord)
-#colors:
-#   # Default colors
-#   primary:
-#     background: '#2E3440'
-#     foreground: '#D8DEE9'
-#
-#   # Normal colors
-#   normal:
-#     black:   '#3B4252'
-#     red:     '#BF616A'
-#     green:   '#A3BE8C'
-#     yellow:  '#EBCB8B'
-#     blue:    '#81A1C1'
-#     magenta: '#B48EAD'
-#     cyan:    '#88C0D0'
-#     white:   '#E5E9F0'
-#
-#   # Bright colors
-#   bright:
-#     black:   '#4C566A'
-#     red:     '#BF616A'
-#     green:   '#A3BE8C'
-#     yellow:  '#EBCB8B'
-#     blue:    '#81A1C1'
-#     magenta: '#B48EAD'
-#     cyan:    '#8FBCBB'
-#     white:   '#ECEFF4'
+  vi_mode_cursor:
+    text: '#2e3440'
+    cursor: '#d8dee9'
+  selection:
+    text: CellForeground
+    background: '#4c566a'
+  search:
+    matches:
+      foreground: CellBackground
+      background: '#88c0d0'
+    bar:
+      background: '#434c5e'
+      foreground: '#d8dee9'
+  normal:
+    black: '#3b4252'
+    red: '#bf616a'
+    green: '#a3be8c'
+    yellow: '#ebcb8b'
+    blue: '#81a1c1'
+    magenta: '#b48ead'
+    cyan: '#88c0d0'
+    white: '#e5e9f0'
+  bright:
+    black: '#4c566a'
+    red: '#bf616a'
+    green: '#a3be8c'
+    yellow: '#ebcb8b'
+    blue: '#81a1c1'
+    magenta: '#b48ead'
+    cyan: '#8fbcbb'
+    white: '#eceff4'
+  dim:
+    black: '#373e4d'
+    red: '#94545d'
+    green: '#809575'
+    yellow: '#b29e75'
+    blue: '#68809a'
+    magenta: '#8c738c'
+    cyan: '#6d96a5'
+    white: '#aeb3bb'
 
   # Indexed Colors
   #
