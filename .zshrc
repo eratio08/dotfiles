@@ -75,6 +75,10 @@ function config {
    /usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME $@
 }
 
+reload-gpg() {
+  export GPG_TTY=$(tty)
+}
+
 # Set default editor
 export EDITOR=nvim
 
