@@ -52,14 +52,17 @@ call plug#begin(stdpath('data') . '/plugged')
   " nvim lsp configuration helper
   Plug 'neovim/nvim-lspconfig'
   " Plug 'nvim-lua/lsp_extensions.nvim'
+  Plug 'williamboman/nvim-lsp-installer'
 
   " completion
   Plug 'hrsh7th/nvim-cmp'
   Plug 'hrsh7th/cmp-nvim-lsp'
+  Plug 'hrsh7th/cmp-nvim-lua'
   Plug 'hrsh7th/cmp-buffer'
   Plug 'hrsh7th/cmp-path'
   Plug 'hrsh7th/cmp-cmdline'
   Plug 'hrsh7th/cmp-emoji'
+  Plug 'onsails/lspkind-nvim'
 
   " snippets
   Plug 'L3MON4D3/LuaSnip'

@@ -1,27 +1,27 @@
 -- itchyny/lightline.vim
 
 local g = vim.g
-if g.plugs["lightline.vim"] then
+if not g.plugs['lightline.vim'] then
+  return
+end
 
 g.lightline = {
   colorscheme = 'wombat',
   component_function = {
-    gitbranch= 'gitbranch#name'
+    gitbranch = 'gitbranch#name',
   },
   active = {
-    left= {
-      {'mode'},
-      {'gitbranch'},
-      {'filename'},
-      {'filetype'}
+    left = {
+      { 'mode' },
+      { 'gitbranch' },
+      { 'filename' },
+      { 'filetype' },
     },
-    right= {
-      {'readonly', 'modified'},
-      {'fileencoding'},
-      {'lineinfo'},
-      {'percent'}
+    right = {
+      { 'readonly', 'modified' },
+      { 'fileencoding' },
+      { 'lineinfo' },
+      { 'percent' },
     },
-  }
+  },
 }
-
-end

@@ -1,6 +1,7 @@
 -- janko/vim-test
-
-if vim.g.plugs['vim-test'] then
+if not vim.g.plugs['vim-test'] then
+  return
+end
 
 local map = require('eratio/utils').map
 
@@ -18,5 +19,3 @@ tmp.strategy = 'neovim'
 tmp.neovim = 'vertical'
 
 vim.g.test = tmp
-
-end

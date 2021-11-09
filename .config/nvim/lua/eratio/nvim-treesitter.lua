@@ -1,27 +1,29 @@
 -- nvim-treesitter/nvim-treesitter
+local requireIfPresent = require('eratio.utils').requireIfPresent
+local nvim_treesitter = requireIfPresent('nvim-treesitter.configs')
 
-if vim.g.plugs['nvim-treesitter'] then
+if not nvim_treesitter then
+  return
+end
 
-local nvim_treesitter = require('nvim-treesitter.configs')
-
-nvim_treesitter.setup {
+nvim_treesitter.setup({
   ensure_installed = {
-      'html',
-      'css',
-      'javascript',
-      'typescript',
-      'json',
-      'jsonc',
-      'kotlin',
-      'java',
-      'lua',
-      'vim',
+    'html',
+    'css',
+    'javascript',
+    'typescript',
+    'json',
+    'jsonc',
+    'kotlin',
+    'java',
+    'lua',
+    'vim',
   },
   highlight = {
     enable = true,
   },
   indent = {
-    enable = true
+    enable = true,
   },
   incremental_selection = {
     enable = false,
@@ -30,7 +32,7 @@ nvim_treesitter.setup {
       -- node_incremental = "<Space>sn",
       -- node_decremental = "<Space>snd",
       -- scope_incremental = "<Space>ss",
-      },
+    },
   },
   textobjects = {
     enable = false,
@@ -40,17 +42,17 @@ nvim_treesitter.setup {
     enable = true,
     enable_autocmd = false,
   },
-   rainbow = {
+  rainbow = {
     enable = true,
     extended_mode = false,
     max_file_lines = nil,
-  }
-}
+  },
+})
 
 -- enabled folding with treesitter
 local opt = vim.opt
-opt.foldmethod='expr'
-opt.foldexpr='nvim_treesitter#foldexpr()'
+opt.foldmethod = 'expr'
+opt.foldexpr = 'nvim_treesitter#foldexpr()'
 
 local spellsitter = require('spellsitter')
 if spellsitter then
@@ -58,8 +60,6 @@ if spellsitter then
   spellsitter.setup({
     enable = true,
     hl = 'SpellBad',
-    spellchecker = 'vimfn'
+    spellchecker = 'vimfn',
   })
-end
-
 end

@@ -1,7 +1,11 @@
 -- mfussenegger/nvim-dap
 
-if vim.g.plugs['nvim-dap'] then
+local requireIfPresent = require('eratio.utils').requireIfPresent
 
-  -- nothing yet
+local dap = requireIfPresent('dap')
 
+if not dap then
+  return
 end
+
+-- nothing yet

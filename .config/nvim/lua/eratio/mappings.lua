@@ -1,11 +1,10 @@
 -- Vim mappings
-
 local map = require('eratio/utils').map
 
 map('c', 'HR', 'vert bo h') -- open help in vertical split
 map('n', '<space>s', '1z=') -- replace spelling mistake with first match
 map('n', '<space>pv', ':wincmd v<bar> :Ex <bar> :vertical resize 30<CR>') -- open explorer in vertical split
-map('c', '%%', '<C-R>=fnameescape(expand(\'%:h\')).\'/\'<CR>') -- open to edit helpers - expand %% to current working directory
+map('c', '%%', "<C-R>=fnameescape(expand('%:h')).'/'<CR>") -- open to edit helpers - expand %% to current working directory
 map('n', '<space>ew', ':e %%') -- edit in new window
 map('n', '<space>es', ':sp %%') -- edit in new split
 map('n', '<space>ev', ':vsp %%') -- edit in new vertical split

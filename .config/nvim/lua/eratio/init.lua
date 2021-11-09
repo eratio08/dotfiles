@@ -1,15 +1,15 @@
 -- Maintainer: Eike Lurz <moin@elurz.de>
-
 -- the vim ceremony
 require('eratio.settings')
 require('eratio.mappings')
 require('eratio.netrw')
 
--- load extensions
+-- table extensions
 require('eratio.tbl-ext')
 
 -- lsp stuff
 require('eratio.nvim-lsp')
+require('eratio.nvim-lsp-installer')
 
 -- completion
 require('eratio.nvim-cmp')
@@ -43,5 +43,8 @@ require('eratio.nvim-dap')
 
 -- rust
 require('eratio.rust-vim')
+
+-- lua formatting
+require('eratio.stylua')
 
 print('...done loading the "eratio" config.')

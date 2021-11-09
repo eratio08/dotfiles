@@ -1,7 +1,7 @@
 -- rust-lang/rust.vim
 
-if vim.g.plugs['rust.vim'] then
+if not vim.g.plugs['rust.vim'] then
+  return
+end
 
 vim.g.rustfmt_autosave = 1
-
-end

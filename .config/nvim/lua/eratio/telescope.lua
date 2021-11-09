@@ -1,7 +1,10 @@
 -- nvim-telescope/telescope.nvim
+local requireIfPresent = require('eratio.utils').requireIfPresent
+local telescope = requireIfPresent('telescope')
 
-local g = vim.g
-if g.plugs["telescope.nvim"] then
+if not telescope then
+  return
+end
 
 local map = require('eratio/utils').map
 
@@ -20,23 +23,19 @@ map('n', '<Space>fh', ':Telescope help_tags<CR>')
 map('n', '<Space>fvo', ': Telescope vim_options<CR>')
 map('n', '<Space>fcm', ': Telescope commands<CR>')
 
-local telescope = require('telescope')
-
-telescope.setup {
+telescope.setup({
   extensions = {
     fzy_native = {
       override_generic_sorter = false,
       override_file_sorter = true,
-    }
+    },
   },
   defaults = {
     -- setting here
     prompt_prefix = ' >',
     color_devicons = true,
-  }
-}
+  },
+})
 
 -- load native fyz plugin
 telescope.load_extension('fzy_native')
-
-end
