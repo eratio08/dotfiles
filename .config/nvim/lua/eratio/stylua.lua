@@ -1,3 +1,5 @@
+-- https://github.com/johnnymorganz/stylua
+-- install with: cargo install stylua
 -- source: https://github.com/tjdevries/config_manager/blob/3e4a30866dfe3342dc1089afb010ef9a0cc30923/xdg_config/nvim/lua/tj/stylua.lua
 local requireIfPresent = require('eratio.utils').requireIfPresent
 local Path = requireIfPresent('plenary.path')

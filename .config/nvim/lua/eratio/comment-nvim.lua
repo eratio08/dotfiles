@@ -1,0 +1,3 @@
+-- numToStr/Comment.nvim
+--
+-- Plug 'numToStr/Comment.nvim'
