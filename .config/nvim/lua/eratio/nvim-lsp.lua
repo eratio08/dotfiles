@@ -107,7 +107,8 @@ M.elm = config({
 --lspconfig.elmls.setup(M.elm)
 
 -- Rust LSP
---lspconfig.rust_analyzer.setup{}
+M.rust_analyzer = config({})
+--lspconfig.rust_analyzer.setup(M.rust_analyzer)
 
 -- Lua LSP
 -- set the path to the sumneko installation; if you previously installed via the now deprecated :LspInstall, use
