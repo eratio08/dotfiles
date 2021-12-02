@@ -51,6 +51,7 @@ fi
 
 ## GPG Key for Git
 export GPG_TTY=$(tty)
+alias restart-gpg-agent="gpgconf --kill gpg-agent"
 
 # Linux Helpers
 alias untar="tar -zxvf"
@@ -84,6 +85,8 @@ export EDITOR=nvim
 
 # IntelliJ
 export IDEA_JDK=/usr/lib/jvm/jetbrains-jre
+export _JAVA_AWT_WM_NONREPARENTING=1
+export GDK_BACKEND=wayland
 
 # Aliases
 alias fn-lock="echo 2 | sudo tee -a /sys/module/hid_apple/parameters/fnmode"
@@ -113,4 +116,4 @@ export NVM_DIR="$HOME/.nvm"
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
-[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh34560000"
+[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"

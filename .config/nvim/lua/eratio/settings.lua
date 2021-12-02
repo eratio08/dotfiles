@@ -59,4 +59,6 @@ opt.diffopt:append('vertical') -- diff windows split to vertical
 opt.completeopt = 'menu,menuone' -- show auto completion menu even for single item
 opt.splitright = true -- split to the right
 opt.foldenable = false -- unfold all by default
+-- opt.foldmethod = 'indent'
 opt.shada = { '!', "'1000", '<50', 's10' } -- set shared data saving, global upper case variables, 1000 marks, 50 lines per register, max 10KiB
+opt.autoindent = true

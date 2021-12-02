@@ -44,6 +44,7 @@ local exts = vim.tbl_foldr(
     'js',
     'ts',
     'kt',
+    'java',
     'lua',
     'html',
     'vue',
@@ -51,9 +52,6 @@ local exts = vim.tbl_foldr(
 )
 
 augroup({ { 'BufWritePre', exts, 'lua vim.lsp.buf.formatting_sync(nil, 100)' } }, 'fmt')
-
--- configure LSPs
-locallspconfig = require('lspconfig')
 
 -- wrapper for common configurations
 local function config(_config)
@@ -93,9 +91,7 @@ M.tsserver = config({
 --lspconfig.tsserver.setup(M.tsserver)
 
 -- Kotlin LSP
-M.kotlin = config({
-  root_dir = lspconfig.util.root_pattern('settings.gradle.kts'),
-})
+M.kotlin_language_server = config({})
 --lspconfig.kotlin_language_server.setup(M.kotlin)
 
 -- Elm LSP
