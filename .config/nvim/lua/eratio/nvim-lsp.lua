@@ -20,6 +20,7 @@ map('n', 'gca', ':lua vim.lsp.buf.code_action()<CR>')
 map('n', 'ge', ':lua vim.lsp.diagnostic.show_line_diagnostics()<CR>')
 map('n', ']e', ':lua vim.lsp.diagnostic.goto_next()<CR>')
 map('n', '[e', ':lua vim.lsp.diagnostic.goto_prev()<CR>')
+map('n', '<space>ll', ':lua vim.lsp.buf.formatting()<CR>')
 
 map('n', 'gdc', ':lua vim.lsp.buf.declaration()<CR>')
 map('n', 'gtd', ':lua vim.lsp.buf.type_definition()<CR>')
@@ -40,6 +41,7 @@ local exts = vim.tbl_foldr(
   end,
   '',
   {
+    'rs',
     'elm',
     'js',
     'ts',

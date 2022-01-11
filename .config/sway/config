@@ -297,5 +297,8 @@ output HDMI-A-2 {
     scale 1
 }
 
+# xwayland disable
+
 # load other default configs
 include /etc/sway/config.d/*
+

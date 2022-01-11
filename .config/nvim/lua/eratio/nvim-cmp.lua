@@ -8,7 +8,7 @@ end
 
 cmp.setup({
   completion = {
-    completeopt = 'menu,menuone',
+    completeopt = 'menu,menuone,noselect',
   },
   snippet = {
     expand = function(args)
@@ -16,10 +16,13 @@ cmp.setup({
     end,
   },
   mapping = {
-    ['<C-d>'] = cmp.mapping(cmp.mapping.scroll_docs(-4), { 'i', 'c' }),
+    ['<C-b>'] = cmp.mapping(cmp.mapping.scroll_docs(-4), { 'i', 'c' }),
     ['<C-f>'] = cmp.mapping(cmp.mapping.scroll_docs(4), { 'i', 'c' }),
     ['<C-Space>'] = cmp.mapping(cmp.mapping.complete(), { 'i', 'c' }),
-    ['<C-e>'] = cmp.mapping.close(),
+    ['<C-e>'] = cmp.mapping({
+      i = cmp.mapping.abort(),
+      c = cmp.mapping.close(),
+    }),
     ['<CR>'] = cmp.mapping.confirm({
       behavior = cmp.ConfirmBehavior.Replace,
       select = false,
@@ -53,6 +56,8 @@ cmp.setup.cmdline('/', {
 cmp.setup.cmdline(':', {
   sources = cmp.config.sources({
     { name = 'path', max_item_count = 20 },
+  }, {
+    { name = 'cmdline' },
   }),
 })
 

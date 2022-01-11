@@ -26,7 +26,7 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 if [[ "$OSTYPE" == "darwin"* ]]; then
     plugins=(git docker kubectl docker-compose aws mvn gradle terraform helm)
 else
-    plugins=(git archlinux sdk docker docker-compose rustup)
+    plugins=(git archlinux sdk docker docker-compose rust)
 fi
 
 source $ZSH/oh-my-zsh.sh
@@ -52,6 +52,9 @@ fi
 ## GPG Key for Git
 export GPG_TTY=$(tty)
 alias restart-gpg-agent="gpgconf --kill gpg-agent"
+reload-gpg() {
+  export GPG_TTY=$(tty)
+}
 
 # Linux Helpers
 alias untar="tar -zxvf"
@@ -76,15 +79,12 @@ function config {
    /usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME $@
 }
 
-reload-gpg() {
-  export GPG_TTY=$(tty)
-}
 
 # Set default editor
 export EDITOR=nvim
 
 # IntelliJ
-export IDEA_JDK=/usr/lib/jvm/jetbrains-jre
+# export IDEA_JDK=/usr/lib/jvm/jetbrains-jre
 export _JAVA_AWT_WM_NONREPARENTING=1
 export GDK_BACKEND=wayland
 
@@ -95,6 +95,7 @@ alias fix-suspend="sudo echo XHC1 > /proc/acpi/wakeup"
 alias ls="exa -lah"
 alias cat="bat"
 alias vim="nvim"
+alias code="vscodium"
 
 # enable wayland support for firefox
 export MOZ_ENABLE_WAYLAND=1
