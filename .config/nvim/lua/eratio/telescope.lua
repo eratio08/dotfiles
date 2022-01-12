@@ -23,11 +23,25 @@ map('n', '<Space>fh', ':Telescope help_tags<CR>')
 map('n', '<Space>fvo', ': Telescope vim_options<CR>')
 map('n', '<Space>fcm', ': Telescope commands<CR>')
 
+-- file browser
+map('n', '<Space>bb', ':Telescope file_browser<CR>')
+
 telescope.setup({
   extensions = {
     fzy_native = {
       override_generic_sorter = false,
       override_file_sorter = true,
+    },
+    file_browser = {
+      theme = 'ivy',
+      mappings = {
+        ['i'] = {
+          -- your custom insert mode mappings
+        },
+        ['n'] = {
+          -- your custom normal mode mappings
+        },
+      },
     },
   },
   defaults = {
@@ -39,3 +53,4 @@ telescope.setup({
 
 -- load native fyz plugin
 telescope.load_extension('fzy_native')
+telescope.load_extension('file_browser')

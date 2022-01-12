@@ -20,7 +20,6 @@ map('n', 'gca', ':lua vim.lsp.buf.code_action()<CR>')
 map('n', 'ge', ':lua vim.lsp.diagnostic.show_line_diagnostics()<CR>')
 map('n', ']e', ':lua vim.lsp.diagnostic.goto_next()<CR>')
 map('n', '[e', ':lua vim.lsp.diagnostic.goto_prev()<CR>')
-map('n', '<space>ll', ':lua vim.lsp.buf.formatting()<CR>')
 
 map('n', 'gdc', ':lua vim.lsp.buf.declaration()<CR>')
 map('n', 'gtd', ':lua vim.lsp.buf.type_definition()<CR>')
@@ -31,7 +30,7 @@ map('n', '<space>rwf', ':lua vim.lsp.buf.remove_workspace_folder()<CR>')
 map('n', '<space>swf', ':lua print(vim.inspect(vim.lsp.buf.list_workspace_folders()))<CR>')
 
 -- trigger formatting
-map('n', '<space>cf', ':lua vim.lsp.buf.formatting()<CR>')
+map('n', '<space>ll', ':lua vim.lsp.buf.formatting()<CR>')
 
 -- use LSP formatting on save
 local augroup = require('eratio/utils').augroup
@@ -53,7 +52,7 @@ local exts = vim.tbl_foldr(
   }
 )
 
-augroup({ { 'BufWritePre', exts, 'lua vim.lsp.buf.formatting_sync(nil, 100)' } }, 'fmt')
+augroup({ { 'BufWritePre', exts, 'lua vim.lsp.buf.formatting_sync(nil, 300)' } }, 'fmt')
 
 -- wrapper for common configurations
 local function config(_config)

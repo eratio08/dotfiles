@@ -15,11 +15,8 @@ autocmd VimEnter * if len(filter(values(g:plugs), '!isdirectory(v:val.dir)'))
 call plug#begin(stdpath('data') . '/plugged')
   " Theme
   Plug 'shaunsingh/nord.nvim'
-  " Plug 'arcticicestudio/nord-vim'
 
   " Status bar
-  " Plug 'itchyny/lightline.vim'
-  " Plug 'itchyny/vim-gitbranch'
   Plug 'nvim-lualine/lualine.nvim'
 
   " test runner
@@ -77,6 +74,7 @@ call plug#begin(stdpath('data') . '/plugged')
   Plug 'nvim-lua/plenary.nvim'
   Plug 'nvim-telescope/telescope.nvim'
   Plug 'nvim-telescope/telescope-fzy-native.nvim'
+  Plug 'nvim-telescope/telescope-file-browser.nvim'
 
   " icons
   Plug 'kyazdani42/nvim-web-devicons'
