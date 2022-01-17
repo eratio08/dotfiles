@@ -1,13 +1,13 @@
 -- rafamadriz/friendly-snippets
 
-if not vim.g.plugs["friendly-snippets"] then
+if not vim.g.plugs['friendly-snippets'] then
   return
 end
 
-local plugged_dir = vim.fn.stdpath "data" .. "/plugged"
+local plugged_dir = vim.fn.stdpath('data') .. '/plugged'
 
 local snippets_paths = function()
-  local plugins = { "friendly-snippets" }
+  local plugins = { 'friendly-snippets' }
   local paths = {}
   local path
   local root_path = plugged_dir
@@ -20,8 +20,8 @@ local snippets_paths = function()
   return paths
 end
 
-require("luasnip.loaders.from_vscode").lazy_load {
+require('luasnip.loaders.from_vscode').lazy_load({
   paths = snippets_paths(),
   include = nil, -- Load all languages
   exclude = {},
-}
+})

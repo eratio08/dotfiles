@@ -47,4 +47,7 @@ require('eratio.rust-vim')
 -- lua formatting
 require('eratio.stylua')
 
+-- comment
+require('eratio.comment-nvim')
+
 print('...done loading the "eratio" config.')

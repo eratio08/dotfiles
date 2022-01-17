@@ -34,8 +34,9 @@ call plug#begin(stdpath('data') . '/plugged')
   " git line information
   Plug 'airblade/vim-gitgutter'
 
-  " Comment stuff out.
-  Plug 'tpope/vim-commentary'
+  " Commenting
+  " Plug 'tpope/vim-commentary'
+  Plug 'numToStr/Comment.nvim'
 
   " Surround.vim is all about surroundings: parentheses, brackets, quotes, XML tags, and more.
   " Plug 'tpope/vim-surround'
