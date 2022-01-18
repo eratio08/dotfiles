@@ -49,7 +49,7 @@ call plug#begin(stdpath('data') . '/plugged')
 
   " nvim lsp configuration helper
   Plug 'neovim/nvim-lspconfig'
-  " Plug 'nvim-lua/lsp_extensions.nvim'
+  Plug 'nvim-lua/lsp_extensions.nvim'
   Plug 'williamboman/nvim-lsp-installer'
 
   " completion
@@ -69,6 +69,7 @@ call plug#begin(stdpath('data') . '/plugged')
   
   " debugger protocol support
   " Plug 'mfussenegger/nvim-dap'
+  " Plug 'Pocco81/DAPInstall.nvim'
   " Plug 'David-Kunz/jester' " jest debugger
 
   " telescope, file finder

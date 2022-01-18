@@ -10,6 +10,7 @@ require('eratio.tbl-ext')
 -- lsp stuff
 require('eratio.nvim-lsp')
 require('eratio.nvim-lsp-installer')
+require('eratio.lsp-extensions')
 
 -- completion
 require('eratio.nvim-cmp')

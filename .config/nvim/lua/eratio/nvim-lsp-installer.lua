@@ -1,4 +1,5 @@
 -- williamboman/nvim-lsp-installer
+
 local requireIfPresent = require('eratio.utils').requireIfPresent
 local lsp_installer = requireIfPresent('nvim-lsp-installer')
 
