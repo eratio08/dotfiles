@@ -18,6 +18,7 @@ nvim_treesitter.setup({
     'java',
     'lua',
     'vim',
+    'rust',
   },
   highlight = {
     enable = true,
@@ -27,12 +28,12 @@ nvim_treesitter.setup({
   },
   incremental_selection = {
     enable = false,
-    keymaps = {
-      -- init_selection = "<Space>is",
-      -- node_incremental = "<Space>sn",
-      -- node_decremental = "<Space>snd",
-      -- scope_incremental = "<Space>ss",
-    },
+    -- keymaps = {
+    --   init_selection = "<Space>is",
+    --   node_incremental = "<Space>sn",
+    --   node_decremental = "<Space>snd",
+    --   scope_incremental = "<Space>ss",
+    -- },
   },
   textobjects = {
     enable = false,

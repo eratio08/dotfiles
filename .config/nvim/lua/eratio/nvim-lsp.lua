@@ -20,6 +20,7 @@ map('n', 'gca', ':lua vim.lsp.buf.code_action()<CR>')
 map('n', 'ge', ':lua vim.lsp.diagnostic.show_line_diagnostics()<CR>')
 map('n', ']e', ':lua vim.lsp.diagnostic.goto_next()<CR>')
 map('n', '[e', ':lua vim.lsp.diagnostic.goto_prev()<CR>')
+map('n', 'gle', '<cmd>Telescope diagnostics<CR>')
 
 map('n', 'gdc', ':lua vim.lsp.buf.declaration()<CR>')
 map('n', 'gtd', ':lua vim.lsp.buf.type_definition()<CR>')
@@ -57,6 +58,7 @@ augroup({ { 'BufWritePre', exts, 'lua vim.lsp.buf.formatting_sync(nil, 300)' } }
 -- wrapper for common configurations
 local function config(_config)
   local capabilities = vim.lsp.protocol.make_client_capabilities()
+  -- augment capabilities with cmp_nvim_lsp
   capabilities = require('cmp_nvim_lsp').update_capabilities(capabilities)
 
   return vim.tbl_deep_extend('force', {
