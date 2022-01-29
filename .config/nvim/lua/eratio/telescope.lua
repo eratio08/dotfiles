@@ -46,7 +46,7 @@ telescope.setup({
   },
   defaults = {
     -- setting here
-    prompt_prefix = ' >',
+    prompt_prefix = '> ',
     color_devicons = true,
   },
 })

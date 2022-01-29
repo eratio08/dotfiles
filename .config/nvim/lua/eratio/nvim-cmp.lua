@@ -7,9 +7,6 @@ if not cmp then
 end
 
 cmp.setup({
-  completion = {
-    completeopt = 'menu,menuone,noselect',
-  },
   snippet = {
     expand = function(args)
       require('luasnip').lsp_expand(args.body)
@@ -25,7 +22,7 @@ cmp.setup({
     }),
     ['<CR>'] = cmp.mapping.confirm({
       behavior = cmp.ConfirmBehavior.Replace,
-      select = false,
+      select = true,
     }),
     ['<Tab>'] = cmp.mapping.select_next_item(),
     ['<S-Tab>'] = cmp.mapping.select_next_item(),
