@@ -9,6 +9,12 @@ M.map = function(mode, lhs, rhs, opts)
   vim.api.nvim_set_keymap(mode, lhs, rhs, options)
 end
 
+M.buf_map = function(bufnr, mode, lhs, rhs, opts)
+  vim.api.nvim_buf_set_keymap(bufnr, mode, lhs, rhs, opts or {
+    silent = true,
+  })
+end
+
 -- taken from https://icyphox.sh/blog/nvim-lua/
 local cmd = vim.cmd
 

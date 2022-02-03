@@ -72,45 +72,32 @@ vim.lsp.handlers['textDocument/publishDiagnostics'] = vim.lsp.with(vim.lsp.diagn
   underline = false,
 })
 
--- TypeScript LSP
--- npm install -g typescript typescript-language-server
-local function organize_imports()
-  local params = {
-    command = '_typescript.organizeImports',
-    arguments = { vim.api.nvim_buf_get_name(0) },
-    title = '',
-  }
-  vim.lsp.buf.execute_command(params)
-end
-
 M.tsserver = config({
   commands = {
     OrganizeImports = {
-      organize_imports,
+      function()
+        vim.lsp.buf.execute_command({
+          command = '_typescript.organizeImports',
+          arguments = { vim.api.nvim_buf_get_name(0) },
+          title = '',
+        })
+      end,
       description = 'Organize Imports',
     },
   },
 })
---lspconfig.tsserver.setup(M.tsserver)
 
--- Kotlin LSP
 M.kotlin_language_server = config({})
---lspconfig.kotlin_language_server.setup(M.kotlin)
 
--- Elm LSP
 M.elm = config({
   init_options = {
     elmReviewDiagnostics = 'warning',
   },
 })
---lspconfig.elmls.setup(M.elm)
 
--- Rust LSP
 M.rust_analyzer = config({})
---lspconfig.rust_analyzer.setup(M.rust_analyzer)
 
--- Lua LSP
--- set the path to the sumneko installation; if you previously installed via the now deprecated :LspInstall, use
+-- lua
 local sumneko_binary = '/usr/bin/lua-language-server'
 M.sumneko_lua = config({
   cmd = { sumneko_binary, '-E' },
@@ -140,9 +127,7 @@ M.sumneko_lua = config({
     },
   },
 })
---lspconfig.sumneko_lua.setup(M.lua)
 
--- EFM
 M.efm = config({
   init_options = { documentFormatting = true },
   filetypes = { 'lua' },
@@ -156,11 +141,12 @@ M.efm = config({
     },
   },
 })
---lspconfig.efm.setup(M.efm)
 
--- ESLint
--- npm i -g vscode-langservers-extracted
 M.eslint = config({
+  on_attach = function(_, _)
+    -- trigger EslintFixAll on save
+    vim.cmd('autocmd BufWritePre *.ts,*.js,*.vue, EslintFixAll')
+  end,
   settings = {
     codeActionOnSave = {
       enable = true,
@@ -169,19 +155,13 @@ M.eslint = config({
     format = true,
   },
 })
---lspconfig.eslint.setup(M.eslint)
 
--- trigger EslintFixAll on save
-vim.cmd('autocmd BufWritePre *.ts,*.js,*.vue, EslintFixAll')
-
--- Tailwindcss
--- npm install -g @tailwindcss/language-server
 M.tailwindcss = config()
---lspconfig.tailwindcss.setup(M.tailwindcss)
 
--- Volar
--- npm install -g @volar/server
 M.volar = config()
---lspconfig.volar.setup(M.volar)
+
+M.rome = config()
+
+M.pyright = config()
 
 return M
