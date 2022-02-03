@@ -44,12 +44,15 @@ local exts = vim.tbl_foldr(
     'rs',
     'elm',
     'js',
+    'mjs',
     'ts',
     'kt',
     'java',
     'lua',
     'html',
     'vue',
+    'json',
+    'py',
   }
 )
 
@@ -160,8 +163,10 @@ M.tailwindcss = config()
 
 M.volar = config()
 
-M.rome = config()
+-- M.rome = config()
 
 M.pyright = config()
+
+M.pylsp = config()
 
 return M
