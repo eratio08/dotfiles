@@ -53,6 +53,7 @@ local exts = vim.tbl_foldr(
     'vue',
     'json',
     'py',
+    'tf',
   }
 )
 
@@ -163,10 +164,10 @@ M.tailwindcss = config()
 
 M.volar = config()
 
--- M.rome = config()
-
 M.pyright = config()
 
 M.pylsp = config()
+
+M.terraform_lsp = config()
 
 return M

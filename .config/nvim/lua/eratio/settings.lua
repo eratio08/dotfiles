@@ -35,13 +35,15 @@ opt.smartindent = true -- enable auto indentation on next line
 opt.path:append('**') -- enable vim-native fuzzy find
 opt.wildmenu = true -- enable wild match window
 opt.wildmode = { 'longest', 'list', 'full' } -- Nice menu when typing `:find ...`
-opt.wildignore:append('*.pyc') -- Ignore files when wild card matching
-opt.wildignore:append('*_build/*')
-opt.wildignore:append('**/coverage/*')
-opt.wildignore:append('**/node_modules/*')
-opt.wildignore:append('**/android/*')
-opt.wildignore:append('**/ios/*')
-opt.wildignore:append('**/.git/*')
+opt.wildignore:append({
+  '*.pyc',
+  '*_build/*',
+  '**/coverage/*',
+  '**/node_modules/*',
+  '**/android/*',
+  '**/ios/*',
+  '**/.git/*',
+}) -- Ignore files when wild card matching
 opt.hidden = true -- keep buffers on navigation
 opt.background = 'dark' -- opt.background color brightness
 opt.undofile = true -- enable undo file

@@ -13,8 +13,6 @@ map('n', '<space>wh', '<C-w>h') -- select left window
 map('n', '<space>wj', '<C-w>j') -- select down window
 map('n', '<space>wk', '<C-w>k') -- select up window
 map('n', '<space>wl', '<C-w>l') -- select right window
--- map('n', '<space>,', ':tabedit $MYVIMRC<CR>') -- edit vimrc
--- map('n', '<space>src', ':source $MYVIMRC<CR>') -- source vimrc
 
 -- move single line down
 map('n', '<A-j>', 'ddp')
