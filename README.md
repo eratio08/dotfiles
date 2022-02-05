@@ -194,3 +194,4 @@ echo XHC1 > /proc/acpi/wakeup
 
 * [NeoVim Quick Ref](https://neovim.io/doc/user/quickref.html)
 * [Vim Guide](https://danielmiessler.com/study/vim/)
+* [External Monitor Brightness Control](https://lyndeno.ca/posts/setting-up-external-monitor-brightness)
