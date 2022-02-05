@@ -35,6 +35,7 @@ M.makeScratch = function()
   vim.bo[0].swapfile = false
 end
 
+-- return module of present
 M.requireIfPresent = function(moduleName)
   local isPresent, mod = pcall(require, moduleName)
 
@@ -42,6 +43,17 @@ M.requireIfPresent = function(moduleName)
     return mod
   else
     return nil
+  end
+end
+
+-- runs block callback if module is present
+M.ifPresent = function(moduleName, block)
+  local isPresent, mod = pcall(require, moduleName)
+
+  if isPresent then
+    block(mod)
+  else
+    print('[' .. moduleName .. '] Was not found.')
   end
 end
 
