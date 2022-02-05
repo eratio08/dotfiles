@@ -98,12 +98,12 @@ for_window [urgent=latest] focus
 # Resizing containers:
 mode "resize" {
     # left will shrink the containers width
-    # right will grow the containers width
-    # up will shrink the containers height
-    # down will grow the containers height
     bindsym $left resize shrink width 10px
+    # down will grow the containers height
     bindsym $down resize grow height 10px
+    # up will shrink the containers height
     bindsym $up resize shrink height 10px
+    # right will grow the containers width
     bindsym $right resize grow width 10px
 
     # Return to default mode
@@ -186,10 +186,10 @@ bindsym --to-code {
     # $mod+Ctrl+Left workspace prev
 
     # move workspace to screen
-    $mod+Ctrl+$up move workspace to output up
-    $mod+Ctrl+$down move workspace to output down
-    $mod+Ctrl+$left move workspace to output left
-    $mod+Ctrl+$right move workspace to output right
+    $mod+Ctrl+$up move workspace to up
+    $mod+Ctrl+$down move workspace to down
+    $mod+Ctrl+$left move workspace to left
+    $mod+Ctrl+$right move workspace to right
 
     # switch to workspace
     $mod+1 workspace $ws1
@@ -233,14 +233,18 @@ bindsym --to-code {
         --message 'You pressed the exit shortcut. Do you really want to exit sway? This will end your Wayland session.' \
         --button 'Yes, exit sway' 'swaymsg exit'
 
-    # Set locking featurespower
+    # Lock screen
     $mod+Alt+l exec $locker
 
-    # set backlight controlls
+    # set screen back-light 
     --locked XF86MonBrightnessUp exec macbook-lighter-screen --inc 25
     --locked XF86MonBrightnessDown exec macbook-lighter-screen --dec 25
 
-    # bind keyboard backlight
+    # set brightness of external monitor, requires '/etc/modules-load.d/' to include 'i2c-dev'
+    --locked $mod+XF86MonBrightnessUp exec ddcutil --bus 4 setvcp 10 + 5
+    --locked $mod+XF86MonBrightnessDown exec ddcutil --bus 4 setvcp 10 - 5
+
+    # bind keyboard back-light
     --locked XF86KbdBrightnessUp exec macbook-lighter-kbd --inc 25
     --locked XF86KbdBrightnessDown exec macbook-lighter-kbd --dec 25
 
@@ -260,10 +264,9 @@ bindsym --to-code {
     # Mod1+Print exec swayshot window
     # Shift+Print exec swayshot region
 
-    Ctrl+Shift+1 exec swayshot && exec notify-send 'took screenshot'
-    Ctrl+Shift+2 exec swayshot window && exec notify-send 'took screenshit of window'
-    # Ctrl+Shift+3 exec swayshot region 
-    Ctrl+Shift+3 exec "slurp -d -b #50858b99 | grim -g - $(xdg-user-dir PICTURES)/$(date +'screenshot_%Y-%m-%d-%H%M%S.png')"
+    Ctrl+Shift+1 exec swayshot 
+    Ctrl+Shift+2 exec swayshot window
+    Ctrl+Shift+3 exec swayshot region
 }
 
 set $screenOff 'swaymsg "output * dpms off"'
@@ -285,15 +288,16 @@ bar {
 # swaymsg -t get_outputs
 output eDP-1 {
     mode 2560x1600@60Hz
-    pos 0 0
-    bg $bg1 fill $background
+    position 640 2160
+    background $bg1 fill $background
     scale 1
 }
 
+# top-centered
 output HDMI-A-2 {
-    #mode 4096x2160@60Hz	
-    mode 3840x2160@60Hz
-    bg $bg1 fill $background
+    mode 3840x2160@30Hz
+    position 0 0 
+    background $bg1 fill $background
     scale 1
 }
 
