@@ -181,10 +181,6 @@ bindsym --to-code {
     # If there are multiple scratchpad windows, this command cycles through them.
     $mod+minus scratchpad show
 
-    # navigate workspaces next / previous
-    # $mod+Ctrl+Right workspace next
-    # $mod+Ctrl+Left workspace prev
-
     # move workspace to screen
     $mod+Ctrl+$up move workspace to up
     $mod+Ctrl+$down move workspace to down
@@ -202,18 +198,7 @@ bindsym --to-code {
     $mod+8 workspace $ws8
     $mod+9 workspace $ws9
 
-    # Move focused container to workspace
-    $mod+Ctrl+1 move container to workspace $ws1
-    $mod+Ctrl+2 move container to workspace $ws2
-    $mod+Ctrl+3 move container to workspace $ws3
-    $mod+Ctrl+4 move container to workspace $ws4
-    $mod+Ctrl+5 move container to workspace $ws5
-    $mod+Ctrl+6 move container to workspace $ws6
-    $mod+Ctrl+7 move container to workspace $ws7
-    $mod+Ctrl+8 move container to workspace $ws8
-    $mod+Ctrl+9 move container to workspace $ws9
-
-    # Move to workspace with focused container
+    # Move container to workspace and move focus
     $mod+Shift+1 move container to workspace $ws1; workspace $ws1
     $mod+Shift+2 move container to workspace $ws2; workspace $ws2
     $mod+Shift+3 move container to workspace $ws3; workspace $ws3
