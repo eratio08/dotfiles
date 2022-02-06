@@ -565,10 +565,12 @@ end)
 -- hrsh7th/nvim-cmp --
 ----------------------
 ifPresent('cmp', function(cmp)
+  local luasnip = require('luasnip')
+
   cmp.setup({
     snippet = {
       expand = function(args)
-        require('luasnip').lsp_expand(args.body)
+        luasnip.lsp_expand(args.body)
       end,
     },
     mapping = {
@@ -583,16 +585,32 @@ ifPresent('cmp', function(cmp)
         behavior = cmp.ConfirmBehavior.Replace,
         select = true,
       }),
-      ['<Tab>'] = cmp.mapping.select_next_item(),
-      ['<S-Tab>'] = cmp.mapping.select_next_item(),
+      ['<Tab>'] = function(fallback)
+        if cmp.visible() then
+          cmp.select_next_item()
+        elseif luasnip.expand_or_jumpable() then
+          luasnip.expand_or_jump()
+        else
+          fallback()
+        end
+      end,
+      ['<S-Tab>'] = function(fallback)
+        if cmp.visible() then
+          cmp.select_prev_item()
+        elseif luasnip.jumpable(-1) then
+          luasnip.jump(-1)
+        else
+          fallback()
+        end
+      end,
     },
     sources = cmp.config.sources({
       { name = 'nvim_lua' },
-      { name = 'nvim_lsp', max_item_count = 20 },
-      { name = 'luasnip', max_item_count = 20 },
+      { name = 'nvim_lsp' },
+      { name = 'luasnip' },
     }, {
       { name = 'emoji' },
-      { name = 'buffer', keyword_length = 5, max_item_count = 20 },
+      { name = 'buffer', keyword_length = 5, max_item_count = 10 },
     }),
     experimental = {
       native_menu = false,
