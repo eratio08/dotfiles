@@ -110,7 +110,7 @@ ifPresent('packer', function(packer)
       use('JoosepAlviste/nvim-ts-context-commentstring')
 
       -- Automatic tags management
-      use('ludovicchabant/vim-gutentags')
+      -- use('ludovicchabant/vim-gutentags')
 
       -- Indentation guides
       use('lukas-reineke/indent-blankline.nvim')
@@ -391,6 +391,8 @@ ifPresent('lspconfig', function(_)
   C.pylsp = config()
 
   C.terraform_lsp = config()
+
+  C.tflint = config()
 
   -------------------------------------
   -- williamboman/nvim-lsp-installer --
@@ -681,6 +683,7 @@ ifPresent('nvim-treesitter.configs', function(nvim_treesitter)
       'lua',
       'vim',
       'rust',
+      'hcl',
     },
     highlight = {
       enable = true,
