@@ -7,8 +7,9 @@ input * {
     middle_emulation enabled
     click_method button_areas # none|button_areas|clickfinger
     tap enabled
-    # rebind caps lock to escape for vim
-    xkb_options caps:escape
+    # - rebind caps lock to escape for vim
+    # - right alt is compose key
+    xkb_options caps:escape,compose:ralt
 }
 
 # Vars
