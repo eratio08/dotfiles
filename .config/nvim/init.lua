@@ -118,6 +118,7 @@ ifPresent('packer', function(packer)
 
       -- Debug Adapter Protocol
       use('mfussenegger/nvim-dap')
+      use('theHamsta/nvim-dap-virtual-text')
     end,
 
     -------------------
@@ -667,6 +668,10 @@ end)
 ---------------------------
 ifPresent('dap', function(_)
   -- TODO: Properly setup DAP
+
+  ifPresent('nvim-dap-virtual-text', function(dap_virtual_text)
+    dap_virtual_text.setup()
+  end)
 end)
 
 -------------------------------------
