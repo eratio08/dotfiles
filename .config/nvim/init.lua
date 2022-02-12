@@ -98,6 +98,7 @@ ifPresent('packer', function(packer)
       use({ 'nvim-telescope/telescope.nvim', requires = { 'nvim-lua/plenary.nvim' } })
       use('nvim-telescope/telescope-fzy-native.nvim')
       use('nvim-telescope/telescope-file-browser.nvim')
+      use('nvim-telescope/telescope-dap.nvim')
 
       -- Icons
       use('kyazdani42/nvim-web-devicons')
@@ -484,6 +485,7 @@ ifPresent('telescope', function(telescope)
   -- load native fyz plugin
   telescope.load_extension('fzy_native')
   telescope.load_extension('file_browser')
+  telescope.load_extension('dap')
 end)
 
 ---------------------------
@@ -546,7 +548,7 @@ ifPresent('lualine', function(lualine)
     sections = {
       lualine_a = { 'mode' },
       lualine_b = { 'branch', 'diff', { 'diagnostics', sources = { 'nvim_diagnostic' } } },
-      lualine_c = { 'filename' },
+      lualine_c = { { 'filename', path = 1 } },
       lualine_x = { 'encoding', 'fileformat', 'filetype' },
       lualine_y = { 'progress' },
       lualine_z = { 'location' },
