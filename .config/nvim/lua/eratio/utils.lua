@@ -1,20 +1,5 @@
 local M = {}
 
--- taken from https://oroques.dev/notes/neovim-init/#mappings
-M.map = function(mode, lhs, rhs, opts)
-  local options = { noremap = true }
-  if opts then
-    options = vim.tbl_extend('force', options, opts)
-  end
-  vim.api.nvim_set_keymap(mode, lhs, rhs, options)
-end
-
-M.buf_map = function(bufnr, mode, lhs, rhs, opts)
-  vim.api.nvim_buf_set_keymap(bufnr, mode, lhs, rhs, opts or {
-    silent = true,
-  })
-end
-
 -- taken from https://icyphox.sh/blog/nvim-lua/
 local cmd = vim.cmd
 

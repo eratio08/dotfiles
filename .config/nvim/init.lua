@@ -1,13 +1,11 @@
--- Mono-File Configuration --
-
---------------
--- Preamble --
---------------
+-------------
+-- Prelude --
+-------------
 local utils = require('eratio.utils')
 local g = vim.g
 local cmd = vim.cmd
-local opt = vim.opt -- to set options
-local map = utils.map
+local opt = vim.opt
+local map = vim.keymap.set
 local ifPresent = utils.ifPresent
 local augroup = utils.augroup
 
@@ -31,7 +29,7 @@ local pack_path = vim.fn.stdpath('data') .. '/site/pack'
 local packer_path = pack_path .. '/packer/start/packer.nvim'
 
 if vim.fn.empty(vim.fn.glob(packer_path)) > 0 then
-  vim.fn.execute('!git clone https://github.com/wbthomason/packer.nvim ' .. packer_path)
+  vim.fn.execute('!git clone --depth=1 https://github.com/wbthomason/packer.nvim' .. packer_path)
 end
 
 -- Compile packer lazy loading script on save
@@ -118,6 +116,7 @@ ifPresent('packer', function(packer)
 
       -- Debug Adapter Protocol
       use('mfussenegger/nvim-dap')
+      use('rcarriga/nvim-dap-ui')
       use('theHamsta/nvim-dap-virtual-text')
     end,
 
@@ -260,17 +259,17 @@ ifPresent('lspconfig', function(_)
   map('n', 'grn', ':lua vim.lsp.buf.rename()<CR>')
   map('n', 'gh', ':lua vim.lsp.buf.hover()<CR>')
   map('n', 'gca', ':lua vim.lsp.buf.code_action()<CR>')
-  map('n', 'ge', ':lua vim.lsp.diagnostic.show_line_diagnostics()<CR>')
-  map('n', ']e', ':lua vim.lsp.diagnostic.goto_next()<CR>')
-  map('n', '[e', ':lua vim.lsp.diagnostic.goto_prev()<CR>')
+  map('n', 'ge', ':lua vim.diagnostic.show_line_diagnostics()<CR>')
+  map('n', ']e', ':lua vim.diagnostic.goto_next()<CR>')
+  map('n', '[e', ':lua vim.diagnostic.goto_prev()<CR>')
 
   map('n', 'gdc', ':lua vim.lsp.buf.declaration()<CR>')
   map('n', 'gtd', ':lua vim.lsp.buf.type_definition()<CR>')
 
   -- work space files
-  map('n', '<space>awf', ':lua vim.lsp.buf.add_workspace_folder()<CR>')
-  map('n', '<space>rwf', ':lua vim.lsp.buf.remove_workspace_folder()<CR>')
-  map('n', '<space>swf', ':lua print(vim.inspect(vim.lsp.buf.list_workspace_folders()))<CR>')
+  map('n', '<space>wa', ':lua vim.lsp.buf.add_workspace_folder()<CR>')
+  map('n', '<space>wr', ':lua vim.lsp.buf.remove_workspace_folder()<CR>')
+  map('n', '<space>wl', ':lua print(vim.inspect(vim.lsp.buf.list_workspace_folders()))<CR>')
 
   -- trigger formatting
   map('n', '<space>ll', ':lua vim.lsp.buf.formatting()<CR>')
@@ -295,6 +294,10 @@ ifPresent('lspconfig', function(_)
       'json',
       'py',
       'tf',
+      'toml',
+      'tml',
+      'yaml',
+      'yml',
     }
   )
 
@@ -340,7 +343,17 @@ ifPresent('lspconfig', function(_)
     },
   })
 
-  C.rust_analyzer = config({})
+  C.rust_analyzer = config({
+    cmd = { 'rustup', 'run', 'nightly', 'rust-analyzer' },
+    settings = {
+      ['rust-analyzer'] = {
+        cargo = { autoreload = true },
+        checkOnSave = {
+          command = 'clippy',
+        },
+      },
+    },
+  })
 
   C.sumneko_lua = config({
     cmd = { '/usr/bin/lua-language-server', '-E' },
@@ -397,6 +410,12 @@ ifPresent('lspconfig', function(_)
 
   C.tflint = config()
 
+  C.taplo = config()
+
+  C.yamlls = config()
+
+  C.dockerls = config()
+
   -------------------------------------
   -- williamboman/nvim-lsp-installer --
   -------------------------------------
@@ -423,7 +442,7 @@ ifPresent('lsp_extensions', function(_)
   local extensions = '*.rs'
   augroup({
     {
-      'InsertLeave,BufEnter,BufWinEnter,TabEnter,BufWritePost',
+      'InsertLeave,BufWritePost',
       extensions,
       ':lua require("lsp_extensions").inlay_hints({ prefix = " » ", highlight = "Comment" })',
     },
@@ -438,6 +457,8 @@ ifPresent('telescope', function(telescope)
   map('n', '<Space>ff', ':Telescope find_files<CR>')
   map('n', '<Space>fg', ':Telescope live_grep<CR>')
   map('n', '<Space>fb', ':Telescope buffers<CR>')
+  map('n', '<Space>fc', ':lua require("eratio/telescope-helpers").current_buffer_fuzzy_find()<CR>')
+  map('n', '<Space>,', ':lua require("eratio/telescope-helpers").search_nvim_config()<CR>')
 
   -- git
   map('n', '<Space>fgs', ':Telescope git_status<CR>')
@@ -453,16 +474,26 @@ ifPresent('telescope', function(telescope)
   map('n', '<Space>bb', ':Telescope file_browser<CR>')
 
   -- list errors
-  map('n', 'gle', '<cmd>Telescope diagnostics<CR>')
+  map('n', '<Space>fe', '<cmd>Telescope diagnostics<CR>')
 
   telescope.setup({
+    defaults = {
+      -- setting here
+      prompt_prefix = '> ',
+      color_devicons = true,
+    },
+    pickers = {
+      find_files = {
+        theme = 'dropdown',
+      },
+    },
     extensions = {
       fzy_native = {
         override_generic_sorter = false,
         override_file_sorter = true,
       },
       file_browser = {
-        theme = 'ivy',
+        theme = 'dropdown',
         mappings = {
           ['i'] = {
             -- your custom insert mode mappings
@@ -472,11 +503,6 @@ ifPresent('telescope', function(telescope)
           },
         },
       },
-    },
-    defaults = {
-      -- setting here
-      prompt_prefix = '> ',
-      color_devicons = true,
     },
   })
 
@@ -666,8 +692,32 @@ end)
 ---------------------------
 -- mfussenegger/nvim-dap --
 ---------------------------
-ifPresent('dap', function(_)
+ifPresent('dap', function(dap)
   -- TODO: Properly setup DAP
+  map('n', '<F5>', ":lua require'dap'.continue()<CR>")
+  map('n', '<F3>', ":lua require'dap'.step_over()<CR>")
+  map('n', '<F2>', ":lua require'dap'.step_into()<CR>")
+  map('n', '<F12>', ":lua require'dap'.step_out()<CR>")
+  map('n', '<leader>b', ":lua require'dap'.toggle_breakpoint()<CR>")
+  map('n', '<leader>B', ":lua require'dap'.set_breakpoint(vim.fn.input('Breakpoint condition: '))<CR>")
+  map('n', '<leader>lp', ":lua require'dap'.set_breakpoint(nil, nil, vim.fn.input('Log point message: '))<CR>")
+  map('n', '<leader>dr', ":lua require'dap'.repl.open()<CR>")
+  map('n', '<leader>dt', ":lua require'dap-go'.debug_test()<CR>")
+
+  ifPresent('dapui', function(dapui)
+    dapui.setup()
+
+    -- auto open/close dapui
+    dap.listeners.after.event_initialized['dapui_config'] = function()
+      dapui.open()
+    end
+    dap.listeners.before.event_terminated['dapui_config'] = function()
+      dapui.close()
+    end
+    dap.listeners.before.event_exited['dapui_config'] = function()
+      dapui.close()
+    end
+  end)
 
   ifPresent('nvim-dap-virtual-text', function(dap_virtual_text)
     dap_virtual_text.setup()
@@ -692,6 +742,7 @@ ifPresent('nvim-treesitter.configs', function(nvim_treesitter)
       'vim',
       'rust',
       'hcl',
+      'toml',
     },
     highlight = {
       enable = true,

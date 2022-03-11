@@ -64,7 +64,7 @@ alias logoff="pkill -u $USER"
 export JAVA_HOME=~/.sdkman/candidates/java/current
 
 # Snap bin
-export PATH=/snap/bin:$PATH
+export PATH=/snap/bin:~/.cargo/bin:$PATH
 
 # Git helper
 remove_merged() {
@@ -78,7 +78,6 @@ remove_unmerged() {
 function config {
    /usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME $@
 }
-
 
 # Set default editor
 export EDITOR=nvim
@@ -96,6 +95,13 @@ alias ls="exa -lah"
 alias cat="bat"
 alias vim="nvim"
 alias code="vscodium"
+
+# Rust helpers
+new-sea-orm-migration () {
+  local migration_name=$1
+  local file_name=m"$(date +'%Y%m%d_%H%M%S')"_"$migration_name".rs
+  touch ./migration/src/"${file_name}"
+}
 
 # enable wayland support for firefox
 export MOZ_ENABLE_WAYLAND=1

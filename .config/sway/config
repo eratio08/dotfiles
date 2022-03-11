@@ -227,8 +227,8 @@ bindsym --to-code {
     --locked XF86MonBrightnessDown exec macbook-lighter-screen --dec 25
 
     # set brightness of external monitor, requires '/etc/modules-load.d/' to include 'i2c-dev'
-    --locked $mod+XF86MonBrightnessUp exec ddcutil --bus 4 setvcp 10 + 5
-    --locked $mod+XF86MonBrightnessDown exec ddcutil --bus 4 setvcp 10 - 5
+    --locked $mod+XF86MonBrightnessUp exec ddcutil --bus 4 setvcp 10 + 10
+    --locked $mod+XF86MonBrightnessDown exec ddcutil --bus 4 setvcp 10 - 10
 
     # bind keyboard back-light
     --locked XF86KbdBrightnessUp exec macbook-lighter-kbd --inc 25
@@ -282,6 +282,7 @@ output eDP-1 {
 # top-centered
 output HDMI-A-2 {
     mode 3840x2160@30Hz
+    # mode 1920x1080@60Hz
     position 0 0 
     background $bg1 fill $background
     scale 1
