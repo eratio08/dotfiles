@@ -97,6 +97,7 @@ ifPresent('packer', function(packer)
       use('nvim-telescope/telescope-fzy-native.nvim')
       use('nvim-telescope/telescope-file-browser.nvim')
       use('nvim-telescope/telescope-dap.nvim')
+      use('nvim-telescope/telescope-ui-select.nvim')
 
       -- Icons
       use('kyazdani42/nvim-web-devicons')
@@ -343,6 +344,7 @@ ifPresent('lspconfig', function(_)
     },
   })
 
+  -- Setup is done by rust-tools
   C.rust_analyzer = config({
     cmd = { 'rustup', 'run', 'nightly', 'rust-analyzer' },
     settings = {
@@ -503,6 +505,9 @@ ifPresent('telescope', function(telescope)
           },
         },
       },
+      ['ui-select'] = {
+        require('telescope.themes').get_dropdown({}),
+      },
     },
   })
 
@@ -513,6 +518,7 @@ ifPresent('telescope', function(telescope)
   telescope.load_extension('fzy_native')
   telescope.load_extension('file_browser')
   telescope.load_extension('dap')
+  telescope.load_extension('ui-select')
 end)
 
 ---------------------------
@@ -693,16 +699,19 @@ end)
 -- mfussenegger/nvim-dap --
 ---------------------------
 ifPresent('dap', function(dap)
-  -- TODO: Properly setup DAP
-  map('n', '<F5>', ":lua require'dap'.continue()<CR>")
-  map('n', '<F3>', ":lua require'dap'.step_over()<CR>")
-  map('n', '<F2>', ":lua require'dap'.step_into()<CR>")
-  map('n', '<F12>', ":lua require'dap'.step_out()<CR>")
-  map('n', '<leader>b', ":lua require'dap'.toggle_breakpoint()<CR>")
-  map('n', '<leader>B', ":lua require'dap'.set_breakpoint(vim.fn.input('Breakpoint condition: '))<CR>")
-  map('n', '<leader>lp', ":lua require'dap'.set_breakpoint(nil, nil, vim.fn.input('Log point message: '))<CR>")
-  map('n', '<leader>dr', ":lua require'dap'.repl.open()<CR>")
-  map('n', '<leader>dt', ":lua require'dap-go'.debug_test()<CR>")
+  map('n', '<F7>', ":lua require'dap'.step_out()<CR>")
+  map('n', '<F8>', ":lua require'dap'.continue()<CR>")
+  map('n', '<F9>', ":lua require'dap'.step_over()<CR>")
+  map('n', '<S-F9>', ":lua require'dap'.step_into()<CR>")
+  map('n', '<Space>b', ":lua require'dap'.toggle_breakpoint()<CR>")
+  map('n', '<Space>B', ":lua require'dap'.set_breakpoint(vim.fn.input('Breakpoint condition: '))<CR>")
+  map('n', '<Space>lp', ":lua require'dap'.set_breakpoint(nil, nil, vim.fn.input('Log point message: '))<CR>")
+  map('n', '<Space>dr', ":lua require'dap'.repl.open()<CR>")
+  map('n', '<Space>dl', ":lua require'dap'.run_last()<CR>")
+
+  vim.fn.sign_define('DapBreakpoint', { text = 'ß', texthl = '', linehl = '', numhl = '' })
+  vim.fn.sign_define('DapBreakpointCondition', { text = 'ü', texthl = '', linehl = '', numhl = '' })
+  vim.fn.sign_define('DapStopped', { text = 'ඞ', texthl = 'Error' })
 
   ifPresent('dapui', function(dapui)
     dapui.setup()
@@ -722,6 +731,34 @@ ifPresent('dap', function(dap)
   ifPresent('nvim-dap-virtual-text', function(dap_virtual_text)
     dap_virtual_text.setup()
   end)
+
+  dap.adapters.lldb = {
+    type = 'executable',
+    command = '/usr/bin/lldb-vscode',
+    name = 'lldb',
+  }
+
+  dap.configurations.rust = {
+    {
+      name = 'Launch',
+      type = 'lldb',
+      request = 'launch',
+      program = function()
+        return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+      end,
+      cwd = '${workspaceFolder}',
+      stopOnEntry = false,
+      args = {},
+      runInTerminal = false,
+    },
+    {
+      name = 'Attach to process',
+      type = 'lldb',
+      request = 'attach',
+      pid = require('dap.utils').pick_process,
+      args = {},
+    },
+  }
 end)
 
 -------------------------------------
@@ -752,12 +789,6 @@ ifPresent('nvim-treesitter.configs', function(nvim_treesitter)
     },
     incremental_selection = {
       enable = false,
-      -- keymaps = {
-      --   init_selection = "<Space>is",
-      --   node_incremental = "<Space>sn",
-      --   node_decremental = "<Space>snd",
-      --   scope_incremental = "<Space>ss",
-      -- },
     },
     textobjects = {
       enable = false,
@@ -775,8 +806,8 @@ ifPresent('nvim-treesitter.configs', function(nvim_treesitter)
   })
 
   -- enabled folding with treesitter
-  opt.foldmethod = 'expr'
-  opt.foldexpr = 'nvim_treesitter#foldexpr()'
+  -- opt.foldmethod = 'expr'
+  -- opt.foldexpr = 'nvim_treesitter#foldexpr()'
 
   --------------------------------
   -- lewis6991/spellsitter.nvim --
