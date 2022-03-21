@@ -82,6 +82,7 @@ ifPresent('packer', function(packer)
       use('hrsh7th/cmp-nvim-lsp')
       use('hrsh7th/cmp-nvim-lua')
       use('hrsh7th/cmp-buffer')
+      use('hrsh7th/cmp-git')
       -- use('hrsh7th/cmp-path')
       use('hrsh7th/cmp-cmdline')
       use('hrsh7th/cmp-emoji')
@@ -346,12 +347,16 @@ ifPresent('lspconfig', function(_)
 
   -- Setup is done by rust-tools
   C.rust_analyzer = config({
-    cmd = { 'rustup', 'run', 'nightly', 'rust-analyzer' },
+    -- cmd = { 'rustup', 'run', 'nightly', 'rust-analyzer' },
     settings = {
       ['rust-analyzer'] = {
         cargo = { autoreload = true },
         checkOnSave = {
           command = 'clippy',
+        },
+        assist = {
+          importGranularity = 'item',
+          allowMergingIntoGlobImports = false,
         },
       },
     },
@@ -496,14 +501,7 @@ ifPresent('telescope', function(telescope)
       },
       file_browser = {
         theme = 'dropdown',
-        mappings = {
-          ['i'] = {
-            -- your custom insert mode mappings
-          },
-          ['n'] = {
-            -- your custom normal mode mappings
-          },
-        },
+        path = '%:p:h',
       },
       ['ui-select'] = {
         require('telescope.themes').get_dropdown({}),
@@ -534,34 +532,6 @@ end)
 ifPresent('nvim-web-devicons', function(web_devicons)
   web_devicons.setup({
     default = true,
-  })
-end)
-
-----------------------
--- L3MON4D3/LuaSnip --
-----------------------
-ifPresent('luasnip.loaders.from_vscode', function(luasnip_loader)
-  ----------------------------------
-  -- rafamadriz/friendly-snippets --
-  ----------------------------------
-  local snippets_paths = function()
-    local plugins = { 'friendly-snippets' }
-    local paths = {}
-    local path
-    local root_path = pack_path .. ''
-    for _, plug in ipairs(plugins) do
-      path = root_path .. plug
-      if vim.fn.isdirectory(path) ~= 0 then
-        table.insert(paths, path)
-      end
-    end
-    return paths
-  end
-
-  luasnip_loader.lazy_load({
-    paths = snippets_paths(),
-    include = nil, -- Load all languages
-    exclude = {},
   })
 end)
 
@@ -603,95 +573,149 @@ end)
 -- hrsh7th/nvim-cmp --
 ----------------------
 ifPresent('cmp', function(cmp)
-  local luasnip = require('luasnip')
+  ----------------------
+  -- L3MON4D3/LuaSnip --
+  ----------------------
+  local has_words_before = function()
+    local line, col = unpack(vim.api.nvim_win_get_cursor(0))
+    return col ~= 0 and vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1]:sub(col, col):match('%s') == nil
+  end
 
-  cmp.setup({
-    snippet = {
-      expand = function(args)
-        luasnip.lsp_expand(args.body)
-      end,
-    },
-    mapping = {
-      ['<C-b>'] = cmp.mapping(cmp.mapping.scroll_docs(-4), { 'i', 'c' }),
-      ['<C-f>'] = cmp.mapping(cmp.mapping.scroll_docs(4), { 'i', 'c' }),
-      ['<C-Space>'] = cmp.mapping(cmp.mapping.complete(), { 'i', 'c' }),
-      ['<C-e>'] = cmp.mapping({
-        i = cmp.mapping.abort(),
-        c = cmp.mapping.close(),
-      }),
-      ['<CR>'] = cmp.mapping.confirm({
-        behavior = cmp.ConfirmBehavior.Replace,
-        select = true,
-      }),
-      ['<Tab>'] = function(fallback)
-        if cmp.visible() then
-          cmp.select_next_item()
-        elseif luasnip.expand_or_jumpable() then
-          luasnip.expand_or_jump()
-        else
-          fallback()
-        end
-      end,
-      ['<S-Tab>'] = function(fallback)
-        if cmp.visible() then
-          cmp.select_prev_item()
-        elseif luasnip.jumpable(-1) then
-          luasnip.jump(-1)
-        else
-          fallback()
-        end
-      end,
-    },
-    sources = cmp.config.sources({
-      { name = 'nvim_lua' },
-      { name = 'nvim_lsp' },
-      { name = 'luasnip' },
-    }, {
-      { name = 'emoji' },
-      { name = 'buffer', keyword_length = 5, max_item_count = 10 },
-    }),
-    experimental = {
-      native_menu = false,
-      ghost_text = true,
-    },
-  })
-
-  -- Bind sources to `/`.
-  cmp.setup.cmdline('/', {
-    sources = {
-      { name = 'buffer', max_item_count = 20 },
-      { name = 'path', max_item_count = 20 },
-    },
-  })
-
-  -- Bind sources to ':'.
-  cmp.setup.cmdline(':', {
-    sources = cmp.config.sources({
-      { name = 'path', max_item_count = 20 },
-    }, {
-      { name = 'cmdline' },
-    }),
-  })
-
-  --------------------------
-  -- onsails/lspkind-nvim --
-  --------------------------
-  ifPresent('lspkind', function(lspkind)
+  ifPresent('luasnip', function(luasnip)
     cmp.setup({
-      formatting = {
-        format = lspkind.cmp_format({
-          with_text = false,
-          maxwidth = 50,
-          menu = {
-            buffer = '[buf]',
-            nvim_lsp = '[LSP]',
-            nvim_lua = '[api]',
-            path = '[path]',
-            luasnip = '[snip]',
-          },
+      snippet = {
+        expand = function(args)
+          luasnip.lsp_expand(args.body)
+        end,
+      },
+      mapping = {
+        ['<C-b>'] = cmp.mapping(cmp.mapping.scroll_docs(-4), { 'i', 'c' }),
+        ['<C-f>'] = cmp.mapping(cmp.mapping.scroll_docs(4), { 'i', 'c' }),
+        ['<C-Space>'] = cmp.mapping(cmp.mapping.complete(), { 'i', 'c' }),
+        ['<C-y>'] = cmp.config.disable,
+        ['<C-e>'] = cmp.mapping({
+          i = cmp.mapping.abort(),
+          c = cmp.mapping.close(),
+        }),
+        ['<CR>'] = cmp.mapping.confirm({
+          -- behavior = cmp.ConfirmBehavior.Replace,
+          select = true,
+        }),
+        ['<Tab>'] = cmp.mapping(function(fallback)
+          if cmp.visible() then
+            cmp.select_next_item()
+          elseif luasnip.expand_or_jumpable() then
+            luasnip.expand_or_jump()
+          elseif has_words_before() then
+            cmp.complete()
+          else
+            fallback()
+          end
+        end, {
+          'i',
+          's',
+        }),
+
+        ['<S-Tab>'] = cmp.mapping(function(fallback)
+          if cmp.visible() then
+            cmp.select_prev_item()
+          elseif luasnip.jumpable(-1) then
+            luasnip.jump(-1)
+          else
+            fallback()
+          end
+        end, {
+          'i',
+          's',
         }),
       },
+      sources = cmp.config.sources({
+        { name = 'nvim_lsp' },
+        { name = 'luasnip' },
+        { name = 'nvim_lua' },
+      }, {
+        { name = 'emoji' },
+        { name = 'buffer', keyword_length = 3, max_item_count = 5 },
+      }),
+      -- view = {
+      --   entries = 'native',
+      -- },
+      experimental = {
+        ghost_text = true,
+      },
     })
+
+    -- Bind sources to `/`.
+    cmp.setup.cmdline('/', {
+      sources = {
+        { name = 'buffer', max_item_count = 20 },
+        { name = 'path', max_item_count = 20 },
+      },
+    })
+
+    -- Bind sources to ':'.
+    cmp.setup.cmdline(':', {
+      sources = cmp.config.sources({
+        { name = 'path', max_item_count = 20 },
+      }, {
+        { name = 'cmdline' },
+      }),
+    })
+
+    cmp.setup.filetype('gitcommit', {
+      sources = cmp.config.sources({
+        { name = 'emoji' },
+        { name = 'cmp_git' },
+      }, {
+        { name = 'buffer' },
+      }),
+    })
+
+    ifPresent('luasnip.loaders.from_vscode', function(luasnip_loader)
+      ----------------------------------
+      -- rafamadriz/friendly-snippets --
+      ----------------------------------
+      local snippets_paths = function()
+        local plugins = { 'friendly-snippets' }
+        local paths = {}
+        local path
+        local root_path = pack_path .. ''
+        for _, plug in ipairs(plugins) do
+          path = root_path .. plug
+          if vim.fn.isdirectory(path) ~= 0 then
+            table.insert(paths, path)
+          end
+        end
+        return paths
+      end
+
+      luasnip_loader.lazy_load({
+        paths = snippets_paths(),
+        include = nil, -- Load all languages
+        exclude = {},
+      })
+    end)
+
+    --------------------------
+    -- onsails/lspkind-nvim --
+    --------------------------
+    ifPresent('lspkind', function(lspkind)
+      cmp.setup({
+        formatting = {
+          format = lspkind.cmp_format({
+            with_text = false,
+            maxwidth = 50,
+            menu = {
+              buffer = '[buf]',
+              nvim_lsp = '[LSP]',
+              nvim_lua = '[api]',
+              path = '[path]',
+              luasnip = '[snip]',
+            },
+          }),
+        },
+      })
+    end)
   end)
 end)
 
