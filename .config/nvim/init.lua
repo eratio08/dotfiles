@@ -140,13 +140,11 @@ end)
 --------------
 -- Settings --
 --------------
-cmd([[syntax on]]) -- enabled syntax highlighting
 opt.tabstop = 2 -- set tab width to 2 spaces
 opt.softtabstop = 2 -- spaces inserted for a tab
 opt.shiftwidth = 2 -- indentation width to 2 spaces
 opt.expandtab = true -- replace tabs with spaces on insert
 opt.cmdheight = 1 -- height of the message line at the bottom
-opt.laststatus = 2 -- for lightline
 opt.updatetime = 50 -- time until vim updates the frame, time for combined commands
 opt.shortmess:append('c') -- don't give |ins-completion-menu| messages
 opt.signcolumn = 'yes' -- always show sign columns
@@ -195,6 +193,11 @@ opt.splitright = true -- split to the right
 opt.foldenable = false -- unfold all by default
 opt.shada = { '!', "'1000", '<50', 's10' } -- set shared data saving, global upper case variables, 1000 marks, 50 lines per register, max 10KiB
 opt.fixendofline = true
+
+--------------
+-- Commands --
+--------------
+cmd([[syntax on]]) -- enabled syntax highlighting
 
 --------------
 -- Mappings --
@@ -576,11 +579,6 @@ ifPresent('cmp', function(cmp)
   ----------------------
   -- L3MON4D3/LuaSnip --
   ----------------------
-  local has_words_before = function()
-    local line, col = unpack(vim.api.nvim_win_get_cursor(0))
-    return col ~= 0 and vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1]:sub(col, col):match('%s') == nil
-  end
-
   ifPresent('luasnip', function(luasnip)
     cmp.setup({
       snippet = {
@@ -602,9 +600,14 @@ ifPresent('cmp', function(cmp)
           select = true,
         }),
         ['<Tab>'] = cmp.mapping(function(fallback)
+          local has_words_before = function()
+            local line, col = unpack(vim.api.nvim_win_get_cursor(0))
+            return col ~= 0 and vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1]:sub(col, col):match('%s') == nil
+          end
+
           if cmp.visible() then
             cmp.select_next_item()
-          elseif luasnip.expand_or_jumpable() then
+          elseif luasnip.expand_or_locally_jumpable() then
             luasnip.expand_or_jump()
           elseif has_words_before() then
             cmp.complete()
@@ -615,7 +618,6 @@ ifPresent('cmp', function(cmp)
           'i',
           's',
         }),
-
         ['<S-Tab>'] = cmp.mapping(function(fallback)
           if cmp.visible() then
             cmp.select_prev_item()
@@ -867,3 +869,9 @@ g.test = tmp
 -- Stylua --
 ------------
 require('eratio.stylua')
+
+-------------------------------
+-- Enable global status line --
+-------------------------------
+opt.laststatus = 3 -- 3 mean global status lines
+cmd([[highlight WinSeparator guibg=None]])
