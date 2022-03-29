@@ -76,6 +76,7 @@ ifPresent('packer', function(packer)
       use('neovim/nvim-lspconfig')
       use('nvim-lua/lsp_extensions.nvim')
       use('williamboman/nvim-lsp-installer')
+      use('j-hui/fidget.nvim')
 
       -- Completion
       use('hrsh7th/nvim-cmp')
@@ -120,6 +121,9 @@ ifPresent('packer', function(packer)
       use('mfussenegger/nvim-dap')
       use('rcarriga/nvim-dap-ui')
       use('theHamsta/nvim-dap-virtual-text')
+
+      -- V Language
+      use({ 'tami5/vlang.nvim', requires = { 'cheap-glitch/vim-v', 'nvim-lua/plenary.nvim' } })
     end,
 
     -------------------
@@ -193,6 +197,7 @@ opt.splitright = true -- split to the right
 opt.foldenable = false -- unfold all by default
 opt.shada = { '!', "'1000", '<50', 's10' } -- set shared data saving, global upper case variables, 1000 marks, 50 lines per register, max 10KiB
 opt.fixendofline = true
+g.do_filetype_lua = 1
 
 --------------
 -- Commands --
@@ -253,7 +258,7 @@ end)
 ---------------------------
 -- neovim/nvim-lspconfig --
 ---------------------------
-ifPresent('lspconfig', function(_)
+ifPresent('lspconfig', function(lspconfig)
   local C = {}
 
   -- mappings
@@ -340,7 +345,7 @@ ifPresent('lspconfig', function(_)
     },
   })
 
-  C.kotlin_language_server = config({})
+  C.kotlin_language_server = config()
 
   C.elm = config({
     init_options = {
@@ -350,7 +355,6 @@ ifPresent('lspconfig', function(_)
 
   -- Setup is done by rust-tools
   C.rust_analyzer = config({
-    -- cmd = { 'rustup', 'run', 'nightly', 'rust-analyzer' },
     settings = {
       ['rust-analyzer'] = {
         cargo = { autoreload = true },
@@ -426,6 +430,15 @@ ifPresent('lspconfig', function(_)
 
   C.dockerls = config()
 
+  -- Not yet supported by nvim-lsp-installer
+  -- C.vls = config({
+  --   cmd = {vls_binary = '/usr/local/bin/vls'}
+  -- })
+
+  lspconfig.vls.setup(config({
+    cmd = { '/usr/local/bin/vls' },
+  }))
+
   -------------------------------------
   -- williamboman/nvim-lsp-installer --
   -------------------------------------
@@ -442,6 +455,14 @@ ifPresent('lspconfig', function(_)
 
       server:setup(opts)
     end)
+  end)
+
+  ifPresent('fidget', function(fidget)
+    fidget.setup({
+      text = {
+        spinner = 'moon',
+      },
+    })
   end)
 end)
 
@@ -494,6 +515,15 @@ ifPresent('telescope', function(telescope)
     },
     pickers = {
       find_files = {
+        theme = 'dropdown',
+      },
+      live_grep = {
+        theme = 'dropdown',
+      },
+      buffers = {
+        theme = 'dropdown',
+      },
+      diagnostics = {
         theme = 'dropdown',
       },
     },
