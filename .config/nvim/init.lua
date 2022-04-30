@@ -88,6 +88,7 @@ ifPresent('packer', function(packer)
       use('hrsh7th/cmp-cmdline')
       use('hrsh7th/cmp-emoji')
       use('onsails/lspkind-nvim')
+      use('ray-x/cmp-treesitter')
 
       -- Snippets
       use('L3MON4D3/LuaSnip')
@@ -100,6 +101,7 @@ ifPresent('packer', function(packer)
       use('nvim-telescope/telescope-file-browser.nvim')
       use('nvim-telescope/telescope-dap.nvim')
       use('nvim-telescope/telescope-ui-select.nvim')
+      use({ 'nvim-telescope/telescope-smart-history.nvim', requires = { 'tami5/sqlite.lua' } })
 
       -- Icons
       use('kyazdani42/nvim-web-devicons')
@@ -202,7 +204,7 @@ g.do_filetype_lua = 1
 --------------
 -- Commands --
 --------------
-cmd([[syntax on]]) -- enabled syntax highlighting
+-- cmd([[syntax on]]) -- enabled syntax highlighting
 
 --------------
 -- Mappings --
@@ -215,10 +217,8 @@ map('n', '<space>ew', ':e %%') -- edit in new window
 map('n', '<space>es', ':sp %%') -- edit in new split
 map('n', '<space>ev', ':vsp %%') -- edit in new vertical split
 map('n', '<space>et', ':tabe %%') -- edit in new tab
-map('n', '<space>wh', '<C-w>h') -- select left window
-map('n', '<space>wj', '<C-w>j') -- select down window
-map('n', '<space>wk', '<C-w>k') -- select up window
-map('n', '<space>wl', '<C-w>l') -- select right window
+map('n', '"*', ':call system("wl-copy", @")<CR>') -- copy to clipboard for wayland
+map('v', '"*', ':call system("wl-copy", @")<CR>') -- copy to clipboard for wayland
 
 -- move single line down
 map('n', '<A-j>', 'ddp')
@@ -282,7 +282,7 @@ ifPresent('lspconfig', function(lspconfig)
   map('n', '<space>wl', ':lua print(vim.inspect(vim.lsp.buf.list_workspace_folders()))<CR>')
 
   -- trigger formatting
-  map('n', '<space>ll', ':lua vim.lsp.buf.formatting()<CR>')
+  map('n', '<space>ll', ':lua vim.lsp.buf.formatting_sync(nil, 300)<CR>')
 
   -- use LSP formatting on save
   local exts = vim.tbl_foldr(
@@ -296,6 +296,7 @@ ifPresent('lspconfig', function(lspconfig)
       'js',
       'mjs',
       'ts',
+      'tsx',
       'kt',
       'java',
       'lua',
@@ -412,7 +413,39 @@ ifPresent('lspconfig', function(lspconfig)
     },
   })
 
-  C.tailwindcss = config()
+  C.tailwindcss = config({
+    init_options = {
+      userLanguages = {
+        elm = 'html',
+      },
+    },
+    filetypes = {
+      'elm',
+      'htm',
+      'javascript',
+      'typescript',
+      'css',
+      'vue',
+    },
+    settings = {
+      tailwindCSS = {
+        classAttributes = { 'class', 'className', 'classList', 'ngClass' },
+        lint = {
+          cssConflict = 'warning',
+          invalidApply = 'error',
+          invalidConfigPath = 'error',
+          invalidScreen = 'error',
+          invalidTailwindDirective = 'error',
+          invalidVariant = 'error',
+          recommendedVariantOrder = 'warning',
+        },
+        validate = true,
+        experimental = {
+          classRegex = { '\\bclass\\s+"([^"]*)"' },
+        },
+      },
+    },
+  })
 
   C.volar = config()
 
@@ -485,6 +518,7 @@ end)
 -----------------------------------
 ifPresent('telescope', function(telescope)
   -- find in files or buffer
+  map('n', '<Space>fr', ':Telescope resume<CR>')
   map('n', '<Space>ff', ':Telescope find_files<CR>')
   map('n', '<Space>fg', ':Telescope live_grep<CR>')
   map('n', '<Space>fb', ':Telescope buffers<CR>')
@@ -512,12 +546,17 @@ ifPresent('telescope', function(telescope)
       -- setting here
       prompt_prefix = '> ',
       color_devicons = true,
+      history = {
+        path = '~/.local/share/nvim/databases/telescope_history.sqlite3',
+        limit = 100,
+      },
     },
     pickers = {
       find_files = {
         theme = 'dropdown',
       },
       live_grep = {
+        prompt_title = 'Live Grep',
         theme = 'dropdown',
       },
       buffers = {
@@ -545,11 +584,12 @@ ifPresent('telescope', function(telescope)
   -- Load telescope helpers
   require('eratio.telescope-helpers')
 
-  -- load native fyz plugin
+  -- plugins
   telescope.load_extension('fzy_native')
   telescope.load_extension('file_browser')
   telescope.load_extension('dap')
   telescope.load_extension('ui-select')
+  telescope.load_extension('smart_history')
 end)
 
 ---------------------------
@@ -609,6 +649,11 @@ ifPresent('cmp', function(cmp)
   ----------------------
   -- L3MON4D3/LuaSnip --
   ----------------------
+  local has_words_before = function()
+    local line, col = unpack(vim.api.nvim_win_get_cursor(0))
+    return col ~= 0 and vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1]:sub(col, col):match('%s') == nil
+  end
+
   ifPresent('luasnip', function(luasnip)
     cmp.setup({
       snippet = {
@@ -616,28 +661,16 @@ ifPresent('cmp', function(cmp)
           luasnip.lsp_expand(args.body)
         end,
       },
-      mapping = {
-        ['<C-b>'] = cmp.mapping(cmp.mapping.scroll_docs(-4), { 'i', 'c' }),
-        ['<C-f>'] = cmp.mapping(cmp.mapping.scroll_docs(4), { 'i', 'c' }),
-        ['<C-Space>'] = cmp.mapping(cmp.mapping.complete(), { 'i', 'c' }),
-        ['<C-y>'] = cmp.config.disable,
-        ['<C-e>'] = cmp.mapping({
-          i = cmp.mapping.abort(),
-          c = cmp.mapping.close(),
-        }),
-        ['<CR>'] = cmp.mapping.confirm({
-          -- behavior = cmp.ConfirmBehavior.Replace,
-          select = true,
-        }),
+      mapping = cmp.mapping.preset.insert({
+        ['<C-b>'] = cmp.mapping.scroll_docs(-4),
+        ['<C-f>'] = cmp.mapping.scroll_docs(4),
+        ['<C-Space>'] = cmp.mapping.complete(),
+        ['<C-e>'] = cmp.mapping.abort(),
+        ['<CR>'] = cmp.mapping.confirm({ select = true }),
         ['<Tab>'] = cmp.mapping(function(fallback)
-          local has_words_before = function()
-            local line, col = unpack(vim.api.nvim_win_get_cursor(0))
-            return col ~= 0 and vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1]:sub(col, col):match('%s') == nil
-          end
-
           if cmp.visible() then
             cmp.select_next_item()
-          elseif luasnip.expand_or_locally_jumpable() then
+          elseif luasnip.expand_or_jumpable() then
             luasnip.expand_or_jump()
           elseif has_words_before() then
             cmp.complete()
@@ -660,14 +693,17 @@ ifPresent('cmp', function(cmp)
           'i',
           's',
         }),
-      },
+      }),
       sources = cmp.config.sources({
-        { name = 'nvim_lsp' },
         { name = 'luasnip' },
+      }, {
+        { name = 'treesitter' },
+        { name = 'nvim_lsp' },
+        { name = 'buffer', keyword_length = 3, max_item_count = 5 },
+      }, {
         { name = 'nvim_lua' },
       }, {
         { name = 'emoji' },
-        { name = 'buffer', keyword_length = 3, max_item_count = 5 },
       }),
       -- view = {
       --   entries = 'native',
@@ -679,17 +715,18 @@ ifPresent('cmp', function(cmp)
 
     -- Bind sources to `/`.
     cmp.setup.cmdline('/', {
-      sources = {
+      mapping = cmp.mapping.preset.cmdline(),
+      sources = cmp.config.sources({
         { name = 'buffer', max_item_count = 20 },
         { name = 'path', max_item_count = 20 },
-      },
+      }),
     })
 
     -- Bind sources to ':'.
     cmp.setup.cmdline(':', {
+      mapping = cmp.mapping.preset.cmdline(),
       sources = cmp.config.sources({
         { name = 'path', max_item_count = 20 },
-      }, {
         { name = 'cmdline' },
       }),
     })
@@ -698,7 +735,6 @@ ifPresent('cmp', function(cmp)
       sources = cmp.config.sources({
         { name = 'emoji' },
         { name = 'cmp_git' },
-      }, {
         { name = 'buffer' },
       }),
     })
@@ -735,14 +771,18 @@ ifPresent('cmp', function(cmp)
       cmp.setup({
         formatting = {
           format = lspkind.cmp_format({
-            with_text = false,
+            mode = 'symbol_text',
             maxwidth = 50,
             menu = {
-              buffer = '[buf]',
-              nvim_lsp = '[LSP]',
-              nvim_lua = '[api]',
-              path = '[path]',
-              luasnip = '[snip]',
+              buffer = '',
+              nvim_lsp = '',
+              nvim_lua = '',
+              path = '',
+              luasnip = '',
+              treesitter = '',
+              emoji = 'ﲃ',
+              cmp_git = '',
+              cmdline = '',
             },
           }),
         },
@@ -827,6 +867,7 @@ ifPresent('nvim-treesitter.configs', function(nvim_treesitter)
       'css',
       'javascript',
       'typescript',
+      'tsx',
       'json',
       'jsonc',
       'kotlin',
@@ -894,6 +935,11 @@ tmp.strategy = 'neovim'
 tmp.neovim = 'vertical'
 
 g.test = tmp
+
+-----------------------------
+-- lewis6991/gitsigns.nvim --
+-----------------------------
+require('gitsigns').setup()
 
 ------------
 -- Stylua --
