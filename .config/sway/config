@@ -12,6 +12,12 @@ input * {
     xkb_options caps:escape,compose:ralt
 }
 
+# Mouse
+input 5426:64:Razer_Razer_Naga_2014 {
+    pointer_accel -0.9
+    accel_profile "adaptive"
+}
+
 # Vars
 set $term alacritty
 set $bemenu bemenu \
@@ -274,16 +280,20 @@ bar {
 # swaymsg -t get_outputs
 output eDP-1 {
     mode 2560x1600@60Hz
-    position 640 2160
+    # position 640 2160
+    # position 0 1080
+    position 0 0
     background $bg1 fill $background
     scale 1
 }
 
 # top-centered
 output HDMI-A-2 {
-    mode 3840x2160@30Hz
-    # mode 1920x1080@60Hz
-    position 0 0 
+    # mode 3840x2160@60Hz
+    mode 1920x1080@60Hz
+    # mode 2560x1440@60Hz
+    # position 320 0 
+    position 2560 0
     background $bg1 fill $background
     scale 1
 }
