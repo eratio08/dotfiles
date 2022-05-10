@@ -278,24 +278,29 @@ bar {
 
 # Monitor Setup
 # swaymsg -t get_outputs
+# Horizontal Builtin
 output eDP-1 {
     mode 2560x1600@60Hz
-    # position 640 2160
-    # position 0 1080
-    position 0 0
+    position 0 480
     background $bg1 fill $background
     scale 1
 }
 
-# top-centered
-output HDMI-A-2 {
-    # mode 3840x2160@60Hz
-    mode 1920x1080@60Hz
-    # mode 2560x1440@60Hz
-    # position 320 0 
-    position 2560 0
+# Horizontal Center
+output HDMI-A-1 {
+    mode 2560x1440@60Hz
+    position 2560 704
     background $bg1 fill $background
     scale 1
+}
+
+# Vertical Left
+output HDMI-A-2 {
+    mode 2560x1440@60Hz
+    position 4608 0
+    background $bg1 fill $background
+    scale 1
+    transform 90
 }
 
 # xwayland disable
