@@ -279,7 +279,7 @@ bar {
 # Monitor Setup
 # swaymsg -t get_outputs
 # Horizontal Builtin
-output eDP-1 {
+output "Apple Computer Inc Color LCD 0x00000000" {
     mode 2560x1600@60Hz
     position 0 480
     background $bg1 fill $background
@@ -287,7 +287,7 @@ output eDP-1 {
 }
 
 # Horizontal Center
-output HDMI-A-1 {
+output "ViewSonic Corporation VP2785 SERIES V01173400162" {
     mode 2560x1440@60Hz
     position 2560 704
     background $bg1 fill $background
@@ -295,7 +295,7 @@ output HDMI-A-1 {
 }
 
 # Vertical Left
-output HDMI-A-2 {
+output "ViewSonic Corporation VX2785-2K VVH210201149" {
     mode 2560x1440@60Hz
     position 4608 0
     background $bg1 fill $background
