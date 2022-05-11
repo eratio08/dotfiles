@@ -301,6 +301,7 @@ output HDMI-A-2 {
     background $bg1 fill $background
     scale 1
     transform 90
+    adaptive_sync on
 }
 
 # xwayland disable
