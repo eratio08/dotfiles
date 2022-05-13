@@ -237,8 +237,8 @@ bindsym --to-code {
     --locked XF86MonBrightnessDown exec macbook-lighter-screen --dec 25
 
     # set brightness of external monitor, requires '/etc/modules-load.d/' to include 'i2c-dev'
-    --locked $mod+XF86MonBrightnessUp exec ddcutil --bus 4 setvcp 10 + 10 && ddcutil --bus 5 setvcp 10 + 10
-    --locked $mod+XF86MonBrightnessDown exec ddcutil --bus 4 setvcp 10 - 10 && ddcutil --bus 5 setvcp 10 - 10
+    --locked $mod+XF86MonBrightnessUp exec ddcutil --bus 8 setvcp 10 + 10 && ddcutil --bus 9 setvcp 10 + 10
+    --locked $mod+XF86MonBrightnessDown exec ddcutil --bus 8 setvcp 10 - 10 && ddcutil --bus 9 setvcp 10 - 10
 
     # bind keyboard back-light
     --locked XF86KbdBrightnessUp exec macbook-lighter-kbd --inc 25
