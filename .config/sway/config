@@ -18,6 +18,10 @@ input 5426:64:Razer_Razer_Naga_2014 {
     accel_profile "adaptive"
 }
 
+input 1133:45080:MX_Anywhere_2_Mouse {
+    pointer_accel 0.7
+}
+
 # Vars
 set $term alacritty
 set $bemenu bemenu \
@@ -281,7 +285,7 @@ bar {
 # Horizontal Builtin
 output "Apple Computer Inc Color LCD 0x00000000" {
     mode 2560x1600@60Hz
-    position 0 480
+    position 0 560
     background $bg1 fill $background
     scale 1
 }
@@ -289,7 +293,7 @@ output "Apple Computer Inc Color LCD 0x00000000" {
 # Horizontal Center
 output "ViewSonic Corporation VP2785 SERIES V01173400162" {
     mode 2560x1440@60Hz
-    position 2560 704
+    position 2560 640
     background $bg1 fill $background
     scale 1
 }
@@ -297,7 +301,7 @@ output "ViewSonic Corporation VP2785 SERIES V01173400162" {
 # Vertical Left
 output "ViewSonic Corporation VX2785-2K VVH210201149" {
     mode 2560x1440@60Hz
-    position 4608 0
+    position 5120 0
     background $bg1 fill $background
     scale 1
     transform 90
