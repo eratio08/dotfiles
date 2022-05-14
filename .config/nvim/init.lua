@@ -88,7 +88,7 @@ ifPresent('packer', function(packer)
       use('hrsh7th/cmp-cmdline')
       use('hrsh7th/cmp-emoji')
       use('onsails/lspkind-nvim')
-      use('ray-x/cmp-treesitter')
+      use({ 'ray-x/cmp-treesitter', after = 'nvim-cmp' })
 
       -- Snippets
       use('L3MON4D3/LuaSnip')
@@ -536,7 +536,7 @@ ifPresent('telescope', function(telescope)
   map('n', '<Space>fcm', ': Telescope commands<CR>')
 
   -- file browser
-  map('n', '<Space>bb', ':Telescope file_browser<CR>')
+  map('n', '<Space>bb', ':Telescope file_browser path=%:p:h<CR>')
 
   -- list errors
   map('n', '<Space>fe', '<cmd>Telescope diagnostics<CR>')
@@ -573,7 +573,6 @@ ifPresent('telescope', function(telescope)
       },
       file_browser = {
         theme = 'dropdown',
-        path = '%:p:h',
       },
       ['ui-select'] = {
         require('telescope.themes').get_dropdown({}),
@@ -649,12 +648,12 @@ ifPresent('cmp', function(cmp)
   ----------------------
   -- L3MON4D3/LuaSnip --
   ----------------------
-  local has_words_before = function()
-    local line, col = unpack(vim.api.nvim_win_get_cursor(0))
-    return col ~= 0 and vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1]:sub(col, col):match('%s') == nil
-  end
-
   ifPresent('luasnip', function(luasnip)
+    local has_words_before = function()
+      local line, col = unpack(vim.api.nvim_win_get_cursor(0))
+      return col ~= 0 and vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1]:sub(col, col):match('%s') == nil
+    end
+
     cmp.setup({
       snippet = {
         expand = function(args)
@@ -670,7 +669,7 @@ ifPresent('cmp', function(cmp)
         ['<Tab>'] = cmp.mapping(function(fallback)
           if cmp.visible() then
             cmp.select_next_item()
-          elseif luasnip.expand_or_jumpable() then
+          elseif luasnip.expand_or_locally_jumpable() then
             luasnip.expand_or_jump()
           elseif has_words_before() then
             cmp.complete()
@@ -695,19 +694,13 @@ ifPresent('cmp', function(cmp)
         }),
       }),
       sources = cmp.config.sources({
-        { name = 'luasnip' },
-      }, {
-        { name = 'treesitter' },
-        { name = 'nvim_lsp' },
-        { name = 'buffer', keyword_length = 3, max_item_count = 5 },
-      }, {
-        { name = 'nvim_lua' },
-      }, {
         { name = 'emoji' },
+        { name = 'nvim_lsp' },
+        { name = 'luasnip' },
+        { name = 'treesitter', keyword_length = 2 },
+        { name = 'buffer', keyword_length = 2 },
+        { name = 'nvim_lua' },
       }),
-      -- view = {
-      --   entries = 'native',
-      -- },
       experimental = {
         ghost_text = true,
       },
@@ -717,8 +710,8 @@ ifPresent('cmp', function(cmp)
     cmp.setup.cmdline('/', {
       mapping = cmp.mapping.preset.cmdline(),
       sources = cmp.config.sources({
-        { name = 'buffer', max_item_count = 20 },
         { name = 'path', max_item_count = 20 },
+        { name = 'buffer', max_item_count = 20 },
       }),
     })
 
@@ -726,8 +719,8 @@ ifPresent('cmp', function(cmp)
     cmp.setup.cmdline(':', {
       mapping = cmp.mapping.preset.cmdline(),
       sources = cmp.config.sources({
-        { name = 'path', max_item_count = 20 },
         { name = 'cmdline' },
+        { name = 'path', max_item_count = 20 },
       }),
     })
 
@@ -739,30 +732,26 @@ ifPresent('cmp', function(cmp)
       }),
     })
 
-    ifPresent('luasnip.loaders.from_vscode', function(luasnip_loader)
-      ----------------------------------
-      -- rafamadriz/friendly-snippets --
-      ----------------------------------
-      local snippets_paths = function()
-        local plugins = { 'friendly-snippets' }
-        local paths = {}
-        local path
-        local root_path = pack_path .. ''
-        for _, plug in ipairs(plugins) do
-          path = root_path .. plug
-          if vim.fn.isdirectory(path) ~= 0 then
-            table.insert(paths, path)
-          end
-        end
-        return paths
+    -- setup L3MON4D3/LuaSnip
+    local types = require('luasnip.util.types')
+    luasnip.config.set_config({
+      ext_opts = {
+        [types.choiceNode] = {
+          active = {
+            virt_text = { { 'ﲑ', 'Error' } },
+          },
+        },
+      },
+    })
+    vim.keymap.set({ 'i' }, '<C-l>', function()
+      if luasnip.choice_active() then
+        luasnip.change_choiche(1)
       end
-
-      luasnip_loader.lazy_load({
-        paths = snippets_paths(),
-        include = nil, -- Load all languages
-        exclude = {},
-      })
     end)
+
+    -- load vscode extension style snippets
+    -- currently: rafamadriz/friendly-snippets
+    require('luasnip.loaders.from_vscode').lazy_load()
 
     --------------------------
     -- onsails/lspkind-nvim --
