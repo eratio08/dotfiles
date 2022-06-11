@@ -52,7 +52,7 @@ ifPresent('packer', function(packer)
       use('nvim-lualine/lualine.nvim')
 
       -- Test runner
-      use('vim-test/vim-test')
+      use('klen/nvim-test')
 
       -- Editor config
       use('editorconfig/editorconfig-vim')
@@ -784,10 +784,10 @@ end)
 -- mfussenegger/nvim-dap --
 ---------------------------
 ifPresent('dap', function(dap)
-  map('n', '<F7>', ":lua require'dap'.step_out()<CR>")
-  map('n', '<F8>', ":lua require'dap'.continue()<CR>")
-  map('n', '<F9>', ":lua require'dap'.step_over()<CR>")
-  map('n', '<S-F9>', ":lua require'dap'.step_into()<CR>")
+  map('n', '<F8>', ":lua require'dap'.step_over()<CR>")
+  map('n', '<F7>', ":lua require'dap'.step_into()<CR>")
+  map('n', '<S-F7>', ":lua require'dap'.step_out()<CR>")
+  map('n', '<F9>', ":lua require'dap'.continue()<CR>")
   map('n', '<Space>b', ":lua require'dap'.toggle_breakpoint()<CR>")
   map('n', '<Space>B', ":lua require'dap'.set_breakpoint(vim.fn.input('Breakpoint condition: '))<CR>")
   map('n', '<Space>lp', ":lua require'dap'.set_breakpoint(nil, nil, vim.fn.input('Log point message: '))<CR>")
@@ -907,23 +907,29 @@ ifPresent('nvim-treesitter.configs', function(nvim_treesitter)
   end)
 end)
 
------------------------
--- vim-test/vim-test --
------------------------
-map('n', 'tt', ':TestNearest<CR>')
-map('n', 'tf', ':TestFile<CR>')
-map('n', 'ts', ':TestSuite<CR>')
-map('n', 't_', ':TestLast<CR>')
+--------------------
+-- klen/nvim-test --
+--------------------
+ifPresent('nvim-test', function(nvim_test)
+  map('n', 'tt', ':TestNearest<CR>')
+  map('n', 'tf', ':TestFile<CR>')
+  map('n', 'ts', ':TestSuite<CR>')
+  map('n', 't_', ':TestLast<CR>')
 
--- work around to set config
--- cmd('let g:test = {}')
-local tmp = g.test or {}
+  nvim_test.setup()
 
--- settings
-tmp.strategy = 'neovim'
-tmp.neovim = 'vertical'
-
-g.test = tmp
+  -- require('nvim-test.runners.vitest'):setup({
+  --   command = '~/node_modules/.bin/vitest',
+  --   args = {},
+  --   env = {},
+  --
+  --   file_pattern = '.*|(spec|test))\\.(js|jsx|coffee|ts|tsx)$',
+  --   ind_files = { '{name}.test.{ext}', '{name}.spec.{ext}' },
+  --
+  --   filename_modifier = nil,
+  --   working_directory = nil,
+  -- })
+end)
 
 -----------------------------
 -- lewis6991/gitsigns.nvim --

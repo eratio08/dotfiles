@@ -36,25 +36,31 @@ source $ZSH/oh-my-zsh.sh
 #################
 
 ## SSH Agent
-if [ -f ~/.ssh/agent.env ] ; then
-    . ~/.ssh/agent.env > /dev/null
-    if ! kill -0 $SSH_AGENT_PID > /dev/null 2>&1; then
-        echo "Stale agent file found. Spawning new agent… "
-        eval `ssh-agent | tee ~/.ssh/agent.env`
-        ssh-add
-    fi
-else
-    echo "Starting ssh-agent"
-    eval `ssh-agent | tee ~/.ssh/agent.env`
-    ssh-add
-fi
+load-ssh-agent() {
+  if [ -f ~/.ssh/agent.env ] ; then
+      . ~/.ssh/agent.env > /dev/null
+      if ! kill -0 $SSH_AGENT_PID > /dev/null 2>&1; then
+          echo "Stale agent file found. Spawning new agent… "
+          eval `ssh-agent | tee ~/.ssh/agent.env`
+          ssh-add
+      fi
+  else
+      echo "Starting ssh-agent"
+      eval `ssh-agent | tee ~/.ssh/agent.env`
+      ssh-add
+  fi
+}
+load-ssh-agent
 
 ## GPG Key for Git
-export GPG_TTY=$(tty)
-alias restart-gpg-agent="gpgconf --kill gpg-agent"
-reload-gpg() {
+kill-gpg-agent() {
+  echo "Killing GPG Agent..."
+  gpgconf --kill gpg-agent
+}
+load-gpg() {
   export GPG_TTY=$(tty)
 }
+load-gpg
 
 # Linux Helpers
 alias untar="tar -zxvf"
