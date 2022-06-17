@@ -6,6 +6,10 @@ local Path = requireIfPresent('plenary.path')
 local Job = requireIfPresent('plenary.job')
 local lspconfig_util = requireIfPresent('lspconfig.util')
 
+if lspconfig_util == nil then
+  return
+end
+
 if vim.fn.executable('stylua') == 0 and not Path and not Job and not lspconfig_util then
   return
 end
@@ -56,14 +60,14 @@ stylua.format = function(bufnr)
     return
   end
 
-    -- stylua: ignore
-    local j = Job:new{
-        "stylua",
-        "--config-path",
-        stylua_toml,
-        "-",
-        writer = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-    }
+  -- stylua: ignore
+  local j = Job:new {
+    "stylua",
+    "--config-path",
+    stylua_toml,
+    "-",
+    writer = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  }
 
   local output = j:sync()
 

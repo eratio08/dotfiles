@@ -25,15 +25,15 @@ end
 --------------------
 -- Install packer --
 --------------------
-local pack_path = vim.fn.stdpath('data') .. '/site/pack'
-local packer_path = pack_path .. '/packer/start/packer.nvim'
+local install_path = vim.fn.stdpath('data') .. '/site/pack/packer/start/packer.nvim'
 
-if vim.fn.empty(vim.fn.glob(packer_path)) > 0 then
-  vim.fn.execute('!git clone --depth=1 https://github.com/wbthomason/packer.nvim' .. packer_path)
+if vim.fn.empty(vim.fn.glob(install_path)) > 0 then
+  vim.fn.execute('!git clone --depth=1 https://github.com/wbthomason/packer.nvim' .. install_path)
 end
 
 -- Compile packer lazy loading script on save
-augroup({ { 'BufWritePost', 'init.lua', 'PackerCompile' } }, 'Packer')
+local packer_group = vim.api.nvim_create_augroup('Packer', { clear = true })
+vim.api.nvim_create_autocmd('BufWritePost', { command = 'PackerCompile', group = packer_group, pattern = 'init.lua' })
 
 ---------------------
 -- Install plugins --
@@ -101,7 +101,6 @@ ifPresent('packer', function(packer)
       use('nvim-telescope/telescope-file-browser.nvim')
       use('nvim-telescope/telescope-dap.nvim')
       use('nvim-telescope/telescope-ui-select.nvim')
-      use({ 'nvim-telescope/telescope-smart-history.nvim', requires = { 'tami5/sqlite.lua' } })
 
       -- Icons
       use('kyazdani42/nvim-web-devicons')
@@ -125,7 +124,7 @@ ifPresent('packer', function(packer)
       use('theHamsta/nvim-dap-virtual-text')
 
       -- V Language
-      use({ 'tami5/vlang.nvim', requires = { 'cheap-glitch/vim-v', 'nvim-lua/plenary.nvim' } })
+      -- use({ 'tami5/vlang.nvim', requires = { 'cheap-glitch/vim-v', 'nvim-lua/plenary.nvim' } })
     end,
 
     -------------------
@@ -151,14 +150,14 @@ opt.softtabstop = 2 -- spaces inserted for a tab
 opt.shiftwidth = 2 -- indentation width to 2 spaces
 opt.expandtab = true -- replace tabs with spaces on insert
 opt.cmdheight = 1 -- height of the message line at the bottom
-opt.updatetime = 50 -- time until vim updates the frame, time for combined commands
+opt.updatetime = 250 -- time until vim updates the frame, time for combined commands
 opt.shortmess:append('c') -- don't give |ins-completion-menu| messages
 opt.signcolumn = 'yes' -- always show sign columns
 opt.number = true -- show line numbers
 opt.relativenumber = true -- enable relative line numbers
 opt.swapfile = false -- disable swap files
 opt.backup = false -- no backup files
-opt.hlsearch = true -- highlight all search results
+opt.hlsearch = false -- highlight all search results
 opt.writebackup = false -- turn of backup when overwriting files
 opt.errorbells = false -- disable the error bells
 opt.wrap = false -- disable wrapping
@@ -205,6 +204,16 @@ g.do_filetype_lua = 1
 -- Commands --
 --------------
 -- cmd([[syntax on]]) -- enabled syntax highlighting
+
+-- Highlight on yank
+local highlight_group = vim.api.nvim_create_augroup('YankHighlight', { clear = true })
+vim.api.nvim_create_autocmd('TextYankPost', {
+  callback = function()
+    vim.highlight.on_yank()
+  end,
+  group = highlight_group,
+  pattern = '*',
+})
 
 --------------
 -- Mappings --
@@ -546,10 +555,6 @@ ifPresent('telescope', function(telescope)
       -- setting here
       prompt_prefix = '> ',
       color_devicons = true,
-      history = {
-        path = '~/.local/share/nvim/databases/telescope_history.sqlite3',
-        limit = 100,
-      },
     },
     pickers = {
       find_files = {
@@ -588,7 +593,6 @@ ifPresent('telescope', function(telescope)
   telescope.load_extension('file_browser')
   telescope.load_extension('dap')
   telescope.load_extension('ui-select')
-  telescope.load_extension('smart_history')
 end)
 
 ---------------------------
@@ -934,7 +938,28 @@ end)
 -----------------------------
 -- lewis6991/gitsigns.nvim --
 -----------------------------
-require('gitsigns').setup()
+ifPresent('gitsigns', function(gitsigns)
+  gitsigns.setup({
+    signs = {
+      add = { text = '+' },
+      change = { text = '~' },
+      delete = { text = '_' },
+      topdelete = { text = '‾' },
+      changedelete = { text = '~' },
+    },
+  })
+end)
+
+-----------------------------------------
+-- lukas-reineke/indent-blankline.nvim --
+-----------------------------------------
+-- Indent blankline
+ifPresent('indent_blankline', function(indent_blankline)
+  indent_blankline.setup({
+    char = '┊',
+    show_trailing_blankline_indent = false,
+  })
+end)
 
 ------------
 -- Stylua --
