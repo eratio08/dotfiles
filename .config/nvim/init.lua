@@ -286,6 +286,11 @@ end)
 -- neovim/nvim-lspconfig --
 ---------------------------
 ifPresent('lspconfig', function(lspconfig)
+
+  -- augroup for auto-formatting
+  local autoformat_group = vim.api.nvim_create_augroup('LspAutoFormat', { clear = true })
+
+  -- ON-ATTACH
   local on_attach = function(_, bufnr)
     local nmap = function(keys, func, desc)
       if desc then
@@ -328,6 +333,14 @@ ifPresent('lspconfig', function(lspconfig)
       vim.lsp.buf.format or vim.lsp.buf.formatting,
       { desc = 'Format current buffer with LSP' }
     )
+
+    -- Auto-format in save
+    vim.api.nvim_clear_autocmds({ group = autoformat_group, buffer = bufnr })
+    vim.api.nvim_create_autocmd('BufWritePre', {
+      group = autoformat_group,
+      buffer = bufnr,
+      callback = function() vim.lsp.buf.format({ bufnr = bufnr }) end
+    })
   end
 
   -- nvim-cmp supports additional completion capabilities
@@ -340,35 +353,6 @@ ifPresent('lspconfig', function(lspconfig)
       capabilities = capabilities,
     }, lspconfig.util.default_config
   )
-
-  -- use LSP formatting on save
-  local exts = utils.join_to_str({
-    'rs',
-    'elm',
-    'js',
-    'mjs',
-    'ts',
-    'tsx',
-    'kt',
-    'java',
-    'lua',
-    'html',
-    'vue',
-    'json',
-    'py',
-    'tf',
-    'toml',
-    'tml',
-    'yaml',
-    'yml',
-  }, '*.', ',', '')
-
-  local autoformat_group = vim.api.nvim_create_augroup('LspAutoFormat', { clear = true })
-  vim.api.nvim_create_autocmd('BufWritePre', {
-    command = 'lua vim.lsp.buf.format()',
-    group = autoformat_group,
-    pattern = exts,
-  })
 
   ------------------------------------------------
   -- custom configurations for language servers --
@@ -533,10 +517,12 @@ end)
 ----------------------------------
 -- nvim-lua/lsp_extensions.nvim --
 ----------------------------------
-ifPresent('lsp_extensions', function(_)
+ifPresent('lsp_extensions', function(lsp_extensions)
   local group = vim.api.nvim_create_augroup('RustInlayHint', { clear = true })
   vim.api.nvim_create_autocmd('InsertLeave,BufWritePost', {
-    command = ':lua require("lsp_extensions").inlay_hints({ prefix = " » ", highlight = "Comment" })',
+    callback = function()
+      lsp_extensions.inlay_hints({ prefix = ' » ', highlight = 'Comment' })
+    end,
     group = group,
     pattern = '*.rs',
   })
