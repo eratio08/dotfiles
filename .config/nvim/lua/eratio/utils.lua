@@ -42,4 +42,36 @@ M.ifPresent = function(moduleName, block)
   end
 end
 
+-- get keys of an object
+M.keys = function(tab)
+  local keyset = {}
+  local n = 0
+
+  for k, _ in pairs(tab) do
+    n = n + 1
+    keyset[n] = k
+  end
+
+  return keyset
+end
+
+-- foldr
+M.tbl_foldr = function(fn, initial, tbl)
+  local acc = vim.deepcopy(initial)
+
+  for _, entry in ipairs(tbl) do
+    acc = fn(entry, acc)
+  end
+  return acc
+end
+
+--
+M.join_to_str = function(tab, pre, post, init)
+  local str = M.tbl_foldr(function(s, acc)
+    return acc .. pre .. s .. post
+  end, init, tab)
+
+  return str
+end
+
 return M

@@ -255,11 +255,7 @@ bindsym --to-code {
     --locked XF86AudioPrev exec playerctl previous
     # XF86XK_Bluetooth  player controls
 
-    #interactive screenshot by pressing printscreen
-    # Print exec swayshot
-    # Mod1+Print exec swayshot window
-    # Shift+Print exec swayshot region
-
+    # Screenshots
     Ctrl+Shift+1 exec swayshot 
     Ctrl+Shift+2 exec swayshot window
     Ctrl+Shift+3 exec swayshot region
