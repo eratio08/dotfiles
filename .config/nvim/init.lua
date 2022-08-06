@@ -58,8 +58,9 @@ ifPresent('packer', function(packer)
 
       -- Language Server Protocol
       use('neovim/nvim-lspconfig')
+      use('williamboman/mason-lspconfig.nvim')
+      use('williamboman/mason.nvim')
       use('nvim-lua/lsp_extensions.nvim')
-      use('williamboman/nvim-lsp-installer')
       use('j-hui/fidget.nvim')
 
       -- Completion
@@ -109,6 +110,9 @@ ifPresent('packer', function(packer)
 
       -- V Language
       -- use({ 'tami5/vlang.nvim', requires = { 'cheap-glitch/vim-v', 'nvim-lua/plenary.nvim' } })
+
+      -- EdgeDB
+      use('edgedb/edgedb-vim')
 
       if is_bootstrap then
         require('packer').sync()
@@ -485,13 +489,20 @@ ifPresent('lspconfig', function(lspconfig)
     cmd = { '/usr/local/bin/vls' },
   }
 
-  -------------------------------------
-  -- williamboman/nvim-lsp-installer --
-  -------------------------------------
-  ifPresent('nvim-lsp-installer', function(lsp_installer)
-    local server_names = utils.keys(S)
-    lsp_installer.setup({
-      ensure_installed = server_names,
+  -----------------------------
+  -- williamboman/mason.nvim --
+  -----------------------------
+  ifPresent('mason', function(mason)
+    mason.setup()
+  end)
+
+  ---------------------------------------
+  -- williamboman/mason-lspconfig.nvim --
+  ---------------------------------------
+  ifPresent('mason-lspconfig', function(mason_lspconfig)
+    mason_lspconfig.setup({
+      ensure_installed = utils.keys(S),
+      automatic_installation = true
     })
   end)
 

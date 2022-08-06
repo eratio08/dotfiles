@@ -5,6 +5,7 @@
   // Choose the order of the modules
   "modules-left": [
     "tray",
+    /* "bluetooth", */
     "network",
     "sway/window"
   ],
@@ -83,8 +84,8 @@
     }
   },
   "tray": {
-    "icon-size": 24,
-    "spacing": 2
+    "icon-size": 18,
+    "spacing": 5
   },
   "clock": {
     "format": " {:%H:%M  %Y-%m-%d}",
@@ -173,5 +174,14 @@
       ]
     },
     "on-click": "pavucontrol"
+  },
+  "bluetooth": {
+    "format": "{icon}{num_connections}",
+    "format-off": "",
+    "format-disabled": "",
+    "format-on": "{num_connections}",
+    "format-connected": "",
+    "on-click": "blueman-manager",
+    "tooltip-format": "{status} {device_enumerate}",
   }
 }

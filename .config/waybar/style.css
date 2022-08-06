@@ -29,25 +29,38 @@ window#waybar {
 #clock,
 #battery {
   padding: 0 10px 0 10px;
-  margin: 0 0px 0 0px;
+  margin: 0;
+}
+
+#network,
+#bluetooth {
+  padding: 0;
+  margin: 0;
 }
 
 #tray {
-  padding: 0;
+  padding: 0 5px 0 10px;
   margin: 0;
+}
+
+#tray > .active {
+  color: #131d66;
+}
+
+#tray > .passive {
+  color: #131d66;
 }
 
 #cpu,
 #memory,
 #temperature,
 #backlight,
-#network,
 #pulseaudio,
 #custom-media,
 #mode,
 #idle_inhibitor {
   padding: 0 10px 0 10px;
-  margin: 0 0px 0 0px;
+  margin: 0;
 }
 
 #mode {

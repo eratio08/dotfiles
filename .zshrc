@@ -35,6 +35,8 @@ source $ZSH/oh-my-zsh.sh
 ## CUSTOM STUFF##
 #################
 
+fpath+=~/.zfunc
+
 ## SSH Agent
 load-ssh-agent() {
   if [ -f ~/.ssh/agent.env ] ; then
@@ -70,7 +72,7 @@ alias logoff="pkill -u $USER"
 export JAVA_HOME=~/.sdkman/candidates/java/current
 
 # Snap bin
-export PATH=/snap/bin:~/.cargo/bin:$PATH
+export PATH=/snap/bin:$PATH
 
 # Git helper
 remove_merged() {
@@ -108,6 +110,7 @@ new-sea-orm-migration () {
   local file_name=m"$(date +'%Y%m%d_%H%M%S')"_"$migration_name".rs
   touch ./migration/src/"${file_name}"
 }
+export PATH=~/.cargo/bin:$PATH
 
 # enable wayland support for firefox
 export MOZ_ENABLE_WAYLAND=1
