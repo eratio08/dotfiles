@@ -10,3 +10,6 @@
 	ff = only
 [init]
 	defaultBranch = main
+[core]
+	autocrlf = input
+	editor = /usr/local/bin/nvim
