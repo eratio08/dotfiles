@@ -5,11 +5,12 @@ input * {
     #xkb_layout de(mac_nodeadkeys)
     xkb_model macbook79
     middle_emulation enabled
-    click_method button_areas # none|button_areas|clickfinger
+    # none|button_areas|clickfinger
+    click_method button_areas 
     tap enabled
     # - rebind caps lock to escape for vim
     # - right alt is compose key
-    xkb_options caps:escape,compose:ralt
+    xkb_options caps:escape,compose:ralt 
 }
 
 # Mouse
@@ -20,6 +21,11 @@ input 5426:64:Razer_Razer_Naga_2014 {
 
 input 1133:45080:MX_Anywhere_2_Mouse {
     pointer_accel 0.7
+}
+
+input 273:6234:Aerox_9_WL_Mouse {
+    pointer_accel -0.3
+    accel_profile "flat"
 }
 
 # Vars
