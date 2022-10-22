@@ -39,6 +39,7 @@ fpath+=~/.zfunc
 
 ## SSH Agent
 load-ssh-agent() {
+  echo "Loading ssh agent..."
   if [ -f ~/.ssh/agent.env ] ; then
       . ~/.ssh/agent.env > /dev/null
       if ! kill -0 $SSH_AGENT_PID > /dev/null 2>&1; then
@@ -51,6 +52,7 @@ load-ssh-agent() {
       eval `ssh-agent | tee ~/.ssh/agent.env`
       ssh-add
   fi
+  echo "Done"
 }
 load-ssh-agent
 
@@ -130,9 +132,14 @@ export NVM_DIR="$HOME/.nvm"
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
+# Go
+export GOPATH=$HOME/go
+export PATH=$PATH:$GOPATH/bin
+
+# pnpm
+export PNPM_HOME="/home/el/.local/share/pnpm"
+export PATH="$PNPM_HOME:$PATH"
+
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
 [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
-
-export PNPM_HOME="/home/el/.local/share/pnpm"
-export PATH="$PNPM_HOME:$PATH"
