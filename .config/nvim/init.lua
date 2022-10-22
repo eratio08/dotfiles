@@ -11,13 +11,18 @@ local map       = vim.keymap.set
 --------------------
 -- Install packer --
 --------------------
-local install_path = vim.fn.stdpath('data') .. '/site/pack/packer/start/packer.nvim'
-local is_bootstrap = false
-if vim.fn.empty(vim.fn.glob(install_path)) > 0 then
-  is_bootstrap = true
-  vim.fn.execute('!git clone --depth=1 https://github.com/wbthomason/packer.nvim' .. install_path)
-  vim.cmd([[packadd packer.nvim]])
+local ensure_packer = function()
+  local fn = vim.fn
+  local install_path = fn.stdpath('data') .. '/site/pack/packer/start/packer.nvim'
+  if fn.empty(fn.glob(install_path)) > 0 then
+    fn.system({ 'git', 'clone', '--depth', '1', 'https://github.com/wbthomason/packer.nvim', install_path })
+    vim.cmd [[packadd packer.nvim]]
+    return true
+  end
+  return false
 end
+
+local packer_bootstrap = ensure_packer()
 
 ---------------------
 -- Install plugins --
@@ -114,7 +119,7 @@ ifPresent('packer', function(packer)
       -- EdgeDB
       use('edgedb/edgedb-vim')
 
-      if is_bootstrap then
+      if packer_bootstrap then
         require('packer').sync()
       end
     end,
@@ -197,7 +202,7 @@ opt.foldenable       = false -- unfold all by default
 opt.fixendofline     = true
 opt.mouse            = 'a' -- enable mouse support for all modes
 opt.completeopt      = { 'menuone', 'noselect' } -- show auto completion menu even for single item
-opt.shada            = { '!', "'1000", '<50', 's10' } -- set shared data saving, global upper case variables, 1000 marks, 50 lines per register, max 10KiB
+opt.shada            = { '!', "'100", '<50', 's10' } -- set shared data saving, global upper case variables, 1000 marks, 50 lines per register, max 10KiB
 g.do_filetype_lua    = 1
 vim.g.mapleader      = ' '
 vim.g.maplocalleader = ' '
@@ -348,7 +353,7 @@ ifPresent('lspconfig', function(lspconfig)
   end
 
   -- nvim-cmp supports additional completion capabilities
-  local capabilities = require('cmp_nvim_lsp').update_capabilities(vim.lsp.protocol.make_client_capabilities())
+  local capabilities = require('cmp_nvim_lsp').default_capabilities(vim.lsp.protocol.make_client_capabilities())
 
   -- set default configuration
   lspconfig.util.default_config = vim.tbl_extend(
@@ -488,6 +493,8 @@ ifPresent('lspconfig', function(lspconfig)
   S.vls = {
     cmd = { '/usr/local/bin/vls' },
   }
+  S.gopls = {}
+  S.golangci_lint_ls = {}
 
   -----------------------------
   -- williamboman/mason.nvim --
@@ -917,7 +924,10 @@ ifPresent('nvim-treesitter.configs', function(nvim_treesitter)
       'rust',
       'hcl',
       'toml',
+      'go',
+      'yaml',
     },
+    auto_install = true,
     highlight = {
       enable = true,
     },
