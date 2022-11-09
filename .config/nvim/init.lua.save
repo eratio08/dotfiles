@@ -31,45 +31,22 @@ ifPresent('packer', function(packer)
   local use = packer.use
   packer.startup({
     function()
-      -- Package manager
-      use('wbthomason/packer.nvim')
-
-      -- Theme
-      use('shaunsingh/nord.nvim')
-
-      -- Status bar
-      use('nvim-lualine/lualine.nvim')
-
-      -- Test runner
-      use('klen/nvim-test')
-
-      -- Editor config
-      use('editorconfig/editorconfig-vim')
-
-      -- Git integration
-      use('tpope/vim-fugitive')
-
-      -- Git markers in sign column
-      use({ 'lewis6991/gitsigns.nvim', requires = { 'nvim-lua/plenary.nvim' } })
-
-      -- GitHub integration
-      -- use('tpope/vim-rhubarb')
-
-      -- Commenting
-      use('numToStr/Comment.nvim')
-
-      -- ][ Movement helpers
-      use('tpope/vim-unimpaired')
-
-      -- Language Server Protocol
-      use('neovim/nvim-lspconfig')
-      use('williamboman/mason-lspconfig.nvim')
-      use('williamboman/mason.nvim')
+      use('wbthomason/packer.nvim') -- Package manager
+      use('shaunsingh/nord.nvim') -- Theme
+      use('nvim-lualine/lualine.nvim') -- Status bar
+      use('klen/nvim-test') -- Test runner
+      use('editorconfig/editorconfig-vim') -- Editor config
+      use('tpope/vim-fugitive') -- Git integration
+      use({ 'lewis6991/gitsigns.nvim', requires = { 'nvim-lua/plenary.nvim' } }) -- Git markers in sign column
+      -- use('tpope/vim-rhubarb')-- GitHub integration
+      use('numToStr/Comment.nvim') -- Commenting
+      use('tpope/vim-unimpaired') -- ][ Movement helpers
+      use('neovim/nvim-lspconfig') -- Language Server Protocol
+      use('williamboman/mason.nvim') -- LSP manager
+      use('williamboman/mason-lspconfig.nvim') -- lspconfig integration for mson
       use('nvim-lua/lsp_extensions.nvim')
-      use('j-hui/fidget.nvim')
-
-      -- Completion
-      use('hrsh7th/nvim-cmp')
+      use('j-hui/fidget.nvim') -- LSP fidget
+      use('hrsh7th/nvim-cmp') -- Completion
       use('hrsh7th/cmp-nvim-lsp')
       use('hrsh7th/cmp-nvim-lua')
       use('hrsh7th/cmp-buffer')
@@ -79,45 +56,26 @@ ifPresent('packer', function(packer)
       use('hrsh7th/cmp-emoji')
       use('onsails/lspkind-nvim')
       use({ 'ray-x/cmp-treesitter', after = 'nvim-cmp' })
-
-      -- Snippets
-      use('L3MON4D3/LuaSnip')
+      use('L3MON4D3/LuaSnip') -- Snippets
       use('saadparwaiz1/cmp_luasnip')
       use('rafamadriz/friendly-snippets')
-
-      -- Telescope
-      use({ 'nvim-telescope/telescope.nvim', requires = { 'nvim-lua/plenary.nvim' } })
+      use({ 'nvim-telescope/telescope.nvim', requires = { 'nvim-lua/plenary.nvim' } }) -- File search
       use('nvim-telescope/telescope-fzy-native.nvim')
       use('nvim-telescope/telescope-file-browser.nvim')
-      use('nvim-telescope/telescope-dap.nvim')
+      -- use('nvim-telescope/telescope-dap.nvim')
       use('nvim-telescope/telescope-ui-select.nvim')
-
-      -- Icons
-      use('kyazdani42/nvim-web-devicons')
-
-      -- Tree sitter
-      use({ 'nvim-treesitter/nvim-treesitter', run = ':TSUpdate' })
+      use('kyazdani42/nvim-web-devicons') -- Icons
+      use({ 'nvim-treesitter/nvim-treesitter', run = ':TSUpdate' }) -- Tree sitter
       use('nvim-treesitter/nvim-treesitter-textobjects')
       use('lewis6991/spellsitter.nvim')
-      use('p00f/nvim-ts-rainbow')
-      use('JoosepAlviste/nvim-ts-context-commentstring')
-
-      -- Automatic tags management
-      -- use('ludovicchabant/vim-gutentags')
-
-      -- Indentation guides
-      use('lukas-reineke/indent-blankline.nvim')
-
-      -- Debug Adapter Protocol
-      use('mfussenegger/nvim-dap')
-      use('rcarriga/nvim-dap-ui')
-      use('theHamsta/nvim-dap-virtual-text')
-
-      -- V Language
-      -- use({ 'tami5/vlang.nvim', requires = { 'cheap-glitch/vim-v', 'nvim-lua/plenary.nvim' } })
-
-      -- EdgeDB
-      use('edgedb/edgedb-vim')
+      use('p00f/nvim-ts-rainbow') -- rainbow coloring with tree sitter
+      use('JoosepAlviste/nvim-ts-context-commentstring') -- commenting with tree sitter
+      use('lukas-reineke/indent-blankline.nvim') -- Indentation guides
+      -- use('mfussenegger/nvim-dap')-- Debug Adapter Protocol
+      -- use('rcarriga/nvim-dap-ui')
+      -- use('theHamsta/nvim-dap-virtual-text')
+      -- use({ 'tami5/vlang.nvim', requires = { 'cheap-glitch/vim-v', 'nvim-lua/plenary.nvim' } })-- V Language
+      -- use('edgedb/edgedb-vim')-- EdgeDB
 
       if packer_bootstrap then
         require('packer').sync()
@@ -142,7 +100,7 @@ end)
 ----------------------------------
 -- Restart vim if bootstrapping --
 ----------------------------------
-if is_bootstrap then
+if packer_bootstrap then
   print('==================================')
   print('    Plugins are being installed')
   print('    Wait until Packer completes,')
@@ -339,7 +297,13 @@ ifPresent('lspconfig', function(lspconfig)
     vim.api.nvim_buf_create_user_command(
       bufnr,
       'Format',
-      vim.lsp.buf.format or vim.lsp.buf.formatting,
+      function(_)
+        if vim.lsp.buf.format then
+          vim.lsp.buf.format()
+        elseif vim.lsp.buf.formatting then
+          vim.lsp.buf.formatting()
+        end
+      end,
       { desc = 'Format current buffer with LSP' }
     )
 
@@ -485,7 +449,7 @@ ifPresent('lspconfig', function(lspconfig)
   S.volar = {}
   S.pyright = {}
   S.pylsp = {}
-  S.terraform_lsp = {}
+  -- S.terraform_lsp = {}
   S.tflint = {}
   S.taplo = {}
   S.yamlls = {}
@@ -509,7 +473,7 @@ ifPresent('lspconfig', function(lspconfig)
   ifPresent('mason-lspconfig', function(mason_lspconfig)
     mason_lspconfig.setup({
       ensure_installed = utils.keys(S),
-      automatic_installation = true
+      -- automatic_installation = true
     })
   end)
 
@@ -517,7 +481,14 @@ ifPresent('lspconfig', function(lspconfig)
   -- setup all servers --
   -----------------------
   for server, conf in pairs(S) do
-    lspconfig[server].setup(conf)
+    local merged_config = vim.tbl_extend(
+      'force', {
+        on_attach = on_attach,
+        capabilities = capabilities,
+      }, conf
+    )
+
+    lspconfig[server].setup(merged_config)
   end
 
   -----------------------
@@ -641,7 +612,7 @@ ifPresent('telescope', function(telescope)
   -- plugins
   telescope.load_extension('fzy_native')
   telescope.load_extension('file_browser')
-  telescope.load_extension('dap')
+  -- telescope.load_extension('dap')
   telescope.load_extension('ui-select')
 end)
 
@@ -710,7 +681,7 @@ ifPresent('cmp', function(cmp)
         end,
       },
       mapping = cmp.mapping.preset.insert({
-        ['<C-b>'] = cmp.mapping.scroll_docs(-4),
+        ['<C-d>'] = cmp.mapping.scroll_docs(-4),
         ['<C-f>'] = cmp.mapping.scroll_docs(4),
         ['<C-Space>'] = cmp.mapping.complete(),
         ['<CR>'] = cmp.mapping.confirm({
@@ -732,10 +703,7 @@ ifPresent('cmp', function(cmp)
           else
             fallback()
           end
-        end, {
-          'i',
-          's',
-        }),
+        end, { 'i', 's' }),
         ['<S-Tab>'] = cmp.mapping(function(fallback)
           if cmp.visible() then
             cmp.select_prev_item()
@@ -744,10 +712,7 @@ ifPresent('cmp', function(cmp)
           else
             fallback()
           end
-        end, {
-          'i',
-          's',
-        }),
+        end, { 'i', 's' }),
       }),
       sources = cmp.config.sources({
         { name = 'emoji' },
