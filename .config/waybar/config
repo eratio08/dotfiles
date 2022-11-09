@@ -5,7 +5,7 @@
   // Choose the order of the modules
   "modules-left": [
     "tray",
-    /* "bluetooth", */
+    "bluetooth",
     "network",
     "sway/window"
   ],
@@ -149,7 +149,7 @@
     "rotate": 1
   },
   "network": {
-    "format-wifi": "  {essid} {signalStrength}% | {bandwidthDownOctets}  {bandwidthUpOctets}  |",
+    "format-wifi": "  {essid} {signalStrength}% | {bandwidthDownOctets}   {bandwidthUpOctets} |",
     "format-ethernet": " {ifname}: {ipaddr}/{cidr}",
     "format-disconnected": "⚠ Disconnected",
     "interval": 3,
@@ -176,12 +176,15 @@
     "on-click": "pavucontrol"
   },
   "bluetooth": {
-    "format": "{icon}{num_connections}",
+    "format": "{icon}",
     "format-off": "",
     "format-disabled": "",
-    "format-on": "{num_connections}",
-    "format-connected": "",
-    "on-click": "blueman-manager",
-    "tooltip-format": "{status} {device_enumerate}",
+    "format-on": "",
+    "format-connected": " {num_connections}",
+    "on-click": "bluetoothctl power on",
+    "on-click-right": "bluetoothctl power off",
+    "tooltip-format": "{controller_alias}\t{controller_address}",
+    "tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{device_enumerate}",
+    "tooltip-format-enumerate-connected": "{device_alias}\t{device_address}"
   }
 }
