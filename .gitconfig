@@ -12,4 +12,5 @@
 	defaultBranch = main
 [core]
 	autocrlf = input
-	editor = /usr/local/bin/nvim
+	editor = /home/el/.local/bin/lvim
+
