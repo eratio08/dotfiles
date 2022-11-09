@@ -8,18 +8,20 @@ an executable
 ]]
 
 -- lvim settings
-lvim.log.level              = "warn"
-lvim.colorscheme            = "nord"
-lvim.transparent_window     = true
-lvim.leader                 = "space" -- keymappings [view all the defaults by pressing <leader>Lk]
+lvim.log.level          = "warn"
+lvim.colorscheme        = "nord"
+lvim.transparent_window = true
+lvim.leader             = "space" -- keymappings [view all the defaults by pressing <leader>Lk]
+lvim.format_on_save     = true
 
 -- nvim settings
 vim.opt.relativenumber = true -- relative line number
 vim.opt.spell          = false -- enable spellign
 vim.opt.expandtab      = true -- replace tabs with spaces on insert
 vim.opt.list           = true -- show invisible characters
-vim.opt.showmode = true
-vim.opt.showtabline = 0
+vim.opt.listchars      = 'tab:▸\\,space:·,eol:,trail:_'
+vim.opt.showmode       = false
+vim.opt.showtabline    = 0
 
 -- add your own keymapping
 -- lvim.keys.normal_mode["<C-s>"] = ":w<cr>"
@@ -67,6 +69,7 @@ lvim.builtin.alpha.mode                             = "dashboard"
 lvim.builtin.terminal.active                        = true
 lvim.builtin.nvimtree.setup.view.side               = "left"
 lvim.builtin.bufferline.active                      = false
+lvim.builtin.lualine.sections.lualine_c             = { { 'filename', path = 1 } }
 -- lvim.builtin.autopairs = false
 lvim.builtin.nvimtree.setup.renderer.icons.show.git = true
 lvim.builtin.treesitter.ensure_installed            = {
@@ -86,10 +89,25 @@ lvim.builtin.treesitter.ensure_installed            = {
 }
 
 -- generic LSP settings
+lvim.lsp.automatic_servers_installation = true
 lvim.lsp.installer.setup.ensure_installed = {
   "sumneko_lua",
+  "tsserver",
   "jsonls",
   "gopls",
+  "golangci_lint_ls",
+  "kotlin_language_server",
+  "rust_analyzer",
+  "eslint",
+  "tailwindcss",
+  "volar",
+  "pyright",
+  "pylsp",
+  "tflint",
+  "taplo",
+  "yamlls",
+  "dockerls",
+  "vls",
 }
 
 -- -- set a formatter, this will override the language server formatting capabilities (if it exists)
@@ -129,7 +147,19 @@ linters.setup {
 -- Additional Plugins
 lvim.plugins = {
   { "folke/trouble.nvim", cmd = "TroubleToggle" },
-  { 'christianchiarulli/nvcode-color-schemes.vim' }
+  { 'christianchiarulli/nvcode-color-schemes.vim' },
+  { 'tpope/vim-unimpaired' },
+  { 'TimUntersberger/neogit' }
+}
+
+lvim.builtin.which_key.mappings["t"] = {
+  name = "Diagnostics",
+  t = { "<cmd>TroubleToggle<cr>", "trouble" },
+  w = { "<cmd>TroubleToggle workspace_diagnostics<cr>", "workspace" },
+  d = { "<cmd>TroubleToggle document_diagnostics<cr>", "document" },
+  q = { "<cmd>TroubleToggle quickfix<cr>", "quickfix" },
+  l = { "<cmd>TroubleToggle loclist<cr>", "loclist" },
+  r = { "<cmd>TroubleToggle lsp_references<cr>", "references" },
 }
 
 -- Autocommands (https://neovim.io/doc/user/autocmd.html)
