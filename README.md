@@ -6,7 +6,7 @@ For a fresh install use the following commands
 ```shell
 alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 echo ".cfg" >> .gitignore
-git clone --bare git@github.com:eratio08/dotfiles.git $HOME/.cfg
+git clone --recurse-submodules --bare git@github.com:eratio08/dotfiles.git $HOME/.cfg
 config checkout
 ```
 
@@ -15,6 +15,12 @@ If some default config are in the way use
 mkdir -p .config-backup && \
 config checkout 2>&1 | egrep "\s+\." | awk {'print $1'} | \
 xargs -I{} mv {} .config-backup/{}
+```
+
+Initialize submodules if missed during checkout 
+```shell
+config submodule update --init --recursive
+# pull in submodules
 ```
 
 ---

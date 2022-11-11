@@ -155,7 +155,9 @@
     "interval": 3,
     "max-length": 50,
     "tooltip-format": "{ipaddr} | {netmask}/{cidr}",
-    "tooltip-format-wifi": "[{ifname}] {signaldBm}dBm | {frequency}GHz | {ipaddr} | {netmask}/{cidr}"
+    "tooltip-format-wifi": "[{ifname}] {signaldBm}dBm | {frequency}GHz | {ipaddr} | {netmask}/{cidr}",
+    "on-click": "nmcli radio wifi on",
+    "on-click-right": "nmcli radio wifi off"
   },
   "pulseaudio": {
     "format": "{icon} {volume}%",

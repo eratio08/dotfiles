@@ -121,8 +121,11 @@ export MOZ_ENABLE_WAYLAND=1
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
 # load work helpers
-SPA_HELPERS=./private-dotfiles/spa-helpers.sh
-[ -f "$SPA_HELPERS" ] && source "$SPA_HELPERS"
+SPA_HELPERS=~/private-dotfiles/spa-helpers.sh
+if [ -f "$SPA_HELPERS" ] ; then 
+  echo "Loading SPA helpers"
+  source "$SPA_HELPERS"
+fi
 
 # node version manager
 export NVM_DIR="$HOME/.nvm"

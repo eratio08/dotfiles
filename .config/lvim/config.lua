@@ -19,12 +19,19 @@ vim.opt.relativenumber = true -- relative line number
 vim.opt.spell          = false -- enable spellign
 vim.opt.expandtab      = true -- replace tabs with spaces on insert
 vim.opt.list           = true -- show invisible characters
-vim.opt.listchars      = 'tab:▸\\,space:·,eol:,trail:_'
+vim.opt.listchars      = 'tab:🢒🢒,space:·,eol:,trail:_'
 vim.opt.showmode       = false
 vim.opt.showtabline    = 0
+vim.opt.expandtab      = true -- convert tabs to spaces
+vim.opt.tabstop        = 2 -- set tab width to 2 spaces
+vim.opt.softtabstop    = 2 -- spaces inserted for a tab
+vim.opt.shiftwidth     = 2 -- indentation width to 2 spaces
+vim.opt.clipboard      = '' -- do not use unnamed register for clipboard
+vim.opt.smartindent    = true -- enable auto indentation on next line
 
 -- add your own keymapping
--- lvim.keys.normal_mode["<C-s>"] = ":w<cr>"
+lvim.keys.normal_mode['<space>s'] = '1z=' -- Replace spelling mistake with first match
+
 -- lvim.keys.normal_mode["<S-l>"] = ":BufferLineCycleNext<CR>"
 -- lvim.keys.normal_mode["<S-h>"] = ":BufferLineCyclePrev<CR>"
 -- unmap a default keymapping
@@ -69,7 +76,7 @@ lvim.builtin.alpha.mode                             = "dashboard"
 lvim.builtin.terminal.active                        = true
 lvim.builtin.nvimtree.setup.view.side               = "left"
 lvim.builtin.bufferline.active                      = false
-lvim.builtin.lualine.sections.lualine_c             = { { 'filename', path = 1 } }
+-- lvim.builtin.lualine.sections.lualine_c             = { { 'filename', path = 1 } }
 -- lvim.builtin.autopairs = false
 lvim.builtin.nvimtree.setup.renderer.icons.show.git = true
 lvim.builtin.treesitter.ensure_installed            = {
@@ -95,7 +102,7 @@ lvim.lsp.installer.setup.ensure_installed = {
   "tsserver",
   "jsonls",
   "gopls",
-  "golangci_lint_ls",
+  -- "golangci_lint_ls",
   "kotlin_language_server",
   "rust_analyzer",
   "eslint",
@@ -113,6 +120,7 @@ lvim.lsp.installer.setup.ensure_installed = {
 -- -- set a formatter, this will override the language server formatting capabilities (if it exists)
 local formatters = require "lvim.lsp.null-ls.formatters"
 formatters.setup {
+  { command = 'gofmt' },
   { command = "black", filetypes = { "python" } },
   { command = "isort", filetypes = { "python" } },
   {
@@ -129,6 +137,7 @@ formatters.setup {
 -- -- set additional linters
 local linters = require "lvim.lsp.null-ls.linters"
 linters.setup {
+  { command = 'golangci_lint' },
   { command = "flake8", filetypes = { "python" } },
   {
     -- each linter accepts a list of options identical to https://github.com/jose-elias-alvarez/null-ls.nvim/blob/main/doc/BUILTINS.md#Configuration
@@ -140,7 +149,7 @@ linters.setup {
   {
     command = "codespell",
     ---@usage specify which filetypes to enable. By default a providers will attach to all the filetypes it supports.
-    filetypes = { "javascript", "python" },
+    -- filetypes = { "javascript", "python" },
   },
 }
 
