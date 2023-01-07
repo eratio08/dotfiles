@@ -28,9 +28,19 @@ vim.opt.softtabstop    = 2 -- spaces inserted for a tab
 vim.opt.shiftwidth     = 2 -- indentation width to 2 spaces
 vim.opt.clipboard      = '' -- do not use unnamed register for clipboard
 vim.opt.smartindent    = true -- enable auto indentation on next line
+vim.opt.autochdir      = true
+vim.opt.hlsearch       = false
 
 -- add your own keymapping
-lvim.keys.normal_mode['<space>s'] = '1z=' -- Replace spelling mistake with first match
+-- lvim.keys.normal_mode['<space>s'] = '1z=' -- Replace spelling mistake with first match
+lvim.keys.normal_mode['<Up>'] = '<Nop>'
+lvim.keys.normal_mode['<Down>'] = '<Nop>'
+lvim.keys.normal_mode['<Left>'] = '<Nop>'
+lvim.keys.normal_mode['<Right>'] = '<Nop>'
+lvim.keys.insert_mode['<Up>'] = '<Nop>'
+lvim.keys.insert_mode['<Down>'] = '<Nop>'
+lvim.keys.insert_mode['<Left>'] = '<Nop>'
+lvim.keys.insert_mode['<Right>'] = '<Nop>'
 
 -- lvim.keys.normal_mode["<S-l>"] = ":BufferLineCycleNext<CR>"
 -- lvim.keys.normal_mode["<S-h>"] = ":BufferLineCyclePrev<CR>"
@@ -58,16 +68,16 @@ lvim.keys.normal_mode['<space>s'] = '1z=' -- Replace spelling mistake with first
 -- }
 
 -- Use which-key to add extra bindings with the leader-key prefix
--- lvim.builtin.which_key.mappings["P"] = { "<cmd>Telescope projects<CR>", "Projects" }
--- lvim.builtin.which_key.mappings["t"] = {
---   name = "+Trouble",
---   r = { "<cmd>Trouble lsp_references<cr>", "References" },
---   f = { "<cmd>Trouble lsp_definitions<cr>", "Definitions" },
---   d = { "<cmd>Trouble document_diagnostics<cr>", "Diagnostics" },
---   q = { "<cmd>Trouble quickfix<cr>", "QuickFix" },
---   l = { "<cmd>Trouble loclist<cr>", "LocationList" },
---   w = { "<cmd>Trouble workspace_diagnostics<cr>", "Workspace Diagnostics" },
--- }
+lvim.builtin.which_key.mappings["P"] = { "<cmd>Telescope projects<CR>", "Projects" }
+lvim.builtin.which_key.mappings["t"] = {
+  name = "+Trouble",
+  r = { "<cmd>Trouble lsp_references<cr>", "References" },
+  f = { "<cmd>Trouble lsp_definitions<cr>", "Definitions" },
+  d = { "<cmd>Trouble document_diagnostics<cr>", "Diagnostics" },
+  q = { "<cmd>Trouble quickfix<cr>", "QuickFix" },
+  l = { "<cmd>Trouble loclist<cr>", "LocationList" },
+  w = { "<cmd>Trouble workspace_diagnostics<cr>", "Workspace Diagnostics" },
+}
 
 -- User Config for predefined plugins
 -- After changing plugin config exit and reopen LunarVim, Run :PackerInstall :PackerCompile
@@ -158,7 +168,29 @@ lvim.plugins = {
   { "folke/trouble.nvim", cmd = "TroubleToggle" },
   { 'christianchiarulli/nvcode-color-schemes.vim' },
   { 'tpope/vim-unimpaired' },
-  { 'TimUntersberger/neogit' }
+  { 'TimUntersberger/neogit' },
+  {
+    "tpope/vim-fugitive",
+    cmd = {
+      "G",
+      "Git",
+      "Gdiffsplit",
+      "Gread",
+      "Gwrite",
+      "Ggrep",
+      "GMove",
+      "GDelete",
+      "GBrowse",
+      "GRemove",
+      "GRename",
+      "Glgrep",
+      "Gedit"
+    },
+    ft = { "fugitive" }
+  },
+  { "hrsh7th/cmp-emoji", config = function()
+    table.insert(lvim.builtin.cmp.sources, 1, { name = "emoji" })
+  end },
 }
 
 lvim.builtin.which_key.mappings["t"] = {
