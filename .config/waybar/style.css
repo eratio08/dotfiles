@@ -7,9 +7,9 @@
 }
 
 window#waybar {
-  background: rgba(46, 52, 64, 0.8);
-  border-bottom: 3px solid rgba(100, 114, 125, 0.8);
-  color: #d8dee9;
+  background: rgba(23, 21, 36, 0.8);
+  border-bottom: 3px solid rgba(68, 65, 90, 0.8);
+  color: #e0def4;
   transition-property: background, background-color;
   transition-duration: 0.5s;
 }
@@ -17,12 +17,12 @@ window#waybar {
 #workspaces button {
   padding: 0 5px;
   background: transparent;
-  color: #b0c4bb;
+  color: #e0def4;
   border-bottom: 3px solid transparent;
 }
 
 #workspaces button.focused {
-  background: #64727d;
+  background: #56526e;
   border-bottom: 3px solid white;
 }
 
@@ -44,11 +44,11 @@ window#waybar {
 }
 
 #tray > .active {
-  color: #131d66;
+  color: #56526e;
 }
 
 #tray > .passive {
-  color: #131d66;
+  color: #2a283e;
 }
 
 #cpu,
@@ -65,7 +65,7 @@ window#waybar {
 
 #mode {
   background: #64727d;
-  border-bottom: 3px solid white;
+  border-bottom: 3px solid #e0def4;
 }
 
 #memory.half,
@@ -79,42 +79,42 @@ window#waybar {
 }
 
 #clock {
-  background-color: #81a2be;
-  color: #2f2f38;
+  background-color: #2a273f;
+  color: #e0def4;
 }
 
 #battery {
-  background-color: #ffffff;
+  background-color: #e0def4;
   color: black;
 }
 
 #battery.charging {
-  color: white;
-  background-color: #26a65b;
+  color: #e0def4;
+  background-color: #9ccfd8;
 }
 
 #temperature.critical {
-  background: #f53c3c;
+  background: #eb6f92;
 }
 
 #idle_inhibitor.deactivated {
-  background: #64727d;
+  background: #6e6a86;
 }
 
 #pulseaudio.muted {
-  background: #64727d;
+  background: #6e6a86;
 }
 
 @keyframes blink {
   to {
-    background-color: #ffffff;
+    background-color: #e0def4;
     color: black;
   }
 }
 
 #battery.warning:not(.charging) {
-  background: #f53c3c;
-  color: white;
+  background: #eb6f92;
+  color: #e0def4;
   animation-name: blink;
   animation-duration: 0.5s;
   animation-timing-function: linear;

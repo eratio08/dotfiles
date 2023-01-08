@@ -43,7 +43,7 @@ set $bemenu bemenu \
     --nf="#b0c4bb" \
     --hb="#34343e" \
     --hf="#b0c4bb" \
-    --tb="#000" \
+    --tb="#232136" \
     --tf="#b0c4bb" \
     --fn="pango:Roboto 12"
 set $menu j4-dmenu-desktop \
@@ -76,11 +76,11 @@ exec mako
 exec redshift
 
 # Theme colors
-set $background     "#2f2f38"
-set $color1         "#61798e" 
-set $color12        "#81a2be"
-set $color4         "#688486"
-set $color8         "#b0c4bb"
+set $background     "#232136"
+set $color1         "#44415a" 
+set $color12        "#44415a"
+set $color4         "#2a283e"
+set $color8         "#44415a"
 
 # class                 border  backgr.     text    indicator   child_border
 client.focused          $color8 $background $color8 $color1     $color12
