@@ -38,14 +38,24 @@ set $bemenu bemenu \
     --prompt=run \
     --scrollbar=autohide \
     --wrap \
-    --scf="#b0c4bb" \
-    --nb="#000" \
-    --nf="#b0c4bb" \
-    --hb="#34343e" \
-    --hf="#b0c4bb" \
-    --tb="#232136" \
-    --tf="#b0c4bb" \
-    --fn="pango:Roboto 12"
+    --tb="#191724" \
+    --tf="#e0def4" \
+    --fb="#191724" \
+    --ff="#ebbcba" \
+    --nb="#191724" \
+    --nf="#e0def4" \
+    --hb="#26233a" \
+    --hf="#e0def4" \
+    --sb="#191724" \
+    --sf="#e0def4" \
+    --ab="#1f1d2e" \
+    --af="#e0def4" \
+    --fbb="#191724" \
+    --fbf="#e0def4" \
+    --scb="#191724" \
+    --scf="#ebbcba" \
+    --bdr="#191724" \
+    --fn="JetBrainsMono Nerd Font Mono 16"
 set $menu j4-dmenu-desktop \
     --dmenu='$bemenu' \
     --term='$term' \
@@ -80,15 +90,16 @@ set $background     "#232136"
 set $color1         "#44415a" 
 set $color12        "#44415a"
 set $color4         "#2a283e"
-set $color8         "#44415a"
+set $border         "#44415a"
+set $text           "#e0def4"
 
 # class                 border  backgr.     text    indicator   child_border
-client.focused          $color8 $background $color8 $color1     $color12
-client.focused_inactive $color8 $background $color8 $color4     $color4
-client.unfocused        $color8 $background $color8 $color4     $color4
-client.urgent           $color8 $background $color8 $color4     $color4
-client.placeholder      $color8 $background $color8 $color4     $color4
-client.background $background
+client.focused          $border $background $text   $color1     $color12
+client.focused_inactive $border $background $text   $color4     $color4
+client.unfocused        $border $background $text   $color4     $color4
+client.urgent           $border $background $text   $color4     $color4
+client.placeholder      $border $background $text   $color4     $color4
+client.background       $background
 
 # Gaps
 gaps inner 10

@@ -6,15 +6,15 @@ layer=top
 anchor=top-right
 
 # Style
-font=JetBrains Mono 12
-background-color=#2f2f38
-text-color=#b0c4bb
+font=JetBrains Nerd Font Mono 14
+background-color=#191724
+text-color=#ebbcba
 width=400
 height=300
 margin=5
 padding=20
 border-size=1
-border-color=#b0c4bb
+border-color=#ebbcba
 #border-radius=0.5
 #progress-color=over #5588AAFF
 icons=1

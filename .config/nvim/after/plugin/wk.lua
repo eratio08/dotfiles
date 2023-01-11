@@ -1,0 +1,29 @@
+local wk = require("which-key")
+
+wk.register({
+  ['<Up>'] = { '<Nop>', 'Unbind arrow up' },
+  ['<Down>'] = { '<Nop>', 'Unbind arrow down' },
+  ['<Right>'] = { '<Nop>', 'Unbind arrow right' },
+  ['<Left>'] = { '<Nop>', 'Unbind arrow left' },
+  ['<leader>'] = {
+    name = 'Leader',
+    p = {
+      name = 'Project',
+      v = { vim.cmd.Ex, 'View' }
+    },
+    u = { ':UndotreeToggle<CR>', 'Toggle Undotree' },
+    e = { ':NvimTreeToggle<CR>', 'Toggle NvimTree' },
+    s = { '1z=', 'Fix spelling' },
+    q = { vim.diagnostic.setloclist, 'Populate Quick fix list with diagnostics' },
+  },
+  ['<A-k>'] = { 'ddp', 'Move Line Up' },
+  ['<A-j>'] = { 'ddkP', 'Move Line Down' },
+  ['<Space>'] = { '<Nop>', 'Unbind Space', mode = { 'n', 'v' } },
+  k = { "v:count == 0 ? 'gk' : 'k'", 'Better up movement with wrapped words', expr = true },
+  j = { "v:count == 0 ? 'gj' : 'j'", 'Better down movement with wrapped words', expr = true },
+})
+
+wk.register({
+  ['<A-k>'] = { ":move '<-2<CR>gv=gv", 'Move Selection Up', mode = 'v' },
+  ['<A-j>'] = { ":move '>+1<CR>gv=gv", 'Move Selection Down', mode = 'v' },
+})

@@ -1,17 +1,8 @@
---[[
-lvim is the global options object
-
-Linters should be
-filled in as strings with either
-a global executable or a path to
-an executable
-]]
-
 -- lvim settings
 lvim.log.level          = "warn"
-lvim.colorscheme        = "nord"
+lvim.colorscheme        = "rose-pine"
 lvim.transparent_window = true
-lvim.leader             = "space" -- keymappings [view all the defaults by pressing <leader>Lk]
+lvim.leader             = "space"
 lvim.format_on_save     = true
 
 -- nvim settings
@@ -166,7 +157,7 @@ linters.setup {
 -- Additional Plugins
 lvim.plugins = {
   { "folke/trouble.nvim", cmd = "TroubleToggle" },
-  { 'christianchiarulli/nvcode-color-schemes.vim' },
+  -- { 'christianchiarulli/nvcode-color-schemes.vim' },
   { 'tpope/vim-unimpaired' },
   { 'TimUntersberger/neogit' },
   {
@@ -191,6 +182,7 @@ lvim.plugins = {
   { "hrsh7th/cmp-emoji", config = function()
     table.insert(lvim.builtin.cmp.sources, 1, { name = "emoji" })
   end },
+  { "rose-pine/neovim" },
 }
 
 lvim.builtin.which_key.mappings["t"] = {
@@ -213,7 +205,9 @@ lvim.builtin.which_key.mappings["t"] = {
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "zsh",
   callback = function()
-    -- let treesitter use bash highlight for zsh files as well
     require("nvim-treesitter.highlight").attach(0, "bash")
   end,
 })
+
+vim.api.nvim_set_hl(0, "Normal", { bg = "none" })
+vim.api.nvim_set_hl(0, "NormalFloat", { bg = "none" })
