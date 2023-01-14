@@ -9,17 +9,23 @@ lsp.ensure_installed({
   'rust_analyzer',
 })
 
+local luasnip = require("luasnip")
+local cmp = require("cmp")
+
+-- special handler for the case of navigation inside of a snipped
 local has_words_before = function()
   unpack = unpack or table.unpack
   local line, col = unpack(vim.api.nvim_win_get_cursor(0))
   return col ~= 0 and vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1]:sub(col, col):match("%s") == nil
 end
 
-local luasnip = require("luasnip")
-local cmp = require("cmp")
-
 lsp.setup_nvim_cmp({
   mapping = {
+    ['<C-Space>'] = cmp.mapping.complete(),
+    ['<CR>'] = cmp.mapping.confirm({
+      behavior = cmp.ConfirmBehavior.Replace,
+      select = true,
+    }),
     ["<Tab>"] = cmp.mapping(function(fallback)
       if cmp.visible() then
         cmp.select_next_item()
@@ -41,9 +47,14 @@ lsp.setup_nvim_cmp({
       end
     end, { "i", "s" }),
   },
-  select_behavior = 'select',
-  completion = {
-    completeopt = 'menu,menuone,noinsert'
+  sources = {
+    { name = 'emoji' },
+    { name = 'path' },
+    { name = 'nvim_lsp', keyword_length = 3 },
+    { name = 'treesitter', keyword_length = 3 },
+    { name = 'buffer', keyword_length = 3 },
+    { name = 'luasnip', keyword_length = 2 },
+    { name = 'nvim_lua', keyword_length = 2 },
   },
   formatting = {
     format = require('lspkind').cmp_format({
@@ -71,11 +82,13 @@ lsp.on_attach(function(client, bufnr)
       name = 'Go',
       d = { vim.lsp.buf.definition, "Definition" },
       i = { vim.lsp.buf.implementation, 'to Implementation' },
-      r = { require('telescope.builtin').lsp_references, 'Reference' },
+      r = { vim.lsp.buf.references, 'Reference' },
+      l = { vim.diagnostic.open_float, 'List of Diagnostics' },
+      t = { vim.lsp.buf.type_definition, 'Type Definition' },
     },
     ['<leader>l'] = {
       name = 'LSP',
-      r = { vim.lsp.buf.rename, 'Re-Name' },
+      r = { vim.lsp.buf.rename, 'Rename' },
       a = { vim.lsp.buf.code_action, 'Code Action' },
       l = { ':Format<CR>', 'Format Buffer' },
     },
@@ -114,3 +127,5 @@ lsp.on_attach(function(client, bufnr)
 end)
 
 lsp.setup()
+
+vim.diagnostic.config({ virtual_text = true })
