@@ -131,7 +131,7 @@ Test mako styling with
 notify-send 'Hello world!' 'This is an example notification.'
 ```
 
-### 💨 Fan Controll
+### 💨 Fan Control
 
 Use [mbpfan](https://github.com/linux-on-mac/mbpfan) as of 2020-05-30 only the repo version (self build) works
 
@@ -193,6 +193,14 @@ Disable it using:
 ```shell
 echo XHC1 > /proc/acpi/wakeup
 ```
+
+## Linux tools in Rust
+
+* `exa` instead of `ls`
+* `bat` instead of `cat`
+* `bottom` instead of `top`
+* `tokei` for source code statistics
+
 
 ---
 
