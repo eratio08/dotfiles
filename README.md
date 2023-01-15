@@ -1,27 +1,17 @@
 # 🔵 Dotfiles 
 
-This repo uses the ['bare repo' approach](https://www.atlassian.com/git/tutorials/dotfiles) to manage dotfiles.
+This repository uses `stow` to manage the dotfile.
+`stow` will manage the symbolic linking.
+For this reason each `package` has to contain the target directory structure.
 
-For a fresh install use the following commands
+To link a `package` run
+
 ```shell
-alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
-echo ".cfg" >> .gitignore
-git clone --recurse-submodules --bare git@github.com:eratio08/dotfiles.git $HOME/.cfg
-config checkout
+cd dotfiles
+stow nvim
 ```
 
-If some default config are in the way use
-```shell
-mkdir -p .config-backup && \
-config checkout 2>&1 | egrep "\s+\." | awk {'print $1'} | \
-xargs -I{} mv {} .config-backup/{}
-```
-
-Initialize submodules if missed during checkout 
-```shell
-config submodule update --init --recursive
-# pull in submodules
-```
+This will only work if `/dotfile` is located in `~/`. 
 
 ---
 
