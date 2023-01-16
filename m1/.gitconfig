@@ -1,0 +1,17 @@
+[user]
+	email = eike.lurz@tuta.io
+	name = Eike Lurz
+	signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILngTUBVvEkpcsoHSkT9sj+uvuBrUoQaz5n3jCt8alUj eike.lurz@tuta.io
+[push]
+	default = current
+[commit]
+	gpgsign = true
+[pull]
+	ff = only
+[init]
+	defaultBranch = main
+[core]
+	autocrlf = input
+	editor = nvim
+[gpg]
+	format = ssh
