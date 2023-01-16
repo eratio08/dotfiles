@@ -6,11 +6,14 @@ case $SETUP in
   "manjaro")
     STOWS=("nvim" "mako" "sway" "swaylock" "waybar" "tmux" "lvim" "manjaro")
     ;;
+  "asahi")
+    STOWS=("nvim" "mako" "sway" "swaylock" "waybar" "tmux" "lvim" "asahi")
+    ;;
   "spa")
     STOWS=("nvim" "tmux" "lvim" "spa")
     ;;
-  "asahi")
-    STOWS=("nvim" "mako" "sway" "swaylock" "waybar" "tmux" "lvim" "asahi")
+  "m1")
+    STOWS=("nvim" "tmux" "lvim" "m1")
     ;;
   *)
     print "Unknown setup"
