@@ -20,15 +20,25 @@ augroup end
 
 return require('packer').startup(function(use)
   use('wbthomason/packer.nvim')
-  use({ 'nvim-telescope/telescope.nvim', requires = { 'nvim-lua/plenary.nvim' } })
+  use({ 'nvim-telescope/telescope.nvim',
+    requires = {
+      { 'nvim-lua/plenary.nvim' },
+      { 'nvim-telescope/telescope-ui-select.nvim' },
+    }
+  })
+  use({ 'nvim-telescope/telescope-fzf-native.nvim', run = 'make' })
   use({ "folke/which-key.nvim" })
   use({ 'rose-pine/neovim', as = 'rose-pine',
     config = function()
       vim.cmd('colorscheme rose-pine')
     end
   })
-  use('nvim-treesitter/nvim-treesitter', { run = ':TSUpdate' })
-  use('JoosepAlviste/nvim-ts-context-commentstring')
+  use({ 'nvim-treesitter/nvim-treesitter',
+    run = ':TSUpdate',
+    requires = {
+      { 'JoosepAlviste/nvim-ts-context-commentstring' }
+    }
+  })
   use('lukas-reineke/indent-blankline.nvim')
   use('mbbill/undotree')
   use('tpope/vim-unimpaired')
@@ -51,6 +61,8 @@ return require('packer').startup(function(use)
       { 'hrsh7th/cmp-nvim-lua' },
       { 'hrsh7th/cmp-emoji' },
       { 'ray-x/cmp-treesitter' },
+      { 'onsails/lspkind-nvim' },
+      { 'hrsh7th/cmp-nvim-lsp-signature-help' },
 
       -- Snippets
       { 'L3MON4D3/LuaSnip' },
@@ -64,13 +76,12 @@ return require('packer').startup(function(use)
   use({ 'folke/trouble.nvim', requires = { 'kyazdani42/nvim-web-devicons' } })
   use({ 'folke/neodev.nvim' })
   use({ 'nvim-tree/nvim-tree.lua', requires = { 'nvim-tree/nvim-web-devicons' } })
-  use({ 'onsails/lspkind-nvim' })
   use({ 'lewis6991/gitsigns.nvim' })
   use({ 'folke/lsp-colors.nvim' })
   use({ 'akinsho/toggleterm.nvim' })
   use({ 'nvim-lualine/lualine.nvim', requires = { 'kyazdani42/nvim-web-devicons' } })
   use({ "windwp/nvim-autopairs" })
-  use { "b0o/schemastore.nvim" }
+  -- use { "b0o/schemastore.nvim" }
 
   if packer_bootstrap then
     require('packer').sync()

@@ -32,3 +32,39 @@ wk.register({
     }
   }
 })
+
+local telescope = require('telescope')
+telescope.setup({
+  defaults = {
+    prompt_prefix = '> ',
+    color_devicons = true,
+    mappings = {
+      i = {
+        ['<C-u>'] = false,
+        ['<C-d>'] = false,
+      },
+    },
+  },
+  pickers = {
+    buffers = {
+      theme = 'dropdown',
+    },
+    diagnostics = {
+      theme = 'dropdown',
+    },
+  },
+  extensions = {
+    fzf = {
+      fuzzy = true,
+      override_generic_sorter = true,
+      override_file_sorter = true,
+      case_mode = "smart_case",
+    },
+    ['ui-select'] = {
+      require('telescope.themes').get_dropdown(),
+    },
+  },
+})
+
+telescope.load_extension('ui-select')
+telescope.load_extension('fzf')

@@ -7,6 +7,7 @@ lsp.ensure_installed({
   'eslint',
   'sumneko_lua',
   'rust_analyzer',
+  'gopls',
 })
 
 local luasnip = require("luasnip")
@@ -48,13 +49,14 @@ lsp.setup_nvim_cmp({
     end, { "i", "s" }),
   },
   sources = {
+    { name = 'nvim_lsp' },
+    { name = 'nvim_lsp_signature_help' },
+    { name = 'path' },
+    { name = 'luasnip' },
+    { name = 'nvim_lua' },
+    { name = 'buffer' },
     { name = 'emoji' },
-    { name = 'nvim_lsp', keyword_length = 1 },
-    { name = 'treesitter', keyword_length = 1 },
-    { name = 'luasnip', keyword_length = 2 },
-    { name = 'nvim_lua', keyword_length = 2 },
-    { name = 'path', keyword_length = 1 },
-    { name = 'buffer', keyword_length = 3 },
+    { name = 'treesitter' },
   },
   formatting = {
     format = require('lspkind').cmp_format({
@@ -75,7 +77,7 @@ lsp.setup_nvim_cmp({
   },
 })
 
-lsp.on_attach(function(client, bufnr)
+lsp.on_attach(function(_, bufnr)
   local wk = require("which-key")
   wk.register({
     g = {
