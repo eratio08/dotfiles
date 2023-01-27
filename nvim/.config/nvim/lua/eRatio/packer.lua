@@ -82,6 +82,7 @@ return require('packer').startup(function(use)
   use({ 'nvim-lualine/lualine.nvim', requires = { 'kyazdani42/nvim-web-devicons' } })
   use({ "windwp/nvim-autopairs" })
   -- use { "b0o/schemastore.nvim" }
+  use({ 'toppair/peek.nvim', run = 'deno task --quiet build:fast' })
 
   if packer_bootstrap then
     require('packer').sync()
