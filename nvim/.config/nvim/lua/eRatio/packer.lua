@@ -83,6 +83,7 @@ return require('packer').startup(function(use)
   use({ "windwp/nvim-autopairs" })
   -- use { "b0o/schemastore.nvim" }
   use({ 'toppair/peek.nvim', run = 'deno task --quiet build:fast' })
+  use({ 'folke/zen-mode.nvim' })
 
   if packer_bootstrap then
     require('packer').sync()
