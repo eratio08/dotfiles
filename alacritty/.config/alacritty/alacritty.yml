@@ -7,11 +7,8 @@ window:
 
 font:
   normal:
-    family: "JetBrainsMono Nerd Font"
+    family: JetBrainsMono Nerd Font
   size: 15.0
-
-cursor:
-  style: Block
 
 shell:
  program: /bin/zsh
@@ -26,6 +23,8 @@ key_bindings:
 
 # Rose Pine
 colors:
+  cursor:
+    style: Block
   primary:
     background: "0x191724"
     foreground: "0xe0def4"
