@@ -1,0 +1,17 @@
+[user]
+	email = eike.lurz@sportalliance.com
+	name = Eike Lurz
+	signingkey = E39F9F504AA779DD
+[push]
+	default = current
+[commit]
+	gpgsign = true
+[tag]
+  gpgsign = true
+[pull]
+	ff = only
+[init]
+	defaultBranch = main
+[core]
+	autocrlf = input
+	editor = /Users/eikelurz/.local/bin/lvim 
