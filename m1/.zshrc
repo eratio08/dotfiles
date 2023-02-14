@@ -115,10 +115,9 @@ alias vim=nvim
 alias cat=bat
 alias ls="exa -la"
 alias tree="exa -T"
-alias cat=bat
 
 # to make mvnd work
-unalias mvnd
+# unalias mvnd
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
@@ -130,6 +129,16 @@ export NVM_DIR="$HOME/.nvm"
 
 # Podman
 export DOCKER_HOST=unix:///Users/el/.local/share/containers/podman/machine/podman-machine-default/podman.sock
+
+# Ruby
+export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
+export LDFLAGS="-L/opt/homebrew/opt/ruby/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/ruby/include"
+export PKG_CONFIG_PATH="/opt/homebrew/opt/ruby/lib/pkgconfig"
+
+# pnpm
+export PNPM_HOME="/Users/el/Library/pnpm"
+export PATH="$PNPM_HOME:$PATH"
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
