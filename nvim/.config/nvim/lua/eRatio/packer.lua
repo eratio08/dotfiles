@@ -20,7 +20,8 @@ augroup end
 
 return require('packer').startup(function(use)
   use('wbthomason/packer.nvim')
-  use({ 'nvim-telescope/telescope.nvim',
+  use({
+    'nvim-telescope/telescope.nvim',
     requires = {
       { 'nvim-lua/plenary.nvim' },
       { 'nvim-telescope/telescope-ui-select.nvim' },
@@ -28,18 +29,21 @@ return require('packer').startup(function(use)
   })
   use({ 'nvim-telescope/telescope-fzf-native.nvim', run = 'make' })
   use({ "folke/which-key.nvim" })
-  use({ 'rose-pine/neovim', as = 'rose-pine',
+  use({
+    'rose-pine/neovim',
+    as = 'rose-pine',
     config = function()
       vim.cmd('colorscheme rose-pine')
     end
   })
-  use({ 'nvim-treesitter/nvim-treesitter',
+  use({
+    'nvim-treesitter/nvim-treesitter',
     run = ':TSUpdate',
     requires = {
       { 'JoosepAlviste/nvim-ts-context-commentstring' }
     }
   })
-  use('lukas-reineke/indent-blankline.nvim')
+  -- use('lukas-reineke/indent-blankline.nvim')
   use('mbbill/undotree')
   use('tpope/vim-unimpaired')
   use('tpope/vim-fugitive')
@@ -84,6 +88,10 @@ return require('packer').startup(function(use)
   -- use { "b0o/schemastore.nvim" }
   use({ 'toppair/peek.nvim', run = 'deno task --quiet build:fast' })
   use({ 'folke/zen-mode.nvim' })
+  use({
+    "iamcco/markdown-preview.nvim",
+    run = function() vim.fn["mkdp#util#install"]() end,
+  })
 
   if packer_bootstrap then
     require('packer').sync()

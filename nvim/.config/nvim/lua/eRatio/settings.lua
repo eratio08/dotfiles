@@ -27,8 +27,8 @@ vim.opt.background     = 'dark' -- opt.background color brightness
 vim.opt.undofile       = true -- enable undo file
 vim.opt.scrolloff      = 10 --- opt.undo file location- add scroll offset
 vim.opt.colorcolumn    = { 80, 120 } -- vertical marker at column
-vim.opt.list           = false -- show invisible characters
-vim.opt.listchars      = 'tab:▸\\,space:·,eol:,trail:_'
+vim.opt.list           = true -- show invisible characters
+vim.opt.listchars      = 'tab:▹  ,space: ,multispace:· ,eol:,trail:_'
 vim.opt.guicursor      = '' -- disable cursor styles
 vim.opt.termguicolors  = true -- disable to prevent tmux overlay
 vim.opt.splitright     = true -- horizontal split windows to the right
@@ -44,6 +44,7 @@ vim.opt.path:append('**') -- enable vim-native fuzzy find
 vim.opt.isfname:append('@-@') -- how files names are displayed
 vim.opt.diffopt:append('vertical') -- diff windows split to vertical
 vim.opt.wildignore:append({
+
   '*.pyc',
   '*_build/*',
   '**/coverage/*',
@@ -62,5 +63,5 @@ vim.g.netrw_winsize       = 25 -- set initial windows size
 vim.g.netrw_altv          = 1 -- view on the left
 -- vim.g.netrw_localrndir = 'rm -r' -- set command used for directory rm
 
-vim.opt.laststatus = 3 -- 3 mean global status lines
+vim.opt.laststatus        = 3 -- 3 mean global status lines
 vim.cmd([[highlight WinSeparator guibg=None]])

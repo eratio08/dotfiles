@@ -15,6 +15,10 @@ wk.register({
     e = { ':NvimTreeToggle<CR>', 'Toggle NvimTree' },
     s = { '1z=', 'Fix spelling' },
     q = { vim.diagnostic.setloclist, 'Populate Quick fix list with diagnostics' },
+    m = {
+      v = { ':MarkdownPreviewToggle<CR>', 'Markdown Preview' },
+      s = { ':MarkdownPreviewStop<CR>', 'Markdown Stop Preview' },
+    }
   },
   ['<A-k>'] = { 'ddp', 'Move Line Up' },
   ['<A-j>'] = { 'ddkP', 'Move Line Down' },
