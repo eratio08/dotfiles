@@ -146,7 +146,11 @@ export PATH="$PNPM_HOME:$PATH"
 # local binaries
 export PATH=~/.local/bin:$PATH
  
+# for mvn daemon
 unalias mvnd
+
+# use pod man as docker runtime
+export DOCKER_HOST='unix:///Users/eikelurz/.local/share/containers/podman/machine/podman-machine-default/podman.sock'
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"

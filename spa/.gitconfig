@@ -1,7 +1,7 @@
 [user]
 	email = eike.lurz@sportalliance.com
 	name = Eike Lurz
-	signingkey = E39F9F504AA779DD
+	signingkey = ~/.ssh/id_rsa.pub
 [push]
 	default = current
 [commit]
@@ -14,4 +14,6 @@
 	defaultBranch = main
 [core]
 	autocrlf = input
-	editor = /Users/eikelurz/.local/bin/lvim 
+	editor = nvim
+[gpg]
+	format = ssh
