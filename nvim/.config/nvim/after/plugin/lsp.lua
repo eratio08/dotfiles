@@ -2,14 +2,6 @@ local lsp = require('lsp-zero')
 
 lsp.preset('recommended')
 
-lsp.ensure_installed({
-    'tsserver',
-    'eslint',
-    'lua_ls',
-    'rust_analyzer',
-    'gopls',
-})
-
 local luasnip = require("luasnip")
 local cmp = require("cmp")
 
@@ -21,110 +13,110 @@ local has_words_before = function()
 end
 
 lsp.setup_nvim_cmp({
-    mapping = {
-        ['<C-Space>'] = cmp.mapping.complete(),
-        ['<CR>'] = cmp.mapping.confirm({
-            behavior = cmp.ConfirmBehavior.Replace,
-            select = true,
-        }),
-        ["<Tab>"] = cmp.mapping(function(fallback)
-          if cmp.visible() then
-            cmp.select_next_item()
-          elseif luasnip.expand_or_jumpable() then
-            luasnip.expand_or_jump()
-          elseif has_words_before() then
-            cmp.complete()
-          else
-            fallback()
-          end
-        end, { "i", "s" }),
-        ["<S-Tab>"] = cmp.mapping(function(fallback)
-          if cmp.visible() then
-            cmp.select_prev_item()
-          elseif luasnip.jumpable( -1) then
-            luasnip.jump( -1)
-          else
-            fallback()
-          end
-        end, { "i", "s" }),
-    },
-    sources = {
-        { name = 'nvim_lsp' },
-        { name = 'nvim_lsp_signature_help' },
-        { name = 'path' },
-        { name = 'luasnip' },
-        { name = 'nvim_lua' },
-        { name = 'buffer' },
-        { name = 'emoji' },
-        { name = 'treesitter' },
-    },
-    formatting = {
-        format = require('lspkind').cmp_format({
-            mode = 'symbol_text',
-            maxwidth = 50,
-            menu = {
-                buffer = '',
-                nvim_lsp = '',
-                nvim_lua = '',
-                path = '',
-                luasnip = '',
-                treesitter = '',
-                emoji = 'ﲃ',
-                cmp_git = '',
-                cmdline = '',
-            },
-        }),
-    },
+  mapping = {
+    ['<C-Space>'] = cmp.mapping.complete(),
+    ['<CR>'] = cmp.mapping.confirm({
+      behavior = cmp.ConfirmBehavior.Replace,
+      select = true,
+    }),
+    ["<Tab>"] = cmp.mapping(function(fallback)
+      if cmp.visible() then
+        cmp.select_next_item()
+      elseif luasnip.expand_or_jumpable() then
+        luasnip.expand_or_jump()
+      elseif has_words_before() then
+        cmp.complete()
+      else
+        fallback()
+      end
+    end, { "i", "s" }),
+    ["<S-Tab>"] = cmp.mapping(function(fallback)
+      if cmp.visible() then
+        cmp.select_prev_item()
+      elseif luasnip.jumpable( -1) then
+        luasnip.jump( -1)
+      else
+        fallback()
+      end
+    end, { "i", "s" }),
+  },
+  sources = {
+    { name = 'nvim_lsp' },
+    { name = 'nvim_lsp_signature_help' },
+    { name = 'path' },
+    { name = 'luasnip' },
+    { name = 'nvim_lua' },
+    { name = 'buffer' },
+    { name = 'emoji' },
+    { name = 'treesitter' },
+  },
+  formatting = {
+    format = require('lspkind').cmp_format({
+      mode = 'symbol_text',
+      maxwidth = 50,
+      menu = {
+        buffer = '',
+        nvim_lsp = '',
+        nvim_lua = '',
+        path = '',
+        luasnip = '',
+        treesitter = '',
+        emoji = 'ﲃ',
+        cmp_git = '',
+        cmdline = '',
+      },
+    }),
+  },
 })
 
 lsp.on_attach(function(_, bufnr)
   local wk = require("which-key")
   wk.register({
-      g = {
-          name = 'Go',
-          d = { vim.lsp.buf.definition, "Definition" },
-          i = { vim.lsp.buf.implementation, 'to Implementation' },
-          r = { vim.lsp.buf.references, 'Reference' },
-          l = { vim.diagnostic.open_float, 'List of Diagnostics' },
-          t = { vim.lsp.buf.type_definition, 'Type Definition' },
-      },
-      ['<leader>l'] = {
-          name = 'LSP',
-          r = { vim.lsp.buf.rename, 'Rename' },
-          a = { vim.lsp.buf.code_action, 'Code Action' },
-          l = { ':Format<CR>', 'Format Buffer' },
-      },
-      K = { vim.lsp.buf.hover, 'Hover Documentation' },
-      ['<C-k>'] = { vim.lsp.buf.signature_help, 'Signature Documentation' },
-      ['['] = {
-          name = 'Next',
-          d = { vim.diagnostic.goto_next, 'Diagnostics' }
-      },
-      [']'] = {
-          name = 'Previous',
-          d = { vim.diagnostic.goto_prev, 'Diagnostics' }
-      },
+    g = {
+      name = 'Go',
+      d = { vim.lsp.buf.definition, "Definition" },
+      i = { vim.lsp.buf.implementation, 'to Implementation' },
+      r = { vim.lsp.buf.references, 'Reference' },
+      l = { vim.diagnostic.open_float, 'List of Diagnostics' },
+      t = { vim.lsp.buf.type_definition, 'Type Definition' },
+    },
+    ['<leader>l'] = {
+      name = 'LSP',
+      r = { vim.lsp.buf.rename, 'Rename' },
+      a = { vim.lsp.buf.code_action, 'Code Action' },
+      l = { ':Format<CR>', 'Format Buffer' },
+    },
+    K = { vim.lsp.buf.hover, 'Hover Documentation' },
+    ['<C-k>'] = { vim.lsp.buf.signature_help, 'Signature Documentation' },
+    ['['] = {
+      name = 'Next',
+      d = { vim.diagnostic.goto_next, 'Diagnostics' }
+    },
+    [']'] = {
+      name = 'Previous',
+      d = { vim.diagnostic.goto_prev, 'Diagnostics' }
+    },
   }, { buffer = bufnr })
 
   vim.api.nvim_buf_create_user_command(
-      bufnr,
-      'Format',
-      function(_)
-        if vim.lsp.buf.format then
-          vim.lsp.buf.format()
-        elseif vim.lsp.buf.formatting then
-          vim.lsp.buf.formatting()
-        end
-      end,
-      { desc = 'Format current buffer with LSP' }
+    bufnr,
+    'Format',
+    function(_)
+      if vim.lsp.buf.format then
+        vim.lsp.buf.format()
+      elseif vim.lsp.buf.formatting then
+        vim.lsp.buf.formatting()
+      end
+    end,
+    { desc = 'Format current buffer with LSP' }
   )
 
   -- Auto-format in save
   vim.api.nvim_clear_autocmds({ group = autoformat_group, buffer = bufnr })
   vim.api.nvim_create_autocmd('BufWritePre', {
-      group = autoformat_group,
-      buffer = bufnr,
-      callback = function() vim.lsp.buf.format({ bufnr = bufnr }) end
+    group = autoformat_group,
+    buffer = bufnr,
+    callback = function() vim.lsp.buf.format({ bufnr = bufnr }) end
   })
 end)
 
