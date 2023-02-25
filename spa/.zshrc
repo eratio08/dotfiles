@@ -56,7 +56,7 @@ alias fix-suspend="sudo echo XHC1 > /proc/acpi/wakeup"
 alias ls="exa -lah"
 alias cat="bat"
 alias vim="nvim"
-alias code="vscodium"
+alias code="codium"
 
 # Rust
 export PATH=~/.cargo/bin:$PATH
@@ -65,7 +65,7 @@ export PATH=~/.cargo/bin:$PATH
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
 # load work helpers
-SPA_HELPERS=~/private-dotfiles/spa-helpers.sh
+SPA_HELPERS=~/spa-helpers.sh
 if [ -f "$SPA_HELPERS" ]; then
   source "$SPA_HELPERS"
   echo "Loaded SPA Helpers"
