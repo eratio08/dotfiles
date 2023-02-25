@@ -23,11 +23,7 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    plugins=(git docker kubectl docker-compose aws mvn gradle terraform helm)
-else
-    plugins=(git archlinux sdk docker docker-compose rust)
-fi
+plugins=(git docker kubectl aws mvn gradle terraform helm)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -37,61 +33,17 @@ source $ZSH/oh-my-zsh.sh
 
 fpath+=~/.zfunc
 
-## SSH Agent
-load-ssh-agent() {
-  echo "Loading ssh agent..."
-  if [ -f ~/.ssh/agent.env ] ; then
-      . ~/.ssh/agent.env > /dev/null
-      if ! kill -0 $SSH_AGENT_PID > /dev/null 2>&1; then
-          echo "Stale agent file found. Spawning new agent… "
-          eval `ssh-agent | tee ~/.ssh/agent.env`
-          ssh-add
-      fi
-  else
-      echo "Starting ssh-agent"
-      eval `ssh-agent | tee ~/.ssh/agent.env`
-      ssh-add
-  fi
-  echo "Done"
-}
-load-ssh-agent
-
-## GPG Key for Git
-kill-gpg-agent() {
-  echo "Killing GPG Agent..."
-  gpgconf --kill gpg-agent
-}
-load-gpg() {
-  export GPG_TTY=$(tty)
-}
-load-gpg
-
-# JVM
-export JAVA_HOME=~/.sdkman/candidates/java/current
-
-# Snap bin
-export PATH=/snap/bin:$PATH
-
 # Git helper
-remove_merged() {
+clean_merged() {
     git branch --merged | grep -v "\*" | xargs -n 1 git branch -D
 }
 
-remove_unmerged() {
+clean_unmerged() {
     git branch --no-merged | grep -v "\*" | xargs -n 1 git branch -D
-}
-
-function config {
-   /usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME $@
 }
 
 # Set default editor
 export EDITOR=nvim
-
-# IntelliJ
-# export IDEA_JDK=/usr/lib/jvm/jetbrains-jre
-export _JAVA_AWT_WM_NONREPARENTING=1
-export GDK_BACKEND=wayland
 
 # Linux Helpers
 alias untar="tar -zxvf"
@@ -106,16 +58,8 @@ alias cat="bat"
 alias vim="nvim"
 alias code="vscodium"
 
-# Rust helpers
-new-sea-orm-migration () {
-  local migration_name=$1
-  local file_name=m"$(date +'%Y%m%d_%H%M%S')"_"$migration_name".rs
-  touch ./migration/src/"${file_name}"
-}
+# Rust
 export PATH=~/.cargo/bin:$PATH
-
-# enable wayland support for firefox
-export MOZ_ENABLE_WAYLAND=1
 
 # fzf support
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
@@ -132,9 +76,6 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-
 # Go
 export GOPATH=$HOME/go
 export PATH=$PATH:$GOPATH/bin
@@ -146,11 +87,14 @@ export PATH="$PNPM_HOME:$PATH"
 # local binaries
 export PATH=~/.local/bin:$PATH
  
-# for mvn daemon
+# for mvn daemon as it collides with zsh plugin
 unalias mvnd
 
 # use pod man as docker runtime
 export DOCKER_HOST='unix:///Users/eikelurz/.local/share/containers/podman/machine/podman-machine-default/podman.sock'
+
+# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
