@@ -128,7 +128,7 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
 
 # Podman
-export DOCKER_HOST=unix:///Users/el/.local/share/containers/podman/machine/podman-machine-default/podman.sock
+export DOCKER_HOST='unix:///Users/el/.local/share/containers/podman/machine/podman-machine-default/podman.sock'
 
 # Ruby
 export PATH="/opt/homebrew/opt/ruby/bin:$PATH"

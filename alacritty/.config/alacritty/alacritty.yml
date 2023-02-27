@@ -11,26 +11,48 @@ font:
   size: 15.0
 
 shell:
- program: /bin/zsh
- args:
-   - --login
+  program: /bin/zsh
+  args:
+    - --login
+
+bell:
+  command: None
 
 key_bindings:
-  - { key: PageUp,    mods: Shift,   action: ScrollPageUp,   mode: ~Alt       }
-  - { key: PageDown,  mods: Shift,   action: ScrollPageDown, mode: ~Alt       }
-  - { key: Home,      mods: Shift,   action: ScrollToTop,    mode: ~Alt       }
-  - { key: End,       mods: Shift,   action: ScrollToBottom, mode: ~Alt       }
+  - {
+      key: PageUp,
+      mods: Shift,
+      action: ScrollPageUp,
+      mode: ~Alt
+    }
+  - {
+      key: PageDown,
+      mods: Shift,
+      action: ScrollPageDown,
+      mode: ~Alt
+    }
+  - {
+      key: Home,
+      mods: Shift,
+      action: ScrollToTop,
+      mode: ~Alt
+    }
+  - {
+      key: End,
+      mods: Shift,
+      action: ScrollToBottom,
+      mode: ~Alt
+    }
 
 # Rose Pine
 colors:
-  cursor:
-    style: Block
   primary:
     background: "0x191724"
     foreground: "0xe0def4"
   cursor:
     text: "0xe0def4"
     cursor: "0x524f67"
+    style: Block
   vi_mode_cursor:
     text: "0xe0def4"
     cursor: "0x524f67"
