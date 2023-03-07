@@ -1,3 +1,5 @@
+vim.cmd('colorscheme rose-pine')
+
 vim.api.nvim_set_hl(0, "Normal", { bg = "none" })        -- make background transparent
 vim.api.nvim_set_hl(0, "NormalFloat", { bg = "none" })   -- make background transparent
 
