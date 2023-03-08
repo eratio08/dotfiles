@@ -73,8 +73,9 @@ fi
 
 # node version manager
 export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
+[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
+
 
 # Go
 export GOPATH=$HOME/go
@@ -91,10 +92,13 @@ export PATH=~/.local/bin:$PATH
 unalias mvnd
 
 # use pod man as docker runtime
-export DOCKER_HOST='unix:///Users/eikelurz/.local/share/containers/podman/machine/podman-machine-default/podman.sock'
+export DOCKER_HOST='unix:///Users/el/.local/share/containers/podman/machine/podman-machine-default/podman.sock'
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+
+# Use 1Password Agent
+export SSH_AUTH_SOCK=~/.1password/agent.sock
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"

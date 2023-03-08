@@ -1,0 +1,18 @@
+"" Fix repeated key issue of
+"" defaults write com.jetbrains.intellij ApplePressAndHoldEnabled -bool false
+
+"" Settings
+set scrolloff=5
+set visualbell
+set noerrorbells
+set incsearch
+
+"" Plugins
+Plug 'tpope/vim-commentary'
+
+"" Mappings
+map Q gq
+
+"" Docs
+" Map IDE actions to IdeaVim:  https://jb.gg/abva4t
+" Find more examples here: https://jb.gg/share-ideavimrc
