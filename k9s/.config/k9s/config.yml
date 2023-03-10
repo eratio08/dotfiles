@@ -1,25 +1,28 @@
 k9s:
   refreshRate: 2
   maxConnRetry: 5
-  enableMouse: false
+  enableMouse: true
   headless: false
   logoless: false
   crumbsless: false
   readOnly: false
+  noExitOnCtrlC: false
   noIcons: false
+  skipLatestRevCheck: false
   logger:
-    tail: 100
-    buffer: 5000
+    tail: 200
+    buffer: 500
     sinceSeconds: 300
     fullScreenLogs: false
     textWrap: false
     showTime: false
-  currentContext: finion-eks-v2-sso
-  currentCluster: finion-eks-v2-cluster-sso
+  currentContext: finion-dev
+  currentCluster: arn:aws:eks:eu-central-1:119920258390:cluster/finion-dev-cluster
   clusters:
     arn:aws:eks:eu-central-1:119920258390:cluster/finion-dev-cluster:
       namespace:
-        active: default
+        active: all
+        lockFavorites: false
         favorites:
         - fi-dev
         - fi-testing
@@ -36,10 +39,12 @@ k9s:
         limits:
           cpu: 100m
           memory: 100Mi
+        labels: {}
       portForwardAddress: localhost
-    finion-eks-v2-cluster-sso:
+    arn:aws:eks:eu-central-1:124256140892:cluster/finion-eks-v2-cluster:
       namespace:
         active: fi-prod
+        lockFavorites: false
         favorites:
         - fi-prod
       view:
@@ -54,6 +59,7 @@ k9s:
         limits:
           cpu: 100m
           memory: 100Mi
+        labels: {}
       portForwardAddress: localhost
   thresholds:
     cpu:
@@ -62,3 +68,4 @@ k9s:
     memory:
       critical: 90
       warn: 70
+  screenDumpDir: /var/folders/4p/r2tgxjz950x175s_8pyzskch0000gn/T/k9s-screens-el

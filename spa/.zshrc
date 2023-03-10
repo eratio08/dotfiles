@@ -42,6 +42,9 @@ clean_unmerged() {
     git branch --no-merged | grep -v "\*" | xargs -n 1 git branch -D
 }
 
+# Tell macOS about XDG_CONFIG_HOME
+export XDG_CONFIG_HOME=~/.config/
+
 # Set default editor
 export EDITOR=nvim
 
