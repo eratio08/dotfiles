@@ -24,11 +24,13 @@ k9s:
         active: all
         lockFavorites: false
         favorites:
+        - default
+        - monitoring
         - fi-dev
         - fi-testing
         - all
       view:
-        active: pod
+        active: node
       featureGates:
         nodeShell: false
       shellPod:
@@ -43,12 +45,14 @@ k9s:
       portForwardAddress: localhost
     arn:aws:eks:eu-central-1:124256140892:cluster/finion-eks-v2-cluster:
       namespace:
-        active: fi-prod
+        active: all
         lockFavorites: false
         favorites:
+        - monitoring
+        - default
         - fi-prod
       view:
-        active: deploy
+        active: pod
       featureGates:
         nodeShell: false
       shellPod:
