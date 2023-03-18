@@ -33,8 +33,8 @@ lsp.setup_nvim_cmp({
     ["<S-Tab>"] = cmp.mapping(function(fallback)
       if cmp.visible() then
         cmp.select_prev_item()
-      elseif luasnip.jumpable( -1) then
-        luasnip.jump( -1)
+      elseif luasnip.jumpable(-1) then
+        luasnip.jump(-1)
       else
         fallback()
       end
@@ -121,5 +121,3 @@ lsp.on_attach(function(_, bufnr)
 end)
 
 lsp.setup()
-
-vim.diagnostic.config({ virtual_text = true })

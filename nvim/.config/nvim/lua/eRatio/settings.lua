@@ -44,7 +44,6 @@ vim.opt.path:append('**')                                  -- enable vim-native 
 vim.opt.isfname:append('@-@')                              -- how files names are displayed
 vim.opt.diffopt:append('vertical')                         -- diff windows split to vertical
 vim.opt.wildignore:append({
-
   '*.pyc',
   '*_build/*',
   '**/coverage/*',
@@ -64,3 +63,4 @@ vim.g.netrw_altv          = 1  -- view on the left
 -- vim.g.netrw_localrndir = 'rm -r' -- set command used for directory rm
 
 vim.opt.laststatus        = 3 -- 3 mean global status lines
+vim.diagnostic.config({ virtual_text = true })
