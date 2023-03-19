@@ -1,1 +1,1 @@
-require("eRatio")
+require('eRatio')

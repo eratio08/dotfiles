@@ -1,21 +1,18 @@
-local fidget = require("fidget")
+local fidget = require('fidget')
 
 fidget.setup({
   text = {
     spinner = 'moon',
-    done = "✔",
-    commended = "🤖",
-    completed = "✔",
+    done = '✔',
+    commended = '🤖',
+    completed = '✔',
   },
   align = {
     bottom = false,
     right = true,
   },
   window = {
-    relative = "editor",
-    blend = "90"
-  },
-  fmt = {
-    leftpad = true,
+    relative = 'editor',
+    blend = '90'
   },
 })

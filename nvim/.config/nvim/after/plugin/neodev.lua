@@ -1,4 +1,4 @@
-local neodev = require("neodev")
+local neodev = require('neodev')
 
 neodev.setup()
 
@@ -9,7 +9,7 @@ lspconfig.lua_ls.setup({
   settings = {
     Lua = {
       completion = {
-        callSnippet = "Replace"
+        callSnippet = 'Replace'
       }
     }
   }

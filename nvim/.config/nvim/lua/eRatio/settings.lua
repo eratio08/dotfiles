@@ -63,4 +63,3 @@ vim.g.netrw_altv          = 1  -- view on the left
 -- vim.g.netrw_localrndir = 'rm -r' -- set command used for directory rm
 
 vim.opt.laststatus        = 3 -- 3 mean global status lines
-vim.diagnostic.config({ virtual_text = true })

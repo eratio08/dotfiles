@@ -1,9 +1,9 @@
 local nvim_test = require('nvim-test')
 
-local wk = require("which-key")
+local wk = require('which-key')
 wk.register({
   t = {
-    name = "Test",
+    name = 'Test',
     t = { ':TestNearest<CR>', 'Nearest' },
     f = { ':TestFile<CR>', 'File' },
     s = { ':TestSuite<CR>', 'Suite' },
@@ -11,4 +11,9 @@ wk.register({
   }
 })
 
-nvim_test.setup({})
+nvim_test.setup({
+  term = 'toggleterm',
+  termOpts = {
+    direction = 'float',
+  },
+})

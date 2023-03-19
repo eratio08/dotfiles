@@ -1,10 +1,10 @@
-local wk = require("which-key")
+local wk = require('which-key')
 
 wk.register({
-  ['<Up>'] = { '<Nop>', 'Unbind arrow up', mode = { "v", "n", "i" } },
-  ['<Down>'] = { '<Nop>', 'Unbind arrow down', mode = { "v", "n", "i" } },
-  ['<Right>'] = { '<Nop>', 'Unbind arrow right', mode = { "v", "n", "i" } },
-  ['<Left>'] = { '<Nop>', 'Unbind arrow left', mode = { "v", "n", "i" } },
+  ['<Up>'] = { '<Nop>', 'Unbind arrow up', mode = { 'v', 'n', 'i' } },
+  ['<Down>'] = { '<Nop>', 'Unbind arrow down', mode = { 'v', 'n', 'i' } },
+  ['<Right>'] = { '<Nop>', 'Unbind arrow right', mode = { 'v', 'n', 'i' } },
+  ['<Left>'] = { '<Nop>', 'Unbind arrow left', mode = { 'v', 'n', 'i' } },
   ['<leader>'] = {
     name = 'Leader',
     p = {

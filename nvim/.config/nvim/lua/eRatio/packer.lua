@@ -1,4 +1,4 @@
-local ensure_packer = function()
+local ensure_packer = function ()
   local fn = vim.fn
   local install_path = fn.stdpath('data') .. '/site/pack/packer/start/packer.nvim'
   if fn.empty(fn.glob(install_path)) > 0 then
@@ -11,15 +11,15 @@ end
 
 local packer_bootstrap = ensure_packer()
 
-vim.cmd([[
-augroup packer_user_config
-autocmd!
-autocmd BufWritePost packer.lua source <afile> | PackerCompile
-augroup end
-]])
+vim.api.nvim_create_augroup('packer_user_config', { clear = true })
+vim.api.nvim_create_autocmd({ 'BufWritePost' }, {
+  group = 'packer_user_config',
+  pattern = 'packer.lua',
+  command = 'source <afile> | PackerCompile'
+})
 
 return require('packer').startup({
-  function(use)
+  function (use)
     use({ 'wbthomason/packer.nvim' })
     use({
       'nvim-telescope/telescope.nvim',
@@ -29,7 +29,7 @@ return require('packer').startup({
       }
     })
     use({ 'nvim-telescope/telescope-fzf-native.nvim', run = 'make' })
-    use({ "folke/which-key.nvim" })
+    use({ 'folke/which-key.nvim' })
     use({ 'folke/trouble.nvim', requires = { 'kyazdani42/nvim-web-devicons' } })
     use({ 'folke/neodev.nvim' })
     use({ 'folke/zen-mode.nvim' })
@@ -73,14 +73,14 @@ return require('packer').startup({
         { 'rafamadriz/friendly-snippets' },
         -- null-ls
         { 'jose-elias-alvarez/null-ls.nvim' },
-        { "jayp0521/mason-null-ls.nvim" },
+        { 'jayp0521/mason-null-ls.nvim' },
       }
     })
     use({ 'nvim-tree/nvim-tree.lua', requires = { 'nvim-tree/nvim-web-devicons' } })
     use({ 'lewis6991/gitsigns.nvim' })
     use({ 'akinsho/toggleterm.nvim' })
     use({ 'nvim-lualine/lualine.nvim', requires = { 'kyazdani42/nvim-web-devicons' } })
-    use({ "windwp/nvim-autopairs" })
+    use({ 'windwp/nvim-autopairs' })
     use({ 'toppair/peek.nvim', run = 'deno task --quiet build:fast' }) -- markdown preview
     use({ 'klen/nvim-test' })
     use({ 'gpanders/editorconfig.nvim' })

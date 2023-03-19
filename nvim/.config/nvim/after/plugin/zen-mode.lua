@@ -1,4 +1,4 @@
-local zen_mode = require("zen-mode")
+local zen_mode = require('zen-mode')
 
 zen_mode.setup({
   window = {
@@ -16,13 +16,13 @@ zen_mode.setup({
     tmux = { enabled = false },
     alacritty = {
       enabled = true,
-      font = "+4",
+      font = '+4',
     },
   },
 })
 
 
-require("which-key").register({
+require('which-key').register({
   ['<leader>'] = {
     name = 'Leader',
     z = { ':ZenMode<CR>', 'Toggle ZenMode' },
