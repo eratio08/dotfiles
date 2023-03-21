@@ -112,9 +112,10 @@ export PATH=~/.cargo/bin:$PATH
 
 # aliases
 alias vim=nvim
-alias cat=bat
+alias cat="bat -p"
 alias ls="exa -la"
 alias tree="exa -T"
+alias code="codium"
 
 # to make mvnd work
 # unalias mvnd
