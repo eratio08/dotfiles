@@ -81,10 +81,10 @@ return require('packer').startup({
     use({ 'akinsho/toggleterm.nvim' })
     use({ 'nvim-lualine/lualine.nvim', requires = { 'kyazdani42/nvim-web-devicons' } })
     use({ 'windwp/nvim-autopairs' })
-    use({ 'toppair/peek.nvim', run = 'deno task --quiet build:fast' }) -- markdown preview
     use({ 'klen/nvim-test' })
     use({ 'gpanders/editorconfig.nvim' })
     use { 'b0o/schemastore.nvim' }
+    use({ 'iamcco/markdown-preview.nvim', run = function () vim.fn['mkdp#util#install']() end })
     -- use('lukas-reineke/indent-blankline.nvim')
 
     if packer_bootstrap then
