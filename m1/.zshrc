@@ -77,7 +77,7 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git)
+plugins=(git z)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -116,6 +116,7 @@ alias cat="bat -p"
 alias ls="exa -la"
 alias tree="exa -T"
 alias code="codium"
+alias lzd="lazydocker"
 
 # to make mvnd work
 # unalias mvnd
@@ -129,7 +130,7 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
 
 # Podman
-export DOCKER_HOST='unix:///Users/el/.local/share/containers/podman/machine/podman-machine-default/podman.sock'
+# export DOCKER_HOST='unix:///Users/el/.local/share/containers/podman/machine/podman-machine-default/podman.sock'
 
 # Ruby
 export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
