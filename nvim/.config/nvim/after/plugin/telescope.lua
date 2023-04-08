@@ -52,6 +52,9 @@ telescope.setup({
     diagnostics = {
       theme = 'dropdown',
     },
+    find_files ={
+      hidden = true,
+    }
   },
   extensions = {
     fzf = {

@@ -1,4 +1,4 @@
-local ensure_packer = function ()
+local ensure_packer = function()
   local fn = vim.fn
   local install_path = fn.stdpath('data') .. '/site/pack/packer/start/packer.nvim'
   if fn.empty(fn.glob(install_path)) > 0 then
@@ -19,7 +19,7 @@ vim.api.nvim_create_autocmd({ 'BufWritePost' }, {
 })
 
 return require('packer').startup({
-  function (use)
+  function(use)
     use({ 'wbthomason/packer.nvim' })
     use({
       'nvim-telescope/telescope.nvim',
@@ -72,8 +72,8 @@ return require('packer').startup({
         -- Snippet Collection (Optional)
         { 'rafamadriz/friendly-snippets' },
         -- null-ls
-        { 'jose-elias-alvarez/null-ls.nvim' },
-        { 'jayp0521/mason-null-ls.nvim' },
+        -- { 'jose-elias-alvarez/null-ls.nvim' },
+        -- { 'jayp0521/mason-null-ls.nvim' },
       }
     })
     use({ 'nvim-tree/nvim-tree.lua', requires = { 'nvim-tree/nvim-web-devicons' } })
@@ -84,7 +84,7 @@ return require('packer').startup({
     use({ 'klen/nvim-test' })
     use({ 'gpanders/editorconfig.nvim' })
     use { 'b0o/schemastore.nvim' }
-    use({ 'iamcco/markdown-preview.nvim', run = function () vim.fn['mkdp#util#install']() end })
+    use({ 'iamcco/markdown-preview.nvim', run = function() vim.fn['mkdp#util#install']() end })
     -- use('lukas-reineke/indent-blankline.nvim')
 
     if packer_bootstrap then

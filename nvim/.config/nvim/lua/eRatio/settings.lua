@@ -61,5 +61,7 @@ vim.g.netrw_browser_split = 0  -- reuse current window when opening netrw
 vim.g.netrw_winsize       = 25 -- set initial windows size
 vim.g.netrw_altv          = 1  -- view on the left
 -- vim.g.netrw_localrndir = 'rm -r' -- set command used for directory rm
+-- vim.g.loaded_netrw        = 1
+-- vim.g.loaded_netrwPlugin  = 1
 
 vim.opt.laststatus        = 3 -- 3 mean global status lines
