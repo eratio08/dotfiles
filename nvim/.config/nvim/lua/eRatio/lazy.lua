@@ -23,17 +23,17 @@ require('lazy').setup({
       { 'nvim-lua/plenary.nvim' },
       {
         'nvim-telescope/telescope-ui-select.nvim',
-        config = function() require('telescope').load_extension('ui-select') end
+        config = function () require('telescope').load_extension('ui-select') end
       },
       {
         'nvim-telescope/telescope-fzf-native.nvim',
         build  = 'make',
-        config = function() require('telescope').load_extension('fzf') end
+        config = function () require('telescope').load_extension('fzf') end
       },
     }
   },
   { 'folke/which-key.nvim' },
-  { 'folke/trouble.nvim',  dependencies = { 'kyazdani42/nvim-web-devicons' } },
+  { 'folke/trouble.nvim', dependencies = { 'kyazdani42/nvim-web-devicons' } },
   { 'folke/neodev.nvim' },
   { 'folke/zen-mode.nvim' },
   {
@@ -79,13 +79,6 @@ require('lazy').setup({
       -- { 'jayp0521/mason-null-ls.nvim' },
     }
   },
-  {
-    'nvim-tree/nvim-tree.lua',
-    dependencies = {
-      'nvim-tree/nvim-web-devicons',
-      name = 'nvim-tree-nvim-web-devicons'
-    }
-  },
   { 'lewis6991/gitsigns.nvim' },
   { 'akinsho/toggleterm.nvim' },
   {
@@ -98,7 +91,13 @@ require('lazy').setup({
   { 'b0o/schemastore.nvim' },
   {
     'iamcco/markdown-preview.nvim',
-    build = function() vim.fn['mkdp#util#install']() end
+    build = function () vim.fn['mkdp#util#install']() end
+  },
+  {
+    'nvim-tree/nvim-tree.lua',
+    dependencies = {
+      { 'nvim-tree/nvim-web-devicons', name = 'nvim-tree-nvim-web-devicons' },
+    }
   },
   -- use('lukas-reineke/indent-blankline.nvim')
 })
