@@ -4,7 +4,6 @@ lsp.preset('recommended')
 
 local luasnip = require('luasnip')
 local cmp = require('cmp')
-
 -- special handler for the case of navigation inside of a snipped
 local has_words_before = function ()
   unpack = unpack or table.unpack
@@ -55,21 +54,23 @@ lsp.setup_nvim_cmp({
       mode = 'symbol_text',
       maxwidth = 50,
       menu = {
-        buffer = '',
-        nvim_lsp = '',
-        nvim_lua = '',
-        path = '',
-        luasnip = '',
+        buffer     = '',
+        nvim_lsp   = '',
+        nvim_lua   = '',
+        path       = '',
+        luasnip    = '',
         treesitter = '',
-        emoji = 'ﲃ',
-        cmp_git = '',
-        cmdline = '',
+        emoji      = 'ﲃ',
+        cmp_git    = '',
+        cmdline    = '',
       },
     }),
   },
 })
 
 lsp.on_attach(function (_, bufnr)
+  lsp.default_keymaps({ buffer = bufnr })
+
   local wk = require('which-key')
   wk.register({
     g = {
@@ -103,9 +104,9 @@ lsp.on_attach(function (_, bufnr)
     'Format',
     function (_)
       if vim.lsp.buf.format then
-        vim.lsp.buf.format()
+        vim.lsp.buf.format({ bufnr = bufnr })
       elseif vim.lsp.buf.formatting then
-        vim.lsp.buf.formatting()
+        vim.lsp.buf.formatting({ bufnr = bufnr })
       end
     end,
     { desc = 'Format current buffer with LSP' }
@@ -116,7 +117,7 @@ lsp.on_attach(function (_, bufnr)
   vim.api.nvim_create_autocmd('BufWritePre', {
     group = 'autoformat_group',
     buffer = bufnr,
-    callback = function () vim.lsp.buf.format({ bufnr = bufnr }) end
+    command = 'Format'
   })
 end)
 
@@ -132,5 +133,5 @@ lsp.configure('lua_ls', {
 
 lsp.setup()
 
--- Has to be set after to work
+-- Has to be set after setup to work
 vim.diagnostic.config({ virtual_text = true })
