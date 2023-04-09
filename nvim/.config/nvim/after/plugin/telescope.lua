@@ -52,7 +52,7 @@ telescope.setup({
     diagnostics = {
       theme = 'dropdown',
     },
-    find_files ={
+    find_files = {
       hidden = true,
     }
   },
@@ -68,6 +68,3 @@ telescope.setup({
     },
   },
 })
-
-telescope.load_extension('ui-select')
-telescope.load_extension('fzf')
