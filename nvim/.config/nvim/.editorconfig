@@ -1,4 +1,5 @@
 # see https://github.com/CppCXY/EmmyLuaCodeStyle
+
 [*.lua]
 # [basic]
 indent_style = space
@@ -32,11 +33,11 @@ space_after_comma_in_for_statement = true
 space_around_concat_operator = true
 # [align]
 align_call_args = false
-align_function_params = true
+align_function_params = false
 align_continuous_assign_statement = true
 align_continuous_rect_table_field = true
 align_if_branch = false
-align_array_table = true
+align_array_table = false
 align_continuous_inline_comment = true
 # [indent]
 never_indent_before_if_condition = false
