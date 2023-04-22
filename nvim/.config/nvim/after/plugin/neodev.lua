@@ -1,11 +1,8 @@
 local neodev = require('neodev')
-
 neodev.setup()
 
-local lspconfig = require('lspconfig')
-
--- example to setup lua_ls and enable call snippets
-lspconfig.lua_ls.setup({
+local lsp = require('lsp-zero')
+lsp.configure('lua_ls', {
   settings = {
     Lua = {
       completion = {
