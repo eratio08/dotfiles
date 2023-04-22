@@ -24,13 +24,14 @@ k9s:
         active: all
         lockFavorites: false
         favorites:
+        - load-balancer
         - default
         - monitoring
         - fi-dev
         - fi-testing
         - all
       view:
-        active: node
+        active: deploy
       featureGates:
         nodeShell: false
       shellPod:
@@ -48,11 +49,13 @@ k9s:
         active: all
         lockFavorites: false
         favorites:
+        - load-balancer
+        - all
         - monitoring
         - default
         - fi-prod
       view:
-        active: pod
+        active: deploy
       featureGates:
         nodeShell: false
       shellPod:
