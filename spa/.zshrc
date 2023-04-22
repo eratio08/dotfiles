@@ -95,7 +95,8 @@ export PATH=~/.local/bin:$PATH
 unalias mvnd
 
 # use pod man as docker runtime
-export DOCKER_HOST='unix:///Users/el/.local/share/containers/podman/machine/podman-machine-default/podman.sock'
+export DOCKER_HOST='unix:///Users/el/.local/share/containers/podman/machine/qemu/podman.sock'
+
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
