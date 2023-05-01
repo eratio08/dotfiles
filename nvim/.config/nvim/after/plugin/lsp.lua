@@ -131,6 +131,17 @@ lsp.configure('lua_ls', {
   },
 })
 
+lsp.configure('yamlls', {
+  settings = {
+    ymls = {
+      schemas = {
+        ['https://raw.githubusercontent.com/instrumenta/kubernetes-json-schema/master/v1.18.0-standalone-strict/all.json'] = '**/cluster/*.k8s.yml',
+        ['https://json.schemastore.org/github-workflow.json'] = '/.github/workflows/*'
+      }
+    }
+  }
+})
+
 lsp.setup()
 
 -- Has to be set after setup to work
