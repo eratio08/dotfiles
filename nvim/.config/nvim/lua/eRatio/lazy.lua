@@ -30,6 +30,10 @@ require('lazy').setup({
         build  = 'make',
         config = function () require('telescope').load_extension('fzf') end
       },
+      {
+        'nvim-telescope/telescope-file-browser.nvim',
+        config = function () require('telescope').load_extension 'file_browser' end
+      }
     }
   },
   { 'folke/which-key.nvim' },
@@ -99,5 +103,15 @@ require('lazy').setup({
       { 'nvim-tree/nvim-web-devicons', name = 'nvim-tree-nvim-web-devicons' },
     }
   },
+  -- {
+  --   'dpayne/CodeGPT.nvim',
+  --   dependencies = {
+  --     'nvim-lua/plenary.nvim',
+  --     'MunifTanjim/nui.nvim',
+  --   },
+  --   config = function ()
+  --     require('codegpt.config')
+  --   end
+  -- },
   -- use('lukas-reineke/indent-blankline.nvim')
 })
