@@ -76,9 +76,8 @@ lsp.on_attach(function (_, bufnr)
     g = {
       name = 'Go',
       d = { vim.lsp.buf.definition, 'Definition' },
-      i = { vim.lsp.buf.implementation, 'to Implementation' },
+      i = { vim.lsp.buf.implementation, 'Implementation' },
       r = { vim.lsp.buf.references, 'Reference' },
-      l = { vim.diagnostic.open_float, 'List of Diagnostics' },
       t = { vim.lsp.buf.type_definition, 'Type Definition' },
     },
     ['<leader>l'] = {
@@ -86,6 +85,7 @@ lsp.on_attach(function (_, bufnr)
       r = { vim.lsp.buf.rename, 'Rename' },
       a = { vim.lsp.buf.code_action, 'Code Action' },
       l = { ':Format<CR>', 'Format Buffer' },
+      d = { vim.diagnostic.open_float, 'List of Diagnostics' },
     },
     K = { vim.lsp.buf.hover, 'Hover Documentation' },
     ['<C-k>'] = { vim.lsp.buf.signature_help, 'Signature Documentation' },
