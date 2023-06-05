@@ -90,13 +90,18 @@ export PATH="$PNPM_HOME:$PATH"
 
 # local binaries
 export PATH=~/.local/bin:$PATH
+
+# add pg tools to path
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
  
 # for mvn daemon as it collides with zsh plugin
 unalias mvnd
 
 # use pod man as docker runtime
-export DOCKER_HOST='unix:///Users/el/.local/share/containers/podman/machine/qemu/podman.sock'
+# export DOCKER_HOST='unix:///Users/el/.local/share/containers/podman/machine/qemu/podman.sock'
 
+# use colima
+export DOCKER_HOST="unix://${HOME}/.colima/docker.sock"
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
