@@ -24,17 +24,7 @@ config.use_fancy_tab_bar = false
 config.leader = { key = 'b', mods = 'CTRL', timeout_milliseconds = 1000 }
 config.keys = {
   -- tmux bindings, thx chatgpt, needs tweaking
-  {
-    key = '|',
-    mods = 'LEADER|SHIFT',
-    action = wezterm.action.SplitHorizontal { domain = 'CurrentPaneDomain' },
-  },
   -- Session Management
-  {
-    key = "b",
-    mods = "LEADER",
-    action = wezterm.action { SplitHorizontal = { domain = "CurrentPaneDomain" } },
-  },
   {
     key = "c",
     mods = "LEADER",
@@ -101,7 +91,7 @@ config.keys = {
   {
     key = "o",
     mods = "LEADER",
-    action = wezterm.action { ActivatePaneDirection = "Prev" },
+    action = wezterm.action { ActivatePaneDirection = "Next" },
   },
   {
     key = ";",
@@ -120,16 +110,17 @@ config.keys = {
       pane:move_to_new_window()
     end),
   },
-  -- { key = "q", mods = "LEADER", action = wezterm.action { ShowTabIndices = true }, },
   -- Session Management
   {
     key = "s",
     mods = "LEADER",
     action = wezterm.action.ShowTabNavigator
   },
-  -- { key = "$", mods = "LEADER", action = wezterm.action { RenameTab = "CurrentTab" }, },
-  -- Miscellaneous
-  -- { key = "?", mods = "LEADER", action = wezterm.action { ShowTabIndices = true }, },
+  -- Resize Split Pane
+  { key = "LeftArrow",  mods = "CTRL", action = wezterm.action { AdjustPaneSize = { "Left", 5 } } },
+  { key = "RightArrow", mods = "CTRL", action = wezterm.action { AdjustPaneSize = { "Right", 5 } } },
+  { key = "UpArrow",    mods = "CTRL", action = wezterm.action { AdjustPaneSize = { "Up", 5 } } },
+  { key = "DownArrow",  mods = "CTRL", action = wezterm.action { AdjustPaneSize = { "Down", 5 } } },
 }
 
 
