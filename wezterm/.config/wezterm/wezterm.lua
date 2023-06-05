@@ -12,6 +12,7 @@ config.font_size = 12.0
 
 -- Rose Pine theme
 config.colors = require('lua/rose-pine').colors()
+config.window_background_opacity = 0.95
 
 -- tab_bar
 config.show_tab_index_in_tab_bar = true
