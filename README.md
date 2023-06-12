@@ -190,6 +190,8 @@ echo XHC1 > /proc/acpi/wakeup
 * `bat` instead of `cat`
 * `bottom` instead of `top`
 * `tokei` for source code statistics
+* `zoxide` smart cd
+* `ripgrep` better grep
 
 
 ---
