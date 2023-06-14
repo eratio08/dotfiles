@@ -2,72 +2,6 @@ local lsp = require('lsp-zero')
 
 lsp.preset('recommended')
 
-local luasnip = require('luasnip')
-local cmp = require('cmp')
--- special handler for the case of navigation inside of a snipped
-local has_words_before = function ()
-  unpack = unpack or table.unpack
-  local line, col = unpack(vim.api.nvim_win_get_cursor(0))
-  return col ~= 0 and vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1]:sub(col, col):match('%s') == nil
-end
-
-lsp.setup_nvim_cmp({
-  mapping = {
-    ['<C-Space>'] = cmp.mapping.complete(),
-    ['<CR>'] = cmp.mapping.confirm({
-      behavior = cmp.ConfirmBehavior.Replace,
-      select = true,
-    }),
-    ['<Tab>'] = cmp.mapping(function (fallback)
-      if cmp.visible() then
-        cmp.select_next_item()
-      elseif luasnip.expand_or_jumpable() then
-        luasnip.expand_or_jump()
-      elseif has_words_before() then
-        cmp.complete()
-      else
-        fallback()
-      end
-    end, { 'i', 's' }),
-    ['<S-Tab>'] = cmp.mapping(function (fallback)
-      if cmp.visible() then
-        cmp.select_prev_item()
-      elseif luasnip.jumpable(-1) then
-        luasnip.jump(-1)
-      else
-        fallback()
-      end
-    end, { 'i', 's' }),
-  },
-  sources = {
-    { name = 'nvim_lsp' },
-    { name = 'nvim_lsp_signature_help' },
-    { name = 'nvim_lua' },
-    { name = 'luasnip' },
-    { name = 'treesitter' },
-    { name = 'buffer' },
-    { name = 'emoji' },
-    { name = 'path' },
-  },
-  formatting = {
-    format = require('lspkind').cmp_format({
-      mode = 'symbol_text',
-      maxwidth = 50,
-      menu = {
-        buffer     = '',
-        nvim_lsp   = '',
-        nvim_lua   = '',
-        path       = '',
-        luasnip    = '',
-        treesitter = '',
-        emoji      = 'ﲃ',
-        cmp_git    = '',
-        cmdline    = '',
-      },
-    }),
-  },
-})
-
 lsp.on_attach(function (_, bufnr)
   lsp.default_keymaps({ buffer = bufnr })
 
@@ -104,9 +38,7 @@ lsp.on_attach(function (_, bufnr)
     'Format',
     function (_)
       if vim.lsp.buf.format then
-        vim.lsp.buf.format({ bufnr = bufnr })
-      elseif vim.lsp.buf.formatting then
-        vim.lsp.buf.formatting({ bufnr = bufnr })
+        vim.lsp.buf.format({ bufnr = bufnr, async = false })
       end
     end,
     { desc = 'Format current buffer with LSP' }
@@ -149,6 +81,76 @@ lsp.configure('docker_compose_language_service', {
 })
 
 lsp.setup()
+
+
+-- Setup cmp after lsp-zero is required
+local cmp = require('cmp')
+local cmp_action = lsp.cmp_action()
+
+cmp.setup({
+  preselect = cmp.PreselectMode.Item,
+  mapping = cmp.mapping.preset.insert({
+    ['<C-Space>'] = cmp_action.toggle_completion(),
+    ['<CR>'] = cmp.mapping.confirm({ select = true }),
+    ['<Tab>'] = cmp_action.luasnip_next_or_expand(),
+    ['<S-Tab>'] = cmp_action.select_prev_or_fallback(),
+    ['<C-u>'] = cmp.mapping.scroll_docs(-4),
+    ['<C-d>'] = cmp.mapping.scroll_docs(4),
+  }),
+  sources = cmp.config.sources({
+    { name = 'nvim_lsp' },
+    { name = 'nvim_lsp_signature_help' },
+    { name = 'nvim_lua' },
+    { name = 'luasnip' },
+    { name = 'treesitter' },
+  }, {
+    { name = 'path' },
+    { name = 'buffer' },
+    { name = 'emoji' },
+  }),
+  formatting = {
+    format = require('lspkind').cmp_format({
+      mode = 'symbol_text',
+      maxwidth = 50,
+      menu = {
+        buffer     = '',
+        nvim_lsp   = '',
+        nvim_lua   = '',
+        path       = '',
+        luasnip    = '',
+        treesitter = '',
+        emoji      = 'ﲃ',
+        cmp_git    = '',
+        cmdline    = '',
+      },
+    }),
+  },
+})
+
+cmp.setup.filetype('gitcommit', {
+  sources = cmp.config.sources({
+    { name = 'git' },
+  }, {
+    { name = 'buffer' },
+  })
+})
+
+cmp.setup.cmdline(':', {
+  mapping = cmp.mapping.preset.cmdline(),
+  sources = cmp.config.sources({
+    { name = 'path' }
+  }, {
+    {
+      name = 'cmdline',
+      option = {
+        ignore_cmds = { 'Man', '!' }
+      }
+    }
+  })
+})
+
+require('cmp_git').setup()
+
 
 -- Has to be set after setup to work
 vim.diagnostic.config({ virtual_text = true })

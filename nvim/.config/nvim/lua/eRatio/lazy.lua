@@ -70,14 +70,18 @@ require('lazy').setup({
       { 'hrsh7th/cmp-nvim-lsp' },
       { 'hrsh7th/cmp-nvim-lua' },
       { 'hrsh7th/cmp-emoji' },
+      { 'hrsh7th/cmp-cmdline' },
+      { 'petertriho/cmp-git' },
       { 'ray-x/cmp-treesitter' },
       { 'onsails/lspkind-nvim' },
       { 'hrsh7th/cmp-nvim-lsp-signature-help' },
 
       -- Snippets
       { 'L3MON4D3/LuaSnip' },
+
       -- Snippet Collection (Optional)
       { 'rafamadriz/friendly-snippets' },
+
       -- null-ls
       -- { 'jose-elias-alvarez/null-ls.nvim' },
       -- { 'jayp0521/mason-null-ls.nvim' },
