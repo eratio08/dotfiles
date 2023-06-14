@@ -42,12 +42,12 @@ lsp.setup_nvim_cmp({
   sources = {
     { name = 'nvim_lsp' },
     { name = 'nvim_lsp_signature_help' },
-    { name = 'path' },
-    { name = 'luasnip' },
     { name = 'nvim_lua' },
+    { name = 'luasnip' },
+    { name = 'treesitter' },
     { name = 'buffer' },
     { name = 'emoji' },
-    { name = 'treesitter' },
+    { name = 'path' },
   },
   formatting = {
     format = require('lspkind').cmp_format({
@@ -139,6 +139,12 @@ lsp.configure('yamlls', {
         ['https://json.schemastore.org/github-workflow.json'] = '/.github/workflows/*'
       }
     }
+  }
+})
+
+lsp.configure('docker_compose_language_service', {
+  settings = {
+    filetypes = { 'yaml' }
   }
 })
 
