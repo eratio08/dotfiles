@@ -1,6 +1,9 @@
 local trouble = require('trouble')
 
-trouble.setup()
+trouble.setup({
+  position = 'bottom',
+  height = 5,
+})
 
 local wk = require('which-key')
 wk.register({
