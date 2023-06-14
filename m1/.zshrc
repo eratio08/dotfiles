@@ -110,9 +110,6 @@ export EDITOR='nvim'
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
-# PATH
-export PATH=~/.cargo/bin:$PATH
-
 # aliases
 alias vim=nvim
 alias cat="bat -p"
@@ -132,6 +129,9 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
 [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
 
+# Rust
+export PATH="~/.cargo/bin:$PATH"
+
 # Ruby
 export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
 export LDFLAGS="-L/opt/homebrew/opt/ruby/lib"
@@ -144,6 +144,9 @@ export PATH="$PNPM_HOME:$PATH"
 
 # Tell macOS about XDG_CONFIG_HOME
 export XDG_CONFIG_HOME=~/.config/
+
+# Go
+export PATH="~/go/bin:$PATH"
 
 # init zoxide
 eval "$(zoxide init zsh)"
