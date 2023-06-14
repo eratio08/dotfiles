@@ -59,7 +59,7 @@ require('lazy').setup({
       { 'neovim/nvim-lspconfig' },
       { 'williamboman/mason.nvim', build = ':MasonUpdate' },
       { 'williamboman/mason-lspconfig.nvim' },
-      { 'j-hui/fidget.nvim' },
+      { 'j-hui/fidget.nvim', tag = 'legacy' },
       { 'folke/lsp-colors.nvim' },
 
       -- Autocompletion
