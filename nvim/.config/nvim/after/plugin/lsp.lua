@@ -56,6 +56,15 @@ end)
 lsp.configure('lua_ls', {
   settings = {
     Lua = {
+      runtime = {
+        version = 'LuaJIT',
+      },
+      diagnostics = {
+        globals = { 'vim' },
+      },
+      workspace = {
+        library = vim.api.nvim_get_runtime_file('', true),
+      },
       telemetry = {
         enable = false,
       },
@@ -91,7 +100,7 @@ cmp.setup({
   preselect = cmp.PreselectMode.Item,
   mapping = cmp.mapping.preset.insert({
     ['<C-Space>'] = cmp_action.toggle_completion(),
-    ['<CR>'] = cmp.mapping.confirm({ select = true }),
+    ['<CR>'] = cmp.mapping.confirm({ select = true, behavior = cmp.ConfirmBehavior.Replace }),
     ['<Tab>'] = cmp_action.luasnip_next_or_expand(),
     ['<S-Tab>'] = cmp_action.select_prev_or_fallback(),
     ['<C-u>'] = cmp.mapping.scroll_docs(-4),
