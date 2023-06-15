@@ -124,5 +124,6 @@ config.keys = {
   { key = "DownArrow",  mods = "CTRL", action = wezterm.action { AdjustPaneSize = { "Down", 5 } } },
 }
 
+config.audible_bell = 'Disabled'
 
 return config
