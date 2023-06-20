@@ -10,26 +10,31 @@ lsp.on_attach(function (_, bufnr)
     g = {
       name = 'Go',
       d = { vim.lsp.buf.definition, 'Definition' },
+      D = { vim.lsp.buf.declaration, 'Declaration' },
       i = { vim.lsp.buf.implementation, 'Implementation' },
       r = { vim.lsp.buf.references, 'Reference' },
       t = { vim.lsp.buf.type_definition, 'Type Definition' },
+      l = { vim.diagnostic.open_float, 'List Diagnostics' },
+      -- default from lsp-zero
+      s = { vim.lsp.buf.signature_help, 'Signature Help' },
+      o = { vim.lsp.buf.definition, 'Definition' },
     },
     ['<leader>l'] = {
       name = 'LSP',
       r = { vim.lsp.buf.rename, 'Rename' },
       a = { vim.lsp.buf.code_action, 'Code Action' },
       l = { ':Format<CR>', 'Format Buffer' },
-      d = { vim.diagnostic.open_float, 'List of Diagnostics' },
+      d = { vim.diagnostic.open_float, 'List Diagnostics' },
     },
     K = { vim.lsp.buf.hover, 'Hover Documentation' },
-    ['<C-k>'] = { vim.lsp.buf.signature_help, 'Signature Documentation' },
+    ['<C-k>'] = { vim.lsp.buf.signature_help, 'Signature Help' },
     ['['] = {
       name = 'Next',
-      d = { vim.diagnostic.goto_next, 'Diagnostics' }
+      d = { vim.diagnostic.goto_next, 'Next Diagnostic' }
     },
     [']'] = {
       name = 'Previous',
-      d = { vim.diagnostic.goto_prev, 'Diagnostics' }
+      d = { vim.diagnostic.goto_prev, 'Previous Diagnostic' }
     },
   }, { buffer = bufnr })
 
@@ -64,6 +69,7 @@ lsp.configure('lua_ls', {
       },
       workspace = {
         library = vim.api.nvim_get_runtime_file('', true),
+        checkThirdParty = false,
       },
       telemetry = {
         enable = false,
