@@ -6,7 +6,6 @@ if wezterm.config_builder then
   config = wezterm.config_builder()
 end
 
--- config.color_scheme = 'rose-pine'
 config.font = wezterm.font('JetBrainsMono Nerd Font')
 config.font_size = 12.0
 
@@ -125,5 +124,13 @@ config.keys = {
 }
 
 config.audible_bell = 'Disabled'
+config.window_padding = {
+  left = 0,
+  right = 0,
+  top = 0,
+  bottom = 0,
+}
+config.window_decorations = "RESIZE"
+
 
 return config
