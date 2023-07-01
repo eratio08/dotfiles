@@ -85,8 +85,8 @@ telescope.setup({
       i = {
         ['<C-u>'] = false,
         ['<C-d>'] = false,
-        ['<Tab>'] = telescope_actions.move_selection_next,
-        ['<S-Tab>'] = telescope_actions.move_selection_previous,
+        ['<Tab>'] = telescope_actions.move_selection_previous,
+        ['<S-Tab>'] = telescope_actions.move_selection_next,
         ['<C-CR>'] = function (bufnr)
           telescope_actions.toggle_selection(bufnr)
           telescope_actions.move_selection_previous(bufnr)

@@ -1,5 +1,7 @@
 local toggleterm = require('toggleterm')
 
+local highlights = require('rose-pine.plugins.toggleterm')
+
 toggleterm.setup({
   active = true,
   on_config_done = nil,
@@ -15,6 +17,7 @@ toggleterm.setup({
   direction = 'float',
   close_on_exit = true, -- close the terminal window when the process exits
   shell = vim.o.shell,  -- change the default shell
+  highlights = highlights,
   float_opts = {
     border = 'curved',
     winblend = 0,

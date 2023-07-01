@@ -8,7 +8,7 @@ trouble.setup({
 local wk = require('which-key')
 wk.register({
   ['<leader>'] = {
-    t = {
+    T = {
       name = 'Trouble',
       t = { ':TroubleToggle<CR>', 'Toggle' },
       w = { ':TroubleToggle workspace_diagnostics<CR>', 'Workspace Diagnostics' },

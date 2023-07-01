@@ -45,6 +45,7 @@ require('lazy').setup({
     build = ':TSUpdate',
     dependencies = {
       { 'JoosepAlviste/nvim-ts-context-commentstring' },
+      { 'nvim-treesitter/nvim-treesitter-textobjects' },
     }
   },
   { 'mbbill/undotree' },
@@ -61,6 +62,7 @@ require('lazy').setup({
       { 'williamboman/mason-lspconfig.nvim' },
       { 'j-hui/fidget.nvim', tag = 'legacy' },
       { 'folke/lsp-colors.nvim' },
+      { 'ray-x/lsp_signature.nvim' },
 
       -- Autocompletion
       { 'hrsh7th/nvim-cmp' },

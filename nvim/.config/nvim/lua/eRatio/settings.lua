@@ -37,7 +37,7 @@ vim.opt.foldenable     = false                             -- unfold all by defa
 vim.opt.fixendofline   = true
 vim.opt.mouse          = 'a'                               -- enable mouse support for all modes
 vim.opt.completeopt    = { 'menu', 'menuone', 'noselect' } -- show auto completion menu even for single item
-vim.opt.shada          = { '!', "'100", '<50', 's10' }     -- set shared data saving, global upper case variables, 1000 marks, 50 lines per register, max 10KiB
+vim.opt.shada          = { '!', "'1000", '<50', 's10' }    -- set shared data saving, global upper case variables, 1000 marks, 50 lines per register, max 10KiB
 vim.g.do_filetype_lua  = 1
 vim.opt.shortmess:append('c')                              -- don't give |ins-completion-menu| messages
 vim.opt.path:append('**')                                  -- enable vim-native fuzzy find

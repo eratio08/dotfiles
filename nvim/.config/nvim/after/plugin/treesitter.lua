@@ -22,7 +22,7 @@ require 'nvim-treesitter.configs'.setup {
   ignore_install = {},
   highlight = {
     enable = true,
-    disable = function (lang, buf)
+    disable = function (_, buf)
       local max_filesize = 500 * 1024 -- 500 KB
       local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
       if ok and stats and stats.size > max_filesize then
