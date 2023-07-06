@@ -95,7 +95,7 @@ export PATH=~/.local/bin:$PATH
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
  
 # for mvn daemon as it collides with zsh plugin
-unalias mvnd
+# unalias mvnd
 
 # use pod man as docker runtime
 # export DOCKER_HOST='unix:///Users/el/.local/share/containers/podman/machine/qemu/podman.sock'
