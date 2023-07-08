@@ -72,7 +72,7 @@ wk.register({
       t = { builtin.lsp_type_definitions, 'Type Definitions' },
       w = { builtin.lsp_workspace_symbols, 'Workspace Symbols' },
     },
-  }
+  },
 })
 
 local telescope_actions = require('telescope.actions')
@@ -85,7 +85,7 @@ telescope.setup({
       i = {
         ['<C-u>'] = false,
         ['<C-d>'] = false,
-        ['<Tab>'] = telescope_actions.move_selection_previous,
+        ['<Tab>'] = telescope_actions.move_selection_next,
         ['<S-Tab>'] = telescope_actions.move_selection_next,
         ['<C-CR>'] = function (bufnr)
           telescope_actions.toggle_selection(bufnr)

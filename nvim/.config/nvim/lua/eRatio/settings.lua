@@ -51,7 +51,8 @@ vim.opt.wildignore:append({
   '**/android/*',
   '**/ios/*',
   '**/.git/*',
-}) -- Ignore files when wild card matching
+})                                   -- Ignore files when wild card matching
+vim.opt.foldmethod        = 'indent' -- how to fold
 
 -- Netrw Settings
 vim.g.netrw_liststyle     = 3  -- open netrw in tree mode
