@@ -1,7 +1,6 @@
 local toggleterm = require('toggleterm')
 
 local highlights = require('rose-pine.plugins.toggleterm')
-
 toggleterm.setup({
   active = true,
   on_config_done = nil,
