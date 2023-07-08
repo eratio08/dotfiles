@@ -111,12 +111,13 @@ export EDITOR='nvim'
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
 # aliases
-alias vim=nvim
+alias vim="nvim"
 alias cat="bat -p"
 alias ls="exa -la"
 alias tree="exa -T"
 alias code="codium"
 alias lzd="lazydocker"
+# alias find="fd"
 
 # to make mvnd work
 # unalias mvnd
