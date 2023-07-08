@@ -192,6 +192,7 @@ echo XHC1 > /proc/acpi/wakeup
 * `tokei` for source code statistics
 * `zoxide` smart cd
 * `ripgrep` better grep
+* `fd` better find
 
 
 ---
