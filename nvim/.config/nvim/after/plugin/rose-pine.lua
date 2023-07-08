@@ -1,6 +1,6 @@
 local rose_pine = require('rose-pine')
 
-local light_gray = '#292929'
+local light_gray = '#383451'
 
 rose_pine.setup({
   dim_nc_background = false,
