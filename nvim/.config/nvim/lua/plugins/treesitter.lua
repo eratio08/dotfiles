@@ -6,25 +6,8 @@ return {
     { 'nvim-treesitter/nvim-treesitter-textobjects' },
   },
   config = function ()
-    require 'nvim-treesitter.configs'.setup {
-      ensure_installed = {
-        -- 'html',
-        -- 'css',
-        -- 'javascript',
-        -- 'typescript',
-        -- 'tsx',
-        -- 'json',
-        -- 'jsonc',
-        -- 'kotlin',
-        -- 'java',
-        -- 'lua',
-        -- 'vim',
-        -- 'rust',
-        -- 'hcl',
-        -- 'toml',
-        -- 'go',
-        -- 'yaml',
-      },
+    require('nvim-treesitter.configs').setup {
+      ensure_installed = {},
       sync_install = false,
       auto_install = true,
       ignore_install = {},
