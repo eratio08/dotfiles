@@ -6,12 +6,12 @@ if wezterm.config_builder then
   config = wezterm.config_builder()
 end
 
-config.font = wezterm.font('JetBrainsMono Nerd Font')
-config.font_size = 12.0
+config.font = wezterm.font_with_fallback({ 'JetBrainsMono Nerd Font', 'JetBrains Mono' })
+config.font_size = 14.0
 
 -- Rose Pine theme
 config.colors = require('lua/rose-pine').colors()
-config.window_background_opacity = 0.90
+config.window_background_opacity = 0.95
 
 -- tab_bar
 config.show_tab_index_in_tab_bar = true
