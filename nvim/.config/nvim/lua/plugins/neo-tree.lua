@@ -7,7 +7,16 @@ return {
     { 'MunifTanjim/nui.nvim' },
   },
   config = function ()
-    require('neo-tree').setup()
+    require('neo-tree').setup({
+      window = {
+        width = 35,
+      },
+      filesystem = {
+        filtered_items = {
+          visible = true,
+        }
+      }
+    })
 
     local wk = require('which-key')
     wk.register({
