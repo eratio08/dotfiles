@@ -10,6 +10,10 @@ return {
     require('neo-tree').setup({
       window = {
         width = 35,
+        mappings = {
+          ['s'] = 'open_split',
+          ['v'] = 'open_vsplit',
+        }
       },
       filesystem = {
         filtered_items = {
