@@ -45,5 +45,12 @@ return {
     vim.api.nvim_set_hl(0, 'NvimTreeFileIgnored', {
       fg = '#6e6a86',
     })
+
+    local wk = require('which-key')
+    wk.register({
+      ['<leader>'] = {
+        e = { ':NvimTreeToggle<CR>', 'Toggle NvimTree' },
+      },
+    })
   end
 }

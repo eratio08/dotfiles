@@ -19,7 +19,8 @@ require('lazy').setup({
   require('plugins.neodev'),
   require('plugins.zen-mode'),
   require('plugins.treesitter'),
-  require('plugins.nvim-tree'),
+  -- require('plugins.nvim-tree'),
+  require('plugins.neo-tree'),
   require('plugins.comment'),
   require('plugins.lsp-zero'),
   require('plugins.gitsigns'),
@@ -36,7 +37,7 @@ require('lazy').setup({
   require('plugins.illuminate'),
   require('plugins.fidget'),
   -- require('plugins.noice'),
-  { 'mbbill/undotree' },
+  require('plugins.undotree'),
   { 'tpope/vim-unimpaired' },
   { 'tpope/vim-fugitive' },
 })

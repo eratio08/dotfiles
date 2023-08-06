@@ -187,6 +187,7 @@ return {
     cmp.setup.filetype('gitcommit', {
       sources = cmp.config.sources({
         { name = 'git' },
+        { name = 'emoji' },
       }, {
         { name = 'buffer' },
       })

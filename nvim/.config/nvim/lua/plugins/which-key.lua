@@ -14,8 +14,6 @@ return {
           name = 'Project',
           v = { vim.cmd.Ex, 'View' }
         },
-        u = { ':UndotreeToggle<CR>', 'Toggle Undotree' },
-        e = { ':NvimTreeToggle<CR>', 'Toggle NvimTree' },
         s = { '1z=', 'Fix spelling' },
         q = { vim.diagnostic.setloclist, 'Populate Quick fix list with diagnostics' },
         m = {
