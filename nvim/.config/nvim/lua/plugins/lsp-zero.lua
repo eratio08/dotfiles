@@ -30,12 +30,15 @@ return {
 
     -- key bindings
     { 'folke/which-key.nvim' },
+
+    -- context
+    { 'SmiteshP/nvim-navic' }
   },
   config = function ()
     local lsp = require('lsp-zero')
     lsp.preset('recommended')
 
-    lsp.on_attach(function (_, bufnr)
+    lsp.on_attach(function (client, bufnr)
       lsp.default_keymaps({ buffer = bufnr })
 
       local wk = require('which-key')
@@ -89,6 +92,12 @@ return {
         buffer = bufnr,
         command = 'Format'
       })
+
+      -- context setup
+      if client.server_capabilities.documentSymbolProvider then
+        local navic = require('nvim-navic')
+        navic.attach(client, bufnr)
+      end
     end)
 
     lsp.configure('lua_ls', {

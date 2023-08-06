@@ -6,8 +6,13 @@ return {
     { 'nvim-treesitter/nvim-treesitter-textobjects' },
   },
   config = function ()
-    require('nvim-treesitter.configs').setup {
-      ensure_installed = {},
+    require('nvim-treesitter.configs').setup({
+      ensure_installed = {
+        'vim',
+        'regex',
+        'lua',
+        'bash',
+      },
       sync_install = false,
       auto_install = true,
       ignore_install = {},
@@ -38,6 +43,6 @@ return {
         extended_mode = false,
         max_file_lines = 5000,
       },
-    }
+    })
   end
 }
