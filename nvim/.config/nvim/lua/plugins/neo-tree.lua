@@ -5,11 +5,12 @@ return {
     { 'nvim-lua/plenary.nvim' },
     { 'nvim-tree/nvim-web-devicons', name = 'nvim-tree-nvim-web-devicons' },
     { 'MunifTanjim/nui.nvim' },
+    { 'folke/which-key.nvim' },
   },
   config = function ()
     require('neo-tree').setup({
       window = {
-        width = 35,
+        width = 30,
         mappings = {
           ['s'] = 'open_split',
           ['v'] = 'open_vsplit',
@@ -17,7 +18,7 @@ return {
       },
       filesystem = {
         filtered_items = {
-          visible = true,
+          visible = false,
         }
       }
     })
