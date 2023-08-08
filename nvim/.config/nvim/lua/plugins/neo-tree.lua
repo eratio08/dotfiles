@@ -14,13 +14,17 @@ return {
         mappings = {
           ['s'] = 'open_split',
           ['v'] = 'open_vsplit',
-        }
+        },
       },
       filesystem = {
         filtered_items = {
           visible = false,
-        }
-      }
+        },
+        follow_current_file = {
+          enabled = true,
+          leave_dirs_open = true,
+        },
+      },
     })
 
     local wk = require('which-key')
