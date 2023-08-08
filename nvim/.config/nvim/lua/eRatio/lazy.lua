@@ -29,7 +29,7 @@ require('lazy').setup({
   require('plugins.autopairs'),
   -- require('plugins.mini-pairs'),
   -- require('plugins.mini-surround'),
-  require('plugins.mini-comment'),
+  -- require('plugins.mini-comment'),
   require('plugins.nvim-test'),
   require('plugins.schemastore'),
   require('plugins.md-preview'),

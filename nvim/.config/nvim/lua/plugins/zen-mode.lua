@@ -1,6 +1,8 @@
 return {
   'folke/zen-mode.nvim',
-  dependencies = { { 'folke/which-key.nvim' } },
+  dependencies = {
+    { 'folke/which-key.nvim' }
+  },
   config = function ()
     local zen_mode = require('zen-mode')
 

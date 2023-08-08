@@ -2,7 +2,6 @@ return {
   'nvim-treesitter/nvim-treesitter',
   build = ':TSUpdate',
   dependencies = {
-    { 'JoosepAlviste/nvim-ts-context-commentstring' },
     { 'nvim-treesitter/nvim-treesitter-textobjects' },
   },
   config = function ()
@@ -44,5 +43,7 @@ return {
         max_file_lines = 5000,
       },
     })
+
+    require('nvim-treesitter.configs').setup({})
   end
 }
