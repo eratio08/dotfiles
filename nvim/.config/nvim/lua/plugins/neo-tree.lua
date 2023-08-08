@@ -10,7 +10,8 @@ return {
   config = function ()
     require('neo-tree').setup({
       window = {
-        width = 30,
+        width = 15,
+        auto_expand_width = true,
         mappings = {
           ['s'] = 'open_split',
           ['v'] = 'open_vsplit',
