@@ -66,14 +66,25 @@ return {
         ['<C-k>'] = { vim.lsp.buf.signature_help, 'Signature Help' },
         ['['] = {
           name = 'Next',
-          d = { vim.diagnostic.goto_next, 'Next Diagnostic' }
+          d = { vim.diagnostic.goto_next, 'Diagnostic' }
         },
         [']'] = {
           name = 'Previous',
-          d = { vim.diagnostic.goto_prev, 'Previous Diagnostic' }
+          d = { vim.diagnostic.goto_prev, 'Diagnostic' }
         },
       }, { buffer = bufnr })
 
+      -- conditional bindings
+      local file_type = vim.api.nvim_buf_get_option(bufnr, 'filetype')
+      if file_type == 'go' then
+        wk.register {
+          ['<leader>'] = {
+            E = { 'oif err != nil {<CR>}<Esc>Oreturn', 'Insert go error handling' },
+          }
+        }
+      end
+
+      -- Format cmd
       vim.api.nvim_buf_create_user_command(
         bufnr,
         'Format',
@@ -120,23 +131,6 @@ return {
       },
     })
 
-    lsp.configure('yamlls', {
-      settings = {
-        ymls = {
-          schemas = {
-            ['https://raw.githubusercontent.com/instrumenta/kubernetes-json-schema/master/v1.18.0-standalone-strict/all.json'] = '**/cluster/*.k8s.yml',
-            ['https://json.schemastore.org/github-workflow.json'] = '/.github/workflows/*'
-          }
-        }
-      }
-    })
-
-    lsp.configure('docker_compose_language_service', {
-      settings = {
-        filetypes = { 'yaml' }
-      }
-    })
-
     lsp.setup()
 
 
@@ -154,16 +148,18 @@ return {
         ['<C-u>'] = cmp.mapping.scroll_docs(-4),
         ['<C-d>'] = cmp.mapping.scroll_docs(4),
       }),
+      -- If no match is provided a one group, the next will be used.
       sources = cmp.config.sources({
         { name = 'nvim_lsp' },
         { name = 'nvim_lsp_signature_help' },
         { name = 'nvim_lua' },
         { name = 'luasnip' },
-        { name = 'treesitter' },
       }, {
         { name = 'path' },
-        { name = 'buffer' },
         { name = 'emoji' },
+      }, {
+        { name = 'treesitter' },
+        { name = 'buffer' },
       }),
       formatting = {
         format = require('lspkind').cmp_format({
@@ -186,8 +182,9 @@ return {
 
     cmp.setup.filetype('gitcommit', {
       sources = cmp.config.sources({
-        { name = 'git' },
         { name = 'emoji' },
+      }, {
+        { name = 'git' },
       }, {
         { name = 'buffer' },
       })
