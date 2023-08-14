@@ -11,8 +11,9 @@ return {
     wk.register({
       ['<leader>'] = {
         m = {
-          v = { ':MarkdownPreviewToggle<CR>', 'Markdown Preview' },
-          s = { ':MarkdownPreviewStop<CR>', 'Markdown Stop Preview' },
+          name = 'Markdown',
+          v = { ':MarkdownPreviewToggle<CR>', 'Preview' },
+          s = { ':MarkdownPreviewStop<CR>', 'Stop Preview' },
         },
       },
     })
