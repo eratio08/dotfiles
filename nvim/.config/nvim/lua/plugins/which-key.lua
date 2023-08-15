@@ -16,6 +16,7 @@ return {
         },
         s = { '1z=', 'Fix spelling' },
         q = { vim.diagnostic.setloclist, 'Populate Quick fix list with diagnostics' },
+        t = { ':vsplit | term<CR>', 'Open vertical Terminal' },
       },
       ['<A-k>'] = { 'ddp', 'Move Line Up' },
       ['<A-j>'] = { 'ddkP', 'Move Line Down' },
