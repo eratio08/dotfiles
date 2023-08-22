@@ -33,6 +33,12 @@ source $ZSH/oh-my-zsh.sh
 
 fpath+=~/.zfunc
 
+# do not store duplicates in history
+export HISTCONTROL=ignoredups
+
+# Use vim style command history editing
+set o -vi
+
 # Git helper
 clean_merged() {
     git branch --merged | grep -v "\*" | xargs -n 1 git branch -D
