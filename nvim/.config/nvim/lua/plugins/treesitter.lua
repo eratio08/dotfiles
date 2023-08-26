@@ -43,7 +43,5 @@ return {
         max_file_lines = 5000,
       },
     })
-
-    require('nvim-treesitter.configs').setup({})
   end
 }
