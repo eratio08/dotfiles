@@ -20,7 +20,6 @@ return {
         },
       },
       on_create = function (t)
-        print(vim.inspect(t))
         require('which-key').register({
           ['<esc>'] = { '<C-\\><C-n>', 'Normal Mode' },
           ['<C-w>'] = { '<C-\\><C-n><C-w>', 'Window command' }
