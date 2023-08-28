@@ -132,5 +132,23 @@ config.window_padding = {
 }
 config.window_decorations = "RESIZE"
 
+-- Equivalent to POSIX basename(3)
+-- Given "/foo/bar" returns "bar"
+-- Given "c:\\foo\\bar" returns "bar"
+local function basename(s)
+  return string.gsub(s, '(.*[/\\])(.*)', '%2')
+end
+
+wezterm.on(
+  'format-tab-title',
+  function(tab, tabs, panes, config, hover, max_width)
+    local pane = tab.active_pane
+    local title = tab.tab_index + 1 .. ":" .. basename(pane.current_working_dir)
+    return {
+      { Text = " " .. title .. " " },
+    }
+  end
+)
+
 
 return config
