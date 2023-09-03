@@ -36,6 +36,7 @@ require('lazy').setup({
   require('plugins.lsp-colors'),
   require('plugins.illuminate'),
   require('plugins.fidget'),
+  require('plugins.rest-nvim'),
   -- require('plugins.noice'),
   require('plugins.undotree'),
   { 'tpope/vim-unimpaired' },
