@@ -18,8 +18,9 @@ return {
         q = { vim.diagnostic.setloclist, 'Populate Quick fix list with diagnostics' },
         t = { ':vsplit | term<CR>', 'Open vertical Terminal' },
       },
-      ['<A-k>'] = { 'ddp', 'Move Line Up' },
-      ['<A-j>'] = { 'ddkP', 'Move Line Down' },
+      -- Now done with treesitter
+      -- ['<A-k>'] = { 'ddp', 'Move Line Up' },
+      -- ['<A-j>'] = { 'ddkP', 'Move Line Down' },
       ['<Space>'] = { '<Nop>', 'Unbind Space', mode = { 'n', 'v' } },
       k = { "v:count == 0 ? 'gk' : 'k'", 'Better up movement with wrapped words', expr = true },
       j = { "v:count == 0 ? 'gj' : 'j'", 'Better down movement with wrapped words', expr = true },

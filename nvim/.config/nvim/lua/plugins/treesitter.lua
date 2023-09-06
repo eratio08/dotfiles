@@ -3,7 +3,7 @@ return {
   build = ':TSUpdate',
   dependencies = {
     { 'nvim-treesitter/nvim-treesitter-textobjects' },
-    { 'nvim-treesitter/nvim-treesitter-context' },
+    -- { 'nvim-treesitter/nvim-treesitter-context' },
   },
   config = function ()
     require('nvim-treesitter.configs').setup({
@@ -25,10 +25,6 @@ return {
             return true
           end
         end,
-        -- Setting this to true will run `:h syntax` and tree-sitter at the same time.
-        -- Set this to `true` if you depend on 'syntax' being enabled (like for indentation).
-        -- Using this option may slow down your editor, and you may see some duplicate highlights.
-        -- Instead of true it can also be a list of languages
         additional_vim_regex_highlighting = false,
       },
       indent = {
@@ -47,15 +43,62 @@ return {
         swap = {
           enable = true,
           swap_next = {
-            ['<leader>a'] = '@parameter.inner',
+            ['<A-j>'] = '@parameter.inner',
           },
           swap_previous = {
-            ['<leader>A'] = '@parameter.inner',
+            ['<A-k>'] = '@parameter.inner',
           },
         },
+        select = {
+          enable = true,
+          lookahead = true,
+          keymaps = {
+            ['af'] = '@function.outer',
+            ['if'] = '@function.inner',
+            ['ac'] = '@class.outer',
+            ['ic'] = { query = '@class.inner', desc = 'Select inner part of a class region' },
+            ['as'] = { query = '@scope', query_group = 'locals', desc = 'Select language scope' },
+          },
+          selection_modes = {
+            ['@parameter.outer'] = 'v', -- charwise
+            ['@function.outer'] = 'V',  -- linewise
+            ['@class.outer'] = '<c-v>', -- blockwise
+          },
+          include_surrounding_whitespace = false,
+        },
+        move = {
+          enable = true,
+          set_jumps = true,
+          goto_next_start = {
+            [']m'] = '@function.outer',
+            [']]'] = { query = '@class.outer', desc = 'Next class start' },
+            [']o'] = '@loop.*',
+            -- ["]o"] = { query = { "@loop.inner", "@loop.outer" } }
+            [']s'] = { query = '@scope', query_group = 'locals', desc = 'Next scope' },
+            [']z'] = { query = '@fold', query_group = 'folds', desc = 'Next fold' },
+          },
+          goto_next_end = {
+            [']M'] = '@function.outer',
+            [']['] = '@class.outer',
+          },
+          goto_previous_start = {
+            ['[m'] = '@function.outer',
+            ['[['] = '@class.outer',
+            ['[s'] = { query = '@scope', query_group = 'locals', desc = 'Previous scope' },
+            ['[z'] = { query = '@fold', query_group = 'folds', desc = 'Previous fold' },
+          },
+          goto_previous_end = {
+            ['[M'] = '@function.outer',
+            ['[]'] = '@class.outer',
+          },
+          goto_next = {
+            [']d'] = '@conditional.outer',
+          },
+          goto_previous = {
+            ['[d'] = '@conditional.outer',
+          }
+        }
       },
     })
-
-    require('treesitter-context').setup()
   end
 }
