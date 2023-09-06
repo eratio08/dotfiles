@@ -3,6 +3,7 @@ return {
   build = ':TSUpdate',
   dependencies = {
     { 'nvim-treesitter/nvim-treesitter-textobjects' },
+    { 'nvim-treesitter/nvim-treesitter-context' },
   },
   config = function ()
     require('nvim-treesitter.configs').setup({
@@ -42,6 +43,19 @@ return {
         extended_mode = false,
         max_file_lines = 5000,
       },
+      textobjects = {
+        swap = {
+          enable = true,
+          swap_next = {
+            ['<leader>a'] = '@parameter.inner',
+          },
+          swap_previous = {
+            ['<leader>A'] = '@parameter.inner',
+          },
+        },
+      },
     })
+
+    require('treesitter-context').setup()
   end
 }
