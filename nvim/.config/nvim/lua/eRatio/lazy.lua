@@ -40,7 +40,7 @@ require('lazy').setup({
   -- require('plugins.noice'),
   require('plugins.todo-comments'),
   require('plugins.diffview'),
-  require('plugins.lspsaga'),
+  -- require('plugins.lspsaga'),
   require('plugins.undotree'),
   { 'tpope/vim-unimpaired' },
   { 'tpope/vim-fugitive' },
