@@ -1,5 +1,6 @@
 return {
   'folke/neodev.nvim',
+  ft = 'lua',
   dependencies = {
     { 'VonHeikemen/lsp-zero.nvim' },
   },

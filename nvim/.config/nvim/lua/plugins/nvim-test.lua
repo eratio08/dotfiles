@@ -1,5 +1,6 @@
 return {
   'klen/nvim-test',
+  keys = { 'tt' },
   dependencies = {
     { 'folke/which-key.nvim' },
   },

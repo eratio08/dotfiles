@@ -1,5 +1,6 @@
 return {
   'akinsho/toggleterm.nvim',
+  lazy = false,
   dependencies = {
     { 'rose-pine/neovim' },
     { 'folke/which-key.nvim' },

@@ -1,6 +1,7 @@
 return {
   'VonHeikemen/lsp-zero.nvim',
   branch = 'v2.x',
+  lazy = false,
   dependencies = {
     -- LSP Support
     { 'neovim/nvim-lspconfig' },
@@ -30,47 +31,60 @@ return {
 
     -- key bindings
     { 'folke/which-key.nvim' },
-
-    -- context
-    { 'SmiteshP/nvim-navic' }
   },
   config = function ()
     local lsp = require('lsp-zero')
     lsp.preset('recommended')
 
-    lsp.on_attach(function (client, bufnr)
+    lsp.on_attach(function (_, bufnr)
       lsp.default_keymaps({ buffer = bufnr })
 
       local wk = require('which-key')
       wk.register({
         g = {
           name = 'Go',
-          d = { vim.lsp.buf.definition, 'Definition' },
+          -- d = { vim.lsp.buf.definition, 'Definition' },
+          d = { ':Lspsaga goto_type_definition<CR>', 'Definition' },
           D = { vim.lsp.buf.declaration, 'Declaration' },
           i = { vim.lsp.buf.implementation, 'Implementation' },
           r = { vim.lsp.buf.references, 'Reference' },
           t = { vim.lsp.buf.type_definition, 'Type Definition' },
-          l = { vim.diagnostic.open_float, 'List Diagnostics' },
+          -- l = { vim.diagnostic.open_float, 'List Diagnostics' },
+          l = { ':Lspsaga show_line_diagnostics<CR>', 'Show Line Diagnostics' },
           -- default from lsp-zero
           s = { vim.lsp.buf.signature_help, 'Signature Help' },
           o = { vim.lsp.buf.definition, 'Definition' },
         },
         ['<leader>l'] = {
           name = 'LSP',
-          r = { vim.lsp.buf.rename, 'Rename' },
+          -- R = { vim.lsp.buf.rename, 'Rename' },
+          r = { ':Lspsaga rename<CR>', 'Rename' },
+          R = { ':Lspsaga rename ++project<CR>', 'Project-wise rename' },
           a = { vim.lsp.buf.code_action, 'Code Action' },
           l = { ':Format<CR>', 'Format Buffer' },
-          d = { vim.diagnostic.open_float, 'List Diagnostics' },
+          -- d = { vim.diagnostic.open_float, 'List Diagnostics' },
+          o = { ':Lspsaga outline<CR>', 'Show Outline' },
         },
-        K = { vim.lsp.buf.hover, 'Hover Documentation' },
+        ['<leader>F'] = {
+          name = 'LSP Find',
+          d = { ':Lspsaga finder def<CR>', 'Definition' },
+          i = { ':Lspsaga finder imp<CR>', 'Implementation' },
+          r = { ':Lspsaga finder ref<CR>', 'Reference' },
+          c = { ':Lspsaga incoming_calls<CR>', 'Incoming Calls' },
+          C = { ':Lspsaga outgoing_calls<CR>', 'Outgoing Calls' },
+        },
+        -- K = { vim.lsp.buf.hover, 'Hover Documentation' },
+        K = { ':Lspsaga hover_doc<CR>', 'Hover Documentation' },
         ['<C-k>'] = { vim.lsp.buf.signature_help, 'Signature Help' },
         ['['] = {
           name = 'Next',
-          d = { vim.diagnostic.goto_next, 'Diagnostic' }
+          -- d = { vim.diagnostic.goto_next, 'Diagnostic' }
+          d = { ':Lspsaga diagnostic_jump_next<CR>', 'Diagnostic' }
         },
         [']'] = {
           name = 'Previous',
-          d = { vim.diagnostic.goto_prev, 'Diagnostic' }
+          -- d = { vim.diagnostic.goto_prev, 'Diagnostic' }
+          d = { ':Lspsaga diagnostic_jump_prev<CR>', 'Diagnostic' }
         },
       }, { buffer = bufnr })
 
@@ -103,12 +117,6 @@ return {
         buffer = bufnr,
         command = 'Format'
       })
-
-      -- context setup
-      if client.server_capabilities.documentSymbolProvider then
-        local navic = require('nvim-navic')
-        navic.attach(client, bufnr)
-      end
     end)
 
     lsp.configure('lua_ls', {
@@ -133,8 +141,9 @@ return {
 
     lsp.setup()
 
-
-    -- Setup cmp after lsp-zero is required
+    ------------------------------------------
+    -- Setup cmp after lsp-zero is required --
+    ------------------------------------------
     local cmp = require('cmp')
     local cmp_action = lsp.cmp_action()
 
@@ -148,7 +157,7 @@ return {
         ['<C-u>'] = cmp.mapping.scroll_docs(-4),
         ['<C-d>'] = cmp.mapping.scroll_docs(4),
       }),
-      -- If no match is provided a one group, the next will be used.
+      -- If no match is provided by a group the next will be used.
       sources = cmp.config.sources({
         { name = 'nvim_lsp' },
         { name = 'nvim_lsp_signature_help' },

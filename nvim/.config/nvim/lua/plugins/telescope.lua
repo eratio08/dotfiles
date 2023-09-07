@@ -1,5 +1,6 @@
 return {
   'nvim-telescope/telescope.nvim',
+  keys = { '<leader>ff', '<leader>fg' },
   dependencies = {
     { 'nvim-lua/plenary.nvim' },
     {

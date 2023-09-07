@@ -1,5 +1,6 @@
 return {
   'folke/zen-mode.nvim',
+  keys = { '<leader>z' },
   dependencies = {
     { 'folke/which-key.nvim' }
   },

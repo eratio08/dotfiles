@@ -1,5 +1,6 @@
 return {
   'folke/which-key.nvim',
+  lazy = false,
   config = function ()
     local wk = require('which-key')
 
@@ -16,7 +17,7 @@ return {
         },
         s = { '1z=', 'Fix spelling' },
         q = { vim.diagnostic.setloclist, 'Populate Quick fix list with diagnostics' },
-        t = { ':vsplit | term<CR>', 'Open vertical Terminal' },
+        T = { ':vsplit | term<CR>', 'Open vertical Terminal' },
       },
       -- Now done with treesitter
       -- ['<A-k>'] = { 'ddp', 'Move Line Up' },

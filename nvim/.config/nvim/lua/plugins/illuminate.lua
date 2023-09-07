@@ -1,5 +1,6 @@
 return {
   'RRethy/vim-illuminate',
+  lazy = false,
   dependencies = {
     { 'rose-pine/neovim' },
   },

@@ -1,9 +1,10 @@
 return {
   'nvim-treesitter/nvim-treesitter',
+  lazy = false,
   build = ':TSUpdate',
   dependencies = {
     { 'nvim-treesitter/nvim-treesitter-textobjects' },
-    -- { 'nvim-treesitter/nvim-treesitter-context' },
+    { 'nvim-treesitter/nvim-treesitter-refactor' },
   },
   config = function ()
     require('nvim-treesitter.configs').setup({
@@ -12,7 +13,10 @@ return {
         'regex',
         'lua',
         'bash',
+        'markdown',
+        'markdown_inline',
       },
+      modules = {},
       sync_install = false,
       auto_install = true,
       ignore_install = {},
@@ -38,6 +42,12 @@ return {
         enable = true,
         extended_mode = false,
         max_file_lines = 5000,
+      },
+      refactor = {
+        highlight_definitions = {
+          enable = true,
+          clear_on_cursor_move = true,
+        },
       },
       textobjects = {
         swap = {

@@ -1,6 +1,7 @@
 return {
   'nvim-neo-tree/neo-tree.nvim',
   branch = 'v3.x',
+  lazy = false,
   dependencies = {
     { 'nvim-lua/plenary.nvim' },
     { 'nvim-tree/nvim-web-devicons', name = 'nvim-tree-nvim-web-devicons' },
@@ -9,8 +10,8 @@ return {
   },
   config = function ()
     require('neo-tree').setup({
+      close_if_last_window = true,
       window = {
-        width = 15,
         auto_expand_width = true,
         mappings = {
           ['s'] = 'open_split',

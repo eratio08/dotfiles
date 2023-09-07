@@ -1,5 +1,6 @@
 return {
   'folke/trouble.nvim',
+  keys = { '<leader>tt' },
   dependencies = {
     { 'kyazdani42/nvim-web-devicons' },
     { 'folke/which-key.nvim' },
@@ -15,7 +16,7 @@ return {
     local wk = require('which-key')
     wk.register({
       ['<leader>'] = {
-        T = {
+        t = {
           name = 'Trouble',
           t = { ':TroubleToggle<CR>', 'Toggle' },
           w = { ':TroubleToggle workspace_diagnostics<CR>', 'Workspace Diagnostics' },

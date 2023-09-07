@@ -1,5 +1,7 @@
 return {
   'iamcco/markdown-preview.nvim',
+  lazy = true,
+  ft = 'markdown',
   dependencies = {
     { 'folke/which-key.nvim' }
   },
@@ -7,8 +9,7 @@ return {
     vim.fn['mkdp#util#install']()
   end,
   config = function ()
-    local wk = require('which-key')
-    wk.register({
+    require('which-key').register({
       ['<leader>'] = {
         m = {
           name = 'Markdown',
