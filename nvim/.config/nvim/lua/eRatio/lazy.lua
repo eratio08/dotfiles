@@ -42,6 +42,7 @@ require('lazy').setup({
     require('plugins.diffview'),
     require('plugins.lspsaga'),
     require('plugins.undotree'),
+    require('plugins.rainbow-delimiters'),
     { 'tpope/vim-unimpaired', lazy = false },
     { 'tpope/vim-fugitive', cmd = 'G' },
   },
