@@ -13,7 +13,7 @@ return {
       ['<leader>'] = {
         m = {
           name = 'Markdown',
-          v = { ':MarkdownPreviewToggle<CR>', 'Preview' },
+          p = { ':MarkdownPreviewToggle<CR>', 'Preview' },
           s = { ':MarkdownPreviewStop<CR>', 'Stop Preview' },
         },
       },
