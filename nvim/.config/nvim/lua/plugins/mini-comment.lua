@@ -1,4 +1,5 @@
 return {
+  enabled = false,
   'echasnovski/mini.comment',
   dependencies = {
     { 'nvim-treesitter/nvim-treesitter' },
