@@ -1,5 +1,4 @@
-# dotfiles/nvim/.config/nvim
-
+# dotfiles/nvim
 <a href="https://dotfyle.com/eratio08/dotfiles-nvim-config-nvim"><img src="https://dotfyle.com/eratio08/dotfiles-nvim-config-nvim/badges/plugins?style=flat" /></a>
 <a href="https://dotfyle.com/eratio08/dotfiles-nvim-config-nvim"><img src="https://dotfyle.com/eratio08/dotfiles-nvim-config-nvim/badges/leaderkey?style=flat" /></a>
 <a href="https://dotfyle.com/eratio08/dotfiles-nvim-config-nvim"><img src="https://dotfyle.com/eratio08/dotfiles-nvim-config-nvim/badges/plugin-manager?style=flat" /></a>
@@ -24,6 +23,9 @@ NVIM_APPNAME=eratio08/dotfiles/nvim/.config/nvim nvim
 
 ## Plugins
 
+### ai
+
++ [dense-analysis/neural](https://dotfyle.com/plugins/dense-analysis/neural)
 ### colorscheme
 
 + [rose-pine/neovim](https://dotfyle.com/plugins/rose-pine/neovim)
@@ -35,6 +37,7 @@ NVIM_APPNAME=eratio08/dotfiles/nvim/.config/nvim nvim
 + [folke/todo-comments.nvim](https://dotfyle.com/plugins/folke/todo-comments.nvim)
 ### completion
 
++ [zbirenbaum/copilot.lua](https://dotfyle.com/plugins/zbirenbaum/copilot.lua)
 + [hrsh7th/nvim-cmp](https://dotfyle.com/plugins/hrsh7th/nvim-cmp)
 ### cursorline
 
@@ -47,6 +50,7 @@ NVIM_APPNAME=eratio08/dotfiles/nvim/.config/nvim nvim
 
 + [echasnovski/mini.pairs](https://dotfyle.com/plugins/echasnovski/mini.pairs)
 + [folke/zen-mode.nvim](https://dotfyle.com/plugins/folke/zen-mode.nvim)
++ [HiPhish/rainbow-delimiters.nvim](https://dotfyle.com/plugins/HiPhish/rainbow-delimiters.nvim)
 + [windwp/nvim-autopairs](https://dotfyle.com/plugins/windwp/nvim-autopairs)
 ### file-explorer
 
