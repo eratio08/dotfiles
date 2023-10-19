@@ -163,25 +163,25 @@ config.keys = {
     action = act.ActivatePaneDirection('Down'),
   },
 
-  -- Resize Split Pane
+  -- Adjust Pane Size
   {
     key = 'LeftArrow',
-    mods = 'CTRL',
+    mods = 'SUPER',
     action = act.AdjustPaneSize({ 'Left', 5 })
   },
   {
     key = 'RightArrow',
-    mods = 'CTRL',
+    mods = 'SUPER',
     action = act.AdjustPaneSize({ 'Right', 5 })
   },
   {
     key = 'UpArrow',
-    mods = 'CTRL',
+    mods = 'SUPER',
     action = act.AdjustPaneSize({ 'Up', 5 })
   },
   {
     key = 'DownArrow',
-    mods = 'CTRL',
+    mods = 'SUPER',
     action = act.AdjustPaneSize({ 'Down', 5 })
   },
 }
