@@ -10,7 +10,8 @@ return {
       ts_config = {
         lua = { 'string' },
         javascript = { 'template_string' },
-      }
+      },
+      disable_filetype = { 'ocaml' },
     })
 
     local Rule = require('nvim-autopairs.rule')

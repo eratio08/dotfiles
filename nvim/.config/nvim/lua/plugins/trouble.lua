@@ -1,4 +1,5 @@
 return {
+  enabled = false,
   'folke/trouble.nvim',
   keys = { '<leader>tt' },
   dependencies = {

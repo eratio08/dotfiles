@@ -1,6 +1,6 @@
 return {
   'nvim-telescope/telescope.nvim',
-  keys = { '<leader>ff', '<leader>fg' },
+  keys = { '<leader>f' },
   dependencies = {
     { 'nvim-lua/plenary.nvim' },
     {
@@ -31,7 +31,7 @@ return {
         e = { function () telescope.extensions.file_browser.file_browser({ path = '%:p:h' }) end, 'Explorer' },
         b = { builtin.buffers, 'Buffers' },
         d = { builtin.diagnostics, 'Diagnostics' },
-        s = { function () builtin.grep_string({ search = vim.fn.input('Grep > ') }) end, 'String' },
+        s = { builtin.grep_string, 'String' },
         S = { builtin.spell_suggest, 'Spell Suggestions' },
         t = { builtin.treesitter, 'Treesitter' },
         q = { builtin.quickfix, 'Quickfixes' },
@@ -45,16 +45,10 @@ return {
         r = { builtin.registers, 'Registers' },
         j = { builtin.jumplist, 'Jump List' },
         ['?'] = { builtin.oldfiles, 'Recently opened files' },
-        ['/'] = { function ()
-          builtin.current_buffer_fuzzy_find(require('telescope.themes')
-            .get_dropdown({
-              winblend = 10,
-              previewer = false
-            }))
-        end, 'Current Buffer' },
+        ['/'] = { builtin.current_buffer_fuzzy_find, 'Current Buffer' },
         [','] = { function ()
           builtin.find_files({
-            prompt_title = '<NVim Settings>',
+            prompt_title = 'NVim Settings',
             cwd = '~/.config/nvim',
           })
         end, 'Settings' },
@@ -125,6 +119,9 @@ return {
             end
           },
         },
+        file_ignore_patterns = {
+          'git/.*'
+        }
       },
       pickers = {
         live_grep = {
@@ -142,7 +139,27 @@ return {
         find_files = {
           prompt_title = 'Find Files',
           hidden = true,
-        }
+        },
+        current_buffer_fuzzy_find = {
+          theme = 'dropdown',
+          previewer = false,
+        },
+        oldfiles = {
+          theme = 'dropdown',
+        },
+        jumplist = {
+          theme = 'dropdown',
+        },
+        colorscheme = {
+          theme = 'dropdown',
+          enable_preview = true,
+        },
+        registers = {
+          theme = 'dropdown',
+          layout_config = {
+            height = 0.75,
+          }
+        },
       },
       extensions = {
         fzf = {
