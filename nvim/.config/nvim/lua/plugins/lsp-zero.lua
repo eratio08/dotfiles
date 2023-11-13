@@ -139,6 +139,30 @@ return {
       },
     })
 
+    lsp.configure('pylsp', {
+      settings = {
+        plugins = {
+          pycodestyle = {
+            enabled = false,
+            ignore = { 'E501' },
+            maxLineLength = 120,
+          },
+          autopep8 = {
+            enabled = false,
+          },
+          flake8 = {
+            enabled = false,
+          },
+          yapf = {
+            enabled = true,
+          },
+          pyflakes = {
+            enabled = false,
+          }
+        }
+      }
+    })
+
     lsp.setup()
 
     ------------------------------------------
