@@ -8,6 +8,8 @@ repos=(
   "sportalliance/setup-gh-cli-action"
   "sportalliance/spa-datadog-downtime-action"
   "sportalliance/fc-jira-release-action"
+  "eratio08/vitest-mock-extended"
+  "eratio08/vitest-teamcity-reporter"
 )
 
 approve_prs() {
