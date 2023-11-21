@@ -1,20 +1,20 @@
 return {
   'VonHeikemen/lsp-zero.nvim',
-  branch = 'v2.x',
+  branch = 'v3.x',
   lazy = false,
   dependencies = {
     -- LSP Support
     { 'neovim/nvim-lspconfig' },
-    { 'williamboman/mason.nvim', build = ':MasonUpdate' },
+    { 'williamboman/mason.nvim' },
     { 'williamboman/mason-lspconfig.nvim' },
     { 'ray-x/lsp_signature.nvim' },
+    { 'b0o/schemastore.nvim' },
 
     -- Autocompletion
     { 'hrsh7th/nvim-cmp' },
+    { 'hrsh7th/cmp-nvim-lsp' },
     { 'hrsh7th/cmp-buffer' },
     { 'hrsh7th/cmp-path' },
-    { 'saadparwaiz1/cmp_luasnip' },
-    { 'hrsh7th/cmp-nvim-lsp' },
     { 'hrsh7th/cmp-nvim-lua' },
     { 'hrsh7th/cmp-emoji' },
     { 'hrsh7th/cmp-cmdline' },
@@ -22,22 +22,19 @@ return {
     { 'ray-x/cmp-treesitter' },
     { 'onsails/lspkind-nvim' },
     { 'hrsh7th/cmp-nvim-lsp-signature-help' },
+    -- { 'saadparwaiz1/cmp_luasnip' },
 
     -- Snippets
     { 'L3MON4D3/LuaSnip' },
-
-    -- Snippet Collection (Optional)
     { 'rafamadriz/friendly-snippets' },
 
     -- key bindings
     { 'folke/which-key.nvim' },
   },
   config = function ()
-    local lsp = require('lsp-zero')
-    lsp.preset('recommended')
-
-    lsp.on_attach(function (_, bufnr)
-      lsp.default_keymaps({ buffer = bufnr })
+    local lsp_zero = require('lsp-zero')
+    lsp_zero.on_attach(function (_, bufnr)
+      lsp_zero.default_keymaps({ buffer = bufnr })
 
       local wk = require('which-key')
       wk.register({
@@ -119,57 +116,99 @@ return {
       })
     end)
 
-    lsp.configure('lua_ls', {
-      settings = {
-        Lua = {
-          runtime = {
-            version = 'LuaJIT',
-          },
-          diagnostics = {
-            globals = { 'vim' },
-          },
-          workspace = {
-            library = vim.api.nvim_get_runtime_file('', true),
-            checkThirdParty = false,
-          },
-          telemetry = {
-            enable = false,
-          },
-        },
-      },
-    })
+    -----------------
+    -- Setup mason --
+    -----------------
+    local lspconfig = require('lspconfig')
+    require('mason').setup({})
+    require('mason-lspconfig').setup({
+      ensure_installed = {},
+      handlers = {
+        lsp_zero.default_setup,
 
-    lsp.configure('pylsp', {
-      settings = {
-        plugins = {
-          pycodestyle = {
-            enabled = false,
-            ignore = { 'E501' },
-            maxLineLength = 120,
-          },
-          autopep8 = {
-            enabled = false,
-          },
-          flake8 = {
-            enabled = false,
-          },
-          yapf = {
-            enabled = true,
-          },
-          pyflakes = {
-            enabled = false,
-          }
-        }
+        lua_ls = function ()
+          local lua_opts = lsp_zero.nvim_lua_ls()
+          lspconfig.lua_ls.setup(lua_opts)
+        end,
+
+        pylsp = function ()
+          lspconfig.pylsp.setup({
+            settings = {
+              plugins = {
+                pycodestyle = {
+                  enabled = false,
+                  ignore = { 'E501' },
+                  maxLineLength = 120,
+                },
+                autopep8 = {
+                  enabled = false,
+                },
+                flake8 = {
+                  enabled = false,
+                },
+                yapf = {
+                  enabled = true,
+                },
+                pyflakes = {
+                  enabled = false,
+                }
+              }
+            }
+          })
+        end,
+
+        jsonls = function ()
+          lspconfig.jsonls.setup({
+            settings = {
+              json = {
+                schemas = require('schemastore').json.schemas(),
+                validate = { enable = true },
+              },
+            },
+          })
+        end,
+
+        yamlls = function ()
+          lspconfig.yamlls.setup({
+            settings = {
+              yaml = {
+                schemaStore = {
+                  -- You must disable built-in schemaStore support if you want to use
+                  -- this plugin and its advanced options like `ignore`.
+                  enable = false,
+                  -- Avoid TypeError: Cannot read properties of undefined (reading 'length')
+                  url = '',
+                },
+                schemas = require('schemastore').yaml.schemas(),
+              },
+            },
+          })
+        end
       }
     })
 
-    lsp.setup()
+    -----------------
+    -- Add Roc LSP --
+    -----------------
+    local lsp_configurations = require('lspconfig.configs')
+    if not lsp_configurations.roc_ls then
+      lsp_configurations.roc_ls = {
+        default_config = {
+          name = 'roc_ls',
+          cmd = { 'roc_ls' },
+          filetypes = { 'roc' },
+          root_dir = require('lspconfig.util').root_pattern('*.roc')
+        }
+      }
+    end
+
+    lspconfig.roc_ls.setup({})
 
     ------------------------------------------
     -- Setup cmp after lsp-zero is required --
     ------------------------------------------
     local cmp = require('cmp')
-    local cmp_action = lsp.cmp_action()
+    local cmp_action = lsp_zero.cmp_action()
 
     cmp.setup({
       preselect = cmp.PreselectMode.Item,
