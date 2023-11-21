@@ -67,6 +67,7 @@ export NVM_DIR="$HOME/.nvm"
 
 # Rust
 export PATH="$HOME/.cargo/bin:$PATH"
+source "$HOME/.cargo/env"
 
 # Ruby
 export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
@@ -86,6 +87,9 @@ export PATH="$HOME/go/bin:$PATH"
 
 # OCaml
 [[ ! -r /Users/el/.opam/opam-init/init.zsh ]] || source /Users/el/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
+
+# Roc
+export PATH=$PATH:~/Downloads/roc_nightly-macos_apple_silicon-2023-11-21-2afd9ca0a9
 
 # init zoxide
 eval "$(zoxide init zsh)"
