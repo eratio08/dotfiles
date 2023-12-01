@@ -5,8 +5,9 @@ fi
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="powerlevel10k/powerlevel10k"
 
+plugins=(git ripgrep brew golang nmap nix-zsh-completions)
+
 export FZF_DEFAULT_COMMAND='rg'
-plugins=(git fzf brew golang nmap)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -91,11 +92,13 @@ export PATH="$HOME/go/bin:$PATH"
 # Roc
 export PATH=$PATH:~/Downloads/roc_nightly-macos_apple_silicon-2023-11-21-2afd9ca0a9
 
-# init zoxide
-eval "$(zoxide init zsh)"
-
 # load openapi key
 [[ -f "$HOME/dotfiles/private-dotfiles/openai.sh" ]] && source "$HOME/dotfiles/private-dotfiles/openai.sh" 
+
+# Nix
+if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
+  . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
+fi
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
