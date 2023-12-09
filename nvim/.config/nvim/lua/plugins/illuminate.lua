@@ -7,6 +7,12 @@ return {
   config = function ()
     require('illuminate').configure({
       min_count_to_highlight = 2,
+      filetypes_denylist = {
+        'TelescopePrompt',
+        'alpha',
+        'toggleterm',
+        'neo-tree',
+      },
     })
 
     local p = require('rose-pine.palette')
