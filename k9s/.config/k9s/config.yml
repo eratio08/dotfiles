@@ -1,13 +1,21 @@
 k9s:
+  liveViewAutoRefresh: false
   refreshRate: 2
   maxConnRetry: 5
   enableMouse: true
+  enableImageScan: false
   headless: false
   logoless: false
   crumbsless: false
   readOnly: false
   noExitOnCtrlC: false
   noIcons: false
+  shellPod:
+    image: busybox:1.35.0
+    namespace: default
+    limits:
+      cpu: 100m
+      memory: 100Mi
   skipLatestRevCheck: false
   logger:
     tail: 200
@@ -16,14 +24,16 @@ k9s:
     fullScreenLogs: false
     textWrap: false
     showTime: false
-  currentContext: finion-dev
-  currentCluster: arn:aws:eks:eu-central-1:119920258390:cluster/finion-dev-cluster
+  currentContext: finion-eks-v2-sso
+  currentCluster: arn:aws:eks:eu-central-1:124256140892:cluster/finion-eks-v2-cluster
+  keepMissingClusters: false
   clusters:
     arn:aws:eks:eu-central-1:119920258390:cluster/finion-dev-cluster:
       namespace:
         active: all
         lockFavorites: false
         favorites:
+        - wiz
         - load-balancer
         - default
         - monitoring
@@ -31,18 +41,9 @@ k9s:
         - fi-testing
         - all
       view:
-        active: deploy
+        active: pod
       featureGates:
         nodeShell: false
-      shellPod:
-        image: busybox:1.31
-        command: []
-        args: []
-        namespace: default
-        limits:
-          cpu: 100m
-          memory: 100Mi
-        labels: {}
       portForwardAddress: localhost
     arn:aws:eks:eu-central-1:124256140892:cluster/finion-eks-v2-cluster:
       namespace:
@@ -58,15 +59,6 @@ k9s:
         active: deploy
       featureGates:
         nodeShell: false
-      shellPod:
-        image: busybox:1.31
-        command: []
-        args: []
-        namespace: default
-        limits:
-          cpu: 100m
-          memory: 100Mi
-        labels: {}
       portForwardAddress: localhost
   thresholds:
     cpu:
@@ -76,3 +68,4 @@ k9s:
       critical: 90
       warn: 70
   screenDumpDir: /var/folders/4p/r2tgxjz950x175s_8pyzskch0000gn/T/k9s-screens-el
+  disablePodCounting: false
