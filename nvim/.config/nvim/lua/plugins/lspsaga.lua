@@ -11,11 +11,22 @@ return {
       lightbulb = {
         enable = false,
       },
+      code_actions = {
+        enable = false,
+      },
+      definition = {
+        enable = true,
+      },
+      finder = {
+        enable = false,
+      },
       outline = {
-        win_position = 'left',
-        win_width = 50,
+        win_position = 'right',
+        win_width = 30,
       },
       rename = {
+        enable = false,
+        is_select = false,
         keys = {
           quit = '<esc>',
           exec = '<CR>',

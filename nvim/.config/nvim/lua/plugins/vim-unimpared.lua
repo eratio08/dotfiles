@@ -1,5 +1,5 @@
 return {
-  enabled = false,
+  enabled = true,
   'tpope/vim-unimpaired',
   lazy = false
 }

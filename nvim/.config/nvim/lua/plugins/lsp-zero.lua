@@ -40,26 +40,23 @@ return {
       wk.register({
         g = {
           name = 'Go',
-          -- d = { vim.lsp.buf.definition, 'Definition' },
-          d = { ':Lspsaga goto_type_definition<CR>', 'Definition' },
+          d = { vim.lsp.buf.definition, 'Definition' },
           D = { vim.lsp.buf.declaration, 'Declaration' },
           i = { vim.lsp.buf.implementation, 'Implementation' },
           r = { vim.lsp.buf.references, 'Reference' },
           t = { vim.lsp.buf.type_definition, 'Type Definition' },
-          -- l = { vim.diagnostic.open_float, 'List Diagnostics' },
-          l = { ':Lspsaga show_line_diagnostics<CR>', 'Show Line Diagnostics' },
+          l = { vim.diagnostic.open_float, 'List Diagnostics' },
           -- default from lsp-zero
           s = { vim.lsp.buf.signature_help, 'Signature Help' },
           o = { vim.lsp.buf.definition, 'Definition' },
         },
         ['<leader>l'] = {
           name = 'LSP',
-          -- R = { vim.lsp.buf.rename, 'Rename' },
-          r = { ':Lspsaga rename<CR>', 'Rename' },
-          R = { ':Lspsaga rename ++project<CR>', 'Project-wise rename' },
+          r = { vim.lsp.buf.rename, 'Rename' },
+          R = { ':Lspsaga rename ++project<CR>', 'Project-wide rename' },
           a = { vim.lsp.buf.code_action, 'Code Action' },
           l = { ':Format<CR>', 'Format Buffer' },
-          -- d = { vim.diagnostic.open_float, 'List Diagnostics' },
+          d = { vim.diagnostic.open_float, 'List Diagnostics' },
           o = { ':Lspsaga outline<CR>', 'Show Outline' },
         },
         ['<leader>F'] = {
@@ -70,18 +67,15 @@ return {
           c = { ':Lspsaga incoming_calls<CR>', 'Incoming Calls' },
           C = { ':Lspsaga outgoing_calls<CR>', 'Outgoing Calls' },
         },
-        -- K = { vim.lsp.buf.hover, 'Hover Documentation' },
-        K = { ':Lspsaga hover_doc<CR>', 'Hover Documentation' },
+        K = { vim.lsp.buf.hover, 'Hover Documentation' },
         ['<C-k>'] = { vim.lsp.buf.signature_help, 'Signature Help' },
         ['['] = {
           name = 'Next',
-          -- d = { vim.diagnostic.goto_next, 'Diagnostic' }
-          d = { ':Lspsaga diagnostic_jump_next<CR>', 'Diagnostic' }
+          d = { vim.diagnostic.goto_next, 'Diagnostic' },
         },
         [']'] = {
           name = 'Previous',
-          -- d = { vim.diagnostic.goto_prev, 'Diagnostic' }
-          d = { ':Lspsaga diagnostic_jump_prev<CR>', 'Diagnostic' }
+          d = { vim.diagnostic.goto_prev, 'Diagnostic' },
         },
       }, { buffer = bufnr })
 

@@ -13,6 +13,7 @@ return {
         'regex',
         'lua',
         'bash',
+        -- for lspsaga
         'markdown',
         'markdown_inline',
       },
@@ -33,10 +34,6 @@ return {
       },
       indent = {
         enable = true,
-      },
-      context_commentstring = {
-        enable = true,
-        enable_autocmd = false,
       },
       rainbow = {
         enable = true,
