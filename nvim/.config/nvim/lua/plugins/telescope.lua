@@ -1,6 +1,7 @@
 return {
   'nvim-telescope/telescope.nvim',
-  keys = { '<leader>f' },
+  tag = '0.1.5',
+  keys = { { '<leader>f', mode = { 'n', 'v' } } },
   dependencies = {
     { 'nvim-lua/plenary.nvim' },
     {
@@ -12,26 +13,29 @@ return {
       build  = 'make',
       config = function () require('telescope').load_extension('fzf') end
     },
-    -- {
-    --   'nvim-telescope/telescope-file-browser.nvim',
-    --   config = function () require('telescope').load_extension 'file_browser' end
-    -- },
+    {
+      'nvim-telescope/telescope-file-browser.nvim',
+      config = function () require('telescope').load_extension('file_browser') end
+    },
     { 'folke/which-key.nvim' },
   },
   config = function ()
     local builtin = require('telescope.builtin')
     local wk = require('which-key')
     local telescope = require('telescope')
+    local themes = require('telescope.themes')
 
     wk.register({
       ['<leader>f'] = {
         name = 'Find',
         f = { builtin.find_files, 'Files' },
+        w = { builtin.grep_string, 'Word', mode = { 'n', 'v' } },
+        W = { function () builtin.grep_string({ search = vim.fn.expand('<cWORD>') }) end, 'WORD' },
         g = { builtin.live_grep, 'Grep' },
-        e = { function () telescope.extensions.file_browser.file_browser({ path = '%:p:h' }) end, 'Explorer' },
+        e = { function () telescope.extensions.file_browser.file_browser(themes.get_ivy({ path = '%:p:h' })) end, 'Explorer' },
+        p = { function () telescope.extensions.file_browser.file_browser({ path = 'pwd' }) end, 'Project' },
         b = { builtin.buffers, 'Buffers' },
         d = { builtin.diagnostics, 'Diagnostics' },
-        s = { builtin.grep_string, 'String' },
         S = { builtin.spell_suggest, 'Spell Suggestions' },
         t = { builtin.treesitter, 'Treesitter' },
         q = { builtin.quickfix, 'Quickfixes' },
@@ -94,7 +98,6 @@ return {
     })
 
     local telescope_actions = require('telescope.actions')
-
     telescope.setup({
       defaults = {
         prompt_prefix = '> ',
@@ -125,7 +128,7 @@ return {
       },
       pickers = {
         live_grep = {
-          prompt_title = 'Live Grep',
+          prompt_title = 'Grep',
           -- theme = 'dropdown',
         },
         buffers = {
@@ -137,8 +140,11 @@ return {
           theme = 'dropdown',
         },
         find_files = {
-          prompt_title = 'Find Files',
+          prompt_title = 'Files',
           hidden = true,
+        },
+        grep_string = {
+          -- theme = 'dropdown',
         },
         current_buffer_fuzzy_find = {
           theme = 'dropdown',
@@ -172,7 +178,7 @@ return {
           theme = 'dropdown',
         },
         ['ui-select'] = {
-          require('telescope.themes').get_dropdown(),
+          themes.get_dropdown(),
         },
       },
     })
