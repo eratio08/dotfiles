@@ -25,15 +25,6 @@ return {
       ['<Space>'] = { '<Nop>', 'Unbind Space', mode = { 'n', 'v' } },
       k = { "v:count == 0 ? 'gk' : 'k'", 'Better up movement with wrapped words', expr = true },
       j = { "v:count == 0 ? 'gj' : 'j'", 'Better down movement with wrapped words', expr = true },
-      -- Done with vim-unimpaired
-      -- ['['] = {
-      --   name = 'Previous',
-      --   b = { ':bprev<CR>', 'Buffer' },
-      -- },
-      -- [']'] = {
-      --   name = 'Next',
-      --   b = { ':bnex<CR>', 'Buffer' },
-      -- },
     })
 
     wk.register({
