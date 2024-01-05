@@ -20,10 +20,11 @@ return {
     { 'folke/which-key.nvim' },
   },
   config = function ()
-    local builtin = require('telescope.builtin')
-    local wk = require('which-key')
     local telescope = require('telescope')
+    local builtin = require('telescope.builtin')
     local themes = require('telescope.themes')
+    local telescope_actions = require('telescope.actions')
+    local wk = require('which-key')
 
     wk.register({
       ['<leader>f'] = {
@@ -32,7 +33,8 @@ return {
         w = { builtin.grep_string, 'Word', mode = { 'n', 'v' } },
         W = { function () builtin.grep_string({ search = vim.fn.expand('<cWORD>') }) end, 'WORD' },
         g = { builtin.live_grep, 'Grep' },
-        e = { function () telescope.extensions.file_browser.file_browser(themes.get_ivy({ path = '%:p:h' })) end, 'Explorer' },
+        ['.'] = { function () builtin.live_grep({ search_dirs = { vim.fn.expand('%:p:h') } }) end, 'Grep .' },
+        e = { function () telescope.extensions.file_browser.file_browser({ path = '%:p:h' }) end, 'Explorer' },
         p = { function () telescope.extensions.file_browser.file_browser({ path = 'pwd' }) end, 'Project' },
         b = { builtin.buffers, 'Buffers' },
         d = { builtin.diagnostics, 'Diagnostics' },
@@ -40,10 +42,10 @@ return {
         t = { builtin.treesitter, 'Treesitter' },
         q = { builtin.quickfix, 'Quickfixes' },
         Q = { builtin.quickfixhistory, 'Quickfix History' },
-        o = { function () builtin.lsp_dynamic_workspace_symbols({ symbols = { 'class', 'struct', 'interface' } }) end,
-          'Classes' },
+        o = { function () builtin.lsp_dynamic_workspace_symbols({ symbols = { 'class', 'struct', 'interface' } }) end, 'Classes' },
         l = { builtin.loclist, 'Location List' },
-        h = { builtin.search_history, 'Search History' },
+        h = { builtin.help_tags, 'Help Tags' },
+        H = { builtin.search_history, 'Search History' },
         m = { builtin.man_pages, 'Man Pages' },
         c = { builtin.colorscheme, 'Color Schemes' },
         r = { builtin.registers, 'Registers' },
@@ -61,7 +63,6 @@ return {
           o = { builtin.vim_options, 'Options' },
           c = { builtin.commands, 'Commands' },
           k = { builtin.keymaps, 'Key Maps' },
-          h = { builtin.help_tags, 'Help Tags' },
           r = { builtin.reloader, 'Reloader' },
           f = { builtin.filetypes, 'Filetypes' },
           H = { builtin.highlights, 'Highlights' },
@@ -97,7 +98,6 @@ return {
       },
     })
 
-    local telescope_actions = require('telescope.actions')
     telescope.setup({
       defaults = {
         prompt_prefix = '> ',
