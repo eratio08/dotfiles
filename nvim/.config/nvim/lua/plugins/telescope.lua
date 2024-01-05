@@ -25,11 +25,13 @@ return {
     local themes = require('telescope.themes')
     local telescope_actions = require('telescope.actions')
     local wk = require('which-key')
+    local is_git_repo = os.execute('git rev-parse --is-inside-work-tree > /dev/null 2>&1') == 0
 
     wk.register({
       ['<leader>f'] = {
         name = 'Find',
-        f = { builtin.find_files, 'Files' },
+        f = { function () if is_git_repo then builtin.git_files() else builtin.find_files() end end, 'Git/Files' },
+        F = { builtin.find_files, 'Files' },
         w = { builtin.grep_string, 'Word', mode = { 'n', 'v' } },
         W = { function () builtin.grep_string({ search = vim.fn.expand('<cWORD>') }) end, 'WORD' },
         g = { builtin.live_grep, 'Grep' },
