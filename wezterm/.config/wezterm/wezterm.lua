@@ -195,7 +195,6 @@ for i = 1, 8 do
   })
 end
 
-
 config.audible_bell = 'Disabled'
 config.window_padding = {
   left = 0,
@@ -205,9 +204,6 @@ config.window_padding = {
 }
 config.window_decorations = 'RESIZE'
 
--- Equivalent to POSIX basename(3)
--- Given '/foo/bar' returns 'bar'
--- Given 'c:\\foo\\bar' returns 'bar'
 local function basename(s)
   return string.gsub(s, '(.*[/\\])(.*)', '%2')
 end
