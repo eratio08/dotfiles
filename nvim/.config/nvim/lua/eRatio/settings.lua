@@ -33,7 +33,6 @@ vim.opt.guicursor      = ''                                -- disable cursor sty
 vim.opt.termguicolors  = true                              -- disable to prevent tmux overlay
 vim.opt.splitright     = true                              -- horizontal split windows to the right
 vim.opt.splitbelow     = true                              -- vertical split windows to below
-vim.opt.foldenable     = false                             -- unfold all by default
 vim.opt.fixendofline   = true
 vim.opt.mouse          = 'a'                               -- enable mouse support for all modes
 vim.opt.completeopt    = { 'menu', 'menuone', 'noselect' } -- show auto completion menu even for single item
@@ -48,11 +47,15 @@ vim.opt.wildignore:append({
   '*_build/*',
   '**/coverage/*',
   '**/node_modules/*',
-  '**/android/*',
-  '**/ios/*',
   '**/.git/*',
-})                                   -- Ignore files when wild card matching
-vim.opt.foldmethod        = 'indent' -- how to fold
+}) -- Ignore files when wild card matching
+
+-- fold settings
+vim.opt.foldmethod        = 'manual' -- how to fold
+vim.opt.foldenable        = true     -- unfold all by default
+vim.opt.foldcolumn        = '1'      -- '0' is not bad
+vim.opt.foldlevel         = 99       -- Using ufo provider need a large value, feel free to decrease the value
+vim.opt.foldlevelstart    = 99
 
 -- Netrw Settings
 vim.g.netrw_liststyle     = 3  -- open netrw in tree mode

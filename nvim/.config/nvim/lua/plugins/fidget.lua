@@ -1,13 +1,11 @@
 return {
   'j-hui/fidget.nvim',
-  lazy = false,
+  event = 'BufEnter',
   tag = 'legacy',
   config = function ()
-    local fidget = require('fidget')
-
-    fidget.setup({
+    require('fidget').setup({
       text = {
-        spinner = 'moon',
+        spinner = 'dots_negative',
         done = '✔',
         commended = '🤖',
         completed = '✔',

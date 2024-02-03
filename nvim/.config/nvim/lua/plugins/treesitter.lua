@@ -13,7 +13,7 @@ return {
         'regex',
         'lua',
         'bash',
-        -- for lspsaga
+        -- for lsp docs
         'markdown',
         'markdown_inline',
       },

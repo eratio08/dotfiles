@@ -53,27 +53,27 @@ return {
         ['<leader>l'] = {
           name = 'LSP',
           r = { vim.lsp.buf.rename, 'Rename' },
-          R = { ':Lspsaga rename ++project<CR>', 'Project-wide rename' },
+          -- R = { ':Lspsaga rename ++project<CR>', 'Project-wide rename' },
           a = { vim.lsp.buf.code_action, 'Code Action' },
           l = { ':Format<CR>', 'Format Buffer' },
           d = { vim.diagnostic.open_float, 'List Diagnostics' },
-          o = { ':Lspsaga outline<CR>', 'Show Outline' },
+          -- o = { ':Lspsaga outline<CR>', 'Show Outline' },
         },
-        ['<leader>F'] = {
-          name = 'LSP Find',
-          d = { ':Lspsaga finder def<CR>', 'Definition' },
-          i = { ':Lspsaga finder imp<CR>', 'Implementation' },
-          r = { ':Lspsaga finder ref<CR>', 'Reference' },
-          c = { ':Lspsaga incoming_calls<CR>', 'Incoming Calls' },
-          C = { ':Lspsaga outgoing_calls<CR>', 'Outgoing Calls' },
-        },
+        -- ['<leader>F'] = {
+        --   name = 'LSP Find',
+        --   d = { ':Lspsaga finder def<CR>', 'Definition' },
+        --   i = { ':Lspsaga finder imp<CR>', 'Implementation' },
+        --   r = { ':Lspsaga finder ref<CR>', 'Reference' },
+        --   c = { ':Lspsaga incoming_calls<CR>', 'Incoming Calls' },
+        --   C = { ':Lspsaga outgoing_calls<CR>', 'Outgoing Calls' },
+        -- },
         K = { vim.lsp.buf.hover, 'Hover Documentation' },
         ['<C-k>'] = { vim.lsp.buf.signature_help, 'Signature Help' },
-        ['['] = {
+        [']'] = {
           name = 'Next',
           d = { vim.diagnostic.goto_next, 'Diagnostic' },
         },
-        [']'] = {
+        ['['] = {
           name = 'Previous',
           d = { vim.diagnostic.goto_prev, 'Diagnostic' },
         },

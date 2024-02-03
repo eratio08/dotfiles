@@ -22,8 +22,8 @@ return {
   config = function ()
     local telescope = require('telescope')
     local builtin = require('telescope.builtin')
-    local themes = require('telescope.themes')
-    local telescope_actions = require('telescope.actions')
+    -- local themes = require('telescope.themes')
+    local actions = require('telescope.actions')
     local wk = require('which-key')
     local is_git_repo = os.execute('git rev-parse --is-inside-work-tree > /dev/null 2>&1') == 0
 
@@ -108,25 +108,32 @@ return {
           i = {
             ['<C-u>'] = false,
             ['<C-d>'] = false,
-            ['<Tab>'] = telescope_actions.move_selection_previous,
-            ['<S-Tab>'] = telescope_actions.move_selection_next,
+            ['<Tab>'] = actions.move_selection_previous,
+            ['<S-Tab>'] = actions.move_selection_next,
             ['<C-CR>'] = function (bufnr)
-              telescope_actions.toggle_selection(bufnr)
-              telescope_actions.move_selection_previous(bufnr)
+              actions.toggle_selection(bufnr)
+              actions.move_selection_previous(bufnr)
             end,
             ['<C-n>'] = function (bufnr)
-              telescope_actions.toggle_selection(bufnr)
-              telescope_actions.move_selection_previous(bufnr)
+              actions.toggle_selection(bufnr)
+              actions.move_selection_previous(bufnr)
             end,
             ['<C-p>'] = function (bufnr)
-              telescope_actions.toggle_selection(bufnr)
-              telescope_actions.move_selection_next(bufnr)
-            end
+              actions.toggle_selection(bufnr)
+              actions.move_selection_next(bufnr)
+            end,
+            ['<C-k>'] = actions.move_selection_previous,
+            ['<C-j>'] = actions.move_selection_next,
+            ['<C-q>'] = actions.send_selected_to_qflist + actions.open_qflist,
+            ['<C-x>'] = actions.delete_buffer,
           },
         },
         file_ignore_patterns = {
-          'git/.*'
-        }
+          'node_modules',
+          '.git',
+          '_build',
+        },
+        hidden = true,
       },
       pickers = {
         live_grep = {
@@ -178,10 +185,7 @@ return {
         },
         file_browser = {
           theme = 'dropdown',
-        },
-        ['ui-select'] = {
-          themes.get_dropdown(),
-        },
+        }
       },
     })
   end

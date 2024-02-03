@@ -7,11 +7,16 @@ return {
   config = function ()
     require('illuminate').configure({
       min_count_to_highlight = 2,
+      under_cursor = false,
       filetypes_denylist = {
+        'DressingSelect',
+        'TelescopePrompt',
+        'Outline',
         'TelescopePrompt',
         'alpha',
         'toggleterm',
         'neo-tree',
+        'Spectre',
       },
     })
 

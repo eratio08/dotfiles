@@ -1,8 +1,8 @@
 return {
-  enabled = false,
   'echasnovski/mini.surround',
-  version = false,
+  version = '*',
+  keys = { 'sa', 'sd', 'sr', 'sf', 'sF', 'sh' },
   config = function ()
-    require('mini.surround')
+    require('mini.surround').setup()
   end
 }
