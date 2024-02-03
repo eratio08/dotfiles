@@ -3,7 +3,6 @@ if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]
 fi
 
 export ZSH="$HOME/.oh-my-zsh"
-ZSH_THEME="powerlevel10k/powerlevel10k"
 
 plugins=(git ripgrep brew golang nmap nix-zsh-completions)
 
@@ -14,6 +13,9 @@ source $ZSH/oh-my-zsh.sh
 ######################
 # User configuration #
 ######################
+
+# Starship config
+export STARSHIP_CONFIG="$HOME/.config/startship/config.toml"
 
 # Set preferred editor
 export EDITOR='nvim'
@@ -99,6 +101,9 @@ export PATH=$PATH:~/Downloads/roc_nightly-macos_apple_silicon-2023-11-21-2afd9ca
 if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
   . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
 fi
+
+# Starship
+eval "$(starship init zsh)"
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
