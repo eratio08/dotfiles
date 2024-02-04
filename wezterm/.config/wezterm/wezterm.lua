@@ -205,7 +205,7 @@ config.window_padding = {
 config.window_decorations = 'RESIZE'
 
 local function basename(s)
-  return string.gsub(s, '(.*[/\\])(.*)', '%2')
+  return string.gsub(s.path, '(.*[/\\])(.*)', '%2')
 end
 
 wezterm.on(
