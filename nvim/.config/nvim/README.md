@@ -1,4 +1,5 @@
-# dotfiles/nvim
+# dotfiles/nvim/.config/nvim
+
 <a href="https://dotfyle.com/eratio08/dotfiles-nvim-config-nvim"><img src="https://dotfyle.com/eratio08/dotfiles-nvim-config-nvim/badges/plugins?style=flat" /></a>
 <a href="https://dotfyle.com/eratio08/dotfiles-nvim-config-nvim"><img src="https://dotfyle.com/eratio08/dotfiles-nvim-config-nvim/badges/leaderkey?style=flat" /></a>
 <a href="https://dotfyle.com/eratio08/dotfiles-nvim-config-nvim"><img src="https://dotfyle.com/eratio08/dotfiles-nvim-config-nvim/badges/plugin-manager?style=flat" /></a>
@@ -31,10 +32,9 @@ NVIM_APPNAME=eratio08/dotfiles/nvim/.config/nvim nvim
 + [rose-pine/neovim](https://dotfyle.com/plugins/rose-pine/neovim)
 ### comment
 
-+ [numToStr/Comment.nvim](https://dotfyle.com/plugins/numToStr/Comment.nvim)
-+ [echasnovski/mini.comment](https://dotfyle.com/plugins/echasnovski/mini.comment)
 + [JoosepAlviste/nvim-ts-context-commentstring](https://dotfyle.com/plugins/JoosepAlviste/nvim-ts-context-commentstring)
 + [folke/todo-comments.nvim](https://dotfyle.com/plugins/folke/todo-comments.nvim)
++ [numToStr/Comment.nvim](https://dotfyle.com/plugins/numToStr/Comment.nvim)
 ### completion
 
 + [zbirenbaum/copilot.lua](https://dotfyle.com/plugins/zbirenbaum/copilot.lua)
@@ -48,10 +48,10 @@ NVIM_APPNAME=eratio08/dotfiles/nvim/.config/nvim nvim
 + [folke/lsp-colors.nvim](https://dotfyle.com/plugins/folke/lsp-colors.nvim)
 ### editing-support
 
-+ [echasnovski/mini.pairs](https://dotfyle.com/plugins/echasnovski/mini.pairs)
++ [echasnovski/mini.trailspace](https://dotfyle.com/plugins/echasnovski/mini.trailspace)
++ [windwp/nvim-autopairs](https://dotfyle.com/plugins/windwp/nvim-autopairs)
 + [folke/zen-mode.nvim](https://dotfyle.com/plugins/folke/zen-mode.nvim)
 + [HiPhish/rainbow-delimiters.nvim](https://dotfyle.com/plugins/HiPhish/rainbow-delimiters.nvim)
-+ [windwp/nvim-autopairs](https://dotfyle.com/plugins/windwp/nvim-autopairs)
 ### file-explorer
 
 + [nvim-neo-tree/neo-tree.nvim](https://dotfyle.com/plugins/nvim-neo-tree/neo-tree.nvim)
@@ -70,11 +70,11 @@ NVIM_APPNAME=eratio08/dotfiles/nvim/.config/nvim nvim
 + [folke/which-key.nvim](https://dotfyle.com/plugins/folke/which-key.nvim)
 ### lsp
 
++ [VonHeikemen/lsp-zero.nvim](https://dotfyle.com/plugins/VonHeikemen/lsp-zero.nvim)
++ [simrat39/symbols-outline.nvim](https://dotfyle.com/plugins/simrat39/symbols-outline.nvim)
 + [neovim/nvim-lspconfig](https://dotfyle.com/plugins/neovim/nvim-lspconfig)
 + [ray-x/lsp_signature.nvim](https://dotfyle.com/plugins/ray-x/lsp_signature.nvim)
 + [j-hui/fidget.nvim](https://dotfyle.com/plugins/j-hui/fidget.nvim)
-+ [nvimdev/lspsaga.nvim](https://dotfyle.com/plugins/nvimdev/lspsaga.nvim)
-+ [VonHeikemen/lsp-zero.nvim](https://dotfyle.com/plugins/VonHeikemen/lsp-zero.nvim)
 ### lsp-installer
 
 + [williamboman/mason.nvim](https://dotfyle.com/plugins/williamboman/mason.nvim)
@@ -83,30 +83,35 @@ NVIM_APPNAME=eratio08/dotfiles/nvim/.config/nvim nvim
 + [iamcco/markdown-preview.nvim](https://dotfyle.com/plugins/iamcco/markdown-preview.nvim)
 ### nvim-dev
 
++ [nvim-lua/plenary.nvim](https://dotfyle.com/plugins/nvim-lua/plenary.nvim)
 + [folke/neodev.nvim](https://dotfyle.com/plugins/folke/neodev.nvim)
 + [MunifTanjim/nui.nvim](https://dotfyle.com/plugins/MunifTanjim/nui.nvim)
-+ [nvim-lua/plenary.nvim](https://dotfyle.com/plugins/nvim-lua/plenary.nvim)
 ### plugin-manager
 
 + [folke/lazy.nvim](https://dotfyle.com/plugins/folke/lazy.nvim)
 ### snippet
 
++ [rafamadriz/friendly-snippets](https://dotfyle.com/plugins/rafamadriz/friendly-snippets)
 + [L3MON4D3/LuaSnip](https://dotfyle.com/plugins/L3MON4D3/LuaSnip)
 ### statusline
 
 + [nvim-lualine/lualine.nvim](https://dotfyle.com/plugins/nvim-lualine/lualine.nvim)
 ### syntax
 
-+ [echasnovski/mini.surround](https://dotfyle.com/plugins/echasnovski/mini.surround)
-+ [nvim-treesitter/nvim-treesitter-textobjects](https://dotfyle.com/plugins/nvim-treesitter/nvim-treesitter-textobjects)
 + [nvim-treesitter/nvim-treesitter](https://dotfyle.com/plugins/nvim-treesitter/nvim-treesitter)
++ [nvim-treesitter/nvim-treesitter-textobjects](https://dotfyle.com/plugins/nvim-treesitter/nvim-treesitter-textobjects)
++ [echasnovski/mini.surround](https://dotfyle.com/plugins/echasnovski/mini.surround)
 ### test
 
++ [nvim-neotest/neotest](https://dotfyle.com/plugins/nvim-neotest/neotest)
 + [klen/nvim-test](https://dotfyle.com/plugins/klen/nvim-test)
 ### utility
 
 + [folke/noice.nvim](https://dotfyle.com/plugins/folke/noice.nvim)
++ [stevearc/dressing.nvim](https://dotfyle.com/plugins/stevearc/dressing.nvim)
++ [echasnovski/mini.nvim](https://dotfyle.com/plugins/echasnovski/mini.nvim)
 + [rcarriga/nvim-notify](https://dotfyle.com/plugins/rcarriga/nvim-notify)
++ [kevinhwang91/nvim-ufo](https://dotfyle.com/plugins/kevinhwang91/nvim-ufo)
 ## Language Servers
 
 + lua_ls
