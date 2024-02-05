@@ -4,7 +4,7 @@ fi
 
 export ZSH="$HOME/.oh-my-zsh"
 
-ZSH_THEME="powerlevel10k/powerlevel10k"
+# ZSH_THEME="powerlevel10k/powerlevel10k"
 
 plugins=(git docker kubectl aws mvn gradle terraform helm)
 
@@ -13,6 +13,9 @@ source $ZSH/oh-my-zsh.sh
 #################
 ## CUSTOM STUFF##
 #################
+#
+# Starship config
+export STARSHIP_CONFIG="$HOME/.config/startship/config.toml"
 
 fpath+=~/.zfunc
 
@@ -100,6 +103,9 @@ export DOCKER_HOST="unix://${HOME}/.colima/docker.sock"
 
 # Use 1Password Agent
 export SSH_AUTH_SOCK=~/.1password/agent.sock
+
+# Starship
+eval "$(starship init zsh)"
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
