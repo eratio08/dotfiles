@@ -88,6 +88,9 @@ return {
           }
         }
       end
+      -- if file_type == 'python' then
+      --   require('pipenv').set_pipenv()
+      -- end
 
       -- Format cmd
       vim.api.nvim_buf_create_user_command(
@@ -128,23 +131,25 @@ return {
         pylsp = function ()
           lspconfig.pylsp.setup({
             settings = {
-              plugins = {
-                pycodestyle = {
-                  enabled = false,
-                  ignore = { 'E501' },
-                  maxLineLength = 120,
-                },
-                autopep8 = {
-                  enabled = false,
-                },
-                flake8 = {
-                  enabled = false,
-                },
-                yapf = {
-                  enabled = true,
-                },
-                pyflakes = {
-                  enabled = false,
+              pylsp = {
+                plugins = {
+                  pycodestyle = {
+                    enabled = true,
+                    ignore = {},
+                    maxLineLength = 120,
+                  },
+                  autopep8 = {
+                    enabled = true,
+                  },
+                  flake8 = {
+                    enabled = false,
+                  },
+                  yapf = {
+                    enabled = false,
+                  },
+                  pyflakes = {
+                    enabled = false,
+                  }
                 }
               }
             }
