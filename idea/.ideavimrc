@@ -6,6 +6,7 @@ set scrolloff=5
 set visualbell
 set noerrorbells
 set incsearch
+set number
 set relativenumber
 
 "" Plugins
