@@ -8,14 +8,14 @@ return {
     wk.register({
       ['<leader>'] = {
         S = { require('spectre').toggle, 'Spectr toogle' },
-        ['sw'] = { function () require('spectre').open_visual({ select_word = true }) end, 'Search current word' },
+        ['Sw'] = { function () require('spectre').open_visual({ select_word = true }) end, 'Search current word' },
       },
     })
     wk.register({
-      ['<leader>sw'] = { function () require('spectre').open_visual() end, 'Search current word' },
+      ['<leader>Sw'] = { function () require('spectre').open_visual() end, 'Search current word' },
     }, { mode = 'v' })
     wk.register({
-      ['<leader>sp'] = { function () require('spectre').open_file_search({ select_word = true }) end, 'Search on current file' },
+      ['<leader>Sp'] = { function () require('spectre').open_file_search({ select_word = true }) end, 'Search on current file' },
     }, { mode = 'n' })
   end
 }
