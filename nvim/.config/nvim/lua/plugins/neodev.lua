@@ -2,14 +2,12 @@ return {
   'folke/neodev.nvim',
   ft = 'lua',
   dependencies = {
-    { 'VonHeikemen/lsp-zero.nvim' },
+    { 'neovim/nvim-lspconfig' },
   },
   config = function ()
-    local neodev = require('neodev')
-    neodev.setup()
+    require('neodev').setup()
 
-    local lsp = require('lsp-zero')
-    lsp.configure('lua_ls', {
+    require('lspconfig').lua_ls.setup({
       settings = {
         Lua = {
           completion = {
