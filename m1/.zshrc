@@ -56,6 +56,7 @@ alias code="codium"
 alias lzd="lazydocker"
 # alias find="fd"
 alias zrl="source ~/.zshrc"
+alias btm="btm --mem_as_value"
 
 # to make mvnd work
 # unalias mvnd
