@@ -1,8 +1,6 @@
 return {
   'nomnivore/ollama.nvim',
-  dependencies = {
-    'nvim-lua/plenary.nvim',
-  },
+  dependencies = { 'nvim-lua/plenary.nvim' },
   cmd = { 'Ollama', 'OllamaModel', 'OllamaServe', 'OllamaServeStop' },
   keys = {
     -- Note that the <c-u> is important for selections to work properly.
@@ -24,7 +22,10 @@ return {
   opts = {
     prompts = {
       -- todo add general prompt
+      ['Without Context'] = {
+        prompt = '',
+        input = '> '
+      },
     }
   }
 }
-
