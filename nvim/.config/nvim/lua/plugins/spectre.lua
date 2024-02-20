@@ -1,7 +1,8 @@
 return {
   'nvim-pack/nvim-spectre',
-  dependencies = { 'nvim-lua/plenary.nvim' },
-  keys = { '<leader>S', '<leader>sw', '<leader>sp' },
+  dependencies = { 'nvim-lua/plenary.nvim', 'nvim-tree/nvim-web-devicons' },
+  keys = { '<leader>S', '<leader>Sw', '<leader>Sp' },
+  cmd = { 'Spectre' },
   config = function ()
     require('spectre').setup()
     local wk = require('which-key')
