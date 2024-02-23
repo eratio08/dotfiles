@@ -3,7 +3,6 @@ return {
   lazy = false,
   dependencies = {
     { 'rose-pine/neovim' },
-    { 'folke/which-key.nvim' },
   },
   config = function ()
     require('toggleterm').setup({
@@ -20,12 +19,6 @@ return {
           background = 'Normal',
         },
       },
-      on_create = function (t)
-        require('which-key').register({
-          ['<esc>'] = { '<C-\\><C-n>', 'Normal Mode' },
-          ['<C-w>'] = { '<C-\\><C-n><C-w>', 'Window command' }
-        }, { mode = 't', buffer = t.bufnr })
-      end
     })
   end
 }
