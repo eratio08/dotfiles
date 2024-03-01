@@ -52,7 +52,8 @@ alias ls="exa -lah --icons"
 alias cat="bat"
 alias vim="nvim"
 alias code="codium"
-alias lzs="lazydocker"
+alias lzd="lazydocker"
+alias lzg="lazygit"
 alias btm="btm --mem_as_value"
 alias rlz="source ~/.zshrc"
 
@@ -110,3 +111,6 @@ eval "$(starship init zsh)"
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
 [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+# opam configuration
+[[ ! -r /Users/el/.opam/opam-init/init.zsh ]] || source /Users/el/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
