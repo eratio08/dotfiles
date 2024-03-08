@@ -1,6 +1,6 @@
 return {
   'folke/lsp-colors.nvim',
-  lazy = false,
+  event = 'VeryLazy',
   config = function ()
     local lsp_colors = require('lsp-colors')
 

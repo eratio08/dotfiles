@@ -2,12 +2,10 @@ return {
   'folke/zen-mode.nvim',
   keys = { '<leader>z' },
   dependencies = {
-    { 'folke/which-key.nvim' }
+    'folke/which-key.nvim',
   },
   config = function ()
-    local zen_mode = require('zen-mode')
-
-    zen_mode.setup({
+    require('zen-mode').setup({
       window = {
         backdrop = 0.8,
         options = {
@@ -27,7 +25,6 @@ return {
         },
       },
     })
-
 
     require('which-key').register({
       ['<leader>'] = {

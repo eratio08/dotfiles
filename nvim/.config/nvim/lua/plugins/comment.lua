@@ -2,8 +2,8 @@ return {
   'numToStr/Comment.nvim',
   keys = { 'gcc', { 'gc', mode = 'v' } },
   dependencies = {
-    { 'nvim-treesitter/nvim-treesitter' },
-    { 'JoosepAlviste/nvim-ts-context-commentstring' },
+    'nvim-treesitter/nvim-treesitter',
+    'JoosepAlviste/nvim-ts-context-commentstring',
   },
   config = function ()
     ---@diagnostic disable-next-line: missing-fields

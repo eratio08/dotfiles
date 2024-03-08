@@ -1,10 +1,10 @@
 return {
   'nvim-treesitter/nvim-treesitter',
-  lazy = false,
+  event = 'VeryLazy',
   build = ':TSUpdate',
   dependencies = {
-    { 'nvim-treesitter/nvim-treesitter-textobjects' },
-    { 'nvim-treesitter/nvim-treesitter-refactor' },
+    'nvim-treesitter/nvim-treesitter-textobjects',
+    'nvim-treesitter/nvim-treesitter-refactor',
   },
   config = function ()
     require('nvim-treesitter.configs').setup({

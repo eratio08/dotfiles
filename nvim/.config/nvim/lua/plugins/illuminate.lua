@@ -1,8 +1,8 @@
 return {
   'RRethy/vim-illuminate',
-  lazy = false,
+  event = 'VeryLazy',
   dependencies = {
-    { 'rose-pine/neovim' },
+    'rose-pine/neovim',
   },
   config = function ()
     require('illuminate').configure({

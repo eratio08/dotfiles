@@ -1,7 +1,7 @@
 return {
   'rest-nvim/rest.nvim',
   ft = 'http',
-  dependencies = { { 'nvim-lua/plenary.nvim' } },
+  dependencies = { 'nvim-lua/plenary.nvim' },
   config = function ()
     vim.api.nvim_create_user_command('RestNvim', function ()
       require('rest-nvim').run()

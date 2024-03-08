@@ -3,7 +3,7 @@ return {
   lazy = true,
   ft = 'markdown',
   dependencies = {
-    { 'folke/which-key.nvim' }
+    'folke/which-key.nvim'
   },
   build = function ()
     vim.fn['mkdp#util#install']()

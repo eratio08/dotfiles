@@ -3,8 +3,8 @@ return {
   'folke/trouble.nvim',
   keys = { '<leader>tt' },
   dependencies = {
-    { 'kyazdani42/nvim-web-devicons' },
-    { 'folke/which-key.nvim' },
+    'kyazdani42/nvim-web-devicons',
+    'folke/which-key.nvim',
   },
   config = function ()
     local trouble = require('trouble')

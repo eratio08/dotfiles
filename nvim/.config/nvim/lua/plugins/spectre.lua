@@ -1,6 +1,9 @@
 return {
   'nvim-pack/nvim-spectre',
-  dependencies = { 'nvim-lua/plenary.nvim', 'nvim-tree/nvim-web-devicons' },
+  dependencies = {
+    'nvim-lua/plenary.nvim',
+    'nvim-tree/nvim-web-devicons'
+  },
   keys = { '<leader>S', '<leader>Sw', '<leader>Sp' },
   cmd = { 'Spectre' },
   config = function ()

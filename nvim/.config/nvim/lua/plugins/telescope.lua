@@ -3,7 +3,7 @@ return {
   tag = '0.1.5',
   keys = { { '<leader>f', mode = { 'n', 'v' } } },
   dependencies = {
-    { 'nvim-lua/plenary.nvim' },
+    'nvim-lua/plenary.nvim',
     {
       'nvim-telescope/telescope-ui-select.nvim',
       config = function () require('telescope').load_extension('ui-select') end
@@ -17,7 +17,7 @@ return {
       'nvim-telescope/telescope-file-browser.nvim',
       config = function () require('telescope').load_extension('file_browser') end
     },
-    { 'folke/which-key.nvim' },
+    'folke/which-key.nvim',
   },
   config = function ()
     local telescope = require('telescope')
@@ -44,7 +44,7 @@ return {
         t = { builtin.treesitter, 'Treesitter' },
         q = { builtin.quickfix, 'Quickfixes' },
         Q = { builtin.quickfixhistory, 'Quickfix History' },
-        o = { function () builtin.lsp_dynamic_workspace_symbols({ symbols = { 'class', 'struct', 'interface' } }) end, 'Classes' },
+        C = { function () builtin.lsp_dynamic_workspace_symbols({ symbols = { 'class', 'struct', 'interface' } }) end, 'Classes' },
         l = { builtin.loclist, 'Location List' },
         h = { builtin.help_tags, 'Help Tags' },
         H = { builtin.search_history, 'Search History' },
@@ -84,7 +84,7 @@ return {
           b = { builtin.builtin, 'Builtins' },
           p = { builtin.pickers, 'Pickers' },
         },
-        R = { builtin.resume, 'Resume' },
+        o = { builtin.resume, 'Resume' },
         L = {
           name = 'LSP',
           r = { builtin.lsp_references, 'References' },

@@ -3,10 +3,10 @@ return {
   branch = 'v3.x',
   lazy = false,
   dependencies = {
-    { 'nvim-lua/plenary.nvim' },
+    'nvim-lua/plenary.nvim',
     { 'nvim-tree/nvim-web-devicons', name = 'nvim-tree-nvim-web-devicons' },
-    { 'MunifTanjim/nui.nvim' },
-    { 'folke/which-key.nvim' },
+    'MunifTanjim/nui.nvim',
+    'folke/which-key.nvim',
   },
   config = function ()
     require('neo-tree').setup({

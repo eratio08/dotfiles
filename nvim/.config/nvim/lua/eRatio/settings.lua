@@ -51,11 +51,12 @@ vim.opt.wildignore:append({
 }) -- Ignore files when wild card matching
 
 -- fold settings
-vim.opt.foldmethod        = 'manual' -- how to fold
-vim.opt.foldenable        = true     -- unfold all by default
-vim.opt.foldcolumn        = '1'      -- draw a fold column in column 1
-vim.opt.foldlevel         = 99       -- using ufo provider need a large value
-vim.opt.foldlevelstart    = 99       -- also for ufo
+-- vim.opt.foldmethod        = 'manual' -- how to fold
+vim.opt.foldenable        = true -- unfold all by default
+vim.opt.foldcolumn        = '1'  -- draw a fold column in column 1
+vim.opt.foldlevel         = 99   -- using ufo provider need a large value
+vim.opt.foldlevelstart    = 99   -- also for ufo
+vim.opt.fillchars         = [[eob: ,fold: ,foldopen:,foldsep: ,foldclose:]]
 
 -- Netrw Settings
 vim.g.netrw_liststyle     = 3  -- open netrw in tree mode

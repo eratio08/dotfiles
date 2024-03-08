@@ -1,8 +1,8 @@
 return {
   'akinsho/toggleterm.nvim',
-  lazy = false,
+  event = 'VeryLazy',
   dependencies = {
-    { 'rose-pine/neovim' },
+    'rose-pine/neovim',
   },
   config = function ()
     require('toggleterm').setup({

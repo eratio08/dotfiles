@@ -3,7 +3,7 @@ return {
   'klen/nvim-test',
   keys = { 'tt' },
   dependencies = {
-    { 'folke/which-key.nvim' },
+    'folke/which-key.nvim',
   },
   config = function ()
     local nvim_test = require('nvim-test')

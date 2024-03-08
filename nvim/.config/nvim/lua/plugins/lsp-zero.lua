@@ -4,35 +4,50 @@ return {
   lazy = false,
   dependencies = {
     -- LSP Support
-    { 'neovim/nvim-lspconfig' },
-    { 'williamboman/mason.nvim' },
-    { 'williamboman/mason-lspconfig.nvim' },
-    { 'ray-x/lsp_signature.nvim' },
-    { 'b0o/schemastore.nvim' },
+    'neovim/nvim-lspconfig',
+    'williamboman/mason.nvim',
+    'williamboman/mason-lspconfig.nvim',
+    'ray-x/lsp_signature.nvim',
+    'b0o/schemastore.nvim',
 
     -- Autocompletion
-    { 'hrsh7th/nvim-cmp' },
-    { 'hrsh7th/cmp-nvim-lsp' },
-    { 'hrsh7th/cmp-buffer' },
-    { 'hrsh7th/cmp-path' },
-    { 'hrsh7th/cmp-nvim-lua' },
-    { 'hrsh7th/cmp-emoji' },
-    { 'hrsh7th/cmp-cmdline' },
-    { 'petertriho/cmp-git' },
-    { 'ray-x/cmp-treesitter' },
-    { 'onsails/lspkind-nvim' },
-    { 'hrsh7th/cmp-nvim-lsp-signature-help' },
-    -- { 'saadparwaiz1/cmp_luasnip' },
+    'hrsh7th/nvim-cmp',
+    'hrsh7th/cmp-nvim-lsp',
+    'hrsh7th/cmp-buffer',
+    'hrsh7th/cmp-path',
+    'hrsh7th/cmp-nvim-lua',
+    'hrsh7th/cmp-emoji',
+    'hrsh7th/cmp-cmdline',
+    'petertriho/cmp-git',
+    'ray-x/cmp-treesitter',
+    'onsails/lspkind-nvim',
+    'hrsh7th/cmp-nvim-lsp-signature-help',
 
     -- Snippets
-    { 'L3MON4D3/LuaSnip' },
-    { 'rafamadriz/friendly-snippets' },
+    'L3MON4D3/LuaSnip',
+    'rafamadriz/friendly-snippets',
 
     -- key bindings
-    { 'folke/which-key.nvim' },
+    'folke/which-key.nvim',
+
+    -- folds
+    'kevinhwang91/nvim-ufo',
   },
   config = function ()
     local lsp_zero = require('lsp-zero')
+
+    -- for nvim-ufo
+    lsp_zero.set_server_config({
+      capabilities = {
+        textDocument = {
+          foldingRange = {
+            dynamicRegistration = false,
+            lineFoldingOnly = true
+          }
+        }
+      }
+    })
+
     lsp_zero.on_attach(function (_, bufnr)
       lsp_zero.default_keymaps({ buffer = bufnr })
 
@@ -67,7 +82,12 @@ return {
         --   c = { ':Lspsaga incoming_calls<CR>', 'Incoming Calls' },
         --   C = { ':Lspsaga outgoing_calls<CR>', 'Outgoing Calls' },
         -- },
-        K = { vim.lsp.buf.hover, 'Hover Documentation' },
+        K = { function ()
+          local winid = require('ufo').peekFoldedLinesUnderCursor()
+          if not winid then
+            vim.lsp.buf.hover()
+          end
+        end, 'Hover Documentation' },
         ['<C-k>'] = { vim.lsp.buf.signature_help, 'Signature Help' },
         [']'] = {
           name = 'Next',
@@ -112,18 +132,6 @@ return {
         command = 'Format'
       })
     end)
-
-    -- for nvim-ufo
-    lsp_zero.set_server_config({
-      capabilities = {
-        textDocument = {
-          foldingRange = {
-            dynamicRegistration = false,
-            lineFoldingOnly = true
-          }
-        }
-      }
-    })
 
     -----------------
     -- Setup mason --
