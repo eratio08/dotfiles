@@ -88,7 +88,6 @@ config.keys = {
     mods = 'LEADER',
     action = act.ActivateCopyMode,
   },
-  --
   -- ]  Paste the most recently copied buffer of text.
   {
     -- Create a new window.
