@@ -144,7 +144,16 @@ return {
         lsp_zero.default_setup,
 
         lua_ls = function ()
-          local lua_opts = lsp_zero.nvim_lua_ls()
+          local neodev_config = {
+            settings = {
+              Lua = {
+                completion = {
+                  callSnippet = 'Replace'
+                }
+              }
+            }
+          }
+          local lua_opts = vim.tbl_extend('force', lsp_zero.nvim_lua_ls(), neodev_config)
           lspconfig.lua_ls.setup(lua_opts)
         end,
 
