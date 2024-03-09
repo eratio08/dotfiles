@@ -54,8 +54,8 @@ vim.opt.wildignore:append({
 -- vim.opt.foldmethod        = 'manual' -- how to fold
 vim.opt.foldenable        = true -- unfold all by default
 vim.opt.foldcolumn        = '1'  -- draw a fold column in column 1
-vim.opt.foldlevel         = 99   -- using ufo provider need a large value
-vim.opt.foldlevelstart    = 99   -- also for ufo
+vim.opt.foldlevel         = 999  -- using ufo provider need a large value
+vim.opt.foldlevelstart    = 999  -- also for ufo
 vim.opt.fillchars         = [[eob: ,fold: ,foldopen:,foldsep: ,foldclose:]]
 
 -- Netrw Settings
