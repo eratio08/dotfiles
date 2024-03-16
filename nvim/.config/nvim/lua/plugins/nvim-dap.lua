@@ -39,7 +39,7 @@ return {
 
     -- Mappings --
     require('which-key').register({
-      dd = { dapui.toggle, 'Debug: Toggle UI' },
+      ['<leader>dd'] = { dapui.toggle, 'Debug: Toggle UI' },
       ['<F8>'] = { dap.continue, 'Debug: Start/Continue' },
       ['<F9>'] = { dap.step_over, 'Debug: Step Over' },
       ['<F21>'] = { dap.step_into, 'Debug: Step Into' },
