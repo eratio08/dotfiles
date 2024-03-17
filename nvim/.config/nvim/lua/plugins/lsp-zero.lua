@@ -68,20 +68,10 @@ return {
         ['<leader>l'] = {
           name = 'LSP',
           r = { vim.lsp.buf.rename, 'Rename' },
-          -- R = { ':Lspsaga rename ++project<CR>', 'Project-wide rename' },
           a = { vim.lsp.buf.code_action, 'Code Action' },
           l = { ':Format<CR>', 'Format Buffer' },
           d = { vim.diagnostic.open_float, 'List Diagnostics' },
-          -- o = { ':Lspsaga outline<CR>', 'Show Outline' },
         },
-        -- ['<leader>F'] = {
-        --   name = 'LSP Find',
-        --   d = { ':Lspsaga finder def<CR>', 'Definition' },
-        --   i = { ':Lspsaga finder imp<CR>', 'Implementation' },
-        --   r = { ':Lspsaga finder ref<CR>', 'Reference' },
-        --   c = { ':Lspsaga incoming_calls<CR>', 'Incoming Calls' },
-        --   C = { ':Lspsaga outgoing_calls<CR>', 'Outgoing Calls' },
-        -- },
         K = { function ()
           local winid = require('ufo').peekFoldedLinesUnderCursor()
           if not winid then
@@ -108,29 +98,25 @@ return {
           }
         }
       end
-      -- if file_type == 'python' then
-      --   require('pipenv').set_pipenv()
-      -- end
 
-      -- Format cmd
-      vim.api.nvim_buf_create_user_command(
-        bufnr,
-        'Format',
-        function (_)
-          if vim.lsp.buf.format then
-            vim.lsp.buf.format({ bufnr = bufnr, async = false })
-          end
-        end,
-        { desc = 'Format current buffer with LSP' }
-      )
+      -- Format cmd // currnetly done with conform.nvim
+      -- vim.api.nvim_buf_create_user_command(
+      --   bufnr,
+      --   'Format',
+      --   function (_)
+      --     if vim.lsp.buf.format then
+      --       vim.lsp.buf.format({ bufnr = bufnr, async = false })
+      --     end
+      --   end,
+      --   { desc = 'Format current buffer with LSP' }
+      -- )
 
       -- Auto-format in save
-      vim.api.nvim_create_augroup('autoformat_group', { clear = true })
-      vim.api.nvim_create_autocmd('BufWritePre', {
-        group = 'autoformat_group',
-        buffer = bufnr,
-        command = 'Format'
-      })
+      -- vim.api.nvim_create_autocmd('BufWritePre', {
+      --   group = vim.api.nvim_create_augroup('autoformat_group', { clear = true }),
+      --   buffer = bufnr,
+      --   command = 'Format'
+      -- })
     end)
 
     -----------------
