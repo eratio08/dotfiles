@@ -4,7 +4,7 @@ return {
   dependencies = {
     { 'echasnovski/mini.nvim', version = '*' }
   },
-  event = 'BufEnter',
+  event = 'VeryLazy',
   config = function ()
     require('mini.trailspace').setup({
       only_in_normal_buffers = false

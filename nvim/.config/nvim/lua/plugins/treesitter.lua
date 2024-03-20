@@ -12,10 +12,6 @@ return {
         'vim',
         'regex',
         'lua',
-        'bash',
-        -- for lsp docs
-        'markdown',
-        'markdown_inline',
       },
       modules = {},
       sync_install = false,
