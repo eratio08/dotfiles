@@ -52,6 +52,44 @@ return {
       lsp_zero.default_keymaps({ buffer = bufnr })
 
       local wk = require('which-key')
+      wk.register({
+        K = { function ()
+          local winid = require('ufo').peekFoldedLinesUnderCursor()
+          if not winid then
+            vim.lsp.buf.hover()
+          end
+        end, 'Hover Documentation' },
+        g = {
+          name = 'Go',
+          d = { vim.lsp.buf.definition, 'Definition' },
+          D = { vim.lsp.buf.declaration, 'Declaration' },
+          i = { vim.lsp.buf.implementation, 'Implementation' },
+          r = { vim.lsp.buf.references, 'Reference' },
+          t = { vim.lsp.buf.type_definition, 'Type Definition' },
+          l = { vim.diagnostic.open_float, 'List Diagnostics' },
+          -- default from lsp-zero
+          s = { vim.lsp.buf.signature_help, 'Signature Help' },
+          o = { vim.lsp.buf.definition, 'Definition' },
+        },
+        ['<leader>'] = {
+          q = { vim.diagnostic.setloclist, 'Diagnostics to LocList' },
+        },
+        ['<leader>l'] = {
+          name = 'LSP',
+          r = { vim.lsp.buf.rename, 'Rename' },
+          a = { vim.lsp.buf.code_action, 'Code Action' },
+          l = { ':Format<CR>', 'Format Buffer' },
+          d = { vim.diagnostic.open_float, 'List Diagnostics' },
+        },
+        [']'] = {
+          name = 'Next',
+          d = { vim.diagnostic.goto_next, 'Diagnostic' },
+        },
+        ['['] = {
+          d = { vim.diagnostic.goto_prev, 'Diagnostic' },
+          name = 'Previous',
+        },
+      }, { buffer = bufnr })
       local file_type = vim.api.nvim_get_option_value('filetype', { buf = bufnr })
       if file_type == 'go' then
         wk.register {
