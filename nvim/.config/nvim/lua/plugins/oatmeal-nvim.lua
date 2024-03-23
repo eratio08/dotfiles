@@ -6,6 +6,6 @@ return {
   },
   opts = {
     backend = 'ollama',
-    model = 'codellama:13b',
+    model = 'dolphin-mixtral:v2.7',
   },
 }
