@@ -1,10 +1,19 @@
 export ZSH="$HOME/.oh-my-zsh"
 
-plugins=(git ripgrep brew golang nmap nix-zsh-completions)
+plugins=(
+  git
+  ripgrep
+  brew
+  golang
+  nmap
+  nix-zsh-completions
+)
 
 export FZF_DEFAULT_COMMAND='rg'
 
 source $ZSH/oh-my-zsh.sh
+
+fpath=("~/.zsh_completions" $fpath)
 
 ######################
 # User configuration #
