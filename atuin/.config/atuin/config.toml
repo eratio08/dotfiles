@@ -1,1 +1,4 @@
 sync_address = "https://atuin.elurz.de"
+inline_height = 13 # should show 9 items
+style = "compact"
+enter_accept = true
