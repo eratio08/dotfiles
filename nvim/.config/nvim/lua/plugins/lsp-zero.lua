@@ -197,8 +197,8 @@ return {
     if not lsp_configurations.roc_ls then
       lsp_configurations.roc_ls = {
         default_config = {
-          name = 'roc_ls',
-          cmd = { 'roc_ls' },
+          name = 'roc_language_server',
+          cmd = { 'roc_language_server' },
           filetypes = { 'roc' },
           root_dir = require('lspconfig.util').root_pattern('*.roc')
         }

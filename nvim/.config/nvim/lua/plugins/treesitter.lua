@@ -103,5 +103,12 @@ return {
         }
       },
     })
+
+    require('nvim-treesitter.parsers').get_parser_configs().roc = {
+      install_info = {
+        url = 'https://github.com/faldor20/tree-sitter-roc',
+        files = { 'src/parser.c', 'src/scanner.c' },
+      },
+    }
   end
 }
