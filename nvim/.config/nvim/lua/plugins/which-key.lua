@@ -22,6 +22,10 @@ return {
       j = { "v:count == 0 ? 'gj' : 'j'", 'Better down movement with wrapped words', expr = true },
       ['<esc>'] = { '<C-\\><C-n>', 'Normal Mode', mode = 't' },
       ['<C-w>'] = { '<C-\\><C-n><C-w>', 'Window command', mode = 't' },
+      ['<C-h>'] = { '<C-w><C-h>', 'Move focus to the left window', { mode = 'n' } },
+      ['<C-l>'] = { '<C-w><C-l>', 'Move focus to the right window', { mode = 'n' } },
+      ['<C-j>'] = { '<C-w><C-j>', 'Move focus to the lower window', { mode = 'n' } },
+      ['<C-k>'] = { '<C-w><C-k>', 'Move focus to the upper window', { mode = 'n' } },
       -- Now done with treesitter text-objects
       -- ['<A-k>'] = { 'ddp', 'Move Line Up', mode = 'n' },
       -- ['<A-j>'] = { 'ddkP', 'Move Line Down', mode = 'n' },
