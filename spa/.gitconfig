@@ -1,22 +1,23 @@
 [user]
-	email = eike.lurz@sportalliance.com
-	name = Eike Lurz
-	signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIOvTLpSjA0Ue655V5AYfzKSGZSuDGxGK5Sd1uQfGuFA
+  email = eike.lurz@sportalliance.com
+  name = Eike Lurz
+  signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIOvTLpSjA0Ue655V5AYfzKSGZSuDGxGK5Sd1uQfGuFA
 [push]
-	default = current
-	autoSetupRemote = true
+  default = current
+  autoSetupRemote = true
 [commit]
-	gpgsign = true
+  gpgsign = true
 [tag]
   gpgsign = true
 [pull]
-	ff = only
+  ff = only
+  rebase = true
 [init]
-	defaultBranch = main
+  defaultBranch = main
 [core]
-	autocrlf = input
-	editor = nvim
+  autocrlf = input
+  editor = nvim
 [gpg]
-	format = ssh
+  format = ssh
 [gpg "ssh"]
-	program = /Applications/1Password.app/Contents/MacOS/op-ssh-sign
+  program = /Applications/1Password.app/Contents/MacOS/op-ssh-sign
