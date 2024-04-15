@@ -1,7 +1,3 @@
-if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
-fi
-
 export ZSH="$HOME/.oh-my-zsh"
 
 # ZSH_THEME="powerlevel10k/powerlevel10k"
@@ -49,7 +45,7 @@ alias fn-lock="echo 2 | sudo tee -a /sys/module/hid_apple/parameters/fnmode"
 alias fn-lock-off="echo 1 | sudo tee -a /sys/module/hid_apple/parameters/fnmode"
 alias fix-suspend="sudo echo XHC1 > /proc/acpi/wakeup"
 alias ls="exa -lah --icons"
-alias cat="bat"
+alias cat="bat -p"
 alias vim="nvim"
 alias code="codium"
 alias lzd="lazydocker"
@@ -89,7 +85,7 @@ export PATH=~/.local/bin:$PATH
 
 # add pg tools to path
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
- 
+
 # for mvn daemon as it collides with zsh plugin
 # unalias mvnd
 
@@ -108,9 +104,12 @@ export SSH_AUTH_SOCK=~/.1password/agent.sock
 # Starship
 eval "$(starship init zsh)"
 
+# opam configuration
+[[ ! -r /Users/el/.opam/opam-init/init.zsh ]] || source /Users/el/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
+
+# atuin
+eval "$(atuin init zsh)"
+
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
 [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
-
-# opam configuration
-[[ ! -r /Users/el/.opam/opam-init/init.zsh ]] || source /Users/el/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
