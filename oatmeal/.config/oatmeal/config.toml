@@ -8,7 +8,7 @@ backend-health-check-timeout = 1000
 editor = "clipboard"
 
 # The initial model on a backend to consume. Defaults to the first model available from the backend if not set.
-model = "dolphin-mixtral:v2.7"
+model = "llama3:latest"
 
 # LangChain Serve API URL when using the LangChain backend.
 lang-chain-url = "http://localhost:8000"
