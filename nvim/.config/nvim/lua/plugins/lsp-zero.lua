@@ -152,14 +152,6 @@ return {
           })
         end,
 
-        tsserver = function ()
-          lspconfig.tsserver.setup({
-            on_attach = function (client)
-              client.resolved_capabilities.document_formatting = false
-            end,
-          })
-        end,
-
         jsonls = function ()
           lspconfig.jsonls.setup({
             settings = {
