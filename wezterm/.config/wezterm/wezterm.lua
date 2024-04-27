@@ -169,22 +169,22 @@ config.keys = {
   -- Alternative Navigation
   {
     key = 'l',
-    mods = 'CTRL',
+    mods = 'SUPER',
     action = act.ActivatePaneDirection('Right'),
   },
   {
     key = 'k',
-    mods = 'CTRL',
+    mods = 'SUPER',
     action = act.ActivatePaneDirection('Up'),
   },
   {
     key = 'j',
-    mods = 'CTRL',
+    mods = 'SUPER',
     action = act.ActivatePaneDirection('Down'),
   },
   {
     key = 'h',
-    mods = 'CTRL',
+    mods = 'SUPER',
     action = act.ActivatePaneDirection('Left'),
   },
 
