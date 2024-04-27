@@ -1,0 +1,12 @@
+[class]
+
+[extension]
+pdf.app_list = [
+  { command = "open", args = [
+    "-a",
+    "Firefox Developer Edition",
+  ], fork = true, silent = false },
+  { command = "open", fork = true, silent = true },
+]
+
+[mimetype]
