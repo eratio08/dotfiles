@@ -178,7 +178,7 @@ return {
               },
             },
           })
-        end
+        end,
       }
     })
 
@@ -197,7 +197,11 @@ return {
       }
     end
 
+    ------------------------
+    -- LSPs without Mason --
+    ------------------------
     lspconfig.roc_ls.setup({})
+    lspconfig.gleam.setup({})
 
     ------------------------------------------
     -- Setup cmp after lsp-zero is required --
