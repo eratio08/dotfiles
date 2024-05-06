@@ -7,6 +7,7 @@ plugins=(
   golang
   nmap
   nix-zsh-completions
+  asdf
 )
 
 export FZF_DEFAULT_COMMAND='rg'
