@@ -3,6 +3,7 @@ return {
   keys = { '<leader>b', '<leader>B', '<F8>', '<leader>dd' },
   dependencies = {
     'rcarriga/nvim-dap-ui',
+    'nvim-neotest/nvim-nio',
     'williamboman/mason.nvim',
     'jay-babu/mason-nvim-dap.nvim',
     'folke/which-key.nvim',
