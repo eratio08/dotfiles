@@ -1,10 +1,11 @@
 return {
+  enabled = true,
   'nvim-treesitter/nvim-treesitter',
   event = 'VeryLazy',
   build = ':TSUpdate',
   dependencies = {
-    'nvim-treesitter/nvim-treesitter-textobjects',
-    'nvim-treesitter/nvim-treesitter-refactor',
+    -- 'nvim-treesitter/nvim-treesitter-textobjects',
+    -- 'nvim-treesitter/nvim-treesitter-refactor',
   },
   config = function ()
     require('nvim-treesitter.configs').setup({
@@ -20,9 +21,11 @@ return {
       highlight = {
         enable = true,
         disable = function (_, buf)
-          local max_filesize = 500 * 1024 -- 500 KB
-          local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
+          local max_filesize = 100 * 1024 -- 100 KB
+          local ok, stats = pcall(vim.uv.fs_stat, vim.api.nvim_buf_get_name(buf))
           if ok and stats and stats.size > max_filesize then
+            print('Large file detected, disabeling treesitter highlighting (' ..
+              stats.size / 1024 .. 'KB > ' .. max_filesize / 1024 .. 'KB).')
             return true
           end
         end,
