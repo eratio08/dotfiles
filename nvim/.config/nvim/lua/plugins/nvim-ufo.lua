@@ -23,8 +23,13 @@ return {
     --- @diagnostic disable: unused-local
     local ufo = require('ufo')
     ufo.setup({
-      provider_selector = function ()
+      provider_selector = function (_, ft)
         return function (bufnr)
+          -- No fold in neo-tree
+          if ft == 'neo-tree' then
+            return ''
+          end
+
           -- providers: lsp -> treesitter -> indent
           local function handleFallbackException(err, providerName)
             if type(err) == 'string' and err:match('UfoFallbackException') then
