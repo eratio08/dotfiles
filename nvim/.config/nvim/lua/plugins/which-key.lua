@@ -26,6 +26,10 @@ return {
       ['<C-l>'] = { '<C-w><C-l>', 'Move focus to the right window', { mode = 'n' } },
       ['<C-j>'] = { '<C-w><C-j>', 'Move focus to the lower window', { mode = 'n' } },
       ['<C-k>'] = { '<C-w><C-k>', 'Move focus to the upper window', { mode = 'n' } },
+      ['<C-w>+'] = { ':resize +5<CR>', 'Increase window height', { mode = 'n' } },
+      ['<C-w>-'] = { ':resize -5<CR>', 'Decrease window height', { mode = 'n' } },
+      ['<C-w>,'] = { ':vertical resize -5<CR>', 'Decrease window width', { mode = 'n' } },
+      ['<C-w>.'] = { ':vertical resize +5<CR>', 'Increase window wifth', { mode = 'n' } },
       -- Now done with treesitter text-objects
       -- ['<A-k>'] = { 'ddp', 'Move Line Up', mode = 'n' },
       -- ['<A-j>'] = { 'ddkP', 'Move Line Down', mode = 'n' },
