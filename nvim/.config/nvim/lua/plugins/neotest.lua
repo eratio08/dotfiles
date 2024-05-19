@@ -1,4 +1,5 @@
 return {
+  enabled = false,
   'nvim-neotest/neotest',
   keys = { 'tt' },
   dependencies = {

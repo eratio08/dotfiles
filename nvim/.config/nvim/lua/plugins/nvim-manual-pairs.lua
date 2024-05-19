@@ -1,4 +1,5 @@
 return {
+  enabled = false,
   'https://git.sr.ht/~xigoi/nvim-manual-pairs',
   event = 'VeryLazy',
   config = function ()

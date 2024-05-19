@@ -1,4 +1,5 @@
 return {
+  enabled = false,
   'dustinblackman/oatmeal.nvim',
   cmd = { 'Oatmeal' },
   keys = {

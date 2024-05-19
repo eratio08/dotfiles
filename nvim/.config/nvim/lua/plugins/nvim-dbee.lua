@@ -1,4 +1,5 @@
 return {
+  enabled = false,
   'kndndrj/nvim-dbee',
   cmd = 'Dbee',
   dependencies = {

@@ -1,7 +1,7 @@
 return {
-  'huggingface/llm.nvim',
   -- does not work well on m1 macbook
   enabled = false,
+  'huggingface/llm.nvim',
   -- build = ':MasonInstall llm-ls',
   config = function ()
     require('llm').setup({
