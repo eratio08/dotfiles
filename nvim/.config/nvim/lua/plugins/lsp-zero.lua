@@ -122,7 +122,6 @@ return {
           }
           local lua_opts = vim.tbl_deep_extend('force', lsp_zero.nvim_lua_ls(), neodev_config)
           lspconfig.lua_ls.setup(lua_opts)
-          -- lspconfig.lua_ls.setup(neodev_config)
         end,
 
         pylsp = function ()
