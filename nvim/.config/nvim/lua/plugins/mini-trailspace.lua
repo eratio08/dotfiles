@@ -7,7 +7,7 @@ return {
   event = 'VeryLazy',
   config = function ()
     require('mini.trailspace').setup({
-      only_in_normal_buffers = false
+      only_in_normal_buffers = true
     })
   end
 }
