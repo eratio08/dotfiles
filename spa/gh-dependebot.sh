@@ -25,7 +25,7 @@ approve_prs() {
   echo "Fetching pull requests from $repository by dependabot..."
 
   # Fetch all pull requests from dependabot that are not already approved
-  prs=$(gh pr list -R $repository --json number,author,reviewDecision -q '.[] | select(.author.login == "app/dependabot" and .author.is_bot == true and .reviewDecision != "APPROVED") | .number')
+  prs=$(gh pr list -R $repository --json number,author,reviewDecision,isDraft -q '.[] | select(.author.login == "app/dependabot" and .author.is_bot == true and .reviewDecision != "APPROVED" and .isDraft == false) | .number')
 
   # Check if PRs by dependabot were found
   if [ -z "$prs" ]; then
@@ -44,7 +44,7 @@ approve_prs() {
     done
 
     echo "All unapproved dependabot PRs now approved."
-  fi 
+  fi
 }
 
 for i in "${repos[@]}"
