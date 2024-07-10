@@ -209,6 +209,18 @@ config.keys = {
     mods = 'SUPER',
     action = act.AdjustPaneSize({ 'Down', 5 })
   },
+
+  -- Rebind OPT-Left, OPT-Right as ALT-b, ALT-f respectively to match Terminal.app behavior
+  {
+    key = 'LeftArrow',
+    mods = 'OPT',
+    action = act.SendKey { key = 'b', mods = 'ALT' },
+  },
+  {
+    key = 'RightArrow',
+    mods = 'OPT',
+    action = act.SendKey { key = 'f', mods = 'ALT' },
+  },
 }
 
 -- Select windows 0 to 9.
