@@ -4,22 +4,21 @@ return {
     'nvim-lua/plenary.nvim',
     'nvim-tree/nvim-web-devicons'
   },
-  keys = { '<leader>S', '<leader>Sw', '<leader>Sp' },
+  keys = {
+    { '<leader>S', desc = 'Spectre' },
+    { '<leader>Sw', desc = 'Search current word' },
+    { '<leader>Sp', desc = 'Search on current file' },
+  },
   cmd = { 'Spectre' },
   config = function ()
-    require('spectre').setup()
-    local wk = require('which-key')
-    wk.register({
-      ['<leader>'] = {
-        S = { require('spectre').toggle, 'Spectr toogle' },
-        ['Sw'] = { function () require('spectre').open_visual({ select_word = true }) end, 'Search current word' },
-      },
+    local spectre = require('spectre')
+    spectre.setup()
+    require('which-key').add({
+      { '<leader>S', group = 'Spectre' },
+      { '<leader>S', spectre.toggle, desc = 'Spectr toogle' },
+      { '<leader>Sw', function () spectre.open_visual({ select_word = true }) end, desc = 'Search current word' },
+      { '<leader>Sw', function () spectre.open_visual() end, desc = 'Search current word', mode = 'v' },
+      { '<leader>Sp', function () spectre.open_file_search({ select_word = true }) end, desc = 'Search on current file' },
     })
-    wk.register({
-      ['<leader>Sw'] = { function () require('spectre').open_visual() end, 'Search current word' },
-    }, { mode = 'v' })
-    wk.register({
-      ['<leader>Sp'] = { function () require('spectre').open_file_search({ select_word = true }) end, 'Search on current file' },
-    }, { mode = 'n' })
   end
 }

@@ -1,26 +1,23 @@
 return {
-  enabled = false,
   'nvim-neotest/neotest',
-  keys = { 'tt' },
   dependencies = {
+    'nvim-neotest/nvim-nio',
     'nvim-lua/plenary.nvim',
-    'nvim-treesitter/nvim-treesitter',
     'antoinemadec/FixCursorHold.nvim',
+    'nvim-treesitter/nvim-treesitter',
     'marilari88/neotest-vitest',
     'folke/which-key.nvim',
   },
+  keys = { { 'tt', desc = 'Test nearest' } },
   config = function ()
     require('neotest').setup({
       adapters = {
         require('neotest-vitest')
       }
     })
-
-    require('which-key').register({
-      ['t'] = {
-        name = 'Test',
-        t = { require('neotest').run.run, 'Nearest' },
-      },
+    require('which-key').add({
+      { 'tt', require('neotest').run.run, 'Test Nearest' }
     })
   end,
+
 }

@@ -31,11 +31,8 @@ return {
       },
     })
 
-    local wk = require('which-key')
-    wk.register({
-      ['<leader>'] = {
-        e = { ':Neotree toggle<CR>', 'Toggle Neotree' },
-      },
+    require('which-key').add({
+      { '<leader>e', ':Neotree toggle<CR>', desc = 'Toggle Neotree' }
     })
   end
 }

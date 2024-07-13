@@ -1,6 +1,11 @@
 return {
   'mfussenegger/nvim-dap',
-  keys = { '<leader>b', '<leader>B', '<F8>', '<leader>dd' },
+  keys = {
+    { '<leader>b', desc = 'Toggle Debugger Breakpoint' },
+    { '<leader>B', desc = 'Set Debugger Breakpoint' },
+    { '<F8>', desc = 'Start/Continue Debuging' },
+    { '<leader>dd', desc = 'Toggle Debugger UI' },
+  },
   dependencies = {
     'rcarriga/nvim-dap-ui',
     'nvim-neotest/nvim-nio',
@@ -39,15 +44,15 @@ return {
     dap.listeners.before.event_exited['dapui_config'] = dapui.close
 
     -- Mappings --
-    require('which-key').register({
-      ['<leader>dd'] = { dapui.toggle, 'Debug: Toggle UI' },
-      ['<F8>'] = { dap.continue, 'Debug: Start/Continue' },
-      ['<F9>'] = { dap.step_over, 'Debug: Step Over' },
-      ['<F21>'] = { dap.step_into, 'Debug: Step Into' },
-      ['<F7>'] = { dap.step_out, 'Debug: Step Out' },
-      ['<S-F8>'] = { dapui.toggle, 'Debug: See last session result.' },
-      ['<leader>b'] = { dap.toggle_breakpoint, 'Debug: Toggle Breakpoint' },
-      ['<leader>B'] = { function () dap.set_breakpoint(vim.fn.input 'Breakpoint condition: ') end, 'Debug: Set Breakpoint' },
+    require('which-key').add({
+      { '<leader>dd', dapui.toggle, desc = 'Debug: Toggle UI' },
+      { '<F8>', dap.continue, desc = 'Debug: Start/Continue' },
+      { '<F9>', dap.step_over, desc = 'Debug: Step Over' },
+      { '<F21>', dap.step_into, desc = 'Debug: Step Into' },
+      { '<F7>', dap.step_out, desc = 'Debug: Step Out' },
+      { '<S-F8>', dapui.toggle, desc = 'Debug: See last session result.' },
+      { '<leader>b', dap.toggle_breakpoint, desc = 'Debug: Toggle Breakpoint' },
+      { '<leader>B', function () dap.set_breakpoint(vim.fn.input 'Breakpoint condition: ') end, desc = 'Debug: Set Breakpoint' },
     })
 
     -- DAP Configurations --

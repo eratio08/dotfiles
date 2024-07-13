@@ -1,6 +1,6 @@
 return {
   'folke/zen-mode.nvim',
-  keys = { '<leader>z' },
+  keys = { { '<leader>z', desc = 'Toggle ZenMode' } },
   dependencies = {
     'folke/which-key.nvim',
   },
@@ -26,11 +26,8 @@ return {
       },
     })
 
-    require('which-key').register({
-      ['<leader>'] = {
-        name = 'Leader',
-        z = { ':ZenMode<CR>', 'Toggle ZenMode' },
-      },
+    require('which-key').add({
+      { '<leader>z', ':ZenMode<CR>', desc = 'Toggle ZenMode' },
     })
   end
 }

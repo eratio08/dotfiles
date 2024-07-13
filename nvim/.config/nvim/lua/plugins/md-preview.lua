@@ -9,14 +9,10 @@ return {
     vim.fn['mkdp#util#install']()
   end,
   config = function ()
-    require('which-key').register({
-      ['<leader>'] = {
-        m = {
-          name = 'Markdown',
-          p = { ':MarkdownPreviewToggle<CR>', 'Preview' },
-          s = { ':MarkdownPreviewStop<CR>', 'Stop Preview' },
-        },
-      },
+    require('which-key').add({
+      { '<leader>m', group = 'Markdown' },
+      { '<leader>mp', ':MarkdownPreviewToggle<CR>', desc = 'Markdown Preview' },
+      { '<leader>ms', ':MarkdownPreviewStop<CR>', desc = 'Stop Preview' },
     })
   end
 }

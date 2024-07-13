@@ -68,13 +68,10 @@ return {
     local p = require('rose-pine.palette')
     vim.api.nvim_set_hl(0, 'Folded', { bg = p.highlight_low })
 
-    require('which-key').register({
-      z = {
-        title = 'Fold',
-        R = { ufo.openAllFolds, 'Open all' },
-        M = { ufo.closeAllFolds, 'Close all' },
-        p = { ufo.peekFoldedLinesUnderCursor, 'Peek' }
-      }
+    require('which-key').add({
+      { 'zR', ufo.openAllFolds(), group = 'Fold', desc = 'Open all folds' },
+      { 'zM', ufo.closeAllFolds(), group = 'Fold', desc = 'Close all folds' },
+      { 'zp', ufo.peekFoldedLinesUnderCursor(), group = 'Fold', desc = 'Peek folded lines' },
     })
   end
 }

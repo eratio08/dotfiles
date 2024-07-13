@@ -1,40 +1,41 @@
 return {
   'folke/which-key.nvim',
+  dependencies = {
+    'echasnovski/mini.icons',
+  },
   event = 'VeryLazy',
-  config = function ()
-    local wk = require('which-key')
-    wk.register({
-      ['<Up>'] = { '<Nop>', 'Unbind arrow up', mode = { 'v', 'n', 'i' } },
-      ['<Down>'] = { '<Nop>', 'Unbind arrow down', mode = { 'v', 'n', 'i' } },
-      ['<Right>'] = { '<Nop>', 'Unbind arrow right', mode = { 'v', 'n', 'i' } },
-      ['<Left>'] = { '<Nop>', 'Unbind arrow left', mode = { 'v', 'n', 'i' } },
-      ['<leader>'] = {
-        name = 'Leader',
-        p = {
-          name = 'Project',
-          v = { vim.cmd.Ex, 'View' }
-        },
-        s = { '1z=', 'Fix spelling' },
-        T = { ':vsplit | term<CR>', 'Open vertical Terminal' },
-      },
-      ['<Space>'] = { '<Nop>', 'Unbind Space', mode = { 'n', 'v' } },
-      k = { "v:count == 0 ? 'gk' : 'k'", 'Better up movement with wrapped words', expr = true },
-      j = { "v:count == 0 ? 'gj' : 'j'", 'Better down movement with wrapped words', expr = true },
-      ['<esc>'] = { '<C-\\><C-n>', 'Normal Mode', mode = 't' },
-      ['<C-w>'] = { '<C-\\><C-n><C-w>', 'Window command', mode = 't' },
-      ['<C-h>'] = { '<C-w><C-h>', 'Move focus to the left window', { mode = 'n' } },
-      ['<C-l>'] = { '<C-w><C-l>', 'Move focus to the right window', { mode = 'n' } },
-      ['<C-j>'] = { '<C-w><C-j>', 'Move focus to the lower window', { mode = 'n' } },
-      ['<C-k>'] = { '<C-w><C-k>', 'Move focus to the upper window', { mode = 'n' } },
-      ['<C-w>+'] = { ':resize +5<CR>', 'Increase window height', { mode = 'n' } },
-      ['<C-w>-'] = { ':resize -5<CR>', 'Decrease window height', { mode = 'n' } },
-      ['<C-w>,'] = { ':vertical resize -5<CR>', 'Decrease window width', { mode = 'n' } },
-      ['<C-w>.'] = { ':vertical resize +5<CR>', 'Increase window wifth', { mode = 'n' } },
-      -- Now done with treesitter text-objects
-      -- ['<A-k>'] = { 'ddp', 'Move Line Up', mode = 'n' },
-      -- ['<A-j>'] = { 'ddkP', 'Move Line Down', mode = 'n' },
-      ['<A-k>'] = { ":move '<-2<CR>gv=gv", 'Move Selection Up', mode = { 'v' } },
-      ['<A-j>'] = { ":move '>+1<CR>gv=gv", 'Move Selection Down', mode = { 'v' } },
-    })
-  end
+  opts = {
+    -- runs setup()
+  },
+  keys = {
+    { '<leader>?', function () require('which-key').show({ global = false }) end, desc = 'List Buffer Local Keymaps' },
+    { '<Up>', '<Nop>', desc = 'Unbind arrow up', mode = { 'v', 'n', 'i' } },
+    { '<Down>', '<Nop>', desc = 'Unbind arrow down', mode = { 'v', 'n', 'i' } },
+    { '<Right>', '<Nop>', desc = 'Unbind arrow right', mode = { 'v', 'n', 'i' } },
+    { '<Left>', '<Nop>', desc = 'Unbind arrow left', mode = { 'v', 'n', 'i' } },
+    { '<leader>p', vim.cmd.Ex, desc = 'Netrw Explorer' },
+    { '<leader>s', '1z=', desc = 'Fix spelling' },
+    { '<leader>T', ':vsplit | term<CR>', desc = 'Open vertical Terminal' },
+    { '<Space>', '<Nop>', desc = 'Unbind Space', mode = { 'n', 'v' } },
+    { 'k', "v:count == 0 ? 'gk' : 'k'", desc = 'Better up movement with wrapped words', expr = true },
+    { 'j', "v:count == 0 ? 'gj' : 'j'", desc = 'Better down movement with wrapped words', expr = true },
+    { '<esc>', '<C-\\><C-n>', desc = 'Normal Mode', mode = 't' },
+
+    -- Window
+    { '<C-w>', '<C-\\><C-n><C-w>', desc = 'Window command', mode = 't' },
+    { '<C-h>', '<C-w><C-h>', desc = 'Move focus to the left window', mode = 'n' },
+    { '<C-l>', '<C-w><C-l>', desc = 'Move focus to the right window', mode = 'n' },
+    { '<C-j>', '<C-w><C-j>', desc = 'Move focus to the lower window', mode = 'n' },
+    { '<C-k>', '<C-w><C-k>', desc = 'Move focus to the upper window', mode = 'n' },
+    { '<C-w>+', ':resize +5<CR>', desc = 'Increase window height', mode = 'n' },
+    { '<C-w>-', ':resize -5<CR>', desc = 'Decrease window height', mode = 'n' },
+    { '<C-w>,', ':vertical resize -5<CR>', desc = 'Decrease window width', mode = 'n' },
+    { '<C-w>.', ':vertical resize +5<CR>', desc = 'Increase window wifth', mode = 'n' },
+
+    -- Now done with treesitter text-objects
+    -- {'<A-k>', 'ddp', 'Move Line Up', mode = 'n' },
+    -- {'<A-j>', 'ddkP', 'Move Line Down', mode = 'n' },
+    { '<A-k>', ":move '<-2<CR>gv=gv", desc = 'Move Selection Up', mode = 'v' },
+    { '<A-j>', ":move '>+1<CR>gv=gv", desc = 'Move Selection Down', mode = 'v' },
+  },
 }

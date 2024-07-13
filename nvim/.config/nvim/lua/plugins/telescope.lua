@@ -1,7 +1,7 @@
 return {
   'nvim-telescope/telescope.nvim',
   tag = '0.1.5',
-  keys = { { '<leader>f', mode = { 'n', 'v' } } },
+  keys = { { '<leader>f', desc = 'Find', mode = { 'n', 'v' } } },
   dependencies = {
     'nvim-lua/plenary.nvim',
     {
@@ -22,82 +22,70 @@ return {
   config = function ()
     local telescope = require('telescope')
     local builtin = require('telescope.builtin')
-    -- local themes = require('telescope.themes')
     local actions = require('telescope.actions')
     local wk = require('which-key')
     local is_git_repo = os.execute('git rev-parse --is-inside-work-tree > /dev/null 2>&1') == 0
 
-    wk.register({
-      ['<leader>f'] = {
-        name = 'Find',
-        f = { function () if is_git_repo then builtin.git_files() else builtin.find_files() end end, 'Git/Files' },
-        F = { builtin.find_files, 'Files' },
-        w = { builtin.grep_string, 'Word', mode = { 'n', 'v' } },
-        W = { function () builtin.grep_string({ search = vim.fn.expand('<cWORD>') }) end, 'WORD' },
-        g = { builtin.live_grep, 'Grep' },
-        ['.'] = { function () builtin.live_grep({ search_dirs = { vim.fn.expand('%:p:h') } }) end, 'Grep .' },
-        e = { function () telescope.extensions.file_browser.file_browser({ path = '%:p:h' }) end, 'Explorer' },
-        p = { function () telescope.extensions.file_browser.file_browser({ path = 'pwd' }) end, 'Project' },
-        b = { builtin.buffers, 'Buffers' },
-        d = { builtin.diagnostics, 'Diagnostics' },
-        S = { builtin.spell_suggest, 'Spell Suggestions' },
-        t = { builtin.treesitter, 'Treesitter' },
-        q = { builtin.quickfix, 'Quickfixes' },
-        Q = { builtin.quickfixhistory, 'Quickfix History' },
-        C = { function () builtin.lsp_dynamic_workspace_symbols({ symbols = { 'class', 'struct', 'interface' } }) end, 'Classes' },
-        l = { builtin.loclist, 'Location List' },
-        h = { builtin.help_tags, 'Help Tags' },
-        H = { builtin.search_history, 'Search History' },
-        m = { builtin.man_pages, 'Man Pages' },
-        c = { builtin.colorscheme, 'Color Schemes' },
-        r = { builtin.registers, 'Registers' },
-        j = { builtin.jumplist, 'Jump List' },
-        ['?'] = { builtin.oldfiles, 'Recently opened files' },
-        ['/'] = { builtin.current_buffer_fuzzy_find, 'Current Buffer' },
-        [','] = { function ()
-          builtin.find_files({
-            prompt_title = 'NVim Settings',
-            cwd = '~/.config/nvim',
-          })
-        end, 'Settings' },
-        V = {
-          name = 'Vim',
-          o = { builtin.vim_options, 'Options' },
-          c = { builtin.commands, 'Commands' },
-          k = { builtin.keymaps, 'Key Maps' },
-          r = { builtin.reloader, 'Reloader' },
-          f = { builtin.filetypes, 'Filetypes' },
-          H = { builtin.highlights, 'Highlights' },
-          a = { builtin.autocommands, 'Autocommands' },
-        },
-        G = {
-          name = 'Git',
-          f = { builtin.git_files, 'Files' },
-          c = { builtin.git_commits, 'Commits' },
-          b = { builtin.git_branches, 'Branches' },
-          s = { builtin.git_stash, 'Stashes' },
-          h = { builtin.git_bcommits, 'Buffer History' },
-          S = { builtin.git_status, 'Status' },
-        },
-        T = {
-          name = 'Telescope',
-          b = { builtin.builtin, 'Builtins' },
-          p = { builtin.pickers, 'Pickers' },
-        },
-        o = { builtin.resume, 'Resume' },
-        L = {
-          name = 'LSP',
-          r = { builtin.lsp_references, 'References' },
-          i = { builtin.lsp_implementations, 'Implementation' },
-          I = { builtin.lsp_incoming_calls, 'Incoming Calls' },
-          O = { builtin.lsp_outgoing_calls, 'Outgoing Calls' },
-          d = { builtin.lsp_definitions, 'Definitions' },
-          D = { builtin.lsp_document_symbols, 'Document Symbols' },
-          t = { builtin.lsp_type_definitions, 'Type Definitions' },
-          w = { builtin.lsp_workspace_symbols, 'Workspace Symbols' },
-          W = { builtin.lsp_dynamic_workspace_symbols, 'Dynamic Workspace Symbols' },
-        },
-      },
+    wk.add({
+      { '<leader>f', group = 'Find' },
+      { '<leader>ff', function () if is_git_repo then builtin.git_files() else builtin.find_files() end end, desc = 'Find Git/Files' },
+      { '<leader>fF', builtin.find_files, desc = 'Find Files' },
+      { '<leader>fw', builtin.grep_string, desc = 'Find Word', mode = { 'n', 'v' } },
+      { '<leader>fW', function () builtin.grep_string({ search = vim.fn.expand('<cWORD>') }) end, desc = 'Find WORD' },
+      { '<leader>fg', builtin.live_grep, desc = 'Grep' },
+      { '<leader>f.', function () builtin.live_grep({ search_dirs = { vim.fn.expand('%:p:h') } }) end, desc = 'Grep .' },
+      { '<leader>fe', function () telescope.extensions.file_browser.file_browser({ path = '%:p:h' }) end, desc = 'Find Explorer' },
+      { '<leader>fp', function () telescope.extensions.file_browser.file_browser({ path = 'pwd' }) end, desc = 'Find Project' },
+      { '<leader>fb', builtin.buffers, desc = 'Find Buffers' },
+      { '<leader>fd', builtin.diagnostics, desc = 'Diagnostics' },
+      { '<leader>fS', builtin.spell_suggest, desc = 'Spell Suggestions' },
+      { '<leader>ft', builtin.treesitter, desc = 'Treesitter' },
+      { '<leader>fq', builtin.quickfix, desc = 'Quickfixes' },
+      { '<leader>fQ', builtin.quickfixhistory, desc = 'Quickfix History' },
+      { '<leader>fC', function () builtin.lsp_dynamic_workspace_symbols({ symbols = { 'class', 'struct', 'interface' } }) end, desc = 'Classes' },
+      { '<leader>fl', builtin.loclist, desc = 'Location List' },
+      { '<leader>fh', builtin.help_tags, desc = 'Help Tags' },
+      { '<leader>fH', builtin.search_history, desc = 'Search History' },
+      { '<leader>fm', builtin.man_pages, desc = 'Man Pages' },
+      { '<leader>fc', builtin.colorscheme, desc = 'Color Schemes' },
+      { '<leader>fr', builtin.registers, desc = 'Registers' },
+      { '<leader>fj', builtin.jumplist, desc = 'Jump List' },
+      { '<leader>f?', builtin.oldfiles, desc = 'Recently opened files' },
+      { '<leader>f/', builtin.current_buffer_fuzzy_find, desc = 'Current Buffer' },
+      { '<leader>fo', builtin.resume, desc = 'Resume Find' },
+      { '<leader>f,', function () builtin.find_files({ prompt_title = 'NVim Settings', cwd = '~/.config/nvim', }) end, desc = 'Vim Settings' },
+      -- Vim
+      { '<leader>fV', group = 'Vim' },
+      { '<leader>fVo', builtin.vim_options, group = 'Vim', desc = 'Vim Options' },
+      { '<leader>fVc', builtin.commands, group = 'Vim', desc = 'Vim Commands' },
+      { '<leader>fVk', builtin.keymaps, group = 'Vim', desc = 'Vim Key Maps' },
+      { '<leader>fVr', builtin.reloader, group = 'Vim', desc = 'Vim Reloader' },
+      { '<leader>fVf', builtin.filetypes, group = 'Vim', desc = 'Vim Filetypes' },
+      { '<leader>fVH', builtin.highlights, group = 'Vim', desc = 'Vim Highlights' },
+      { '<leader>fVa', builtin.autocommands, group = 'Vim', desc = 'Vim Autocommands' },
+      -- Git
+      { '<leader>fG', group = 'Git' },
+      { '<leader>fGf', builtin.git_files, desc = 'Git Files' },
+      { '<leader>fGc', builtin.git_commits, desc = 'Git Commits' },
+      { '<leader>fGb', builtin.git_branches, desc = 'Git Branches' },
+      { '<leader>fGs', builtin.git_stash, desc = 'Git Stashes' },
+      { '<leader>fGh', builtin.git_bcommits, desc = 'Git Buffer History' },
+      { '<leader>fGS', builtin.git_status, desc = 'Git Status' },
+      -- Telescope
+      { '<leader>fT', group = 'Telescope' },
+      { '<leader>fTb', builtin.builtin, desc = 'Telescope Builtins' },
+      { '<leader>fTp', builtin.pickers, desc = 'Telescope Pickers' },
+      -- LSP
+      { '<leader>fL', group = 'LSP' },
+      { '<leader>fLr', builtin.lsp_references, desc = 'References' },
+      { '<leader>fLi', builtin.lsp_implementations, desc = 'Implementation' },
+      { '<leader>fLI', builtin.lsp_incoming_calls, desc = 'Incoming Calls' },
+      { '<leader>fLO', builtin.lsp_outgoing_calls, desc = 'Outgoing Calls' },
+      { '<leader>fLd', builtin.lsp_definitions, desc = 'Definitions' },
+      { '<leader>fLD', builtin.lsp_document_symbols, desc = 'Document Symbols' },
+      { '<leader>fLt', builtin.lsp_type_definitions, desc = 'Type Definitions' },
+      { '<leader>fLw', builtin.lsp_workspace_symbols, desc = 'Workspace Symbols' },
+      { '<leader>fLW', builtin.lsp_dynamic_workspace_symbols, desc = 'Dynamic Workspace Symbols' },
     })
 
     telescope.setup({
