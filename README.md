@@ -1,4 +1,4 @@
-# 🔵 Dotfiles 
+# 🔵 Dotfiles
 
 This repository uses `stow` to manage the dotfile.
 `stow` will manage the symbolic linking.
@@ -11,7 +11,7 @@ cd dotfiles
 stow nvim
 ```
 
-This will only work if `/dotfile` is located in `~/`. 
+This will only work if `/dotfile` is located in `~/`.
 
 ---
 
@@ -32,7 +32,7 @@ This will only work if `/dotfile` is located in `~/`.
 
 Setup via BT tethering as WiFi will not work yet.
 
-Optimize pacman mirros for germany. 
+Optimize pacman mirros for germany.
 ```shell
 sudo pacman-mirrors -c Germany
 ```
@@ -42,7 +42,7 @@ Install yay
 sudo pacman -S yay
 ```
 
-Install WiFi driver 
+Install WiFi driver
 ```shell
 broadcom-wl-dkms
 ```
@@ -67,7 +67,7 @@ yay -S sway swayidle swaylock swaybg waybar mako alacritty hunter redshift-wayla
 Install oh-my-zsh
 ```shell
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-``` 
+```
 
 Install [powerlevel10k](https://github.com/romkatv/powerlevel10k#oh-my-zsh)
 ```shell
@@ -90,7 +90,7 @@ yay -S nvm rustup
 
 SDKMAN
 ```shell
-curl -s "https://get.sdkman.io" | bash 
+curl -s "https://get.sdkman.io" | bash
 ```
 
 Elliptic Curve SSH Key ([source](https://cryptsus.com/blog/how-to-secure-your-ssh-server-with-public-key-elliptic-curve-ed25519-crypto.html))
@@ -155,7 +155,7 @@ To disable fn-look use:
 
 ```
 echo 2 | sudo tee -a /sys/module/hid_apple/parameters/fnmode
-``` 
+```
 
 Or use the alias:
 
@@ -171,7 +171,7 @@ fn-lock-off
 
 There is an issue with the power management where the os wakes up immediately after standby sometimes.
 
-Check the wake up settings with 
+Check the wake up settings with
 
 ```shell
 cat /proc/acpi/wakeup
@@ -186,13 +186,15 @@ echo XHC1 > /proc/acpi/wakeup
 
 ## Linux tools in Rust
 
-* `exa` instead of `ls`
+* `eza` instead of `ls`
 * `bat` instead of `cat`
 * `bottom` instead of `top`
 * `tokei` for source code statistics
-* `zoxide` smart cd
 * `ripgrep` better grep
 * `fd` better find
+
+_Planned_
+* `zoxide` smart cd
 
 
 ---

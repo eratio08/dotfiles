@@ -56,8 +56,8 @@ fi
 # aliases
 alias vim="nvim"
 alias cat="bat -p"
-alias ls="exa -la"
-alias tree="exa -T"
+alias ls="eza -la"
+alias tree="eza -T"
 alias code="codium"
 alias lzd="lazydocker"
 alias lzg="lazygit"
