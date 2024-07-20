@@ -1,7 +1,8 @@
 return {
   'VonHeikemen/lsp-zero.nvim',
   branch       = 'v3.x',
-  event        = 'VeryLazy',
+  -- event        = 'VeryLazy',
+  lazy         = false,
   dependencies = {
     -- LSP Support
     'neovim/nvim-lspconfig',
@@ -50,7 +51,6 @@ return {
 
     lsp_zero.on_attach(function (_, bufnr)
       lsp_zero.default_keymaps({ buffer = bufnr })
-
       local wk = require('which-key')
       wk.add({
         {
@@ -64,21 +64,27 @@ return {
           desc = 'Hover Documentation',
           buffer = bufnr
         },
-        { 'gd', vim.lsp.buf.definition, group = 'Go', desc = 'Go to Definition', buffer = bufnr },
-        { 'gD', vim.lsp.buf.declaration, group = 'Go', desc = 'Go to Declaration', buffer = bufnr },
-        { 'gi', vim.lsp.buf.implementation, group = 'Go', desc = 'Go to Implementation', buffer = bufnr },
-        { 'gr', vim.lsp.buf.references, group = 'Go', desc = 'Go to References', buffer = bufnr },
-        { 'gt', vim.lsp.buf.type_definition, group = 'Go', desc = 'Go to Type Definition', buffer = bufnr },
-        { 'gl', vim.diagnostic.open_float, group = 'Go', desc = 'List Diagnostics', buffer = bufnr },
-        { 'gs', vim.lsp.buf.signature_help, group = 'Go', desc = 'Signature Help', buffer = bufnr },
-        { 'go', vim.lsp.buf.definition, group = 'Go', desc = 'Go to Definition', buffer = bufnr },
-        -- { '<leader>q', vim.diagnostic.setloclist, desc = 'Diagnostics to LocList', buffer = bufnr },
-        { '<leader>r', vim.lsp.rename, group = 'LSP', desc = 'Rename', buffer = bufnr },
-        { '<leader>a', vim.lsp.buf.code_action, group = 'LSP', desc = 'Code Action', buffer = bufnr },
-        { '<leader>l', ':Format<CR>', group = 'LSP', desc = 'Format Buffer', buffer = bufnr },
-        { ']d', vim.diagnostic.goto_next, group = 'Next', desc = 'Diagnostic', buffer = bufnr },
-        { '[d', vim.diagnostic.goto_prev, group = 'Previous', desc = 'Diagnostic', buffer = bufnr },
+        -- Go to
+        { 'g', group = 'Go to' },
+        { 'gd', vim.lsp.buf.definition, desc = 'Go to Definition', buffer = bufnr },
+        { 'gD', vim.lsp.buf.declaration, desc = 'Go to Declaration', buffer = bufnr },
+        { 'gi', vim.lsp.buf.implementation, desc = 'Go to Implementation', buffer = bufnr },
+        { 'gr', vim.lsp.buf.references, desc = 'Go to References', buffer = bufnr },
+        { 'gt', vim.lsp.buf.type_definition, desc = 'Go to Type Definition', buffer = bufnr },
+        { 'gl', vim.diagnostic.open_float, desc = 'List Diagnostics', buffer = bufnr },
+        { 'gs', vim.lsp.buf.signature_help, desc = 'Signature Help', buffer = bufnr },
+        { 'go', vim.lsp.buf.definition, desc = 'Go to Definition', buffer = bufnr },
+        -- LSP
+        { '<leader>l', group = 'LSP' },
+        { '<leader>lr', vim.lsp.buf.rename, desc = 'Rename', buffer = bufnr },
+        { '<leader>la', vim.lsp.buf.code_action, desc = 'Code Action', buffer = bufnr },
+        { '<leader>ll', ':Format<CR>', desc = 'Format Buffer', buffer = bufnr },
+        -- Diagnostics
+        { '<leader>q', vim.diagnostic.setloclist, desc = 'Diagnostics to LocList', buffer = bufnr },
+        { '[d', vim.diagnostic.goto_prev, desc = 'Previous Diagnostic', buffer = bufnr },
+        { ']d', vim.diagnostic.goto_next, desc = 'Next Diagnostic', buffer = bufnr },
       })
+
       local file_type = vim.api.nvim_get_option_value('filetype', { buf = bufnr })
       if file_type == 'go' then
         wk.add {
