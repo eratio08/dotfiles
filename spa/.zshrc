@@ -44,7 +44,7 @@ alias logoff="pkill -u $USER"
 alias fn-lock="echo 2 | sudo tee -a /sys/module/hid_apple/parameters/fnmode"
 alias fn-lock-off="echo 1 | sudo tee -a /sys/module/hid_apple/parameters/fnmode"
 alias fix-suspend="sudo echo XHC1 > /proc/acpi/wakeup"
-alias ls="exa -lah --icons"
+alias ls="eza -lah --icons"
 alias cat="bat -p"
 alias vim="nvim"
 alias code="codium"
@@ -93,7 +93,7 @@ export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 # export DOCKER_HOST='unix:///Users/el/.local/share/containers/podman/machine/qemu/podman.sock'
 
 # use colima
-export DOCKER_HOST="unix://${HOME}/.colima/docker.sock"
+# export DOCKER_HOST="unix://${XDG_CONFIG_HOME}/colima/default/docker.sock"
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
