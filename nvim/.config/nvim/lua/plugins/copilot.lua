@@ -1,14 +1,19 @@
 return {
-  'github/copilot.vim',
-  event = 'VeryLazy',
-  dependencies = {
-    'folke/which-key.nvim',
-  },
+  'zbirenbaum/copilot.lua',
+  -- event= 'VeryLazy',
+  cmd = 'Copilot',
+  event = 'InsertEnter',
   config = function ()
-    vim.keymap.set('i', '<C-J>', 'copilot#Accept("\\<CR>")', {
-      expr = true,
-      replace_keycodes = false
+    require('copilot').setup({
+      suggest = {
+        keymap = {
+          accept = '<C-j>',
+        },
+      },
+      filetypes = {
+        roc = false,
+        ml = false,
+      },
     })
-    vim.g.copilot_no_tab_map = true
   end,
 }
