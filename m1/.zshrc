@@ -2,7 +2,6 @@ export ZSH="$HOME/.oh-my-zsh"
 
 plugins=(
   git
-  ripgrep
   brew
   golang
   nmap
@@ -97,7 +96,7 @@ export PATH="$HOME/go/bin:$PATH"
 [[ ! -r /Users/el/.opam/opam-init/init.zsh ]] || source /Users/el/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
 
 # Roc
-export PATH=$PATH:~/Downloads/roc_nightly-macos_apple_silicon-2024-03-25-4dca0546f4
+export PATH=$PATH:~/Downloads/roc-lang/roc_nightly-macos_apple_silicon-2024-07-13-070d14a5d60
 
 # load openapi key
 [[ -f "$HOME/dotfiles/private-dotfiles/openai.sh" ]] && source "$HOME/dotfiles/private-dotfiles/openai.sh"
