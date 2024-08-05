@@ -50,7 +50,7 @@ alias vim="nvim"
 alias code="codium"
 alias lzd="lazydocker"
 alias lzg="lazygit"
-alias btm="btm --mem_as_value"
+alias btm="btm"
 alias rlz="source ~/.zshrc"
 
 # Rust
