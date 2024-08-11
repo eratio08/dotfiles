@@ -10,8 +10,24 @@ config.font = wezterm.font_with_fallback({ 'JetBrainsMono Nerd Font', 'JetBrains
 config.font_size = 15.0
 
 -- Rose Pine theme
-config.colors = require('lua/rose-pine').colors()
+local theme = require('lua/rose-pine')
+config.color_schemes = {
+  ['dark'] = theme.moon.colors(),
+  ['light'] = theme.dawn.colors(),
+}
+config.color_scheme = 'dark'
 config.window_background_opacity = 0.95
+
+-- register custom event to toggle schemes
+wezterm.on('toggle-color-theme', function(window, _)
+  local overrides = window:get_config_overrides() or {}
+  if overrides.color_scheme == 'light' then
+    overrides.color_scheme = 'dark'
+  else
+    overrides.color_scheme = 'light'
+  end
+  window:set_config_overrides(overrides)
+end)
 
 -- tab_bar
 config.show_tab_index_in_tab_bar = true
@@ -23,6 +39,12 @@ config.use_fancy_tab_bar = false
 -- key_bindings, tmux inspired
 config.leader = { key = 'b', mods = 'CTRL', timeout_milliseconds = 1000 }
 config.keys = {
+  -- switch themes
+  {
+    key = 't',
+    mods = 'LEADER',
+    action = act.EmitEvent('toggle-color-theme'),
+  },
   -- C-o  Rotate the panes in the current window forwards.Rotate the panes in the current window forwards.
   {
     -- Break the current pane out of the window.
@@ -242,7 +264,7 @@ config.window_padding = {
 config.window_decorations = 'RESIZE'
 
 local function basename(s)
-  return string.gsub(s.path, '(.*[/\\])(.*)', '%2')
+  return string.gsub(s.path, '(.*[/\\])(.*)', '%2') or ''
 end
 
 wezterm.on(
