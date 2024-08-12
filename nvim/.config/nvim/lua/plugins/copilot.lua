@@ -1,11 +1,11 @@
 return {
   'zbirenbaum/copilot.lua',
-  -- event= 'VeryLazy',
   cmd = 'Copilot',
   event = 'InsertEnter',
   config = function ()
     require('copilot').setup({
-      suggest = {
+      suggestion = {
+        auto_trigger = true,
         keymap = {
           accept = '<C-j>',
         },
