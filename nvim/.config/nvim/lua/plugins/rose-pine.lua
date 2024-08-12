@@ -8,11 +8,15 @@ return {
     local light_gray = '#34304c'
 
     rose_pine.setup({
-      bold_vert_split = false,
-      dim_nc_background = false,
-      disable_background = true,
-      disable_float_background = true,
-      disable_italics = false,
+      dark_variant = 'moon',
+      dim_inactive_windows = false,
+
+      styles = {
+        bold = false,
+        italic = false,
+        transparency = true,
+      },
+
       highlight_groups = {
         Normal = { bg = 'none', fg = 'text' },
         NormalFloat = { bg = 'none', fg = 'text' },
