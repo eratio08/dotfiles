@@ -89,7 +89,7 @@ local moon_palette = {
   text = '#e0def4',
   love = '#eb6f92',
   gold = '#f6c177',
-  -- rose = '#ea9a97',
+  rose = '#ea9a97',
   pine = '#3e8fb0',
   foam = '#9ccfd8',
   iris = '#c4a7e7',
@@ -98,7 +98,7 @@ local moon_palette = {
 
 local moon_active_tab = {
   bg_color = moon_palette.overlay,
-  fg_color = moon_palette.text,
+  fg_color = moon_palette.rose,
 }
 
 local moon_inactive_tab = {
