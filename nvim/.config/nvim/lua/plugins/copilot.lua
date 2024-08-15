@@ -12,7 +12,7 @@ return {
       },
       filetypes = {
         roc = false,
-        ml = false,
+        ocaml = false,
       },
     })
   end,
