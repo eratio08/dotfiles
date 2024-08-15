@@ -16,7 +16,7 @@ config.color_schemes = {
   ['light'] = theme.dawn.colors(),
 }
 config.color_scheme = 'dark'
-config.window_background_opacity = 0.95
+-- config.window_background_opacity = 0.95
 
 -- register custom event to toggle schemes
 wezterm.on('toggle-color-theme', function(window, _)
