@@ -70,3 +70,9 @@ vim.g.netrw_altv          = 1  -- view on the left
 -- vim.g.loaded_netrwPlugin  = 1
 
 vim.opt.laststatus        = 3 -- 3 mean global status lines
+
+-- Sync clipboard between OS and Neovim.
+-- Schedule the setting after `UiEnter` because it can increase startup-time.
+vim.schedule(function ()
+  vim.opt.clipboard = 'unnamedplus'
+end)
