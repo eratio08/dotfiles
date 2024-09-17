@@ -62,6 +62,7 @@ alias lzd="lazydocker"
 alias lzg="lazygit"
 # alias find="fd"
 alias zrl="source ~/.zshrc"
+alias tf="tofu"
 
 # to make mvnd work
 # unalias mvnd
@@ -90,6 +91,9 @@ export XDG_CONFIG_HOME=~/.config/
 
 # Go
 export PATH="$HOME/go/bin:$PATH"
+# make binaries work with asdf
+. ~/.asdf/plugins/golang/set-env.zsh
+export PATH="$GOBIN:$PATH"
 
 # OCaml
 [[ ! -r /Users/el/.opam/opam-init/init.zsh ]] || source /Users/el/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
