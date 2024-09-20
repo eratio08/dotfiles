@@ -76,3 +76,6 @@ vim.opt.laststatus        = 3 -- 3 mean global status lines
 vim.schedule(function ()
   vim.opt.clipboard = 'unnamedplus'
 end)
+
+-- Enable virtual text diagnostics
+vim.diagnostic.config({ virtual_text = true })

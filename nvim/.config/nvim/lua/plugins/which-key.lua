@@ -25,12 +25,12 @@ return {
     { '<C-w>', '<C-\\><C-n><C-w>', desc = 'Window command', mode = 't' },
     { '<C-h>', '<C-w><C-h>', desc = 'Move focus to the left window', mode = 'n' },
     { '<C-l>', '<C-w><C-l>', desc = 'Move focus to the right window', mode = 'n' },
-    { '<C-j>', '<C-w><C-j>', desc = 'Move focus to the lower window', mode = 'n' },
+    { '<C-j>', '<C-w><C-j>', desc = 'Move focus to the lower windod', mode = 'n' },
     { '<C-k>', '<C-w><C-k>', desc = 'Move focus to the upper window', mode = 'n' },
-    { '<C-w>+', ':resize +5<CR>', desc = 'Increase window height', mode = 'n' },
-    { '<C-w>-', ':resize -5<CR>', desc = 'Decrease window height', mode = 'n' },
-    { '<C-w>,', ':vertical resize -5<CR>', desc = 'Decrease window width', mode = 'n' },
-    { '<C-w>.', ':vertical resize +5<CR>', desc = 'Increase window wifth', mode = 'n' },
+    { '<C-t>', ':resize +5<CR>', desc = 'Increase window height', mode = 'n' },
+    { '<C-s>', ':resize -5<CR>', desc = 'Decrease window height', mode = 'n' },
+    { '<C-,>', ':vertical resize -5<CR>', desc = 'Decrease window width', mode = 'n' },
+    { '<C-.>', ':vertical resize +5<CR>', desc = 'Increase window width', mode = 'n' },
 
     -- Now done with treesitter text-objects
     -- {'<A-k>', 'ddp', 'Move Line Up', mode = 'n' },
