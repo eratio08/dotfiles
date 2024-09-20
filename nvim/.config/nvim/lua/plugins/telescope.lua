@@ -13,10 +13,6 @@ return {
       build  = 'make',
       config = function () require('telescope').load_extension('fzf') end
     },
-    {
-      'nvim-telescope/telescope-file-browser.nvim',
-      config = function () require('telescope').load_extension('file_browser') end
-    },
     'folke/which-key.nvim',
   },
   config = function ()
@@ -171,9 +167,9 @@ return {
           override_file_sorter = true,
           case_mode = 'smart_case',
         },
-        file_browser = {
-          theme = 'dropdown',
-        }
+        ['ui-select'] = {
+          require('telescope.themes').get_dropdown(),
+        },
       },
     })
   end
