@@ -1,6 +1,6 @@
 return {
   'nvim-telescope/telescope.nvim',
-  tag = '0.1.5',
+  tag = '0.1.x',
   keys = { { '<leader>f', desc = 'Find', mode = { 'n', 'v' } } },
   dependencies = {
     'nvim-lua/plenary.nvim',
@@ -116,6 +116,7 @@ return {
           'node_modules',
           '.git',
           '_build',
+          'dune.lock',
         },
         hidden = true,
       },

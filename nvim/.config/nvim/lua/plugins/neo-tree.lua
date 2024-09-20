@@ -4,7 +4,7 @@ return {
   lazy = false,
   dependencies = {
     'nvim-lua/plenary.nvim',
-    { 'nvim-tree/nvim-web-devicons', name = 'nvim-tree-nvim-web-devicons' },
+    'nvim-tree/nvim-web-devicons',
     'MunifTanjim/nui.nvim',
     'folke/which-key.nvim',
   },

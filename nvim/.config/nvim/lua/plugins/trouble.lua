@@ -3,7 +3,7 @@ return {
   'folke/trouble.nvim',
   keys = { '<leader>tt' },
   dependencies = {
-    'kyazdani42/nvim-web-devicons',
+    'nvim-tree/nvim-web-devicons',
     'folke/which-key.nvim',
   },
   config = function ()

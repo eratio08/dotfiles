@@ -1,6 +1,6 @@
 return {
   'tjdevries/ocaml.nvim',
-  event = 'VeryLazy',
+  ft = { 'ml', 'mlx', 'dune' },
   config = function ()
     require('ocaml').setup()
   end,
