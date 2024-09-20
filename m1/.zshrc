@@ -91,8 +91,8 @@ export XDG_CONFIG_HOME=~/.config/
 
 # Go
 export PATH="$HOME/go/bin:$PATH"
-# make binaries work with asdf
-. ~/.asdf/plugins/golang/set-env.zsh
+# Requires only work if asdf go installation exists
+source ~/.asdf/plugins/golang/set-env.zsh
 export PATH="$GOBIN:$PATH"
 
 # OCaml
