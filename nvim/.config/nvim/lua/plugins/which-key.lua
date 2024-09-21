@@ -32,7 +32,6 @@ return {
     { '<C-,>', ':vertical resize -5<CR>', desc = 'Decrease window width', mode = 'n' },
     { '<C-.>', ':vertical resize +5<CR>', desc = 'Increase window width', mode = 'n' },
 
-    -- Now done with treesitter text-objects
     -- {'<A-k>', 'ddp', 'Move Line Up', mode = 'n' },
     -- {'<A-j>', 'ddkP', 'Move Line Down', mode = 'n' },
     { '<A-k>', ":move '<-2<CR>gv=gv", desc = 'Move Selection Up', mode = 'v' },
