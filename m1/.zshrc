@@ -63,7 +63,7 @@ alias lzg="lazygit"
 # alias find="fd"
 alias zrl="source ~/.zshrc"
 alias tf="tofu"
-alias dunedev="~/Downloads/dune"
+alias jo="joshuto"
 
 # to make mvnd work
 # unalias mvnd
