@@ -117,7 +117,12 @@
 # image_bound = [0, 0]
 # suppress_preload = false
 #
+
 # [plugin]
+# deps = [
+#   { use = "Msouza91/rose-pine.yazi", rev = "4101d0d9c475f23d94b7262e7fd945930378807e" },
+# ]
+
 #
 # fetchers = [
 #   # Mimetype
