@@ -13,11 +13,34 @@ stow nvim
 
 This will only work if `/dotfile` is located in `~/`.
 
+
 ---
 
-## 🐧 Archlinux on MacBookPro11.1 🍎
 
-### 🧑‍💻 Software
+## 🍏 macOS on MacBook Pro 18.4
+
+
+### 🖥️ Apps
+
+* [Amethyst](https://github.com/ianyh/Amethyst) - simulate tiling window manager
+* [Yazi](https://github.com/sxyazi/yazi) - tui file manager
+* [lazydocker](https://github.com/jesseduffield/lazydocker) - docker tui
+* [WezTerm](https://github.com/wez/wezterm) - terminal emulator
+* [bat]() - cat alternative
+* [ripgrep]() - grep alternative
+* [eza]() - ls alternative
+* [asdf]() - universal version manager for languages
+* [fd]() - find alternative
+* [Typst]() - fast LaTeX alternative
+
+
+---
+
+
+## 🐧 Archlinux on MacBook Pro 11.1 🍎
+
+
+### 🧑‍💻 Apps
 
 * [Sway](https://github.com/swaywm/sway) - windows manager
 * [Mako](https://github.com/emersion/mako) - notifications
@@ -27,6 +50,7 @@ This will only work if `/dotfile` is located in `~/`.
 * [Swaylock](https://github.com/swaywm/swaylock) - screen locker for sway
 * [Waybar](https://github.com/Alexays/Waybar) - status bar for wayland
 * [macbook-lighter](https://github.com/harttle/macbook-lighter) - screen/keyboard backlight helper
+
 
 ### Steps
 
@@ -79,7 +103,9 @@ Install tlp for laptop power management
 yay -S tlp
 ```
 
+
 ---
+
 
 ## Dev Stuff
 
@@ -105,7 +131,9 @@ gpg2 --expert --full-gen-key
 
 Also checkout the [Archwiki gpg page](https://wiki.archlinux.org/title/GnuPG) about how to configure `pinentry-tty` to allow gpg key password in shell.
 
+
 ---
+
 
 ### 🪟 Sway
 
@@ -114,12 +142,14 @@ For more information use:
 man 5 sway
 ```
 
+
 ### 📔 Mako
 
 Test mako styling with
 ```shell
 notify-send 'Hello world!' 'This is an example notification.'
 ```
+
 
 ### 💨 Fan Control
 
@@ -129,6 +159,7 @@ If it got fixed use:
 ```shell
 yay -S mbpfan-git
 ```
+
 
 ### 🗄 Restic
 
@@ -140,6 +171,7 @@ When using cronie/anachron make sure to not include the `.sh`.
 0  6-23/2  *  *  * /home/.../backup
 ```
 
+
 ### 🦊 Firefox
 
 To force darkmode on websites, visit `about:config` and create a new entry with the value of `1`.
@@ -147,6 +179,7 @@ To force darkmode on websites, visit `about:config` and create a new entry with 
 ```shell
 ui.systemUsesDarkTheme
 ```
+
 
 ### ⌨️ Keyboard
 
@@ -166,6 +199,7 @@ alias fn-lock-off="echo 1 | sudo tee -a /sys/module/hid_apple/parameters/fnmode"
 fn-lock
 fn-lock-off
 ```
+
 
 ### 🔋 Immediate Wake Up after Standby Issue
 
@@ -198,6 +232,7 @@ _Planned_
 
 
 ---
+
 
 ## References
 
