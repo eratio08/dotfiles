@@ -4,12 +4,12 @@
 
 # vim:fileencoding=utf-8:foldmethod=marker
 
-# # : Flavor {{{
-#
-# [flavor]
-# use = ""
-#
-# # : }}}
+# : Flavor {{{
+
+[flavor]
+use = "rose-pine"
+
+# : }}}
 #
 # # : Manager {{{
 #
