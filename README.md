@@ -34,6 +34,25 @@ This will only work if `/dotfile` is located in `~/`.
 * [Typst]() - fast LaTeX alternative
 
 
+#### 👞 Steps
+
+##### Yazi
+
+```bash
+# rustup
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup update
+
+# sources
+git clone https://github.com/sxyazi/yazi --depth=1
+cargo build --release --locked
+
+# put it on the path
+sudo cp target/release/yazi /usr/local/bin/ya
+sudo cp target/release/ya /usr/local/bin/yacli
+```
+
+
 ---
 
 

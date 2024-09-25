@@ -63,7 +63,6 @@ alias lzg="lazygit"
 alias zrl="source ~/.zshrc"
 alias tf="tofu"
 alias jo="joshuto"
-alias yz="yazi"
 
 # to make mvnd work
 # unalias mvnd
