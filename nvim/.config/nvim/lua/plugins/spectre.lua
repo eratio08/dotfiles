@@ -1,8 +1,10 @@
 return {
   'nvim-pack/nvim-spectre',
+  enable = false,
   dependencies = {
     'nvim-lua/plenary.nvim',
-    'nvim-tree/nvim-web-devicons'
+    'nvim-tree/nvim-web-devicons',
+    'folke/which-key.nvim',
   },
   keys = {
     { '<leader>S', desc = 'Spectre' },
