@@ -23,3 +23,5 @@
   program = /Applications/1Password.app/Contents/MacOS/op-ssh-sign
 [rerere]
 	enabled = true
+[rebase]
+  updateRefs = true
