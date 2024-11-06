@@ -142,6 +142,7 @@ return {
           'ocaml.mlx',
           'ocaml.ocamllex',
           'reason',
+          'dune',
         },
       },
       gleam = {},
