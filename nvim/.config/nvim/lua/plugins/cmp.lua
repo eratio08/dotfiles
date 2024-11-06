@@ -13,6 +13,7 @@ return {
     'ray-x/cmp-treesitter',
     'onsails/lspkind-nvim',
     'hrsh7th/cmp-nvim-lsp-signature-help',
+    'zbirenbaum/copilot-cmp',
     -- Snippets
     {
       'L3MON4D3/LuaSnip',
@@ -23,6 +24,7 @@ return {
   },
   config = function ()
     local cmp = require('cmp')
+    require('copilot_cmp').setup()
     local luasnip = require('luasnip')
     luasnip.config.setup {}
 
@@ -72,7 +74,9 @@ return {
       }),
       -- If no match is provided by a group the next will be used.
       sources = cmp.config.sources({
-        { name = 'lazydev', group_index = 0 },
+        { name = 'lazydev' },
+      }, {
+        { name = 'copilot' },
         { name = 'nvim_lsp' },
         { name = 'luasnip' },
         { name = 'nvim_lsp_signature_help' },
@@ -97,6 +101,7 @@ return {
             emoji      = 'ﲃ',
             cmp_git    = '',
             cmdline    = '',
+            Copilot    = '',
           },
         }),
       },
