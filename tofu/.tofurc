@@ -1,1 +1,14 @@
 plugin_cache_dir = "/Users/el/.terraform.d/plugin-cache"
+
+provider_installation {
+
+  dev_overrides {
+      "sportalliance/netbird" = "/Users/el/go/bin"
+      "registry.opentofu.org/sportalliance/netbird" = "/Users/el/go/bin"
+  }
+
+  # For all other providers, install them directly from their origin provider
+  # registries as normal. If you omit this, Terraform will _only_ use
+  # the dev_overrides block, and so no other providers will be available.
+  direct {}
+}
