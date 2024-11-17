@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'elixir-tools/elixir-tools.nvim',
   version = '*',
   event = { 'BufReadPre', 'BufNewFile' },
@@ -10,7 +11,7 @@ return {
     local elixirls = require('elixir.elixirls')
 
     elixir.setup {
-      nextls = { enable = true },
+      nextls = { enable = false },
       credo = { enable = true },
       elixirls = {
         enable = false,
