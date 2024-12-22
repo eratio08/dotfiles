@@ -6,7 +6,7 @@ return {
     require('copilot').setup({
       suggestion = {
         enabled = false,
-        auto_trigger = true,
+        auto_trigger = false,
         keymap = {
           accept = '<C-j>',
         },
@@ -15,9 +15,9 @@ return {
         enabled = false,
       },
       filetypes = {
-        -- roc = false,
-        -- ocaml = false,
-        -- elixir = false,
+        roc = false,
+        ocaml = false,
+        elixir = false,
       },
     })
   end,

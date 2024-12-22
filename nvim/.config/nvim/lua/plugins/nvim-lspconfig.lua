@@ -7,8 +7,9 @@ return {
     'williamboman/mason-lspconfig.nvim',
     'folke/which-key.nvim',
     'kevinhwang91/nvim-ufo',
-    'hrsh7th/cmp-nvim-lsp',
+    -- 'hrsh7th/cmp-nvim-lsp',
     'b0o/schemastore.nvim', -- used by jsonls & yamlls
+    'saghen/blink.cmp',
   },
   config = function ()
     vim.api.nvim_create_autocmd('LspAttach', {
@@ -183,7 +184,8 @@ return {
       dynamicRegistration = false,
       lineFoldingOnly = true
     }
-    capabilities = vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
+    -- capabilities = vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
+    capabilities = require('blink.cmp').get_lsp_capabilities(capabilities)
     require('mason-lspconfig').setup({
       handlers = {
 

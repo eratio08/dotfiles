@@ -1,4 +1,5 @@
 return {
+  enabled = false,
   'hrsh7th/nvim-cmp',
   event = { 'CmdlineEnter', 'InsertEnter' },
   dependencies = {
@@ -13,7 +14,7 @@ return {
     'ray-x/cmp-treesitter',
     'onsails/lspkind-nvim',
     'hrsh7th/cmp-nvim-lsp-signature-help',
-    'zbirenbaum/copilot-cmp',
+    -- 'zbirenbaum/copilot-cmp',
     -- Snippets
     {
       'L3MON4D3/LuaSnip',
@@ -24,7 +25,7 @@ return {
   },
   config = function ()
     local cmp = require('cmp')
-    require('copilot_cmp').setup()
+    -- require('copilot_cmp').setup()
     local luasnip = require('luasnip')
     luasnip.config.setup {}
 
@@ -76,7 +77,6 @@ return {
       sources = cmp.config.sources({
         { name = 'lazydev' },
       }, {
-        { name = 'copilot' },
         { name = 'nvim_lsp' },
         { name = 'luasnip' },
         { name = 'nvim_lsp_signature_help' },
@@ -110,9 +110,7 @@ return {
     cmp.setup.filetype('gitcommit', {
       sources = cmp.config.sources({
         { name = 'emoji' },
-      }, {
         { name = 'git' },
-      }, {
         { name = 'buffer' },
       })
     })
@@ -120,14 +118,13 @@ return {
     cmp.setup.cmdline(':', {
       mapping = cmp.mapping.preset.cmdline(),
       sources = cmp.config.sources({
-        { name = 'path' }
-      }, {
+        { name = 'path' },
         {
           name = 'cmdline',
           option = {
             ignore_cmds = { 'Man', '!' }
           }
-        }
+        },
       })
     })
 
