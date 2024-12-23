@@ -65,6 +65,7 @@ return {
     }
     )
 
+    vim.inspect(require('schemastore').yaml.schemas())
     -- Servers --
     local servers = {
       lua_ls = {
@@ -108,16 +109,14 @@ return {
             validate = { enable = true },
           },
         },
-
       },
       yamlls = {
         settings = {
+          redhat = { telemetry = { enabled = false } },
           yaml = {
+            validate = true,
             schemaStore = {
-              -- You must disable built-in schemaStore support if you want to use
-              -- this plugin and its advanced options like `ignore`.
               enable = false,
-              -- Avoid TypeError: Cannot read properties of undefined (reading 'length')
               url = '',
             },
             schemas = require('schemastore').yaml.schemas(),
@@ -157,6 +156,16 @@ return {
         settings = {}
       },
       roc_ls = {},
+      helmls = {
+        settings = {
+          ['helm-ls'] = {
+            yamlls = {
+              enabled = true,
+              path = vim.fn.stdpath('data') .. '/mason/bin/yaml-language-server',
+            }
+          }
+        }
+      },
     }
 
     -----------------
@@ -181,6 +190,7 @@ return {
     }
 
     local capabilities = vim.lsp.protocol.make_client_capabilities()
+    capabilities.textDocument.completion.completionItem.snippetSupport = true
     capabilities.textDocument.foldingRange = {
       dynamicRegistration = false,
       lineFoldingOnly = true
