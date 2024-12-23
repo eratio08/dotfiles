@@ -11,14 +11,7 @@ return {
       ['<C-e>'] = { 'hide', 'fallback' },
       ['<Tab>'] = { 'select_next', 'snippet_forward', 'fallback' },
       ['<S-Tab>'] = { 'select_prev', 'snippet_backward', 'fallback' },
-      ['<CR>'] = { function (cmp)
-        if cmp.snippet_active() then
-          return cmp.accept()
-        else
-          return cmp.select_and_accept()
-        end
-      end
-      },
+      ['<CR>'] = { 'accept', 'fallback' },
       ['<Up>'] = { 'select_prev', 'fallback' },
       ['<Down>'] = { 'select_next', 'fallback' },
       ['<C-p>'] = { 'select_prev', 'fallback' },
