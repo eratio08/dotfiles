@@ -1,4 +1,5 @@
 return {
+  enbaled = true,
   'HiPhish/rainbow-delimiters.nvim',
   event = 'VeryLazy',
   config = function ()

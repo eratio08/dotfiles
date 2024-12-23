@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'neovim/nvim-lspconfig',
   lazy = false,
   dependencies = {

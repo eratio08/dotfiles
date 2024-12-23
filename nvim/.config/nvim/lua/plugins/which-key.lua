@@ -36,5 +36,8 @@ return {
     -- {'<A-j>', 'ddkP', 'Move Line Down', mode = 'n' },
     { '<A-k>', ":move '<-2<CR>gv=gv", desc = 'Move Selection Up', mode = 'v' },
     { '<A-j>', ":move '>+1<CR>gv=gv", desc = 'Move Selection Down', mode = 'v' },
+
+    -- Buffers
+    { '<leader>CA', ':%bd|e#<CR>', desc = 'Close All other Buffers', mode = 'n' }
   },
 }
