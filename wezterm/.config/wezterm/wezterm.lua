@@ -7,7 +7,11 @@ if wezterm.config_builder then
 end
 
 config.font = wezterm.font_with_fallback({ 'JetBrainsMono Nerd Font', 'JetBrains Mono' })
-config.font_size = 15.0
+config.font_size = 17.0
+
+config.max_fps = 120
+config.front_end = "WebGpu"
+config.prefer_egl = true
 
 -- Rose Pine theme
 local theme = require('lua/rose-pine')
