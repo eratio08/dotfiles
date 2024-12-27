@@ -1,0 +1,13 @@
+font-family = JetBrainsMono Nerd Font Mono
+font-size = 17
+
+## Theme
+theme = rose-pine-moon
+# green, overrides
+palette = 2=#3e8fb0
+palette = 10=#3e8fb0
+# blue, overrides
+palette = 4=#9ccfd8
+palette = 12=#9ccfd8
+# override
+selection-background = #44415a
