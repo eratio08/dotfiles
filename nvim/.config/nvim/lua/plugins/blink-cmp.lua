@@ -10,7 +10,7 @@ return {
       ['<C-space>'] = { 'show', 'show_documentation', 'hide_documentation' },
       ['<C-e>'] = { 'hide', 'fallback' },
       ['<Tab>'] = { 'select_next', 'snippet_forward', 'fallback' },
-      ['<S-Tab>'] = { 'select_prev', 'snippet_backward', 'fallback' },
+      ['<Ci-Tab>'] = { 'select_prev', 'snippet_backward', 'fallback' },
       ['<CR>'] = { 'accept', 'fallback' },
       ['<Up>'] = { 'select_prev', 'fallback' },
       ['<Down>'] = { 'select_next', 'fallback' },
@@ -19,7 +19,7 @@ return {
       ['<C-u>'] = { 'scroll_documentation_up', 'fallback' },
       ['<C-d>'] = { 'scroll_documentation_down', 'fallback' },
       cmdline = {
-        preset = 'super-tab'
+        preset = 'super-tab',
       },
     },
     appearance = {
@@ -28,6 +28,7 @@ return {
     },
     sources = {
       default = { 'lsp', 'path', 'snippets', 'buffer' },
+      cmdline = {},
     },
     signature = { enabled = true },
   },
