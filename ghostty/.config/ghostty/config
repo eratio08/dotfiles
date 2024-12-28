@@ -1,6 +1,10 @@
 font-family = JetBrainsMono Nerd Font Mono
 font-size = 17
 
+macos-titlebar-style = tabs
+macos-titlebar-proxy-icon = hidden
+macos-option-as-alt = true
+
 ## Theme
 theme = rose-pine-moon
 # green, overrides
