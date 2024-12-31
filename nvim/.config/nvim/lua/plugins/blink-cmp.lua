@@ -1,7 +1,11 @@
 return {
+  enabled = false,
   'saghen/blink.cmp',
-  dependencies = { 'rafamadriz/friendly-snippets' },
-  version = 'v0.*',
+  dependencies = {
+    'rafamadriz/friendly-snippets',
+    'moyiz/blink-emoji.nvim',
+  },
+  version = '*',
   ---@module 'blink.cmp'
   ---@type blink.cmp.Config
   opts = {
@@ -27,9 +31,27 @@ return {
       nerd_font_variant = 'mono'
     },
     sources = {
-      default = { 'lsp', 'path', 'snippets', 'buffer' },
-      cmdline = {},
+      default = { 'lazydev', 'lsp', 'path', 'snippets', 'buffer', 'emoji' },
+      providers = {
+        emoji = {
+          module = 'blink-emoji',
+          name = 'Emoji',
+          score_offset = 15,
+        },
+        lazydev = {
+          name = 'LazyDev',
+          module = 'lazydev.integrations.blink',
+          score_offset = 100,
+        },
+      }
     },
-    signature = { enabled = true },
+    signature = { enabled = false },
+    completion = {
+      menu = {
+        auto_show = function (ctx)
+          return ctx.mode ~= 'cmdline' or not vim.tbl_contains({ '/', '?' }, vim.fn.getcmdtype())
+        end,
+      },
+    }
   },
 }

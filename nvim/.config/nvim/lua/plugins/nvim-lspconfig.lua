@@ -195,11 +195,18 @@ return {
       dynamicRegistration = false,
       lineFoldingOnly = true
     }
-    -- capabilities = vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
-    capabilities = require('blink.cmp').get_lsp_capabilities(capabilities)
+    local ok, cmp_nvim = pcall(require, 'cmp_nvim_lsp')
+    if ok then
+      capabilities = vim.tbl_deep_extend('force', capabilities, cmp_nvim.default_capabilities())
+    end
+    local ok, blink_cmp = pcall(require, 'blink.cmp')
+    if ok then
+      capabilities = blink_cmp.get_lsp_capabilities(capabilities)
+    end
     require('mason-lspconfig').setup({
+      ensure_installed = {},
+      automatic_installation = {},
       handlers = {
-
         function (server_name)
           local server = servers[server_name] or {}
           server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})

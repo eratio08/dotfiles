@@ -1,5 +1,5 @@
 return {
-  enabled = false,
+  enabled = true,
   'hrsh7th/nvim-cmp',
   event = { 'CmdlineEnter', 'InsertEnter' },
   dependencies = {
