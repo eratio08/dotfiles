@@ -1,5 +1,5 @@
 return {
-  enabled = true,
+  enabled = not require('plugins.blink-cmp').enabled,
   'hrsh7th/nvim-cmp',
   event = { 'CmdlineEnter', 'InsertEnter' },
   dependencies = {
