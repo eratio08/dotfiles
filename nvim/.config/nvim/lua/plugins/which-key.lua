@@ -4,9 +4,6 @@ return {
     'echasnovski/mini.icons',
   },
   event = 'VeryLazy',
-  opts = {
-    -- runs setup()
-  },
   keys = {
     { '<leader>?', function () require('which-key').show({ global = false }) end, desc = 'List Buffer Local Keymaps' },
     { '<Up>', '<Nop>', desc = 'Unbind arrow up', mode = { 'v', 'n', 'i' } },
@@ -20,6 +17,9 @@ return {
     { 'k', "v:count == 0 ? 'gk' : 'k'", desc = 'Better up movement with wrapped words', expr = true },
     { 'j', "v:count == 0 ? 'gj' : 'j'", desc = 'Better down movement with wrapped words', expr = true },
     { '<esc>', '<C-\\><C-n>', desc = 'Normal Mode', mode = 't' },
+
+    -- Terminal
+    { '<esc><esc>', '<C-\\><C-n>', desc = 'Escape terminal mode', mode = 't' },
 
     -- Window
     { '<C-w>', '<C-\\><C-n><C-w>', desc = 'Window command', mode = 't' },
@@ -38,6 +38,12 @@ return {
     { '<A-j>', ":move '>+1<CR>gv=gv", desc = 'Move Selection Down', mode = 'v' },
 
     -- Buffers
-    { '<leader>CA', ':%bd|e#<CR>', desc = 'Close All other Buffers', mode = 'n' }
+    { '<leader>CA', ':%bd|e#<CR>', desc = 'Close All other Buffers', mode = 'n' },
+
+    -- Lua
+    -- TODO: Move into after filetype to only register for lua files
+    { '<space><space>x', '<cmd>source %<CR>', desc = 'Source current file', mode = 'n' },
+    { '<space>x', ':.lua<CR>', desc = 'Execute current file in lua', mode = 'n' },
+    { '<space>x', ':lua<CR>', desc = 'Execute current line in lua', mode = 'v' },
   },
 }
