@@ -283,8 +283,7 @@ wezterm.on(
 )
 
 -- Sessions
--- config.unix_domains = { { name = 'unix', local_echo_threshold_ms = 10 } }
--- config.default_gui_startup_args = { 'connect', 'unix' }
-
+config.unix_domains = { { name = 'unix' } }
+config.default_gui_startup_args = { 'connect', 'unix' }
 
 return config
