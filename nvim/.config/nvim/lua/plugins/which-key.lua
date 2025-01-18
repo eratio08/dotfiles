@@ -19,7 +19,7 @@ return {
     { '<esc>', '<C-\\><C-n>', desc = 'Normal Mode', mode = 't' },
 
     -- Terminal
-    { '<esc><esc>', '<C-\\><C-n>', desc = 'Escape terminal mode', mode = 't' },
+    { '<esc>', '<C-\\><C-n>', desc = 'Escape terminal mode', mode = 't' },
 
     -- Window
     { '<C-w>', '<C-\\><C-n><C-w>', desc = 'Window command', mode = 't' },
