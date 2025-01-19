@@ -1,3 +1,6 @@
 golang 1.23.1
-nodejs 20.17.0
+nodejs lts
 elixir 1.18.1-otp-27
+erlang 27.2
+opentofu 1.9.0
+gleam 1.7.0
