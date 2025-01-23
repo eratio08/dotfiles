@@ -47,6 +47,7 @@ read_only = " 󰌾"
 
 [docker_context]
 symbol = " "
+disabled = true
 
 [elixir]
 symbol = " "
@@ -128,6 +129,8 @@ symbol = " "
 
 [nodejs]
 symbol = " "
+format = "via [$symbol]($style)"
+disabled = true
 
 [ocaml]
 symbol = " "
@@ -178,6 +181,7 @@ Windows = "󰍲 "
 
 [package]
 symbol = "󰏗 "
+disabled = true
 
 [perl]
 symbol = " "

@@ -1,18 +1,29 @@
 export ZSH="$HOME/.oh-my-zsh"
 
-# ZSH_THEME="powerlevel10k/powerlevel10k"
+plugins=(
+  evalcache # git clone https://github.com/mroth/evalcache ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/evalcache
+  git
+  docker
+  kubectl
+  aws
+  mvn
+  terraform
+  helm
+  asdf
+)
 
-plugins=(git docker kubectl aws mvn gradle terraform helm)
-
+export DISABLE_UNTRACKED_FILES_DIRTY="true"
 source $ZSH/oh-my-zsh.sh
+
+# zsh load-time helper
+timezsh() {
+  shell=${1-$SHELL}
+  for i in $(seq 1 5); do /usr/bin/time $shell -i -c exit; done
+}
 
 #################
 ## CUSTOM STUFF##
 #################
-#
-# Starship config
-export STARSHIP_CONFIG="$HOME/.config/startship/config.toml"
-
 fpath+=~/.zfunc
 
 # do not store duplicates in history
@@ -25,7 +36,6 @@ set o -vi
 clean_merged() {
     git branch --merged | grep -v "\*" | xargs -n 1 git branch -D
 }
-
 clean_unmerged() {
     git branch --no-merged | grep -v "\*" | xargs -n 1 git branch -D
 }
@@ -61,16 +71,12 @@ export PATH=~/.cargo/bin:$PATH
 
 # load work helpers
 SPA_HELPERS=~/spa-helpers.sh
-if [ -f "$SPA_HELPERS" ]; then
-  source "$SPA_HELPERS"
-  echo "Loaded SPA Helpers"
-fi
+[[ -f "$SPA_HELPERS" ]] && source "$SPA_HELPERS"
 
 # node version manager
-export NVM_DIR="$HOME/.nvm"
-[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
-[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
-
+# export NVM_DIR="$HOME/.nvm"
+# [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
+# [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
 
 # Go
 export GOPATH=$HOME/go
@@ -95,23 +101,23 @@ export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 # use colima
 # export DOCKER_HOST="unix://${XDG_CONFIG_HOME}/colima/default/docker.sock"
 
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-
 # Use 1Password Agent
 export SSH_AUTH_SOCK=~/.1password/agent.sock
 
 # Starship
-eval "$(starship init zsh)"
+export STARSHIP_CONFIG="$HOME/.config/startship/config.toml"
+# eval "$(starship init zsh)"
+_evalcache starship init zsh
 
 # opam configuration
-[[ ! -r /Users/el/.opam/opam-init/init.zsh ]] || source /Users/el/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
+# [[ ! -r /Users/el/.opam/opam-init/init.zsh ]] || source /Users/el/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
 
 # atuin
-eval "$(atuin init zsh)"
+# eval "$(atuin init zsh)"
+_evalcache atuin init zsh
 
-# asdf
-. /opt/homebrew/opt/asdf/libexec/asdf.sh
+# asdf nodejs
+export ASDF_NODEJS_LEGACY_FILE_DYNAMIC_STRATEGY=latest_available
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
