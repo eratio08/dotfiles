@@ -1,11 +1,12 @@
 export ZSH="$HOME/.oh-my-zsh"
 
 plugins=(
+  evalcache # git clone https://github.com/mroth/evalcache ~/.oh-my-zsh/custom/plugins/evalcache
   git
   brew
   golang
   nmap
-  nix-zsh-completions
+  # nix-zsh-completions
   asdf
 )
 
@@ -114,10 +115,10 @@ if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
 fi
 
 # Starship
-eval "$(starship init zsh)"
+_evalcache starship init zsh
 
 # Atuin
-eval "$(atuin init zsh)"
+_evalcache atuin init zsh
 
 #THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
 export SDKMAN_DIR="$HOME/.sdkman"
