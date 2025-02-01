@@ -3,7 +3,7 @@ return {
   'neovim/nvim-lspconfig',
   lazy = false,
   dependencies = {
-    { 'williamboman/mason.nvim', config = true },
+    { 'williamboman/mason.nvim', opts = {} },
     'WhoIsSethDaniel/mason-tool-installer.nvim',
     'williamboman/mason-lspconfig.nvim',
     'folke/which-key.nvim',
@@ -185,10 +185,9 @@ return {
     end
 
     -- MASON --
-    require('mason').setup()
-    require('mason-tool-installer').setup {
+    require('mason-tool-installer').setup({
       ensure_installed = { 'lua_ls' }
-    }
+    })
 
     local capabilities = vim.lsp.protocol.make_client_capabilities()
     capabilities.textDocument.completion.completionItem.snippetSupport = true
