@@ -1,7 +1,7 @@
 return {
-  enabled = false,
+  enabled = true,
   'sindrets/diffview.nvim',
-  cmd = 'DiffviewOpen',
+  cmd = { 'DiffviewOpen', 'DiffviewFileHistory' },
   dependencies = {
     'nvim-tree/nvim-web-devicons',
   },
