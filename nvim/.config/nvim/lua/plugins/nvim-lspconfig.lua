@@ -65,7 +65,6 @@ return {
     }
     )
 
-    vim.inspect(require('schemastore').yaml.schemas())
     -- Servers --
     local servers = {
       lua_ls = {
