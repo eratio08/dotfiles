@@ -6,7 +6,6 @@ plugins=(
   brew
   golang
   nmap
-  # nix-zsh-completions
   asdf
 )
 
@@ -65,6 +64,13 @@ alias zrl="source ~/.zshrc"
 alias tf="tofu"
 alias jo="joshuto"
 
+# asdf
+export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"
+# Requires only work if asdf go installation exists
+source ~/.asdf/plugins/golang/set-env.zsh
+# NodeJS with asdf
+export ASDF_NODEJS_LEGACY_FILE_DYNAMIC_STRATEGY=latest_available
+
 # to make mvnd work
 # unalias mvnd
 
@@ -72,8 +78,6 @@ alias jo="joshuto"
 export NVM_DIR="$HOME/.nvm"
 [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
 [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
-# NodeJS with asdf
-export ASDF_NODEJS_LEGACY_FILE_DYNAMIC_STRATEGY=latest_available
 
 # Rust
 export PATH="$HOME/.cargo/bin:$PATH"
@@ -94,8 +98,6 @@ export XDG_CONFIG_HOME=~/.config/
 
 # Go
 export PATH="$HOME/go/bin:$PATH"
-# Requires only work if asdf go installation exists
-source ~/.asdf/plugins/golang/set-env.zsh
 export PATH="$GOBIN:$PATH"
 
 # OCaml
