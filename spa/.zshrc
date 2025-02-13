@@ -62,6 +62,9 @@ alias lzd="lazydocker"
 alias lzg="lazygit"
 alias btm="btm"
 alias rlz="source ~/.zshrc"
+alias gpp="git pull --prune"
+alias gfp="git fetch --prune"
+alias tf-docs="terraform-docs"
 
 # Rust
 export PATH=~/.cargo/bin:$PATH
