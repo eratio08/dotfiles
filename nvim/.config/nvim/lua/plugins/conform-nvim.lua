@@ -7,7 +7,7 @@ return {
   },
   config = function ()
     require('conform').setup({
-      notify_on_error = false,
+      notify_on_error = true,
       format_on_save = function (bufnr)
         -- Disable "format_on_save lsp_fallback" for languages that don't
         -- have a well standardized coding style.
@@ -25,7 +25,14 @@ return {
       end,
       formatters_by_ft = {
         python = { 'isort', 'black' },
+        terraform = { 'tofu' },
       },
+      formatters = {
+        tofu = {
+          command = 'tofu',
+          args = { 'fmt', '-no-color', '-' }
+        }
+      }
     })
 
     require('which-key').add({
