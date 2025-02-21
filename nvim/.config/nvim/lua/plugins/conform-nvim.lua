@@ -8,21 +8,25 @@ return {
   config = function ()
     require('conform').setup({
       notify_on_error = true,
-      format_on_save = function (bufnr)
-        -- Disable "format_on_save lsp_fallback" for languages that don't
-        -- have a well standardized coding style.
-        local disable_filetypes = {}
-        local lsp_format_opt
-        if disable_filetypes[vim.bo[bufnr].filetype] then
-          lsp_format_opt = 'never'
-        else
-          lsp_format_opt = 'fallback'
-        end
-        return {
-          timeout_ms = 500,
-          lsp_format = lsp_format_opt,
-        }
-      end,
+      format_on_save = {
+        timeout_ms = 500,
+        lsp_format = 'fallback',
+      },
+      -- format_on_save = function (bufnr)
+      --   -- Disable "format_on_save lsp_fallback" for languages that don't
+      --   -- have a well standardized coding style.
+      --   local disable_filetypes = {}
+      --   local lsp_format_opt
+      --   if disable_filetypes[vim.bo[bufnr].filetype] then
+      --     lsp_format_opt = 'never'
+      --   else
+      --     lsp_format_opt = 'fallback'
+      --   end
+      --   return {
+      --     timeout_ms = 500,
+      --     lsp_format = lsp_format_opt,
+      --   }
+      -- end,
       formatters_by_ft = {
         python = { 'isort', 'black' },
         terraform = { 'tofu' },
@@ -35,14 +39,12 @@ return {
       }
     })
 
-    require('which-key').add({
-      {
-        '<leader>ll',
-        ':Format<CR>',
-        mode = { 'n', 'v' },
-        desc = 'Format Buffer'
-      }
-    })
+    require('which-key').add({ {
+      '<leader>ll',
+      ':Format<CR>',
+      mode = { 'n', 'v' },
+      desc = 'Format Buffer'
+    } })
 
     vim.api.nvim_create_user_command('Format', function (args)
       local range = nil
