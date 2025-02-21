@@ -4,6 +4,7 @@ return {
   dependencies = {
     'rafamadriz/friendly-snippets',
     'moyiz/blink-emoji.nvim',
+    -- 'MahanRahmati/blink-nerdfont.nvim',
   },
   version = '*',
   ---@module 'blink.cmp'
@@ -22,13 +23,6 @@ return {
       ['<C-n>'] = { 'select_next', 'fallback' },
       ['<C-u>'] = { 'scroll_documentation_up', 'fallback' },
       ['<C-d>'] = { 'scroll_documentation_down', 'fallback' },
-      -- cmdline = {
-      --   preset = 'super-tab',
-      -- },
-    },
-    appearance = {
-      use_nvim_cmp_as_default = true,
-      nerd_font_variant = 'mono'
     },
     sources = {
       default = { 'lazydev', 'lsp', 'path', 'snippets', 'buffer', 'emoji' },
@@ -37,6 +31,9 @@ return {
           module = 'blink-emoji',
           name = 'Emoji',
           score_offset = 15,
+          should_show_items = function ()
+            return vim.tbl_contains({ 'gitcommit', 'markdown' }, vim.o.filetype)
+          end,
         },
         lazydev = {
           name = 'LazyDev',
@@ -45,11 +42,14 @@ return {
         },
       }
     },
-    signature = { enabled = false },
+    signature = { enabled = true },
     completion = {
       menu = {
         auto_show = function (ctx)
-          return ctx.mode ~= 'cmdline' or not vim.tbl_contains({ '/', '?' }, vim.fn.getcmdtype())
+          local is_cmdline = ctx.mode == 'cmdline'
+          local is_search = vim.tbl_contains({ '/', '?' }, vim.fn.getcmdtype())
+          local is_fugitive = not not ctx.line:match('^G .*')
+          return not (is_cmdline and (is_search or is_fugitive))
         end,
       },
       list = {
