@@ -6,6 +6,9 @@ macos-titlebar-proxy-icon = hidden
 macos-option-as-alt = true
 mouse-hide-while-typing = true
 
+# Workaround emoji display issue in NVIM
+grapheme-width-method = legacy
+
 ## Theme
 theme = rose-pine-moon
 # green, overrides
