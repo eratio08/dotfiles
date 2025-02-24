@@ -3,8 +3,8 @@ plugin_cache_dir = "/Users/el/.terraform.d/plugin-cache"
 provider_installation {
 
   dev_overrides {
-      "sportalliance/netbird" = "/Users/el/go/bin"
-      "registry.opentofu.org/sportalliance/netbird" = "/Users/el/go/bin"
+      "sportalliance/netbird" = "/Users/el/.asdf/installs/golang/1.23.4/bin"
+      "registry.opentofu.org/sportalliance/netbird" = "/Users/el/.asdf/installs/golang/1.23.4/bin"
   }
 
   # For all other providers, install them directly from their origin provider
