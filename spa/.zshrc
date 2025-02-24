@@ -76,14 +76,8 @@ export PATH=~/.cargo/bin:$PATH
 SPA_HELPERS=~/spa-helpers.sh
 [[ -f "$SPA_HELPERS" ]] && source "$SPA_HELPERS"
 
-# node version manager
-# export NVM_DIR="$HOME/.nvm"
-# [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
-# [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
-
 # Go
-export GOPATH=$HOME/go
-export PATH=$PATH:$GOPATH/bin
+. ~/.asdf/plugins/golang/set-env.zsh # for asdf
 
 # pnpm
 export PNPM_HOME="/home/el/.local/share/pnpm"
@@ -94,15 +88,6 @@ export PATH=~/.local/bin:$PATH
 
 # add pg tools to path
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-
-# for mvn daemon as it collides with zsh plugin
-# unalias mvnd
-
-# use pod man as docker runtime
-# export DOCKER_HOST='unix:///Users/el/.local/share/containers/podman/machine/qemu/podman.sock'
-
-# use colima
-# export DOCKER_HOST="unix://${XDG_CONFIG_HOME}/colima/default/docker.sock"
 
 # Use 1Password Agent
 export SSH_AUTH_SOCK=~/.1password/agent.sock
