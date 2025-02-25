@@ -7,8 +7,10 @@
   autoSetupRemote = true
 [commit]
   gpgsign = true
+  verbose = true
 [tag]
   gpgsign = true
+  sort = version:refname
 [pull]
   ff = only
   rebase = true
@@ -23,5 +25,23 @@
   program = /Applications/1Password.app/Contents/MacOS/op-ssh-sign
 [rerere]
 	enabled = true
+  autoupdate = true
 [rebase]
   updateRefs = true
+  ; autoSquash = true
+  ; autoStash = true
+[column]
+  ui = auto
+[branch]
+  sort = -committerdate
+[diff]
+  algorithm = histogram
+  colorMoved = plain
+  mnemonicPrefix = true
+  renames = true
+[fetch]
+  prune = true
+  pruneTags = true
+  all = true
+[help]
+  autocorrect = prompt
