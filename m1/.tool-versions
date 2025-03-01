@@ -1,5 +1,5 @@
 golang 1.23.6
-nodejs lts
+nodejs 22.14.0
 elixir 1.18.1-otp-27
 erlang 27.2
 opentofu 1.9.0
