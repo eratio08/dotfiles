@@ -31,7 +31,7 @@ return {
           },
           -- Go to
           { 'g', group = 'Go to' },
-          { 'gd', vim.lsp.buf.definition, desc = 'Go to Definition', buffer = event.bug },
+          { 'gd', vim.lsp.buf.definition, desc = 'Go to Definition', buffer = event.buf },
           { 'gD', vim.lsp.buf.declaration, desc = 'Go to Declaration', buffer = event.buf },
           { 'gi', vim.lsp.buf.implementation, desc = 'Go to Implementation', buffer = event.buf },
           { 'gr', vim.lsp.buf.references, desc = 'Go to References', buffer = event.buf },
@@ -210,10 +210,12 @@ return {
 
     local capabilities = vim.lsp.protocol.make_client_capabilities()
     capabilities.textDocument.completion.completionItem.snippetSupport = true
-    capabilities.textDocument.foldingRange = {
-      dynamicRegistration = false,
-      lineFoldingOnly = true
-    }
+    vim.g.if_present('ufo', function ()
+      capabilities.textDocument.foldingRange = {
+        dynamicRegistration = false,
+        lineFoldingOnly = true
+      }
+    end)
     vim.g.if_present('cmp_nvim_lsp', function (cmp_nvim)
       capabilities = vim.tbl_deep_extend('force', capabilities, cmp_nvim.default_capabilities())
     end)

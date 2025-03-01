@@ -1,6 +1,6 @@
 require('eRatio.remap')
 require('eRatio.settings')
-require('eRatio.hlprs')
+require('eRatio.helpers')
 require('eRatio.lazy')
 require('eRatio.cmd')
 

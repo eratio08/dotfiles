@@ -1,7 +1,7 @@
 return {
-  enabled = false,
   'klen/nvim-test',
-  keys = { { 'tt', desc = 'Test nearest' } },
+  enabled = false,
+  keys = { { 'tt', desc = 'Test' } },
   dependencies = {
     'folke/which-key.nvim',
   },

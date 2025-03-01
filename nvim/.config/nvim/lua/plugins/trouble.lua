@@ -1,7 +1,7 @@
 return {
-  enabled = false,
   'folke/trouble.nvim',
-  keys = { '<leader>tt' },
+  enabled = false,
+  keys = { { '<leader>t', desc = 'Trouble' } },
   dependencies = {
     'nvim-tree/nvim-web-devicons',
     'folke/which-key.nvim',
@@ -13,12 +13,13 @@ return {
     })
 
     require('which-key').add({
-      { '<leader>tt', ':TroubleToggle<CR>', group = 'Trouble', desc = 'Trouble' },
-      { '<leader>tw', ':TroubleToggle workspace_diagnostics<CR>', group = 'Trouble', desc = 'Workspace Diagnostics' },
-      { '<leader>td', ':TroubleToggle document_diagnostics<CR>', group = 'Trouble', desc = 'Document Diagnostics' },
-      { '<leader>tq', ':TroubleToggle quickfix<CR>', group = 'Trouble', desc = 'Quickfix' },
-      { '<leader>tl', ':TroubleToggle loclist<CR>', group = 'Trouble', desc = 'LOC' },
-      { '<leader>tr', ':TroubleToggle lsp_references<CR>', group = 'Trouble', desc = 'LSP References' },
+      { '<leader>t', group = 'Trouble' },
+      { '<leader>tt', ':TroubleToggle<CR>', desc = 'Trouble' },
+      { '<leader>tw', ':TroubleToggle workspace_diagnostics<CR>', desc = 'Workspace Diagnostics' },
+      { '<leader>td', ':TroubleToggle document_diagnostics<CR>', desc = 'Document Diagnostics' },
+      { '<leader>tq', ':TroubleToggle quickfix<CR>', desc = 'Quickfix' },
+      { '<leader>tl', ':TroubleToggle loclist<CR>', desc = 'LOC' },
+      { '<leader>tr', ':TroubleToggle lsp_references<CR>', desc = 'LSP References' },
     })
   end
 }

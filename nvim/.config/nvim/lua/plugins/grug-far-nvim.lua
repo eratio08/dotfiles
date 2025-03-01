@@ -5,8 +5,10 @@ return {
     'folke/which-key.nvim',
   },
   keys = {
-    { '<leader>G', group = 'Grug-Far current word' },
-    { '<leader>Gf', desc = 'Grug-Far current file' },
+    { '<leader>g', desc = 'Grug-Far' },
+    { '<leader>gw', desc = 'Grug-Far current word' },
+    { '<leader>gf', desc = 'Grud-Far current file' },
+    { '<leader>ga', desc = 'Grug-Far astgrep' },
   },
   config = function ()
     local grug_far = require('grug-far')
@@ -14,16 +16,26 @@ return {
       -- engine = 'astgrep',
     })
     require('which-key').add({
-      { '<leader>G', group = 'Grug-Far' },
       {
-        '<leader>G',
-        function ()
-          grug_far.open({ prefills = { search = vim.fn.expand('<cword>') } })
-        end,
-        desc = 'Grug-Far current word',
+        '<leader>g',
+        function () grug_far.open() end,
+        desc = 'Grug-Far'
       },
-      { '<leader>Gf', function () grug_far.open({ prefills = { paths = vim.fn.expand('%') } }) end, desc = 'Grud-Far current file' },
-      { '<leader>Ga', function () grug_far.open({ engine = 'astgrep' }) end, desc = 'Grug-Far astgrep' },
+      {
+        '<leader>gw',
+        function () grug_far.open({ prefills = { search = vim.fn.expand('<cword>') } }) end,
+        desc = 'Grug-Far current word'
+      },
+      {
+        '<leader>gf',
+        function () grug_far.open({ prefills = { paths = vim.fn.expand('%') } }) end,
+        desc = 'Grud-Far current file'
+      },
+      {
+        '<leader>ga',
+        function () grug_far.open({ engine = 'astgrep' }) end,
+        desc = 'Grug-Far astgrep'
+      },
     })
   end
 }

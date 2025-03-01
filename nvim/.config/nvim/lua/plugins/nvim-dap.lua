@@ -52,7 +52,7 @@ return {
       { '<F7>', dap.step_out, desc = 'Debug: Step Out' },
       { '<S-F8>', dapui.toggle, desc = 'Debug: See last session result.' },
       { '<leader>b', dap.toggle_breakpoint, desc = 'Debug: Toggle Breakpoint' },
-      { '<leader>B', function () dap.set_breakpoint(vim.fn.input 'Breakpoint condition: ') end, desc = 'Debug: Set Breakpoint' },
+      { '<leader>B', function () dap.set_breakpoint(vim.fn.input 'Breakpoint condition: ') end },
     })
 
     -- DAP Configurations --
