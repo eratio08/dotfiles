@@ -28,8 +28,8 @@
   autoupdate = true
 [rebase]
   updateRefs = true
-  ; autoSquash = true
-  ; autoStash = true
+  autoSquash = true
+  autoStash = true
 [column]
   ui = auto
 [branch]
