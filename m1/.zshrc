@@ -65,14 +65,7 @@ alias tf="tofu"
 alias jo="joshuto"
 
 # asdf
-export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"
-# Requires only work if asdf go installation exists
-source ~/.asdf/plugins/golang/set-env.zsh
-# NodeJS with asdf
-export ASDF_NODEJS_LEGACY_FILE_DYNAMIC_STRATEGY=latest_available
-
-# to make mvnd work
-# unalias mvnd
+# export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"
 
 # NVM
 export NVM_DIR="$HOME/.nvm"
@@ -90,15 +83,16 @@ export CPPFLAGS="-I/opt/homebrew/opt/ruby/include"
 export PKG_CONFIG_PATH="/opt/homebrew/opt/ruby/lib/pkgconfig"
 
 # pnpm
-export PNPM_HOME="$HOME/Library/pnpm"
-export PATH="$PNPM_HOME:$PATH"
+# export PNPM_HOME="$HOME/Library/pnpm"
+# export PATH="$PNPM_HOME:$PATH"
 
 # Tell macOS about XDG_CONFIG_HOME
 export XDG_CONFIG_HOME=~/.config/
 
 # Go
-export PATH="$HOME/go/bin:$PATH"
-export PATH="$GOBIN:$PATH"
+source ~/.asdf/plugins/golang/set-env.zsh
+# export PATH="$HOME/go/bin:$PATH"
+# export PATH="$GOBIN:$PATH"
 
 # OCaml
 # [[ ! -r /Users/el/.opam/opam-init/init.zsh ]] || source /Users/el/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
