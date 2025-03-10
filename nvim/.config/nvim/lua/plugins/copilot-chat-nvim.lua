@@ -5,25 +5,77 @@ return {
     { 'nvim-lua/plenary.nvim' },
   },
   branch = 'main',
-  enabled = true,
-  cmd = { 'CopilotChatOpen', 'CopilotChat' },
   build = 'make tiktoken',
-  opts = {
-    -- :CopilotChatPrompts - for selecting prompts
-    -- :CopilotChatModels - for selecting models
-    -- :CopilotChatAgents - for selecting agents
-    -- #<context>:<input> - for selecting context input
-    -- :CopilotChat <input>? 	Open chat with optional input
-    -- :CopilotChatOpen 	Open chat window
-    -- :CopilotChatClose 	Close chat window
-    -- :CopilotChatToggle 	Toggle chat window
-    -- :CopilotChatStop 	Stop current output
-    -- :CopilotChatReset 	Reset chat window
-    -- :CopilotChatSave <name>? 	Save chat history
-    -- :CopilotChatLoad <name>? 	Load chat history
-    -- :CopilotChatPrompts 	View/select prompt templates
-    -- :CopilotChatModels 	View/select available models
-    -- :CopilotChatAgents 	View/select available agents
-    -- :CopilotChat<PromptName> 	Use specific prompt template
-  }
+  enabled = true,
+  keys = {
+    -- Take from LazyNvim
+    { '<c-s>', '<CR>', ft = 'copilot-chat', desc = 'Submit Prompt', remap = true },
+    { '<leader>a', '', desc = '+ai', mode = { 'n', 'v' } },
+    {
+      '<leader>aa',
+      function ()
+        return require('CopilotChat').toggle()
+      end,
+      desc = 'Toggle (CopilotChat)',
+      mode = { 'n', 'v' },
+    },
+    {
+      '<leader>ax',
+      function ()
+        return require('CopilotChat').reset()
+      end,
+      desc = 'Clear (CopilotChat)',
+      mode = { 'n', 'v' },
+    },
+    {
+      '<leader>aq',
+      function ()
+        vim.ui.input({
+          prompt = 'Quick Chat: ',
+        }, function (input)
+          if input ~= '' then
+            require('CopilotChat').ask(input)
+          end
+        end)
+      end,
+      desc = 'Quick Chat (CopilotChat)',
+      mode = { 'n', 'v' },
+    },
+    {
+      '<leader>ap',
+      function ()
+        require('CopilotChat').select_prompt()
+      end,
+      desc = 'Prompt Actions (CopilotChat)',
+      mode = { 'n', 'v' },
+    },
+  },
+  opts = function ()
+    local user = vim.env.USER or 'User'
+    user = user:sub(1, 1):upper() .. user:sub(2)
+    return {
+      auto_insert_mode = false,
+      question_header = '  ' .. user .. ' ',
+      answer_header = '  Copilot ',
+      window = {
+        layout = 'vertical',
+        width = 0.4,
+      },
+      model = 'claude-3.7-sonnet',
+      agent = 'copilot',
+    }
+  end,
+  config = function (_, opts)
+    local chat = require('CopilotChat')
+
+    vim.api.nvim_create_autocmd('BufEnter', {
+      pattern = 'copilot-chat',
+      callback = function ()
+        vim.opt_local.relativenumber = false
+        vim.opt_local.number = false
+      end,
+    })
+
+    chat.setup(opts)
+  end,
 }

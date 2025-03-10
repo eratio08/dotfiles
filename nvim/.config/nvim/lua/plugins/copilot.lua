@@ -1,27 +1,23 @@
 return {
   'zbirenbaum/copilot.lua',
   cmd = 'Copilot',
-  event = 'InsertEnter',
-  config = function ()
-    require('copilot').setup({
-      suggestion = {
-        enabled = true,
-        auto_trigger = false,
-        keymap = {
-          accept = '<A-l>',
-          next = '<A-]>',
-          prev = '<A-[>',
-          dismiss = '<esc>'
-        },
+  event = 'BufReadPost',
+  opts = {
+    suggestion = {
+      auto_trigger = false,
+      keymap = {
+        accept = '<tab>',
+        next = '<M-]>',
+        prev = '<M-[>',
       },
-      panel = {
-        enabled = false,
-      },
-      filetypes = {
-        roc = false,
-        ocaml = false,
-        elixir = false,
-      },
-    })
-  end,
+    },
+    panel = { enabled = false },
+    filetypes = {
+      markdown = true,
+      help = true,
+      ocaml = false,
+      roc = false,
+      elixir = false,
+    },
+  },
 }

@@ -1,6 +1,6 @@
 return {
   'yetone/avante.nvim',
-  enabled = true,
+  enabled = false,
   keys = { { '<leader>aa', desc = 'Avante' } },
   -- event = 'VeryLazy',
   version = '*', -- Set this to "*" to always pull the latest release version, or set it to false to update to the latest code changes.
