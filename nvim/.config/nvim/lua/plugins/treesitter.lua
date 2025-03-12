@@ -17,7 +17,7 @@ return {
       modules = {},
       sync_install = false,
       auto_install = true,
-      ignore_install = { 'go' },
+      ignore_install = {},
       highlight = {
         enable = true,
         disable = function (_, buf)
@@ -34,11 +34,6 @@ return {
       indent = {
         enable = true,
       },
-      -- rainbow = {
-      --   enable = true,
-      --   extended_mode = false,
-      --   max_file_lines = 5000,
-      -- },
       -- refactor = {
       --   highlight_definitions = {
       --     enable = true,
@@ -105,6 +100,24 @@ return {
       --   }
       -- }
       -- },
+      playground = {
+        enable = true,
+        disable = {},
+        updatetime = 25,         -- Debounced time for highlighting nodes in the playground from source code
+        persist_queries = false, -- Whether the query persists across vim sessions
+        keybindings = {
+          toggle_query_editor = 'o',
+          toggle_hl_groups = 'i',
+          toggle_injected_languages = 't',
+          toggle_anonymous_nodes = 'a',
+          toggle_language_display = 'I',
+          focus_language = 'f',
+          unfocus_language = 'F',
+          update = 'R',
+          goto_node = '<cr>',
+          show_help = '?',
+        },
+      }
     })
 
     require('nvim-treesitter.parsers').get_parser_configs().roc = {
