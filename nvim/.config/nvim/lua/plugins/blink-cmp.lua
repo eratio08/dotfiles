@@ -53,8 +53,8 @@ return {
           local is_cmdline = ctx.mode == 'cmdline'
           local is_search = vim.tbl_contains({ '/', '?' }, vim.fn.getcmdtype())
           local is_fugitive = not not ctx.line:match('^G .*')
-          local is_copilot_chat = vim.o.filetype == 'copilot-chat'
-          return (not (is_cmdline and (is_search or is_fugitive))) or not is_copilot_chat
+          local is_copilot_chat = vim.bo.filetype == 'copilot-chat'
+          return (not (is_cmdline and (is_search or is_fugitive))) and (not is_copilot_chat)
         end,
         draw = {
           treesitter = { 'lsp' },
