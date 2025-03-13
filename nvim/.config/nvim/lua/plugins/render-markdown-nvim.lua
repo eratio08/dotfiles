@@ -3,12 +3,14 @@ return {
   dependencies = {
     'nvim-treesitter/nvim-treesitter',
     'nvim-tree/nvim-web-devicons',
-  }, -- if you prefer nvim-web-devicons
-  cmd = { 'RenderMarkdown' },
-  keys = {
-    { '<leader>mr', ':RenderMarkdown toggle<CR>', desc = 'Render Markdown' },
   },
+  keys = {
+    { '<leader>mr', require('render-markdown').toggle, desc = 'Render Markdown' },
+  },
+  ft = 'markdown',
   ---@module 'render-markdown'
   ---@type render.md.UserConfig
-  opts = {},
+  opts = {
+    render_modes = { 'n' },
+  },
 }
