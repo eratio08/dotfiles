@@ -1,13 +1,10 @@
 return {
   'iamcco/markdown-preview.nvim',
-  lazy = true,
-  ft = 'markdown',
   dependencies = {
     'folke/which-key.nvim'
   },
-  build = function ()
-    vim.fn['mkdp#util#install']()
-  end,
+  build = function () vim.fn['mkdp#util#install']() end,
+  ft = 'markdown',
   config = function ()
     require('which-key').add({
       { '<leader>m', group = 'Markdown' },

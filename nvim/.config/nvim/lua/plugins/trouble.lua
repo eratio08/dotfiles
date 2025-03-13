@@ -1,6 +1,6 @@
 return {
-  'folke/trouble.nvim',
   enabled = false,
+  'folke/trouble.nvim',
   keys = { { '<leader>t', desc = 'Trouble' } },
   dependencies = {
     'nvim-tree/nvim-web-devicons',

@@ -1,4 +1,5 @@
 return {
+  enabled = false,
   'mfussenegger/nvim-dap',
   keys = {
     { '<leader>b', desc = 'Toggle Debugger Breakpoint' },

@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'CopilotC-Nvim/CopilotChat.nvim',
   dependencies = {
     { 'zbirenbaum/copilot.lua' },
@@ -6,7 +7,6 @@ return {
   },
   branch = 'main',
   build = 'make tiktoken',
-  enabled = true,
   keys = {
     -- Take from LazyNvim
     { '<c-s>', '<CR>', ft = 'copilot-chat', desc = 'Submit Prompt', remap = true },

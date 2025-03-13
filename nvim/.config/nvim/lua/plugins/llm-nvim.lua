@@ -1,7 +1,6 @@
 return {
+  enabled = false, -- does not work well on m1 macbook
   'huggingface/llm.nvim',
-  -- does not work well on m1 macbook
-  enabled = false,
   event = 'VeryLazy',
   config = function ()
     require('llm').setup({
