@@ -29,7 +29,15 @@ return {
     },
     -- snippets = { preset = 'luasnip' },
     sources = {
-      default = { 'lazydev', 'lsp', 'path', 'snippets', 'buffer', 'emoji', 'markdown' },
+      default = {
+        'lazydev',
+        'lsp',
+        'path',
+        'snippets',
+        'buffer',
+        'emoji',
+        -- 'markdown',
+      },
       providers = {
         emoji = {
           module = 'blink-emoji',
@@ -44,11 +52,11 @@ return {
           module = 'lazydev.integrations.blink',
           score_offset = 100,
         },
-        markdown = {
-          name = 'RenderMarkdown',
-          module = 'render-markdown.integ.blink',
-          fallbacks = { 'lsp' },
-        },
+        -- markdown = {
+        --   name = 'RenderMarkdown',
+        --   module = 'render-markdown.integ.blink',
+        --   fallbacks = { 'lsp' },
+        -- },
       }
     },
     signature = { enabled = true },

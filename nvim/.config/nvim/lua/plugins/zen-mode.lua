@@ -1,8 +1,7 @@
 return {
   'folke/zen-mode.nvim',
-  keys = { { '<leader>z', desc = 'Toggle ZenMode' } },
-  dependencies = {
-    'folke/which-key.nvim',
+  keys = {
+    { '<leader>z', ':ZenMode<CR>', desc = 'Toggle ZenMode' },
   },
   config = function ()
     require('zen-mode').setup({
@@ -24,10 +23,6 @@ return {
           font = '+4',
         },
       },
-    })
-
-    require('which-key').add({
-      { '<leader>z', ':ZenMode<CR>', desc = 'Toggle ZenMode' },
     })
   end
 }

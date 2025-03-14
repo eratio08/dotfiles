@@ -1,7 +1,9 @@
 return {
+  enabled = true,
   'folke/snacks.nvim',
   priority = 1000,
   lazy = false,
+  ---@type snacks.Config
   opts = {
     bigfile = { enabled = true },
     bufdelete = { enabled = false },
@@ -18,5 +20,9 @@ return {
     toggle = { enabled = false },
     win = { enabled = false },
     words = { enabled = false },
+    image = { enabled = false },
+    picker = {
+      ui_select = true,
+    },
   },
 }
