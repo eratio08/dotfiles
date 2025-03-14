@@ -1,15 +1,14 @@
 return {
+  enabled = true,
   'saghen/blink.cmp',
   dependencies = {
-    'rafamadriz/friendly-snippets',
     'moyiz/blink-emoji.nvim',
-
+    'folke/lazydev.nvim',
     -- Snippets
     'rafamadriz/friendly-snippets',
     -- { 'L3MON4D3/LuaSnip', version = 'v2.*' },
   },
   version = '*',
-  enabled = true,
   ---@module 'blink.cmp'
   ---@type blink.cmp.Config
   opts = {
@@ -36,7 +35,9 @@ return {
         'snippets',
         'buffer',
         'emoji',
+        -- 'omni',
         -- 'markdown',
+        -- 'markview',
       },
       providers = {
         emoji = {
