@@ -1,3 +1,6 @@
 .luarc.json
 spell/
 lazy-lock.json
+minit.lua
+trace.txt
+.repro/
