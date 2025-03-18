@@ -37,7 +37,9 @@ return {
         'emoji',
         -- 'omni',
         -- 'markdown',
-        -- 'markview',
+      },
+      per_filetype = {
+        markdown = { 'markview', 'lsp', 'path', 'buffer', 'emoji' }
       },
       providers = {
         emoji = {

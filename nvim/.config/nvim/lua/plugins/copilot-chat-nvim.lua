@@ -2,8 +2,8 @@ return {
   enabled = true,
   'CopilotC-Nvim/CopilotChat.nvim',
   dependencies = {
-    { 'zbirenbaum/copilot.lua' },
-    { 'nvim-lua/plenary.nvim' },
+    'zbirenbaum/copilot.lua',
+    'nvim-lua/plenary.nvim',
   },
   branch = 'main',
   build = 'make tiktoken',
@@ -49,6 +49,14 @@ return {
       desc = 'Prompt Actions (CopilotChat)',
       mode = { 'n', 'v' },
     },
+    {
+      '<leader>am',
+      function ()
+        require('CopilotChat').select_model()
+      end,
+      desc = 'Models (CopilotChat)',
+      mode = { 'n', 'v' },
+    },
   },
   opts = function ()
     local user = vim.env.USER or 'User'
@@ -59,9 +67,9 @@ return {
       answer_header = '  Copilot ',
       window = {
         layout = 'vertical',
-        width = 0.4,
+        width = 0.45,
       },
-      model = 'claude-3.7-sonnet',
+      model = 'claude-3.7-sonnet-thought',
       agent = 'copilot',
     }
   end,
