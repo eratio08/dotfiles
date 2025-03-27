@@ -19,5 +19,6 @@ return {
       roc = false,
       elixir = false,
     },
+    copilot_node_command = '/opt/homebrew/bin/node',
   },
 }
