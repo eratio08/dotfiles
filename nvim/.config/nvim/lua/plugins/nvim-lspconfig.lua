@@ -148,7 +148,7 @@ return {
       gleam = {},
       lexical = {
         -- tmp to support elixir 1.18 using support_1_18 branch
-        cmd = { '/Users/el/src/lexical/_build/dev/package/lexical/bin/start_lexical.sh' },
+        -- cmd = { '/Users/el/src/lexical/_build/dev/package/lexical/bin/start_lexical.sh' },
         root_dir = function (fname)
           return require('lspconfig.util').root_pattern('mix.exs', '.git')(fname) or vim.loop.cwd()
         end,
