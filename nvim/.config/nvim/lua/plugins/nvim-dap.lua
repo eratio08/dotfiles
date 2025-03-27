@@ -15,12 +15,6 @@ return {
     'folke/which-key.nvim',
   },
   config = function ()
-    require('mason-nvim-dap').setup {
-      automatic_setup = true,
-      handlers = {},
-      ensure_installed = {},
-    }
-
     -- DAP & DAP UI --
     local dap = require('dap')
     local dapui = require('dapui')
@@ -57,6 +51,12 @@ return {
     })
 
     -- DAP Configurations --
+    require('mason-nvim-dap').setup {
+      ensure_installed = {},
+      automatic_installation = true,
+      handlers = {},
+    }
+
     dap.adapters.ocamlearlybird = {
       type = 'executable',
       command = 'ocamlearlybird',
@@ -80,6 +80,45 @@ return {
         type = 'ocamlearlybird',
         request = 'launch',
         program = '${workspaceFolder}/_build/default/debug/debug.bc',
+      },
+    }
+    dap.adapters['pwa-node'] = {
+      type = 'server',
+      host = 'localhost',
+      port = '${port}',
+      executable = {
+        command = 'node',
+        args = { 'js-debug/src/dapDebugServer.js', '${port}' },
+      }
+    }
+    dap.configurations.javascript = {
+      {
+        type = 'pwa-node',
+        request = 'launch',
+        name = 'Launch file',
+        program = '${file}',
+        cwd = '${workspaceFolder}',
+      },
+    }
+    dap.configurations.typescript = {
+      {
+        type = 'pwa-node',
+        request = 'launch',
+        name = 'Launch file',
+        program = '${file}',
+        cwd = '${workspaceFolder}',
+      },
+      {
+        type = 'pwa-node',
+        request = 'launch',
+        name = 'Debug Current Test File',
+        autoAttachChildProcesses = true,
+        skipFiles = { '<node_internals>/**', '**/node_modules/**' },
+        program = '${workspaceRoot}/node_modules/vitest/vitest.mjs',
+        args = { 'run', '${relativeFile}' },
+        smartStep = true,
+        console = 'integratedTerminal',
+        -- port = 9229
       },
     }
   end,
