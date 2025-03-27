@@ -30,9 +30,15 @@ return {
         },
       },
     },
-    latex = { enable = false },
-    typst = { enable = false },
-    yaml = { enable = false },
-    html = { enable = false },
+    latex = { enable = true },
+    typst = { enable = true },
+    json = { enabled = false },
+    yaml = {
+      enable = false,
+      properties = {
+        enable = false
+      }
+    },
+    html = { enable = true },
   },
 }
