@@ -1,4 +1,4 @@
-plugin_cache_dir = "/Users/el/.terraform.d/plugin-cache"
+plugin_cache_dir = "$HOME/.terraform.d/plugin-cache"
 
 provider_installation {
 
