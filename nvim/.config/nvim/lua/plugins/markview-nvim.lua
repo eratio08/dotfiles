@@ -7,7 +7,7 @@ return {
   keys = {
     { '<leader>mv', ':Markview toggle<CR>', desc = 'View Markdown' },
   },
-  ft = { 'markdown' },
+  ft = { 'markdown', 'codecompanion' },
   ---@module 'markview'
   ---@type mkv.config
   opts = {

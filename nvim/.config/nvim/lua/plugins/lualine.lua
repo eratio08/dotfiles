@@ -7,6 +7,7 @@ return {
   },
   config = function ()
     local lualine = require('lualine')
+    require('ext/cc-lualine')
 
     lualine.setup({
       options = {
@@ -34,7 +35,7 @@ return {
         lualine_z = {},
       },
       tabline = {},
-      extensions = {},
+      extensions = { 'toggleterm', 'lazy', 'fugitive', 'mason', 'quickfix' },
     })
   end
 }
