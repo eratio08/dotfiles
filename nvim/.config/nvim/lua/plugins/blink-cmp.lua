@@ -29,17 +29,17 @@ return {
     -- snippets = { preset = 'luasnip' },
     sources = {
       default = {
-        'lazydev',
         'lsp',
         'path',
         'snippets',
         'buffer',
         'emoji',
         -- 'omni',
-        -- 'markdown',
       },
       per_filetype = {
-        markdown = { 'markview', 'lsp', 'path', 'buffer', 'emoji' }
+        markdown = { 'lsp', 'path', 'buffer', 'emoji' },
+        codecompanion = { 'codecompanion' },
+        lua = { 'lazydev', 'lsp', 'path', 'snippets', 'buffer', 'emoji' },
       },
       providers = {
         emoji = {
@@ -55,11 +55,6 @@ return {
           module = 'lazydev.integrations.blink',
           score_offset = 100,
         },
-        -- markdown = {
-        --   name = 'RenderMarkdown',
-        --   module = 'render-markdown.integ.blink',
-        --   fallbacks = { 'lsp' },
-        -- },
       }
     },
     signature = { enabled = true },
