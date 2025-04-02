@@ -25,4 +25,5 @@ return {
       ui_select = true,
     },
   },
+  -- Snacks.notifier.show_history()
 }
