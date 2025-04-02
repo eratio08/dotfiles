@@ -17,6 +17,9 @@ return {
       hybrid_modes = { 'n' },
       linewise_hybrid_mode = true,
     },
+    html = {},
+    latex = {},
+    markdown_inline = {},
     markdown = {
       code_blocks = {
         sign = false,
@@ -30,7 +33,6 @@ return {
         },
       },
     },
-    latex = { enable = true },
     typst = { enable = true },
     json = { enabled = false },
     yaml = {
@@ -39,6 +41,5 @@ return {
         enable = false
       }
     },
-    html = { enable = true },
   },
 }
