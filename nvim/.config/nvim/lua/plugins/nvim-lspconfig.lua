@@ -50,7 +50,7 @@ return {
         })
 
         local client = vim.lsp.get_client_by_id(event.data.client_id)
-        if client and client.supports_method(vim.lsp.protocol.Methods.textDocument_inlayHint) then
+        if client and client.supports_method(vim.lsp.protocol.Methods.textDocument_inlayHint, event.buf) then
           require('which-key').add({
             {
               '<leader>th',
@@ -228,7 +228,7 @@ return {
       handlers = {
         function (server_name)
           local server = servers[server_name] or {}
-          server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
+          server.capabilities = vim.tbl_deep_extend('force', capabilities, server.capabilities or {})
           require('lspconfig')[server_name].setup(server)
         end,
       }

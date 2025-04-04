@@ -63,13 +63,13 @@ return {
     user = user:sub(1, 1):upper() .. user:sub(2)
     return {
       auto_insert_mode = false,
-      question_header = '  ' .. user .. ' ',
+      question_header = '  Me ',
       answer_header = '  Copilot ',
       window = {
         layout = 'vertical',
         width = 0.45,
       },
-      model = 'claude-3.7-sonnet-thought',
+      model = 'claude-3.7-sonnet',
       agent = 'copilot',
     }
   end,

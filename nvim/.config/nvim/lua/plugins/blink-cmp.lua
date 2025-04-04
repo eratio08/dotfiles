@@ -4,6 +4,8 @@ return {
   dependencies = {
     'moyiz/blink-emoji.nvim',
     'folke/lazydev.nvim',
+    'nvim-tree/nvim-web-devicons',
+    'onsails/lspkind-nvim',
     -- Snippets
     'rafamadriz/friendly-snippets',
     -- { 'L3MON4D3/LuaSnip', version = 'v2.*' },
@@ -38,7 +40,7 @@ return {
       },
       per_filetype = {
         markdown = { 'lsp', 'path', 'buffer', 'emoji' },
-        codecompanion = { 'codecompanion' },
+        -- codecompanion = { 'codecompanion' },
         lua = { 'lazydev', 'lsp', 'path', 'snippets', 'buffer', 'emoji' },
       },
       providers = {
@@ -69,6 +71,38 @@ return {
         end,
         draw = {
           treesitter = { 'lsp' },
+          columns = {
+            { 'kind_icon' },
+            { 'label', 'label_description', gap = 1 },
+          },
+          components = {
+            kind_icon = {
+              text = function (ctx)
+                local icon = ctx.kind_icon
+                if vim.tbl_contains({ 'Path' }, ctx.source_name) then
+                  local dev_icon, _ = require('nvim-web-devicons').get_icon(ctx.label)
+                  if dev_icon then
+                    icon = dev_icon
+                  end
+                else
+                  icon = require('lspkind').symbolic(ctx.kind, {
+                    mode = 'symbol',
+                  })
+                end
+                return icon .. ctx.icon_gap
+              end,
+              highlight = function (ctx)
+                local hl = ctx.kind_hl
+                if vim.tbl_contains({ 'Path' }, ctx.source_name) then
+                  local dev_icon, dev_hl = require('nvim-web-devicons').get_icon(ctx.label)
+                  if dev_icon then
+                    hl = dev_hl
+                  end
+                end
+                return hl
+              end,
+            }
+          }
         },
       },
       list = {
