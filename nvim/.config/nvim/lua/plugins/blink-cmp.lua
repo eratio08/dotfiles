@@ -2,13 +2,21 @@ return {
   enabled = true,
   'saghen/blink.cmp',
   dependencies = {
-    'moyiz/blink-emoji.nvim',
-    'folke/lazydev.nvim',
     'nvim-tree/nvim-web-devicons',
     'onsails/lspkind-nvim',
+
     -- Snippets
     'rafamadriz/friendly-snippets',
     -- { 'L3MON4D3/LuaSnip', version = 'v2.*' },
+
+    -- Sources
+    'moyiz/blink-emoji.nvim',
+    'folke/lazydev.nvim',
+    'fang2hou/blink-copilot',
+    'giuxtaposition/blink-cmp-copilot',
+    'Kaiser-Yang/blink-cmp-git',
+    'ribru17/blink-cmp-spell',
+    'kristijanhusak/vim-dadbod-completion',
   },
   version = '*',
   ---@module 'blink.cmp'
@@ -42,6 +50,7 @@ return {
         markdown = { 'lsp', 'path', 'buffer', 'emoji' },
         -- codecompanion = { 'codecompanion' },
         lua = { 'lazydev', 'lsp', 'path', 'snippets', 'buffer', 'emoji' },
+        sql = { 'dadbod', 'buffer' },
       },
       providers = {
         emoji = {
@@ -57,6 +66,7 @@ return {
           module = 'lazydev.integrations.blink',
           score_offset = 100,
         },
+        dadbod = { name = 'Dadbod', module = 'vim_dadbod_completion.blink' },
       }
     },
     signature = { enabled = true },
