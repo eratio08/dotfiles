@@ -48,7 +48,6 @@ return {
         end
       end,
       fold_virt_text_handler = function (virtText)
-        print(vim.inspect(virtText))
         return virtText
       end,
       preview = {

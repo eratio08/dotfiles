@@ -6,7 +6,7 @@ return {
   },
   config = function ()
     require('toggleterm').setup({
-      size = vim.o.columns * 0.3333,
+      size = vim.o.columns * 0.5,
       open_mapping = [[<c-\>]],
       direction = 'vertical',
       persist_size = false,

@@ -1,7 +1,10 @@
 return {
   'zbirenbaum/copilot.lua',
   cmd = 'Copilot',
-  event = 'BufReadPost',
+  -- event = 'BufReadPost',
+  keys = {
+    { '<M-]>', desc = 'Copilot next' }
+  },
   opts = {
     suggestion = {
       auto_trigger = false,
@@ -19,6 +22,6 @@ return {
       roc = false,
       elixir = false,
     },
-    copilot_node_command = '/opt/homebrew/bin/node',
+    -- copilot_node_command = '~/.asdf/shims/node',
   },
 }

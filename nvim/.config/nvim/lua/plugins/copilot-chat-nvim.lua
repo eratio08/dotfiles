@@ -3,7 +3,7 @@ return {
   'CopilotC-Nvim/CopilotChat.nvim',
   dependencies = {
     'zbirenbaum/copilot.lua',
-    'nvim-lua/plenary.nvim',
+    { 'nvim-lua/plenary.nvim', branch = 'master' },
   },
   branch = 'main',
   build = 'make tiktoken',
@@ -58,24 +58,45 @@ return {
       mode = { 'n', 'v' },
     },
   },
-  opts = function ()
-    local user = vim.env.USER or 'User'
-    user = user:sub(1, 1):upper() .. user:sub(2)
-    return {
-      auto_insert_mode = false,
-      question_header = '  Me ',
-      answer_header = '  Copilot ',
-      window = {
-        layout = 'vertical',
-        width = 0.45,
-      },
-      model = 'claude-3.7-sonnet',
-      agent = 'copilot',
+  ---@type CopilotChat.config
+  opts = {
+    auto_insert_mode = false,
+    question_header = '  Me ',
+    answer_header = '  Copilot ',
+    window = {
+      layout = 'vertical',
+      width = 0.45,
+    },
+    model = 'claude-3.7-sonnet',
+    agent = 'copilot',
+    cotext = 'viewport',
+    selection = function (source)
+      local select = require('CopilotChat.select')
+      return select.visual(source)
+    end,
+    contexts = {
+      viewport = {
+        description = 'Visible Buffers',
+        input = function () end,
+        resolve = function ()
+          local utils = require('CopilotChat.utils')
+          local context = require('CopilotChat.context')
+          local is_visible = function (b) return #vim.fn.win_findbuf(b) > 0 end
+          local visible_buffers = function ()
+            return vim.tbl_filter(is_visible, vim.api.nvim_list_bufs())
+          end
+          local get_visible_buffers_content = function ()
+            return vim.tbl_map(context.get_buffer, visible_buffers())
+          end
+
+          utils.schedule_main()
+          return get_visible_buffers_content()
+        end,
+      }
     }
-  end,
+  },
   config = function (_, opts)
     local chat = require('CopilotChat')
-
     vim.api.nvim_create_autocmd('BufEnter', {
       pattern = 'copilot-chat',
       callback = function ()

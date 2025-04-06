@@ -4,10 +4,10 @@ return {
   keys = { { '<leader>f', desc = 'Find', mode = { 'n', 'v' } } },
   dependencies = {
     'nvim-lua/plenary.nvim',
-    {
-      'nvim-telescope/telescope-ui-select.nvim',
-      config = function () require('telescope').load_extension('ui-select') end
-    },
+    -- {
+    --   'nvim-telescope/telescope-ui-select.nvim',
+    --   config = function () require('telescope').load_extension('ui-select') end
+    -- },
     {
       'nvim-telescope/telescope-fzf-native.nvim',
       build  = 'make',
@@ -168,9 +168,9 @@ return {
           override_file_sorter = true,
           case_mode = 'smart_case',
         },
-        ['ui-select'] = {
-          require('telescope.themes').get_dropdown(),
-        },
+        -- ['ui-select'] = {
+        --   require('telescope.themes').get_dropdown(),
+        -- },
       },
     })
   end
