@@ -70,6 +70,12 @@ return {
     model = 'claude-3.7-sonnet',
     agent = 'copilot',
     cotext = 'viewport',
+    mappings = {
+      reset = {
+        normal = '<C-x>',
+        insert = '<C-x>',
+      },
+    },
     selection = function (source)
       local select = require('CopilotChat.select')
       return select.visual(source)
@@ -82,8 +88,13 @@ return {
           local utils = require('CopilotChat.utils')
           local context = require('CopilotChat.context')
           local is_visible = function (b) return #vim.fn.win_findbuf(b) > 0 end
+          local is_not_copilot_chat = function (b)
+            local ft = vim.bo[b].filetype
+            return ft ~= 'copilot-chat'
+          end
           local visible_buffers = function ()
-            return vim.tbl_filter(is_visible, vim.api.nvim_list_bufs())
+            local visible = vim.tbl_filter(is_visible, vim.api.nvim_list_bufs())
+            return vim.tbl_filter(is_not_copilot_chat, visible)
           end
           local get_visible_buffers_content = function ()
             return vim.tbl_map(context.get_buffer, visible_buffers())
