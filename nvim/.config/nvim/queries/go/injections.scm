@@ -6,7 +6,7 @@
   (interpreted_string_literal_content)
   (raw_string_literal_content)
   ] @injection.content
- (#match? @injection.content "(SELECT|INSERT|UPDATE|DELETE|ALTER|GRANT|CREATE|DROP|ANALYZE|VACUUM|COPY|REINDEX).+(FROM|INTO|VALUES|SET|SCHEMA|TABLE|ON|VERBOSE|ANALYZE|FULL|setval|TO|INDEX).*(WHERE|GROUP BY|LIMIT)?")
+ (#match? @injection.content "(SELECT|INSERT|UPDATE|DELETE|ALTER|GRANT|CREATE|DROP|ANALYZE|VACUUM|COPY|REINDEX|COMMENT).+(FROM|INTO|VALUES|SET|SCHEMA|TABLE|ON|VERBOSE|ANALYZE|FULL|setval|TO|INDEX|SEQUENCE|VIEW).*(WHERE|GROUP BY|LIMIT)?")
 (#set! injection.language "sql"))
 
 ; fallback comment based injection
