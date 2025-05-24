@@ -13,6 +13,7 @@ local supported = {
   'typescriptreact',
   'vue',
   -- "yaml",
+  -- 'sql',
 }
 
 return {
@@ -48,14 +49,19 @@ return {
           lsp_format_opt = 'fallback'
         end
         return {
-          timeout_ms = 500,
+          timeout_ms = 5000,
           lsp_format = lsp_format_opt,
         }
       end,
       formatters_by_ft = {
-        python = { 'isort', 'black' },
+        -- python = { 'isort', 'black' },
         terraform = { 'tofu' },
         go = { 'goimports', 'gofumpt' },
+        sql = {
+          'sqruff',
+          'postgrestools',
+          'sleek',
+        }
       },
       formatters = {
         tofu = {

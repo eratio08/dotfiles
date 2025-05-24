@@ -17,6 +17,15 @@
  (#contains? @injection.content "--sql")
  (#set! injection.language "sql"))
 
+; html
+; a general query injection
+([
+  (interpreted_string_literal_content)
+  (raw_string_literal_content)
+  ] @injection.content
+ (#match? @injection.content "(<!DOCTYPE html>|<html|<head|<body|<div).*(</html>|</head>|</body>|</div>)?")
+(#set! injection.language "html"))
+
 
 ; ----------------------------------------------------------------
 ; source: https://github.com/ray-x/go.nvim/tree/master/queries

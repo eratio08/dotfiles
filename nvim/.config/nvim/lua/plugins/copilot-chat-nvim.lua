@@ -2,6 +2,7 @@ return {
   enabled = true,
   'CopilotC-Nvim/CopilotChat.nvim',
   dependencies = {
+    -- native dependencies: tiktoke, ripgrep & lynx
     'zbirenbaum/copilot.lua',
     { 'nvim-lua/plenary.nvim', branch = 'master' },
   },
@@ -70,16 +71,20 @@ return {
     model = 'claude-sonnet-4',
     agent = 'copilot',
     cotext = 'viewport',
+    highlight_selection = false,
     mappings = {
       reset = {
         normal = '<C-x>',
         insert = '<C-x>',
       },
+      show_diff = {
+        full_diff = true
+      },
     },
-    selection = function (source)
-      local select = require('CopilotChat.select')
-      return select.visual(source)
-    end,
+    -- selection = function (source)
+    --   local select = require('CopilotChat.select')
+    --   return select.visual(source)
+    -- end,
     contexts = {
       viewport = {
         description = 'Visible Buffers',

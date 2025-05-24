@@ -63,7 +63,7 @@ function M.update_rds_auth_token(connection_name, rds_config_name)
     return
   end
 
-  local encoded_token = vim.fn.system('echo -n "' .. token:gsub('"', '\\"') .. '" | jq -sRr @uri'):gsub('\n', '')
+  local encoded_token = vim.fn.system('echo -n "' .. token:gsub('"', '\\"') .. '" | jq -sRr @uri'):gsub('[\n\r]', '')
   local new_url = string.format('postgres://%s:%s@%s', username, encoded_token, host_port)
   local jq_filter = string.format(
     'map(if .name == \"%s\" then .url = \"%s\" else . end)',
