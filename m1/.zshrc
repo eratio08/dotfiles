@@ -73,8 +73,7 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
 
 # Rust
-export PATH="$HOME/.cargo/bin:$PATH"
-source "$HOME/.cargo/env"
+source "$HOME/.asdf/installs/rust/1.87.0/env"
 
 # Ruby
 export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
