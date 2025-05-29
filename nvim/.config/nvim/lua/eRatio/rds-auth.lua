@@ -11,7 +11,7 @@ local read_file = function (file_path)
   return rds_hosts_json
 end
 
-function M.update_rds_auth_token(connection_name, rds_config_name)
+function M.update_rds_auth_token(connection_name)
   local connections_file = vim.fn.expand('~/.local/share/nvim/dadbod_ui/connections.json')
   local rds_hosts_file = vim.fn.expand('~/.local/share/nvim/dadbod_ui/rds-hosts.json')
 
@@ -19,13 +19,13 @@ function M.update_rds_auth_token(connection_name, rds_config_name)
   local rds_hosts = vim.fn.json_decode(rds_hosts_json)
   local rds_config = nil
   for _, config in ipairs(rds_hosts) do
-    if config.name == rds_config_name then
+    if config.name == connection_name then
       rds_config = config
       break
     end
   end
   if not rds_config then
-    vim.notify('RDS configuration not found: ' .. rds_config_name, vim.log.levels.ERROR)
+    vim.notify('RDS configuration not found: ' .. connection_name, vim.log.levels.ERROR)
     return
   end
 
@@ -43,18 +43,11 @@ function M.update_rds_auth_token(connection_name, rds_config_name)
     return
   end
 
-  local url_parts = vim.fn.matchlist(connection.url, 'postgres://\\([^:]*\\):\\([^@]*\\)@\\(.*\\)')
-  if #url_parts < 4 then
-    vim.notify('Failed to parse connection URL', vim.log.levels.ERROR)
-    return
-  end
-  local username = url_parts[2]
-  local host_port = url_parts[4]
   local cmd = string.format(
     'AWS_PROFILE=%s aws rds generate-db-auth-token --hostname %s --port 5432 --region eu-central-1 --username %s',
     rds_config.profile,
     rds_config.host,
-    username
+    rds_config.username
   )
 
   local token = vim.fn.system(cmd):gsub('[\n\r]', '')
@@ -64,7 +57,13 @@ function M.update_rds_auth_token(connection_name, rds_config_name)
   end
 
   local encoded_token = vim.fn.system('echo -n "' .. token:gsub('"', '\\"') .. '" | jq -sRr @uri'):gsub('[\n\r]', '')
-  local new_url = string.format('postgres://%s:%s@%s', username, encoded_token, host_port)
+  local new_url = string.format('postgres://%s:%s@%s:%s/%s?sslmode=require',
+    rds_config.username,
+    encoded_token,
+    rds_config.gateway,
+    rds_config.port,
+    rds_config.database
+  )
   local jq_filter = string.format(
     'map(if .name == \"%s\" then .url = \"%s\" else . end)',
     connection_name,
@@ -84,24 +83,18 @@ function M.update_rds_auth_token(connection_name, rds_config_name)
     return
   end
 
-  vim.notify(
-    string.format(
-      'Auth token updated for connection: %s using RDS config: %s',
-      connection_name,
-      rds_config_name
-    ),
-    vim.log.levels.INFO)
+  vim.notify(string.format('Auth token updated for connection: %s', connection_name), vim.log.levels.INFO)
 end
 
 vim.api.nvim_create_user_command(
-  'RdsAuthToken',
+  'RdsAuth',
   function (opts)
     local args = vim.split(opts.args, ' ')
-    if #args ~= 2 then
-      vim.notify('Usage: RdsAuthToken <connection_name> <rds_config_name>', vim.log.levels.ERROR)
+    if #args ~= 1 then
+      vim.notify('Usage: RdsAuth <connection_name>', vim.log.levels.ERROR)
       return
     end
-    M.update_rds_auth_token(args[1], args[2])
+    M.update_rds_auth_token(args[1])
   end,
   { nargs = '+', desc = 'Update RDS auth token for a database connection' }
 )
