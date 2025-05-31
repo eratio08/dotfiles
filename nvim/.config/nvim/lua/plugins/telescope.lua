@@ -1,6 +1,6 @@
 return {
   'nvim-telescope/telescope.nvim',
-  branch = '0.1.x',
+  branch = 'master',
   keys = { { '<leader>f', desc = 'Find', mode = { 'n', 'v' } } },
   dependencies = {
     'nvim-lua/plenary.nvim',
