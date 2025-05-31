@@ -21,9 +21,8 @@ return {
     vim.g.db_ui_win_position = 'right'
 
     vim.g.dbs = {
-      { name = 'dbt-source', url = 'postgres://finion:changeme@127.0.0.1:5432?sslmode=disable' },
-      { name = 'dbt-target', url = 'postgres://finion:changeme@127.0.0.1:5433?sslmode=disable' },
-      { name = 'dbt-target-ro', url = 'postgres://finion_ro:changeme@127.0.0.1:5433?sslmode=disable' },
+      { name = 'dbt-source', url = 'postgres://finion:changeme@127.0.0.1:5432/finion?sslmode=disable' },
+      { name = 'dbt-target', url = 'postgres://finion:changeme@127.0.0.1:5433/finion?sslmode=disable' },
     }
   end
 }
