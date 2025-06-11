@@ -2,7 +2,7 @@ return {
   enabled = true,
   'nvim-treesitter/nvim-treesitter',
   branch = 'main',
-  -- event = 'VeryLazy',
+  commit = 'faf63903ffa05a9dadd56258d737a0243393c0f5',
   lazy = false,
   build = ':TSUpdate',
   dependencies = {

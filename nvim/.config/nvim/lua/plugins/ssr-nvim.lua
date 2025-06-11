@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'cshuaimin/ssr.nvim',
   keys = {
     { '<leader>sr', function () require('ssr').open() end, desc = 'Structured Search & Replace' },
