@@ -1,0 +1,28 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "theme": "system",
+  "model": "anthropic/claude-sonnet-4-20250514",
+  "autoshare": false,
+  "autoupdate": true,
+  "mcp": {
+    "context7": {
+      "type": "local",
+      "command": [
+        "bunx",
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ],
+      "enabled": true
+    },
+    "consult7": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "consult7",
+        "google",
+        "$GEMINI_API_KEY"
+      ],
+      "enabled": true
+    }
+  }
+}
