@@ -4,6 +4,14 @@
   "model": "anthropic/claude-sonnet-4-20250514",
   "autoshare": false,
   "autoupdate": true,
+  "keybinds": {
+    "input_submit": "enter",
+    "input_newline": "ctrl+enter",
+    "messages_half_page_up": "ctrl+u",
+    "messages_half_page_down": "ctrl+d",
+    "messages_previous": "ctrl+h",
+    "messages_next": "ctrl+l"
+  },
   "mcp": {
     "context7": {
       "type": "local",
