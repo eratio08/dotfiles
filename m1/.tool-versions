@@ -1,7 +1,13 @@
-golang 1.24.0
-nodejs 22.14.0
 elixir 1.18.1-otp-27
 erlang 27.2
-opentofu 1.9.0
 gleam 1.7.0
 rust 1.87.0
+nodejs 22.17.0
+golang 1.24.3
+opentofu 1.9.1
+helm 3.17.3
+kubectl 1.33.2
+uv 0.7.18
+bun 1.2.17
+mvnd 1.0.2
+just 1.41.0
