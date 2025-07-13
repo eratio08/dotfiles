@@ -1,5 +1,5 @@
 return {
-  enabled = true,
+  enabled = false,
   'OXY2DEV/markview.nvim',
   dependencies = {
     'saghen/blink.cmp', -- enable completion
@@ -18,8 +18,8 @@ return {
       linewise_hybrid_mode = true,
     },
     html = {},
-    latex = {},
-    markdown_inline = {},
+    latex = { enable = false },
+    -- markdown_inline = {},
     markdown = {
       code_blocks = {
         sign = false,
@@ -33,7 +33,7 @@ return {
         },
       },
     },
-    typst = { enable = true },
+    typst = { enable = false },
     json = { enabled = false },
     yaml = {
       enable = false,

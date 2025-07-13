@@ -7,7 +7,6 @@ return {
 
     -- Snippets
     'rafamadriz/friendly-snippets',
-    -- { 'L3MON4D3/LuaSnip', version = 'v2.*' },
 
     -- Sources
     'moyiz/blink-emoji.nvim',
@@ -26,9 +25,9 @@ return {
       preset = 'default',
       ['<C-space>'] = { 'show', 'show_documentation', 'hide_documentation' },
       ['<C-e>'] = { 'hide', 'fallback' },
+      ['<CR>'] = { 'accept', 'fallback' },
       ['<Tab>'] = { 'select_next', 'snippet_forward', 'fallback' },
       ['<S-Tab>'] = { 'select_prev', 'snippet_backward', 'fallback' },
-      ['<CR>'] = { 'accept', 'fallback' },
       ['<Up>'] = { 'select_prev', 'fallback' },
       ['<Down>'] = { 'select_next', 'fallback' },
       ['<C-p>'] = { 'select_prev', 'fallback' },
@@ -36,7 +35,6 @@ return {
       ['<C-u>'] = { 'scroll_documentation_up', 'fallback' },
       ['<C-d>'] = { 'scroll_documentation_down', 'fallback' },
     },
-    -- snippets = { preset = 'luasnip' },
     sources = {
       default = {
         'lsp',
@@ -44,11 +42,10 @@ return {
         'snippets',
         'buffer',
         'emoji',
-        -- 'omni',
+        'omni',
       },
       per_filetype = {
         markdown = { 'lsp', 'path', 'buffer', 'emoji' },
-        -- codecompanion = { 'codecompanion' },
         lua = { 'lazydev', 'lsp', 'path', 'snippets', 'buffer', 'emoji' },
         sql = { 'dadbod', 'buffer' },
       },
@@ -60,6 +57,13 @@ return {
           should_show_items = function ()
             return vim.tbl_contains({ 'gitcommit', 'markdown' }, vim.o.filetype)
           end,
+          transform_items = function (_, items)
+            for _, item in ipairs(items) do
+              item.kind_icon = '󰞅'
+              item.kind_name = 'emoji'
+            end
+            return items
+          end
         },
         lazydev = {
           name = 'LazyDev',
@@ -67,23 +71,33 @@ return {
           score_offset = 100,
         },
         dadbod = { name = 'Dadbod', module = 'vim_dadbod_completion.blink' },
+        cmdline = {
+          -- ignores cmdline completions when executing shell commands
+          enabled = function ()
+            return vim.fn.getcmdtype() ~= ':' or not vim.fn.getcmdline():match("^[%%0-9,'<>%-]*!")
+          end
+        },
+        lsp = {
+          name = 'LSP',
+          module = 'blink.cmp.sources.lsp',
+          transform_items = function (_, items)
+            -- Exclude keyword from autocomplete
+            return vim.tbl_filter(function (item)
+              return item.kind ~= require('blink.cmp.types').CompletionItemKind.Keyword
+            end, items)
+          end,
+        },
       }
     },
     signature = { enabled = true },
     completion = {
       menu = {
-        auto_show = function (ctx)
-          local is_cmdline = ctx.mode == 'cmdline'
-          local is_search = vim.tbl_contains({ '/', '?' }, vim.fn.getcmdtype())
-          local is_fugitive = not not ctx.line:match('^G .*')
-          local is_copilot_chat = vim.bo.filetype == 'copilot-chat'
-          return (not (is_cmdline and (is_search or is_fugitive))) and (not is_copilot_chat)
-        end,
+        auto_show = true,
         draw = {
           treesitter = { 'lsp' },
           columns = {
-            { 'kind_icon' },
             { 'label', 'label_description', gap = 1 },
+            { 'kind_icon', 'kind', gap = 1 },
           },
           components = {
             kind_icon = {
@@ -117,10 +131,13 @@ return {
       },
       list = {
         selection = {
-          preselect = function (ctx) return ctx.mode ~= 'cmdline' end,
-          auto_insert = function (ctx) return ctx.mode ~= 'cmdline' end
+          preselect = true,
+          auto_insert = false,
         },
       },
+      ghost_text = { enabled = true },
     },
+    fuzzy = { implementation = 'prefer_rust_with_warning' },
   },
+  opts_extend = { 'sources.default' },
 }

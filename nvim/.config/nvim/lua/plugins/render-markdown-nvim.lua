@@ -1,9 +1,10 @@
 return {
-  enabled = false,
+  enabled = true,
   'MeanderingProgrammer/render-markdown.nvim',
   dependencies = {
     'nvim-treesitter/nvim-treesitter',
     'nvim-tree/nvim-web-devicons',
+    'rose-pine',
   },
   keys = {
     { '<leader>mr', ':RenderMarkdown toggle<CR>', desc = 'Render Markdown' },
@@ -14,5 +15,6 @@ return {
   opts = {
     render_modes = { 'n' },
     latex = { enabled = false },
+    completions = { blink = { enabled = true } },
   },
 }

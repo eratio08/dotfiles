@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'iamcco/markdown-preview.nvim',
   dependencies = {
     'folke/which-key.nvim'

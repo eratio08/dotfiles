@@ -266,7 +266,8 @@ return {
     })
 
     local capabilities = vim.lsp.protocol.make_client_capabilities()
-    capabilities.textDocument.completion.completionItem.snippetSupport = true
+    -- Disable snippets for now
+    -- capabilities.textDocument.completion.completionItem.snippetSupport = true
     vim.g.if_present('ufo', function ()
       capabilities.textDocument.foldingRange = {
         dynamicRegistration = false,
