@@ -77,16 +77,16 @@ return {
             return vim.fn.getcmdtype() ~= ':' or not vim.fn.getcmdline():match("^[%%0-9,'<>%-]*!")
           end
         },
-        lsp = {
-          name = 'LSP',
-          module = 'blink.cmp.sources.lsp',
-          transform_items = function (_, items)
-            -- Exclude keyword from autocomplete
-            return vim.tbl_filter(function (item)
-              return item.kind ~= require('blink.cmp.types').CompletionItemKind.Keyword
-            end, items)
-          end,
-        },
+        -- lsp = {
+        --   name = 'LSP',
+        --   module = 'blink.cmp.sources.lsp',
+        --   transform_items = function (_, items)
+        --     -- Exclude keyword from autocomplete
+        --     return vim.tbl_filter(function (item)
+        --       return item.kind ~= require('blink.cmp.types').CompletionItemKind.Keyword
+        --     end, items)
+        --   end,
+        -- },
       }
     },
     signature = { enabled = true },
