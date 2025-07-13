@@ -6,7 +6,7 @@
   "autoupdate": true,
   "keybinds": {
     "input_submit": "enter",
-    "input_newline": "ctrl+enter",
+    "input_newline": "shift+enter",
     "messages_half_page_up": "ctrl+u",
     "messages_half_page_down": "ctrl+d",
     "messages_previous": "ctrl+h",
