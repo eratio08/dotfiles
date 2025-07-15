@@ -3,9 +3,9 @@ return {
   'neovim/nvim-lspconfig',
   lazy = false,
   dependencies = {
-    { 'williamboman/mason.nvim', opts = {} },
+    'mason-org/mason.nvim',
     'WhoIsSethDaniel/mason-tool-installer.nvim',
-    'williamboman/mason-lspconfig.nvim',
+    'mason-org/mason-lspconfig.nvim',
     'folke/which-key.nvim',
     'kevinhwang91/nvim-ufo',
     -- 'hrsh7th/cmp-nvim-lsp',
@@ -246,12 +246,34 @@ return {
         },
       },
       roc_ls = {},
-      helmls = {
+      helm_ls = {
         settings = {
           ['helm-ls'] = {
+            logLevel = 'info',
+            valuesFiles = {
+              mainValuesFile = 'values.yaml',
+              lintOverlayValuesFile = 'values.lint.yaml',
+              additionalValuesFilesGlobPattern = 'values*.yaml'
+            },
+            helmLint = {
+              enabled = true,
+              ignoredMessages = {},
+            },
             yamlls = {
               enabled = true,
+              enabledForFilesGlob = '*.{yaml,yml}',
+              diagnosticsLimit = 50,
+              showDiagnosticsDirectly = false,
               path = vim.fn.stdpath('data') .. '/mason/bin/yaml-language-server',
+              initTimeoutSeconds = 3,
+              config = {
+                schemas = {
+                  kubernetes = 'templates/**',
+                },
+                completion = true,
+                hover = true,
+                -- any other config from https://github.com/redhat-developer/yaml-language-server#language-server-settings
+              }
             }
           }
         }
@@ -261,9 +283,9 @@ return {
     -----------
     -- MASON --
     -----------
-    require('mason-tool-installer').setup({
-      ensure_installed = { 'lua_ls' }
-    })
+    -- require('mason-tool-installer').setup({
+    --   ensure_installed = { 'lua_ls' }
+    -- })
 
     local capabilities = vim.lsp.protocol.make_client_capabilities()
     -- Disable snippets for now
@@ -280,17 +302,16 @@ return {
     vim.g.if_present('blink.cmp', function (blink_cmp)
       capabilities = blink_cmp.get_lsp_capabilities(capabilities)
     end)
+
+    for server, config in pairs(servers) do
+      config.capabilities = vim.tbl_deep_extend('force', capabilities, config.capabilities or {})
+      -- require('lspconfig')[server].setup(config)
+      vim.lsp.config(server, config)
+    end
+
+    require("mason").setup()
     require('mason-lspconfig').setup({
-      ensure_installed = {},
-      automatic_installation = {},
-      automatic_enable = true,
-      handlers = {
-        function (server_name)
-          local server = servers[server_name] or {}
-          server.capabilities = vim.tbl_deep_extend('force', capabilities, server.capabilities or {})
-          require('lspconfig')[server_name].setup(server)
-        end,
-      }
+      ensure_installed = {"lua_ls"}
     })
   end
 }
