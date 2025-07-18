@@ -39,8 +39,8 @@ return {
       default = {
         'lsp',
         'path',
-        'snippets',
         'buffer',
+        'snippets',
         'emoji',
         'omni',
       },
@@ -71,23 +71,13 @@ return {
           score_offset = 100,
         },
         dadbod = { name = 'Dadbod', module = 'vim_dadbod_completion.blink' },
-        cmdline = {
-          -- ignores cmdline completions when executing shell commands
-          enabled = function ()
-            return vim.fn.getcmdtype() ~= ':' or not vim.fn.getcmdline():match("^[%%0-9,'<>%-]*!")
-          end
-        },
-        -- lsp = {
-        --   name = 'LSP',
-        --   module = 'blink.cmp.sources.lsp',
-        --   transform_items = function (_, items)
-        --     -- Exclude keyword from autocomplete
-        --     return vim.tbl_filter(function (item)
-        --       return item.kind ~= require('blink.cmp.types').CompletionItemKind.Keyword
-        --     end, items)
-        --   end,
+        -- cmdline = {
+        --   -- ignores cmdline completions when executing shell commands
+        --   enabled = function ()
+        --     return vim.fn.getcmdtype() ~= ':' or not vim.fn.getcmdline():match("^[%%0-9,'<>%-]*!")
+        --   end
         -- },
-      }
+      },
     },
     signature = { enabled = true },
     completion = {
@@ -143,8 +133,6 @@ return {
         ['<C-space>'] = { 'show', 'show_documentation', 'hide_documentation' },
         ['<C-e>'] = { 'hide', 'fallback' },
         ['<CR>'] = { 'accept', 'fallback' },
-        ['<Tab>'] = { 'select_next', 'snippet_forward', 'fallback' },
-        ['<S-Tab>'] = { 'select_prev', 'snippet_backward', 'fallback' },
         ['<Up>'] = { 'select_prev', 'fallback' },
         ['<Down>'] = { 'select_next', 'fallback' },
         ['<C-p>'] = { 'select_prev', 'fallback' },
