@@ -5,38 +5,8 @@ return {
   dependencies = {
     'folke/which-key.nvim',
   },
-  opts = function (_, opts)
-    local supported = {
-      'astro',
-      'css',
-      'graphql',
-      -- "html",
-      'javascript',
-      'javascriptreact',
-      'json',
-      'jsonc',
-      -- "markdown",
-      'svelte',
-      'typescript',
-      'typescriptreact',
-      'vue',
-      -- "yaml",
-      -- 'sql',
-    }
-
-    opts.formatters_by_ft = opts.formatters_by_ft or {}
-    -- dynamically extend all supported with biome
-    for _, ft in ipairs(supported) do
-      opts.formatters_by_ft[ft] = opts.formatters_by_ft[ft] or {}
-      table.insert(opts.formatters_by_ft[ft], 'biome')
-    end
-    opts.formatters = opts.formatters or {}
-    opts.formatters.biome = {
-      require_cwd = true,
-    }
-  end,
   config = function (_, opts)
-    opts = vim.tbl_deep_extend('force', opts, {
+    opts = {
       notify_on_error = true,
       format_on_save = function ()
         return {
@@ -58,7 +28,15 @@ return {
           require_cwd = true,
         },
       },
-    })
+    }
+
+    for _, ft in ipairs({ 'astro', 'css', 'graphql', 'javascript', 'javascriptreact', 'json', 'jsonc', 'svelte',
+      'typescript', 'typescript.tsx', 'typescriptreact', 'vue' }) do
+      opts.formatters_by_ft[ft] = opts.formatters_by_ft[ft] or {}
+      table.insert(opts.formatters_by_ft[ft], 'biome')
+      table.insert(opts.formatters_by_ft[ft], 'biome-organize-imports')
+      -- table.insert(opts.formatters_by_ft[ft], 'biome-check')
+    end
     require('conform').setup(opts)
 
     require('which-key').add({ {
