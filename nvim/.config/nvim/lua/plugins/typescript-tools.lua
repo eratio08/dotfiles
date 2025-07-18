@@ -1,5 +1,5 @@
 return {
-  enabled = true,
+  enabled = false,
   'pmizio/typescript-tools.nvim',
   dependencies = {
     'nvim-lua/plenary.nvim',
