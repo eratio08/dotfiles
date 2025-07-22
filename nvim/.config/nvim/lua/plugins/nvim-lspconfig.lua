@@ -4,7 +4,6 @@ return {
   lazy = false,
   dependencies = {
     'mason-org/mason.nvim',
-    'WhoIsSethDaniel/mason-tool-installer.nvim',
     'mason-org/mason-lspconfig.nvim',
     'folke/which-key.nvim',
     'kevinhwang91/nvim-ufo',
@@ -272,7 +271,6 @@ return {
                 },
                 completion = true,
                 hover = true,
-                -- any other config from https://github.com/redhat-developer/yaml-language-server#language-server-settings
               }
             }
           }
@@ -283,10 +281,6 @@ return {
     -----------
     -- MASON --
     -----------
-    -- require('mason-tool-installer').setup({
-    --   ensure_installed = { 'lua_ls' }
-    -- })
-
     local capabilities = vim.lsp.protocol.make_client_capabilities()
     -- Disable snippets for now
     -- capabilities.textDocument.completion.completionItem.snippetSupport = true
@@ -305,13 +299,12 @@ return {
 
     for server, config in pairs(servers) do
       config.capabilities = vim.tbl_deep_extend('force', capabilities, config.capabilities or {})
-      -- require('lspconfig')[server].setup(config)
       vim.lsp.config(server, config)
     end
 
-    require("mason").setup()
+    require('mason').setup()
     require('mason-lspconfig').setup({
-      ensure_installed = {"lua_ls"}
+      ensure_installed = { 'lua_ls' }
     })
   end
 }
