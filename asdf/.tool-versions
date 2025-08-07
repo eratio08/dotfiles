@@ -8,4 +8,4 @@ mvnd 1.0.2
 helm 3.17.3
 kubectl 1.33.3
 uv 0.7.18
-bun 1.2.17
+bun 1.2.19
