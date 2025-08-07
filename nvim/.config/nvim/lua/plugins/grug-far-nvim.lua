@@ -5,9 +5,9 @@ return {
     'folke/which-key.nvim',
   },
   keys = {
-    { '<leader>g', desc = 'Grug-Far' },
+    { '<leader>gf', desc = 'Grug-Far' },
     { '<leader>gw', desc = 'Grug-Far current word' },
-    { '<leader>gf', desc = 'Grud-Far current file' },
+    { '<leader>gF', desc = 'Grud-Far current file' },
     { '<leader>ga', desc = 'Grug-Far astgrep' },
   },
   config = function ()

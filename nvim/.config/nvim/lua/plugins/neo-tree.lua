@@ -13,8 +13,8 @@ return {
     require('neo-tree').setup({
       close_if_last_window = true,
       window = {
-        auto_expand_width = true,
-        width = math.floor(vim.o.columns * 0.1),
+        auto_expand_width = false,
+        width = math.floor(vim.o.columns * 0.15),
         mappings = {
           ['s'] = 'open_split',
           ['v'] = 'open_vsplit',
