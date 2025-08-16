@@ -10,7 +10,7 @@ mouse-hide-while-typing = true
 grapheme-width-method = legacy
 
 ## Theme
-theme = rose-pine-moon
+theme = dark:rose-pine-moon,light:rose-pine-dawn
 # green, overrides
 palette = 2=#3e8fb0
 palette = 10=#3e8fb0
