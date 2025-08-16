@@ -63,6 +63,7 @@ alias lzg="lazygit"
 alias zrl="source ~/.zshrc"
 alias tf="tofu"
 alias jo="joshuto"
+alias toggle="~/dotfiles/darktoggle.swift"
 
 # asdf
 # export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"
