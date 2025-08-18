@@ -187,7 +187,14 @@ return {
               enable = false,
               url = '',
             },
-            schemas = require('schemastore').yaml.schemas(),
+            schemas = require('schemastore').yaml.schemas({
+              extra = { {
+                description = 'DSOMM Schema',
+                fileMatch = 'generated.yaml',
+                name = 'generated.yaml',
+                url = 'schema/dsomm-schema.json',
+              } }
+            }),
           },
         },
       },
