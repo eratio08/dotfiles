@@ -109,9 +109,9 @@ return {
           },
         },
         file_ignore_patterns = {
-          'node_modules',
-          '.git',
-          '_build',
+          'node_modules/',
+          '.git/',
+          '_build/',
           'dune.lock',
         },
         hidden = true,
@@ -120,6 +120,8 @@ return {
         live_grep = {
           prompt_title = 'Grep',
           -- theme = 'dropdown',
+          hidden = true,
+          additional_args = { '--hidden' },
         },
         buffers = {
           prompt_title = 'Buffers',
@@ -135,6 +137,7 @@ return {
         },
         grep_string = {
           -- theme = 'dropdown',
+          additional_args = { '--hidden' },
         },
         current_buffer_fuzzy_find = {
           theme = 'dropdown',
