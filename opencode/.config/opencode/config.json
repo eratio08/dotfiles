@@ -29,7 +29,7 @@
         "git+https://github.com/szeider/consult7",
         "consult7",
         "google",
-        "${GEMINI_KEY}"
+        "${GEMINI_API_KEY}"
       ]
     },
     "serena": {
