@@ -30,8 +30,8 @@ return {
     -- NOTE: Experiment, very likely to collide with other mappings
     { '<C-A-k>', ':resize +5<CR>', desc = 'Increase window height', mode = 'n' },
     { '<C-A-j>', ':resize -5<CR>', desc = 'Decrease window height', mode = 'n' },
-    { '<C-A-l>', ':vertical resize -5<CR>', desc = 'Decrease window width', mode = 'n' },
-    { '<C-A-h>', ':vertical resize +5<CR>', desc = 'Increase window width', mode = 'n' },
+    { '<C-A-l>', ':vertical resize +5<CR>', desc = 'Increase window width', mode = 'n' },
+    { '<C-A-h>', ':vertical resize -5<CR>', desc = 'Decrease window width', mode = 'n' },
 
     -- {'<A-k>', 'ddp', 'Move Line Up', mode = 'n' },
     -- {'<A-j>', 'ddkP', 'Move Line Down', mode = 'n' },
