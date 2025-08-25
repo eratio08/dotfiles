@@ -9,3 +9,4 @@ helm 3.17.3
 kubectl 1.33.3
 uv 0.7.18
 bun 1.2.19
+tree-sitter 0.25.8
