@@ -25,8 +25,6 @@
       "type": "local",
       "command": [
         "uvx",
-        "--from",
-        "git+https://github.com/szeider/consult7",
         "consult7",
         "google",
         "${GEMINI_API_KEY}"
@@ -63,6 +61,41 @@
       "command": [
         "npx",
         "@playwright/mcp@latest"
+      ]
+    },
+    "awsdocs":{
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "uvx",
+        "awslabs.aws-documentation-mcp-server@latest"
+      ]
+    },
+    "awstf":{
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "uvx",
+        "awslabs.terraform-mcp-server@latest"
+      ],
+    },
+    "opentofu":{
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@opentofu/opentofu-mcp-server"
+      ]
+    } ,
+    "semgrep":{
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "uvx",
+        "--from",
+        "git+https://github.com/semgrep/mcp",
+        "semgrep-mcp",
       ]
     }
   }
