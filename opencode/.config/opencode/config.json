@@ -64,12 +64,25 @@
       ]
     },
     "awsdocs":{
-      "enabled": true,
+      "enabled": false,
       "type": "local",
       "command": [
         "uvx",
         "awslabs.aws-documentation-mcp-server@latest"
       ]
+    },
+    "awsknowledge": {
+      "enabled": true,
+      "type": "remote",
+      "url": "https://knowledge-mcp.global.api.aws"
+    },
+    "awscli": {
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "uvx",
+        "awslabs.aws-api-mcp-server@latest"
+      ],
     },
     "awstf":{
       "enabled": true,
@@ -77,6 +90,14 @@
       "command": [
         "uvx",
         "awslabs.terraform-mcp-server@latest"
+      ],
+    },
+    "awsdiagram":{
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "uvx",
+        "awslabs.aws-diagram-mcp-server"
       ],
     },
     "opentofu":{
