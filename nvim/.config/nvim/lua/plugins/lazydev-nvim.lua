@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'folke/lazydev.nvim',
   ft = 'lua',
   dependencies = {

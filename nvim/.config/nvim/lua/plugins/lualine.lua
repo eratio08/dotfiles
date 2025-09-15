@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'nvim-lualine/lualine.nvim',
   event = 'VeryLazy',
   dependencies = {

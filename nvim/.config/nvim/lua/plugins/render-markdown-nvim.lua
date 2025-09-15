@@ -4,7 +4,6 @@ return {
   dependencies = {
     'nvim-treesitter/nvim-treesitter',
     'nvim-tree/nvim-web-devicons',
-    'rose-pine',
   },
   keys = {
     { '<leader>mr', ':RenderMarkdown toggle<CR>', desc = 'Render Markdown' },

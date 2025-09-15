@@ -4,6 +4,7 @@ return {
   dependencies = {
     'nvim-tree/nvim-web-devicons',
     'onsails/lspkind-nvim',
+    'xzbdmw/colorful-menu.nvim',
 
     -- Snippets
     'rafamadriz/friendly-snippets',
@@ -85,11 +86,23 @@ return {
         auto_show = true,
         draw = {
           treesitter = { 'lsp' },
+          -- columns = {
+          --   { 'label', 'label_description', gap = 1 },
+          --   { 'kind_icon', 'kind', gap = 1 },
+          -- },
           columns = {
-            { 'label', 'label_description', gap = 1 },
-            { 'kind_icon', 'kind', gap = 1 },
+            { 'kind_icon' },
+            { 'label', gap = 1 },
           },
           components = {
+            label = {
+              text = function (ctx)
+                return require('colorful-menu').blink_components_text(ctx)
+              end,
+              highlight = function (ctx)
+                return require('colorful-menu').blink_components_highlight(ctx)
+              end,
+            },
             kind_icon = {
               text = function (ctx)
                 local icon = ctx.kind_icon

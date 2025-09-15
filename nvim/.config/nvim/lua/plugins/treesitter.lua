@@ -38,27 +38,27 @@ return {
     --   },
     -- }
 
-    require('nvim-treesitter-textobjects').setup {
-      select = {
-        lookahead = true,
-        selection_modes = {
-          ['@parameter.outer'] = 'v', -- charwise
-          ['@function.outer'] = 'V',  -- linewise
-          ['@class.outer'] = '<c-v>', -- blockwise
-        },
-        include_surrounding_whitespace = false,
-      },
-    }
+    -- require('nvim-treesitter-textobjects').setup {
+    --   select = {
+    --     lookahead = true,
+    --     selection_modes = {
+    --       ['@parameter.outer'] = 'v', -- charwise
+    --       ['@function.outer'] = 'V',  -- linewise
+    --       ['@class.outer'] = '<c-v>', -- blockwise
+    --     },
+    --     include_surrounding_whitespace = false,
+    --   },
+    -- }
 
-    local to = require('nvim-treesitter-textobjects.select')
-    require('which-key').add({
-      { 'af', function () to.select_textobject('@function.outer', 'textobjects') end, desc = 'Around function', mode = { 'x', 'o' } },
-      { 'if', function () to.select_textobject('@function.inner', 'textobjects') end, desc = 'In function', mode = { 'x', 'o' } },
-      { 'ac', function () to.select_textobject('@class.outer', 'textobjects') end, desc = 'Around class', mode = { 'x', 'o' } },
-      { 'ic', function () to.select_textobject('@class.inner', 'textobjects') end, desc = 'In class', mode = { 'x', 'o' } },
-      { 'as', function () to.select_textobject('@local.scope', 'locals') end, desc = 'Around scope', mode = { 'x', 'o' } },
-      { 'ab', function () to.select_textobject('@block.outer', 'textobjects') end, desc = 'Around block', mode = { 'x', 'o' } },
-      { 'ib', function () to.select_textobject('@block.inner', 'textobjects') end, desc = 'In block', mode = { 'x', 'o' } },
-    })
+    -- local to = require('nvim-treesitter-textobjects.select')
+    -- require('which-key').add({
+    --   { 'af', function () to.select_textobject('@function.outer', 'textobjects') end, desc = 'Around function', mode = { 'x', 'o' } },
+    --   { 'if', function () to.select_textobject('@function.inner', 'textobjects') end, desc = 'In function', mode = { 'x', 'o' } },
+    --   { 'ac', function () to.select_textobject('@class.outer', 'textobjects') end, desc = 'Around class', mode = { 'x', 'o' } },
+    --   { 'ic', function () to.select_textobject('@class.inner', 'textobjects') end, desc = 'In class', mode = { 'x', 'o' } },
+    --   { 'as', function () to.select_textobject('@local.scope', 'locals') end, desc = 'Around scope', mode = { 'x', 'o' } },
+    --   { 'ab', function () to.select_textobject('@block.outer', 'textobjects') end, desc = 'Around block', mode = { 'x', 'o' } },
+    --   { 'ib', function () to.select_textobject('@block.inner', 'textobjects') end, desc = 'In block', mode = { 'x', 'o' } },
+    -- })
   end
 }

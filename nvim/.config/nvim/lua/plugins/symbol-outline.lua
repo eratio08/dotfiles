@@ -1,4 +1,5 @@
 return {
+  enabled = false,
   'simrat39/symbols-outline.nvim',
   cmd = { 'SymbolsOutline', 'SymbolsOutlineOpen', 'SymbolsOutlineClose' },
   config = function ()

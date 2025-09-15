@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'stevearc/conform.nvim',
   event = { 'InsertEnter', 'BufWritePre' },
   cmd = { 'ConformInfo' },

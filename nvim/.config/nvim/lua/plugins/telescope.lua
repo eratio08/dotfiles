@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'nvim-telescope/telescope.nvim',
   branch = 'master',
   keys = { { '<leader>f', desc = 'Find', mode = { 'n', 'v' } } },
@@ -10,6 +11,7 @@ return {
       config = function () require('telescope').load_extension('fzf') end
     },
     'folke/which-key.nvim',
+    'nvim-treesitter/nvim-treesitter',
   },
   config = function ()
     local telescope = require('telescope')

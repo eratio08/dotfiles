@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'folke/todo-comments.nvim',
   event = 'VimEnter',
   dependencies = {

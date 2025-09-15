@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'echasnovski/mini.trailspace',
   version = '*',
   dependencies = {

@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'numToStr/Comment.nvim',
   keys = { 'gcc', { 'gc', mode = 'v' } },
   dependencies = {

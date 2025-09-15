@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'j-hui/fidget.nvim',
   event = 'BufEnter',
   tag = 'legacy',

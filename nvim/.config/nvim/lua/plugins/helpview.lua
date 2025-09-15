@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'OXY2DEV/helpview.nvim',
-  lazy = false
+  event = 'VeryLazy'
 };

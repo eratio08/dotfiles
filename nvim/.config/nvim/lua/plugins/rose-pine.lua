@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'rose-pine/neovim',
   name     = 'rose-pine',
   lazy     = false,

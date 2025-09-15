@@ -1,5 +1,5 @@
 return {
-  enabled = true,
+  enabled = false,
   'CopilotC-Nvim/CopilotChat.nvim',
   dependencies = {
     -- native dependencies: tiktoke, ripgrep & lynx

@@ -1,4 +1,5 @@
 return {
+  enabled = false,
   'nvim-neotest/neotest',
   dependencies = {
     'nvim-neotest/nvim-nio',

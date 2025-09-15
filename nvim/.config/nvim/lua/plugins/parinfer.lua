@@ -1,4 +1,5 @@
 return {
+  enabled = true,
   'gpanders/nvim-parinfer',
   ft = { 'dune' },
   config = function ()
