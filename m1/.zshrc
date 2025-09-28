@@ -46,6 +46,7 @@ alias zrl="source ~/.zshrc"
 alias tf="tofu"
 alias jo="joshuto"
 alias toggle="~/dotfiles/darktoggle.swift"
+alias k="kubectl"
 
 # asdf
 # export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"
@@ -80,6 +81,7 @@ source ~/.asdf/plugins/golang/set-env.zsh
 # [[ ! -r /Users/el/.opam/opam-init/init.zsh ]] || source /Users/el/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
 # dune
 source $HOME/.dune/env/env.zsh
+export PATH=$PATH:$GOBIN
 
 # Roc
 export PATH=$PATH:~/Downloads/roc-lang/roc_nightly-macos_apple_silicon-2024-07-13-070d14a5d60
