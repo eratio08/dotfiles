@@ -27,7 +27,7 @@
         "uvx",
         "consult7",
         "google",
-        "${GEMINI_API_KEY}"
+        "${env:GEMINI_API_KEY}"
       ]
     },
     "serena": {
@@ -39,12 +39,8 @@
         "git+https://github.com/oraios/serena",
         "serena",
         "start-mcp-server",
-        "--context",
-        "ide-assistant",
         "--enable-web-dashboard",
-        "false",
-        "--project",
-        "$(pwd)"
+        "false"
       ]
     },
     "browser": {
@@ -56,7 +52,7 @@
       ]
     },
     "playwright": {
-      "enabled": true,
+      "enabled": false,
       "type": "local",
       "command": [
         "npx",
@@ -72,12 +68,12 @@
       ]
     },
     "awsknowledge": {
-      "enabled": true,
+      "enabled": false,
       "type": "remote",
       "url": "https://knowledge-mcp.global.api.aws"
     },
     "awscli": {
-      "enabled": true,
+      "enabled": false,
       "type": "local",
       "command": [
         "uvx",
@@ -85,7 +81,7 @@
       ],
     },
     "awstf":{
-      "enabled": true,
+      "enabled": false,
       "type": "local",
       "command": [
         "uvx",
@@ -93,7 +89,7 @@
       ],
     },
     "awsdiagram":{
-      "enabled": true,
+      "enabled": false,
       "type": "local",
       "command": [
         "uvx",
@@ -101,7 +97,7 @@
       ],
     },
     "opentofu":{
-      "enabled": true,
+      "enabled": false,
       "type": "local",
       "command": [
         "npx",
@@ -110,7 +106,7 @@
       ]
     } ,
     "semgrep":{
-      "enabled": true,
+      "enabled": false,
       "type": "local",
       "command": [
         "uvx",
