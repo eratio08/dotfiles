@@ -13,7 +13,7 @@ return {
   },
   config = function ()
     vim.api.nvim_create_autocmd('LspAttach', {
-      group = vim.api.nvim_create_augroup('kickstart-lsp-attach', { clear = true }),
+      group = vim.api.nvim_create_augroup('lsp-attach', { clear = true }),
       callback = function (event)
         -- custom keymaps
         require('which-key').add({
@@ -50,7 +50,7 @@ return {
 
         local client = vim.lsp.get_client_by_id(event.data.client_id)
         if client and client:supports_method(vim.lsp.protocol.Methods.textDocument_documentHighlight, event.buf) then
-          local highlight_augroup = vim.api.nvim_create_augroup('kickstart-lsp-highlight', { clear = false })
+          local highlight_augroup = vim.api.nvim_create_augroup('lsp-highlight', { clear = false })
           vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
             buffer = event.buf,
             group = highlight_augroup,
@@ -64,10 +64,10 @@ return {
           })
 
           vim.api.nvim_create_autocmd('LspDetach', {
-            group = vim.api.nvim_create_augroup('kickstart-lsp-detach', { clear = true }),
+            group = vim.api.nvim_create_augroup('lsp-detach', { clear = true }),
             callback = function (event2)
               vim.lsp.buf.clear_references()
-              vim.api.nvim_clear_autocmds { group = 'kickstart-lsp-highlight', buffer = event2.buf }
+              vim.api.nvim_clear_autocmds { group = 'lsp-highlight', buffer = event2.buf }
             end,
           })
         end
@@ -119,18 +119,21 @@ return {
     ------------------------
     -- LSPs without MASON --
     ------------------------
-    local lsp_configurations = require('lspconfig.configs')
-    if not lsp_configurations.roc_ls then
-      lsp_configurations.roc_ls = {
-        default_config = {
-          name = 'roc_language_server',
-          cmd = { 'roc_language_server' },
-          filetypes = { 'roc' },
-          root_dir = require('lspconfig.util').root_pattern('*.roc')
-        }
-      }
-    end
-    require('lspconfig').gleam.setup({})
+    -- local lsp_configurations = require('lspconfig.configs')
+    -- if not lsp_configurations.roc_ls then
+    --   lsp_configurations.roc_ls = {
+    --     default_config = {
+    --       name = 'roc_language_server',
+    --       cmd = { 'roc_language_server' },
+    --       filetypes = { 'roc' },
+    --       root_dir = require('lspconfig.util').root_pattern('*.roc')
+    --     }
+    --   }
+    -- end
+
+    vim.lsp.config('gleam', {
+      filetypes = { 'gleam' }
+    })
 
     -------------
     -- Servers --
@@ -223,8 +226,6 @@ return {
       },
       gleam = {},
       lexical = {
-        -- tmp to support elixir 1.18 using support_1_18 branch
-        -- cmd = { '/Users/el/src/lexical/_build/dev/package/lexical/bin/start_lexical.sh' },
         root_dir = function (fname)
           return require('lspconfig.util').root_pattern('mix.exs', '.git')(fname) or vim.loop.cwd()
         end,
@@ -283,6 +284,9 @@ return {
           }
         }
       },
+      tofu_ls = {
+        filetypes = { 'terraform', 'terraform-vars', 'opentofu' },
+      }
     }
 
     -----------
@@ -311,7 +315,8 @@ return {
 
     require('mason').setup()
     require('mason-lspconfig').setup({
-      ensure_installed = { 'lua_ls' }
+      automatic_enable = true,
+      ensure_installed = { 'lua_ls' },
     })
   end
 }
