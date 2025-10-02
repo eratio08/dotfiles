@@ -106,3 +106,6 @@ _evalcache starship init zsh
 # atuin
 # eval "$(atuin init zsh)"
 _evalcache atuin init zsh
+
+# local bin
+export PATH="$HOME/.local/bin:$PATH"
