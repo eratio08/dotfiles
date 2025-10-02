@@ -74,20 +74,15 @@ export XDG_CONFIG_HOME=~/.config/
 
 # Go
 source ~/.asdf/plugins/golang/set-env.zsh
-# export PATH="$HOME/go/bin:$PATH"
-# export PATH="$GOBIN:$PATH"
+# export PATH=$PATH:$GOBIN
 
 # OCaml
 # [[ ! -r /Users/el/.opam/opam-init/init.zsh ]] || source /Users/el/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
 # dune
 source $HOME/.dune/env/env.zsh
-export PATH=$PATH:$GOBIN
 
 # Roc
 export PATH=$PATH:~/Downloads/roc-lang/roc_nightly-macos_apple_silicon-2024-07-13-070d14a5d60
-
-# load openapi key
-[[ -f "$HOME/dotfiles/private-dotfiles/openai.sh" ]] && source "$HOME/dotfiles/private-dotfiles/openai.sh"
 
 # Nix
 if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
