@@ -4,9 +4,8 @@ return {
   dependencies = {
     'folke/which-key.nvim'
   },
-  -- build = function () vim.fn['mkdp#util#install']() end,
   ft = 'markdown',
-  build = 'cd app && npm install',
+  build = 'cd app && pnpm i',
   init = function ()
     vim.g.mkdp_filetypes = { 'markdown' }
   end,
