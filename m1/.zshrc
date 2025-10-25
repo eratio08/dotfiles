@@ -57,7 +57,7 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
 
 # Rust
-source "$HOME/.asdf/installs/rust/1.87.0/env"
+export RUST_WITHOUT=rust-docs # do not install rust-docs with asdf
 
 # Ruby
 export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
@@ -74,7 +74,7 @@ export XDG_CONFIG_HOME=~/.config/
 
 # Go
 source ~/.asdf/plugins/golang/set-env.zsh
-# export PATH=$PATH:$GOBIN
+export PATH=$PATH:$GOBIN
 
 # OCaml
 # [[ ! -r /Users/el/.opam/opam-init/init.zsh ]] || source /Users/el/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
