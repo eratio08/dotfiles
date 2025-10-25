@@ -17,6 +17,10 @@ return {
     'Kaiser-Yang/blink-cmp-git',
     'ribru17/blink-cmp-spell',
     'kristijanhusak/vim-dadbod-completion',
+    {
+      dir = '~/src/blink-cmp-data-star',
+      name = 'blink-cmp-data-star',
+    },
   },
   version = '*',
   ---@module 'blink.cmp'
@@ -41,23 +45,23 @@ return {
         'lsp',
         'path',
         'buffer',
-        'snippets',
         'emoji',
+        'snippets',
         'omni',
       },
       per_filetype = {
         markdown = { 'lsp', 'path', 'buffer', 'emoji' },
         lua = { 'lazydev', 'lsp', 'path', 'snippets', 'buffer', 'emoji' },
-        sql = { 'dadbod', 'buffer' },
+        sql = { 'dadbod', 'lsp', 'buffer' },
       },
       providers = {
         emoji = {
           module = 'blink-emoji',
           name = 'Emoji',
           score_offset = 15,
-          should_show_items = function ()
-            return vim.tbl_contains({ 'gitcommit', 'markdown' }, vim.o.filetype)
-          end,
+          -- should_show_items = function ()
+          --   return vim.tbl_contains({ 'gitcommit', 'markdown' }, vim.o.filetype)
+          -- end,
           transform_items = function (_, items)
             for _, item in ipairs(items) do
               item.kind_icon = '󰞅'
