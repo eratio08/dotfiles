@@ -1,11 +1,11 @@
 return {
   enabled = true,
-  'iamcco/markdown-preview.nvim',
+  'eratio08/markdown-preview.nvim',
   dependencies = {
     'folke/which-key.nvim'
   },
   ft = 'markdown',
-  build = 'cd app && pnpm i',
+  build = 'cd app && yarn install',
   init = function ()
     vim.g.mkdp_filetypes = { 'markdown' }
   end,
