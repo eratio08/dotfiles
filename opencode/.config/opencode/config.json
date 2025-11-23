@@ -1,14 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "theme": "system",
+  "theme": "rosepine",
   "model": "github-copilo/claude-opus-4",
   "autoshare": false,
   "autoupdate": false,
   "keybinds": {
     "messages_half_page_up": "ctrl+u",
-    "messages_half_page_down": "ctrl+d",
-    "messages_previous": "ctrl+h",
-    "messages_next": "ctrl+l"
+    "messages_half_page_down": "ctrl+d"
   },
   "mcp": {
     "context7": {
@@ -44,10 +42,11 @@
       ]
     },
     "browser": {
-      "enabled": false,
+      "enabled": true,
       "type": "local",
       "command": [
-        "npx",
+        "bunx",
+        "-y",
         "@browsermcp/mcp@latest"
       ]
     },
