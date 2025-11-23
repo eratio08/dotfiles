@@ -8,7 +8,6 @@ return {
     'folke/which-key.nvim',
     'kevinhwang91/nvim-ufo',
     -- 'hrsh7th/cmp-nvim-lsp',
-    'b0o/schemastore.nvim', -- used by jsonls & yamlls
     'saghen/blink.cmp',
   },
   config = function ()
@@ -140,7 +139,11 @@ return {
     -----------
     -- MASON --
     -----------
-    require('mason').setup()
+    require('mason').setup({
+      registries = {
+        'file:~/src/mason-registry'
+      }
+    })
     require('mason-lspconfig').setup({
       automatic_enable = true,
       ensure_installed = { 'lua_ls' },
