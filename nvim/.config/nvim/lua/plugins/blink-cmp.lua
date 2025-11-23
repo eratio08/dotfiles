@@ -17,10 +17,10 @@ return {
     'Kaiser-Yang/blink-cmp-git',
     'ribru17/blink-cmp-spell',
     'kristijanhusak/vim-dadbod-completion',
-    {
-      dir = '~/src/blink-cmp-data-star',
-      name = 'blink-cmp-data-star',
-    },
+    -- {
+    --   dir = '~/src/blink-cmp-data-star',
+    --   name = 'blink-cmp-data-star',
+    -- },
   },
   version = '*',
   ---@module 'blink.cmp'
