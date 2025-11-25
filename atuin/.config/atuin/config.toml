@@ -7,3 +7,6 @@ keymap_mode = "vim-insert"
 secrets_filter = true
 # any command that starts with whitespace will not be saved to history
 history_filter = [ "^\\s+.*" ]
+
+[theme]
+name = "rose-pine"
