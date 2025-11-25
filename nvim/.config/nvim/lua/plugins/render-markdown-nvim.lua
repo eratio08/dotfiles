@@ -13,6 +13,7 @@ return {
   ---@type render.md.UserConfig
   opts = {
     render_modes = { 'n' },
+    html = { enabled = true },
     latex = { enabled = false },
     completions = { blink = { enabled = true } },
   },
