@@ -4,11 +4,9 @@ return {
   dependencies = {
     'folke/which-key.nvim'
   },
-  ft = 'markdown',
-  build = 'cd app && yarn install',
-  init = function ()
-    vim.g.mkdp_filetypes = { 'markdown' }
-  end,
+  cmd = { 'MarkdownPreviewToggle', 'MarkdownPreview', 'MarkdownPreviewStop' },
+  ft = { 'markdown' },
+  build = function () vim.fn['mkdp#util#install']() end,
   config = function ()
     require('which-key').add({
       { '<leader>m', group = 'Markdown' },
