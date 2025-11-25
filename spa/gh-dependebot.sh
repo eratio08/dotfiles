@@ -1,7 +1,7 @@
 #!/bin/bash
 
 repos=(
-  "sportalliance/fi-perdix"
+  # "sportalliance/fi-perdix"
   "sportalliance/setup-mvnd-action"
   "sportalliance/spa-download-workflow-artifacts-action"
   "sportalliance/spa-typescript-action-template"
