@@ -9,7 +9,7 @@ AlertWarn = "#eb6f92" # Love
 # AlertError: alerting the user at an ERROR level
 AlertError = "#f6c177" # Gold
 # Annotation: less-critical, supporting text
-Annotation = "#e0def4" # Text
+Annotation = "#c4a7e7" # Iris
 # Base: default foreground color
 Base = "#e0def4" # Text
 # Guidance: instructing the user as help or context
