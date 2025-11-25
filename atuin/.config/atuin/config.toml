@@ -9,4 +9,4 @@ secrets_filter = true
 history_filter = [ "^\\s+.*" ]
 
 [theme]
-name = "rose-pine"
+name = "rose-pine-moon"

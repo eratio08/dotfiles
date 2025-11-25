@@ -1,20 +1,20 @@
 [theme]
-name = "rose-pine"
+name = "rose-pine-moon"
 
 [colors]
 # AlertInfo: alerting the user at an INFO level
-AlertInfo = "#3e8fb0"
+AlertInfo = "#3e8fb0" # Pine
 # AlertWarn: alerting the user at a WARN level
-AlertWarn = "#eb6f92"
+AlertWarn = "#eb6f92" # Love
 # AlertError: alerting the user at an ERROR level
-AlertError = "#f6c177"
+AlertError = "#f6c177" # Gold
 # Annotation: less-critical, supporting text
-Annotation = "#e0def4"
+Annotation = "#e0def4" # Text
 # Base: default foreground color
-Base = "#e0def4"
+Base = "#e0def4" # Text
 # Guidance: instructing the user as help or context
-Guidance = "#ea9a97"
+Guidance = "#ea9a97" # Rose
 # Important: drawing the user’s attention to information
-Important = "#c4a7e7"
+Important = "#c4a7e7" # Iris
 # Title: titling a section or view
-Title = "#ebbcba"
+Title = "#9ccfd8" # Foam
