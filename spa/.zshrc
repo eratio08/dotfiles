@@ -12,6 +12,8 @@ plugins=(
   asdf
 )
 
+setopt HIST_IGNORE_SPACE
+
 export DISABLE_UNTRACKED_FILES_DIRTY="true"
 source $ZSH/oh-my-zsh.sh
 
