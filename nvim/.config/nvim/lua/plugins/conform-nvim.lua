@@ -21,7 +21,7 @@ return {
       formatters_by_ft = {
         terraform = { 'tofu' },
         go = { 'goimports', 'gofumpt' },
-        sql = { 'sqlfmt', 'sqruff', 'sqlfluff', stop_after_first = true },
+        -- sql = { 'sqlfmt', 'sqruff', 'sqlfluff', stop_after_first = true },
       },
       formatters = {
         tofu = {

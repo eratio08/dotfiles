@@ -139,11 +139,7 @@ return {
     -----------
     -- MASON --
     -----------
-    require('mason').setup({
-      registries = {
-        'file:~/src/mason-registry'
-      }
-    })
+    require('mason').setup({})
     require('mason-lspconfig').setup({
       automatic_enable = true,
       ensure_installed = { 'lua_ls' },
