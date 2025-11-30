@@ -2,7 +2,7 @@ return {
   enabled = true,
   'stevearc/conform.nvim',
   event = { 'InsertEnter', 'BufWritePre' },
-  cmd = { 'ConformInfo' },
+  cmd = { 'ConformInfo', 'Conform' },
   dependencies = {
     'folke/which-key.nvim',
   },
@@ -22,6 +22,7 @@ return {
         terraform = { 'tofu' },
         go = { 'goimports', 'gofumpt' },
         -- sql = { 'sqlfmt', 'sqruff', 'sqlfluff', stop_after_first = true },
+        gleam = { 'gleam' },
       },
       formatters = {
         tofu = {
@@ -32,6 +33,10 @@ return {
           require_cwd = true,
           require_config_file = false,
         },
+        -- gleam = {
+        --   command = 'gleam',
+        --   args = { 'format' },
+        -- }
       },
     }
 
@@ -44,12 +49,7 @@ return {
     end
     require('conform').setup(opts)
 
-    require('which-key').add({ {
-      '<leader>ll',
-      ':Format<CR>',
-      mode = { 'n', 'v' },
-      desc = 'Format Buffer'
-    } })
+    require('which-key').add({ { '<leader>ll', ':Format<CR>', mode = { 'n', 'v' }, desc = 'Format Buffer' } })
 
     vim.api.nvim_create_user_command('Format', function (args)
       local range = nil
@@ -66,7 +66,6 @@ return {
 
     vim.api.nvim_create_user_command('FormatDisable', function (args)
       if args.bang then
-        -- FormatDisable! will disable formatting just for this buffer
         vim.b.disable_autoformat = true
       else
         vim.g.disable_autoformat = true

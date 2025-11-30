@@ -17,6 +17,11 @@ return {
         color = '#dd4B39',
         name = 'reason',
       },
+      reason = {
+        icon = ocaml_icon,
+        color = '#dd4B39',
+        name = 'reason',
+      },
       dune = {
         icon = ocaml_icon,
         color = '#b0b1b0',
