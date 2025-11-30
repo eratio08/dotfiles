@@ -77,7 +77,8 @@ source ~/.asdf/plugins/golang/set-env.zsh
 export PATH=$PATH:$GOBIN
 
 # OCaml
-# [[ ! -r /Users/el/.opam/opam-init/init.zsh ]] || source /Users/el/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
+[[ ! -r ~/.opam/opam-init/init.zsh ]] || source ~/.opam/opam-init/init.zsh > /dev/null 2> /dev/null
+
 # dune
 source $HOME/.dune/env/env.zsh
 
