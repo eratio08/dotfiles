@@ -1,12 +1,28 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "theme": "rosepine",
-  "model": "github-copilo/claude-opus-4",
+  "model": "github-copilot/claude-sonnet-4.5",
   "autoshare": false,
   "autoupdate": false,
   "keybinds": {
     "messages_half_page_up": "ctrl+u",
     "messages_half_page_down": "ctrl+d"
+  },
+  "agent": {
+    "build": {
+      "mode": "primary",
+      "model": "github-copilot/claude-sonnet-4.5",
+    },
+    "plan": {
+      "mode": "primary",
+      "model": "github-copilot/claude-opus-4.5",
+      "tools": {
+        "write": false,
+        "edit": false,
+        "bash": false,
+        "patch": false
+      }
+    },
   },
   "mcp": {
     "context7": {
@@ -19,7 +35,7 @@
       ]
     },
     "consult7": {
-      "enabled": true,
+      "enabled": false,
       "type": "local",
       "command": [
         "uvx",
@@ -29,7 +45,7 @@
       ]
     },
     "serena": {
-      "enabled": true,
+      "enabled": false,
       "type": "local",
       "command": [
         "uvx",
@@ -42,7 +58,7 @@
       ]
     },
     "browser": {
-      "enabled": true,
+      "enabled": false,
       "type": "local",
       "command": [
         "bunx",
@@ -59,7 +75,7 @@
       ]
     },
     "awsdocs":{
-      "enabled": false,
+      "enabled": true,
       "type": "local",
       "command": [
         "uvx",
@@ -67,12 +83,12 @@
       ]
     },
     "awsknowledge": {
-      "enabled": false,
+      "enabled": true,
       "type": "remote",
       "url": "https://knowledge-mcp.global.api.aws"
     },
     "awscli": {
-      "enabled": false,
+      "enabled": true,
       "type": "local",
       "command": [
         "uvx",
@@ -113,6 +129,40 @@
         "git+https://github.com/semgrep/mcp",
         "semgrep-mcp",
       ]
+    },
+    "awscost": {
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "uvx",
+        "awslabs.billing-cost-management-mcp-server@latest",
+      ],
+      "environment": {
+        "AWS_PROFILE": "fc-prod-op",
+        "AWS_REGION": "eu-central-1",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+    },
+    "cloudtrail-mcp-server": {
+      "enabled": false,
+      "type": "local",
+      "command":[
+        "uvx",
+        "awslabs.cloudtrail-mcp-server@latest",
+      ],
+      "environment": {
+        "AWS_PROFILE": "fc-prod-op",
+        "AWS_REGION": "eu-central-1",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+    },
+    "beads-mcp": {
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "uvx",
+        "beads-mcp",
+      ],
     }
   }
 }

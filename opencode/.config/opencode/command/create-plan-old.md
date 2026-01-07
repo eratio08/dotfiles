@@ -1,13 +1,11 @@
 ---
 description: Create detailed implementation plans through interactive research and iteration
-model: github-copilot/claude-opus-4.5
+model: github-copilot/claude-opus-41
 ---
 
 # Implementation Plan
 
 You are tasked with creating detailed implementation plans through an interactive, iterative process. You should be skeptical, thorough, and work collaboratively with the user to produce high-quality technical specifications.
-
-Plans are tracked using **beads** - a task management system that supports dependencies, enabling multi-context task tracking. Each plan becomes an epic with phase tasks that can be picked up by any AI session.
 
 ## Initial Response
 
@@ -27,7 +25,7 @@ Please provide:
 2. Any relevant context, constraints, or specific requirements
 3. Links to related research or previous implementations
 
-I'll analyze this information and work with you to create a comprehensive plan tracked in beads.
+I'll analyze this information and work with you to create a comprehensive plan.
 
 Tip: You can also invoke this command with a ticket file directly: `/create_plan thoughts/allison/tickets/eng_1234.md`
 For deeper analysis, try: `/create_plan think deeply about thoughts/allison/tickets/eng_1234.md`
@@ -116,7 +114,7 @@ After getting initial clarifications:
    - **thoughts-analyzer** - To extract key insights from the most relevant documents
 
    **For related tickets:**
-   - Use the **beads-mcp list** tool to find similar issues or past implementations (search by query, status, labels, or issue type)
+   - **linear-searcher** - To find similar issues or past implementations
 
    Each agent knows how to:
    - Find the right files and code patterns
@@ -165,107 +163,145 @@ Once aligned on approach:
    Does this phasing make sense? Should I adjust the order or granularity?
    ```
 
-2. **Get feedback on structure** before creating beads tasks
+2. **Get feedback on structure** before writing details
 
-### Step 4: Create Plan in Beads
+### Step 4: Detailed Plan Writing
 
 After structure approval:
 
-1. **Create an epic for the implementation plan**:
-   Use the **beads-mcp create** tool with `issue_type='epic'` containing:
-   - **Title**: Feature/task name (e.g., "Parent-Child Tracking for AI Agent Sub-tasks")
-   - **Description**: Must include ALL context needed to understand and implement the feature:
-     - Overview of what we're implementing and why
-     - Current State Analysis (what exists, what's missing, key constraints)
-     - Desired End State (specification of the goal and how to verify it)
-     - Key Discoveries (important findings with file:line references)
-     - What We're NOT Doing (explicit out-of-scope items)
-     - Implementation Approach (high-level strategy and reasoning)
-     - Testing Strategy (unit tests, integration tests, manual testing steps)
-     - Performance Considerations
-     - Migration Notes (if applicable)
-     - References (ticket files, research docs, similar implementations)
-   - **Labels**: Include relevant labels (e.g., `eng-1234`, `backend`, `database`)
-   - **Priority**: Set based on urgency (0=critical, 1=high, 2=medium, 3=low, 4=lowest)
+1. **Write the plan** to `thoughts/shared/plans/YYYY-MM-DD-ENG-XXXX-description.md`
+   - Format: `YYYY-MM-DD-ENG-XXXX-description.md` where:
+     - YYYY-MM-DD is today's date
+     - ENG-XXXX is the ticket number (omit if no ticket)
+     - description is a brief kebab-case description
+   - Examples:
+     - With ticket: `2025-01-08-ENG-1478-parent-child-tracking.md`
+     - Without ticket: `2025-01-08-improve-error-handling.md`
+2. **Use this template structure**:
 
-2. **Create a task for each implementation phase**:
-   For each phase, use the **beads-mcp create** tool with:
-   - **Title**: `Phase N: [Descriptive Name]` (e.g., "Phase 1: Database Schema Changes")
-   - **Description**: Must include ALL context needed to execute this phase:
-     - Overview of what this phase accomplishes
-     - Changes Required (organized by component/file group):
-       - File paths to modify
-       - Summary of changes
-       - Specific code to add/modify (include code snippets)
-     - Dependencies on external systems or APIs
-     - Any gotchas or edge cases to handle
-   - **Acceptance Criteria** (using the `acceptance` field): Split into two sections:
-     ```
-     ## Automated Verification:
-     - [ ] Migration applies cleanly: `make migrate`
-     - [ ] Unit tests pass: `make test-component`
-     - [ ] Type checking passes: `npm run typecheck`
-     - [ ] Linting passes: `make lint`
-     - [ ] Integration tests pass: `make test-integration`
+````markdown
+# [Feature/Task Name] Implementation Plan
 
-     ## Manual Verification:
-     - [ ] Feature works as expected when tested via UI
-     - [ ] Performance is acceptable under load
-     - [ ] Edge case handling verified manually
-     - [ ] No regressions in related features
+## Overview
 
-     **Implementation Note**: After completing this phase and all automated verification passes, pause for manual confirmation before proceeding to the next phase.
-     ```
-   - **Labels**: Same labels as the epic for easy filtering
-   - **Priority**: Same as epic
+[Brief description of what we're implementing and why]
 
-3. **Establish dependencies between tasks**:
-   - Link each phase task to the epic using the **beads-mcp dep** tool with `dep_type='parent-child'`
-   - Link sequential phases using the **beads-mcp dep** tool with `dep_type='blocks'`:
-     - Phase 2 depends on Phase 1 (Phase 1 blocks Phase 2)
-     - Phase 3 depends on Phase 2 (Phase 2 blocks Phase 3)
-     - etc.
+## Current State Analysis
 
-   This ensures:
-   - The **beads-mcp ready** tool only shows phases that can be worked on (all blockers closed)
-   - The **beads-mcp blocked** tool shows which phases are waiting on others
-   - Implementation agents can pick up the next available phase
+[What exists now, what's missing, key constraints discovered]
 
-4. **Verify the plan structure**:
-   - Use the **beads-mcp show** tool to display the epic with all dependencies
-   - Use the **beads-mcp list** tool to see all related tasks (filter by labels)
+## Desired End State
 
-### Step 5: Review and Iterate
+[A Specification of the desired end state after this plan is complete, and how to verify it]
 
-1. **Present the created plan**:
+### Key Discoveries:
+- [Important finding with file:line reference]
+- [Pattern to follow]
+- [Constraint to work within]
+
+## What We're NOT Doing
+
+[Explicitly list out-of-scope items to prevent scope creep]
+
+## Implementation Approach
+
+[High-level strategy and reasoning]
+
+## Phase 1: [Descriptive Name]
+
+### Overview
+[What this phase accomplishes]
+
+### Changes Required:
+
+#### 1. [Component/File Group]
+**File**: `path/to/file.ext`
+**Changes**: [Summary of changes]
+
+```[language]
+// Specific code to add/modify
+```
+
+### Success Criteria:
+
+#### Automated Verification:
+- [ ] Migration applies cleanly: `make migrate`
+- [ ] Unit tests pass: `make test-component`
+- [ ] Type checking passes: `npm run typecheck`
+- [ ] Linting passes: `make lint`
+- [ ] Integration tests pass: `make test-integration`
+
+#### Manual Verification:
+- [ ] Feature works as expected when tested via UI
+- [ ] Performance is acceptable under load
+- [ ] Edge case handling verified manually
+- [ ] No regressions in related features
+
+**Implementation Note**: After completing this phase and all automated verification passes, pause here for manual confirmation from the human that the manual testing was successful before proceeding to the next phase.
+
+---
+
+## Phase 2: [Descriptive Name]
+
+[Similar structure with both automated and manual success criteria...]
+
+---
+
+## Testing Strategy
+
+### Unit Tests:
+- [What to test]
+- [Key edge cases]
+
+### Integration Tests:
+- [End-to-end scenarios]
+
+### Manual Testing Steps:
+1. [Specific step to verify feature]
+2. [Another verification step]
+3. [Edge case to test manually]
+
+## Performance Considerations
+
+[Any performance implications or optimizations needed]
+
+## Migration Notes
+
+[If applicable, how to handle existing data/systems]
+
+## References
+
+- Original ticket: `thoughts/allison/tickets/eng_XXXX.md`
+- Related research: `thoughts/shared/research/[relevant].md`
+- Similar implementation: `[file:line]`
+````
+
+### Step 5: Sync and Review
+
+1. **Sync the thoughts directory**:
+   - Run `humanlayer thoughts sync` to sync the newly created plan
+   - This ensures the plan is properly indexed and available
+
+2. **Present the draft plan location**:
    ```
-   I've created the implementation plan in beads:
+   I've created the initial implementation plan at:
+   `thoughts/shared/plans/YYYY-MM-DD-ENG-XXXX-description.md`
 
-   **Epic**: [epic-id] - [Title]
-
-   **Phases**:
-   1. [phase-1-id] - Phase 1: [Name]
-   2. [phase-2-id] - Phase 2: [Name] (blocked by phase-1-id)
-   3. [phase-3-id] - Phase 3: [Name] (blocked by phase-2-id)
-
-   Please review the tasks and let me know:
+   Please review it and let me know:
    - Are the phases properly scoped?
-   - Are the acceptance criteria specific enough?
+   - Are the success criteria specific enough?
    - Any technical details that need adjustment?
    - Missing edge cases or considerations?
-
-   You can view any task with the **beads-mcp show** tool
-   You can see what's ready to work on with the **beads-mcp ready** tool
    ```
 
-2. **Iterate based on feedback** - be ready to:
-   - Update task descriptions with the **beads-mcp update** tool
-   - Add missing phases with the **beads-mcp create** and **beads-mcp dep** tools
-   - Adjust acceptance criteria
-   - Add/remove scope items from the epic description
-   - Modify dependencies if phase order changes
+3. **Iterate based on feedback** - be ready to:
+   - Add missing phases
+   - Adjust technical approach
+   - Clarify success criteria (both automated and manual)
+   - Add/remove scope items
+   - After making changes, run `humanlayer thoughts sync` again
 
-3. **Continue refining** until the user is satisfied
+4. **Continue refining** until the user is satisfied
 
 ## Important Guidelines
 
@@ -276,7 +312,7 @@ After structure approval:
    - Don't assume - verify with code
 
 2. **Be Interactive**:
-   - Don't create all beads tasks in one shot
+   - Don't write the full plan in one shot
    - Get buy-in at each major step
    - Allow course corrections
    - Work collaboratively
@@ -284,48 +320,31 @@ After structure approval:
 3. **Be Thorough**:
    - Read all context files COMPLETELY before planning
    - Research actual code patterns using parallel sub-tasks
-   - Include specific file paths and line numbers in task descriptions
-   - Write measurable acceptance criteria with clear automated vs manual distinction
-   - Automated steps should use `make` whenever possible
+   - Include specific file paths and line numbers
+   - Write measurable success criteria with clear automated vs manual distinction
+   - automated steps should use `make` whenever possible - for example `make -C humanlayer-wui check` instead of `cd humanlayer-wui && bun run fmt`
 
 4. **Be Practical**:
    - Focus on incremental, testable changes
    - Consider migration and rollback
    - Think about edge cases
-   - Include "what we're NOT doing" in the epic
+   - Include "what we're NOT doing"
 
 5. **Track Progress**:
-   - Use TodoWrite to track planning tasks during the session
+   - Use TodoWrite to track planning tasks
    - Update todos as you complete research
    - Mark planning tasks complete when done
 
-6. **Self-Contained Tasks**:
-   - Each beads task must contain ALL context needed to work on it
-   - An AI model reading the task should understand what to do without external references
-   - Include file paths, code snippets, and specific instructions
-   - Reference the epic for broader context when needed
-
-7. **No Open Questions in Final Plan**:
+6. **No Open Questions in Final Plan**:
    - If you encounter open questions during planning, STOP
    - Research or ask for clarification immediately
-   - Do NOT create beads tasks with unresolved questions
+   - Do NOT write the plan with unresolved questions
+   - The implementation plan must be complete and actionable
    - Every decision must be made before finalizing the plan
 
-## Beads Task Lifecycle
+## Success Criteria Guidelines
 
-When working on implementation:
-
-1. **Find work**: Use the **beads-mcp ready** tool to see tasks with no blockers
-2. **Claim work**: Use the **beads-mcp update** tool to set status to `in_progress`
-3. **Complete work**:
-   - Run automated verification steps
-   - Request manual verification from human
-   - Use the **beads-mcp close** tool when all acceptance criteria pass
-4. **Unblock next phase**: Closing a task automatically unblocks dependent tasks
-
-## Acceptance Criteria Guidelines
-
-**Always separate acceptance criteria into two categories:**
+**Always separate success criteria into two categories:**
 
 1. **Automated Verification** (can be run by execution agents):
    - Commands that can be run: `make test`, `npm run lint`, etc.
@@ -341,13 +360,15 @@ When working on implementation:
 
 **Format example:**
 ```markdown
-## Automated Verification:
+### Success Criteria:
+
+#### Automated Verification:
 - [ ] Database migration runs successfully: `make migrate`
 - [ ] All unit tests pass: `go test ./...`
 - [ ] No linting errors: `golangci-lint run`
 - [ ] API endpoint returns 200: `curl localhost:8080/api/new-endpoint`
 
-## Manual Verification:
+#### Manual Verification:
 - [ ] New feature appears correctly in the UI
 - [ ] Performance is acceptable with 1000+ items
 - [ ] Error messages are user-friendly
@@ -357,23 +378,24 @@ When working on implementation:
 ## Common Patterns
 
 ### For Database Changes:
-- Phase 1: Schema/migration
-- Phase 2: Store methods
-- Phase 3: Business logic
-- Phase 4: API endpoints
-- Phase 5: Client updates
+- Start with schema/migration
+- Add store methods
+- Update business logic
+- Expose via API
+- Update clients
 
 ### For New Features:
-- Phase 1: Research existing patterns (may close immediately if done during planning)
-- Phase 2: Data model
-- Phase 3: Backend logic
-- Phase 4: API endpoints
-- Phase 5: UI implementation
+- Research existing patterns first
+- Start with data model
+- Build backend logic
+- Add API endpoints
+- Implement UI last
 
 ### For Refactoring:
-- Phase 1: Document current behavior
-- Phase 2-N: Incremental changes (each maintaining backwards compatibility)
-- Final Phase: Cleanup and migration
+- Document current behavior
+- Plan incremental changes
+- Maintain backwards compatibility
+- Include migration strategy
 
 ## Sub-task Spawning Best Practices
 
@@ -399,40 +421,30 @@ When spawning research sub-tasks:
    - Cross-check findings against the actual codebase
    - Don't accept results that seem incorrect
 
+Example of spawning multiple tasks:
+```python
+# Spawn these tasks concurrently:
+tasks = [
+    Task("Research database schema", db_research_prompt),
+    Task("Find API patterns", api_research_prompt),
+    Task("Investigate UI components", ui_research_prompt),
+    Task("Check test patterns", test_research_prompt)
+]
+```
+
 ## Example Interaction Flow
 
 ```
-User: /create_plan
+User: /implementation_plan
 Assistant: I'll help you create a detailed implementation plan...
 
-User: We need to add parent-child tracking for AI agent sub-tasks. See thoughts/allison/tickets/eng_1478.md
+User: We need to add parent-child tracking for Claude sub-tasks. See thoughts/allison/tickets/eng_1478.md
 Assistant: Let me read that ticket file completely first...
 
-[Reads file fully, spawns research tasks]
+[Reads file fully]
 
-Based on the ticket, I understand we need to track parent-child relationships for AI agent sub-task events in the hld daemon. Before I start planning, I have some questions...
+Based on the ticket, I understand we need to track parent-child relationships for Claude sub-task events in the hld daemon. Before I start planning, I have some questions...
 
 [Interactive process continues...]
-
-User: Looks good, create the plan.
-Assistant: I'll create the implementation plan in beads.
-
-Creating epic: "Parent-Child Tracking for AI Agent Sub-tasks"...
-Created: bd-a1b2
-
-Creating Phase 1: Database Schema Changes...
-Created: bd-c3d4 (linked to epic bd-a1b2)
-
-Creating Phase 2: Store Methods...
-Created: bd-e5f6 (blocked by bd-c3d4, linked to epic bd-a1b2)
-
-[...]
-
-Plan created! Here's the summary:
-- Epic: bd-a1b2 - Parent-Child Tracking for AI Agent Sub-tasks
-- Phase 1: bd-c3d4 - Database Schema Changes (ready)
-- Phase 2: bd-e5f6 - Store Methods (blocked by bd-c3d4)
-- Phase 3: bd-g7h8 - API Updates (blocked by bd-e5f6)
-
-Use the **beads-mcp ready** tool to see what can be worked on now.
 ```
+
