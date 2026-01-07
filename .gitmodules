@@ -1,3 +1,6 @@
 [submodule "private-dotfiles"]
 	path = private-dotfiles
 	url = git@github.com:eratio08/private-dotfiles.git
+[submodule "opencode/.config/opencode/superpowers"]
+	path = opencode/.config/opencode/superpowers
+	url = https://github.com/obra/superpowers.git
