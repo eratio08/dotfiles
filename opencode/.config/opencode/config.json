@@ -8,12 +8,6 @@
     "messages_half_page_up": "ctrl+u",
     "messages_half_page_down": "ctrl+d"
   },
-  "agent": {
-    "build": {
-      "mode": "primary",
-      "model": "github-copilot/claude-sonnet-4.5",
-    }
-  },
   "mcp": {
     "context7": {
       "enabled": true,
