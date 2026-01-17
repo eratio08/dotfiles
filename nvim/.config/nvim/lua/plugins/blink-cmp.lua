@@ -12,17 +12,13 @@ return {
     -- Sources
     'moyiz/blink-emoji.nvim',
     'folke/lazydev.nvim',
-    'fang2hou/blink-copilot',
-    'giuxtaposition/blink-cmp-copilot',
+    -- 'fang2hou/blink-copilot',
+    -- 'giuxtaposition/blink-cmp-copilot',
     'Kaiser-Yang/blink-cmp-git',
-    'ribru17/blink-cmp-spell',
+    -- 'ribru17/blink-cmp-spell',
     'kristijanhusak/vim-dadbod-completion',
-    -- {
-    --   dir = '~/src/blink-cmp-data-star',
-    --   name = 'blink-cmp-data-star',
-    -- },
   },
-  version = '*',
+  version = '1.*',
   ---@module 'blink.cmp'
   ---@type blink.cmp.Config
   opts = {
@@ -90,10 +86,6 @@ return {
         auto_show = true,
         draw = {
           treesitter = { 'lsp' },
-          -- columns = {
-          --   { 'label', 'label_description', gap = 1 },
-          --   { 'kind_icon', 'kind', gap = 1 },
-          -- },
           columns = {
             { 'kind_icon' },
             { 'label', gap = 1 },
@@ -116,9 +108,7 @@ return {
                     icon = dev_icon
                   end
                 else
-                  icon = require('lspkind').symbolic(ctx.kind, {
-                    mode = 'symbol',
-                  })
+                  icon = require('lspkind').symbol_map[ctx.kind] or ''
                 end
                 return icon .. ctx.icon_gap
               end,
