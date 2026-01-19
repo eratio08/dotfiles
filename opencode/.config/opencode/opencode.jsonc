@@ -1,0 +1,160 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "theme": "rosepine",
+  "model": "github-copilot/claude-opus-4.5",
+  "autoshare": false,
+  "autoupdate": false,
+  "keybinds": {
+    "messages_half_page_up": "ctrl+u",
+    "messages_half_page_down": "ctrl+d"
+  },
+  "mcp": {
+    "context7": {
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "bunx",
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ]
+    },
+    // "consult7": {
+    //   "enabled": false,
+    //   "type": "local",
+    //   "command": [
+    //     "uvx",
+    //     "consult7",
+    //     "google",
+    //     "${env:GEMINI_API_KEY}"
+    //   ]
+    // },
+    // "serena": {
+    //   "enabled": false,
+    //   "type": "local",
+    //   "command": [
+    //     "uvx",
+    //     "--from",
+    //     "git+https://github.com/oraios/serena",
+    //     "serena",
+    //     "start-mcp-server",
+    //     "--enable-web-dashboard",
+    //     "false"
+    //   ]
+    // },
+    // "browser": {
+    //   "enabled": false,
+    //   "type": "local",
+    //   "command": [
+    //     "bunx",
+    //     "-y",
+    //     "@browsermcp/mcp@latest"
+    //   ]
+    // },
+    // "playwright": {
+    //   "enabled": false,
+    //   "type": "local",
+    //   "command": [
+    //     "npx",
+    //     "@playwright/mcp@latest"
+    //   ]
+    // },
+    // "awsdocs":{
+    //   "enabled": true,
+    //   "type": "local",
+    //   "command": [
+    //     "uvx",
+    //     "awslabs.aws-documentation-mcp-server@latest"
+    //   ]
+    // },
+    "awsknowledge": {
+      "enabled": true,
+      "type": "remote",
+      "url": "https://knowledge-mcp.global.api.aws"
+    },
+    "awscli": {
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "uvx",
+        "awslabs.aws-api-mcp-server@latest"
+      ],
+    },
+    // "awstf":{
+    //   "enabled": false,
+    //   "type": "local",
+    //   "command": [
+    //     "uvx",
+    //     "awslabs.terraform-mcp-server@latest"
+    //   ],
+    // },
+    // "awsdiagram":{
+    //   "enabled": false,
+    //   "type": "local",
+    //   "command": [
+    //     "uvx",
+    //     "awslabs.aws-diagram-mcp-server"
+    //   ],
+    // },
+    // "opentofu":{
+    //   "enabled": false,
+    //   "type": "local",
+    //   "command": [
+    //     "npx",
+    //     "-y",
+    //     "@opentofu/opentofu-mcp-server"
+    //   ]
+    // } ,
+    // "semgrep":{
+    //   "enabled": false,
+    //   "type": "local",
+    //   "command": [
+    //     "uvx",
+    //     "--from",
+    //     "git+https://github.com/semgrep/mcp",
+    //     "semgrep-mcp",
+    //   ]
+    // },
+    // "awscost": {
+    //   "enabled": true,
+    //   "type": "local",
+    //   "command": [
+    //     "uvx",
+    //     "awslabs.billing-cost-management-mcp-server@latest",
+    //   ],
+    //   "environment": {
+    //     "AWS_PROFILE": "fc-prod-op",
+    //     "AWS_REGION": "eu-central-1",
+    //     "FASTMCP_LOG_LEVEL": "ERROR"
+    //   },
+    // },
+    // "cloudtrail-mcp-server": {
+    //   "enabled": false,
+    //   "type": "local",
+    //   "command":[
+    //     "uvx",
+    //     "awslabs.cloudtrail-mcp-server@latest",
+    //   ],
+    //   "environment": {
+    //     "AWS_PROFILE": "fc-prod-op",
+    //     "AWS_REGION": "eu-central-1",
+    //     "FASTMCP_LOG_LEVEL": "ERROR"
+    //   },
+    // },
+    "beads-mcp": {
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "uvx",
+        "beads-mcp",
+      ],
+    },
+   "code-index": {
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "uvx",
+        "code-index-mcp",
+      ]
+    }
+  }
+}
