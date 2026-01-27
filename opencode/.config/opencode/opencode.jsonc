@@ -142,20 +142,25 @@
     //   },
     // },
     "beads-mcp": {
-      "enabled": true,
+      "enabled": false,
       "type": "local",
       "command": [
         "uvx",
-        "beads-mcp",
+        "beads-mcp@0.47.1",
       ],
     },
-   "code-index": {
+    "code-index": {
       "enabled": true,
       "type": "local",
       "command": [
         "uvx",
         "code-index-mcp",
       ]
+    },
+    "overseer": {
+      "enabled": true,
+      "type": "local",
+      "command": ["bunx", "@dmmulroy/overseer", "mcp"]
     }
   }
 }
