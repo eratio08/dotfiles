@@ -68,12 +68,12 @@
     //   ]
     // },
     "awsknowledge": {
-      "enabled": true,
+      "enabled": false,
       "type": "remote",
       "url": "https://knowledge-mcp.global.api.aws"
     },
     "awscli": {
-      "enabled": true,
+      "enabled": false,
       "type": "local",
       "command": [
         "uvx",
@@ -160,7 +160,7 @@
     "overseer": {
       "enabled": true,
       "type": "local",
-      "command": ["bunx", "@dmmulroy/overseer", "mcp"]
+      "command": ["npx", "@dmmulroy/overseer", "mcp"]
     }
   }
 }
