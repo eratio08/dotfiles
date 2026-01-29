@@ -5,10 +5,7 @@
   "autoshare": false,
   "autoupdate": false,
   "plugin": ["cc-safety-net"],
-  "keybinds": {
-    "messages_half_page_up": "ctrl+u",
-    "messages_half_page_down": "ctrl+d"
-  },
+  "enabled_providers": ["github-copilot"],
   "mcp": {
     "context7": {
       "enabled": true,

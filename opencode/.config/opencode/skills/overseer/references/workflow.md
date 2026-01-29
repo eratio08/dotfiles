@@ -42,9 +42,8 @@ if (task.context.milestone) {
   console.log("Milestone:", task.context.milestone);
 }
 
-// Inherited learnings
-console.log("Milestone learnings:", task.learnings.milestone);
-console.log("Parent learnings:", task.learnings.parent);
+// Task's own learnings (bubbled from completed children)
+console.log("Task learnings:", task.learnings.own);
 ```
 
 **If any answer is unclear:**
@@ -66,23 +65,9 @@ await tasks.start(taskId);
 
 After starting, the task status changes to `in_progress`.
 
-## 4. Implement + Add Learnings
+## 4. Implement
 
-As you implement, capture learnings immediately:
-
-```javascript
-// Capture discoveries as you go
-await learnings.add(taskId, "bcrypt default rounds too low for production");
-await learnings.add(taskId, "jose library preferred over jsonwebtoken");
-
-// Optionally reference source task
-await learnings.add(taskId, "Pattern from auth refactor", sourceTaskId);
-```
-
-**Why capture early?**
-- Decisions are fresh in context
-- Future tasks inherit learnings
-- Avoids forgetting important insights
+Work on the task implementation. Note any learnings to include when completing.
 
 ## 5. Verify Work
 
@@ -95,10 +80,11 @@ Quick checklist:
 - [ ] Build succeeds
 - [ ] Manual testing done
 
-## 6. Complete Task
+## 6. Complete Task with Learnings
 
 ```javascript
-await tasks.complete(taskId, `Implemented login endpoint:
+await tasks.complete(taskId, {
+  result: `Implemented login endpoint:
 
 Implementation:
 - Created src/auth/login.ts
@@ -107,10 +93,17 @@ Implementation:
 
 Verification:
 - All 42 tests passing (3 new)
-- Manually tested valid/invalid credentials`);
+- Manually tested valid/invalid credentials`,
+  learnings: [
+    "bcrypt rounds should be 12+ for production",
+    "jose library preferred over jsonwebtoken"
+  ]
+});
 ```
 
 **VCS Effect:** Squashes all commits since start, rebases onto parent's bookmark (if child task).
+
+**Learnings Effect:** Learnings bubble to immediate parent only. `sourceTaskId` is preserved through bubbling, so if this task's learnings later bubble further, the origin is tracked.
 
 The `result` becomes part of the task's permanent record.
 
@@ -163,6 +156,8 @@ if (!task) return "No ready tasks";
 
 await tasks.start(task.id);
 // ... implement ...
-await learnings.add(task.id, "Use jose for JWT");
-await tasks.complete(task.id, "Implemented: ... Verification: All 58 tests passing");
+await tasks.complete(task.id, {
+  result: "Implemented: ... Verification: All 58 tests passing",
+  learnings: ["Use jose for JWT"]
+});
 ```
