@@ -1,7 +1,7 @@
 ---
 description: Multi-repository codebase expert for understanding library internals and remote code. Invoke when exploring GitHub/npm/PyPI/crates repositories, tracing code flow through unfamiliar libraries, comparing implementations, or searching current docs/discussions. Show its response in full — do not summarize.
 mode: subagent
-model: anthropic/claude-sonnet-4-5
+model: github-copilot/claude-opus-4.5
 permission:
   "*": allow
   edit: deny

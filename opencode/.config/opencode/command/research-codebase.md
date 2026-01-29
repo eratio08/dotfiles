@@ -1,6 +1,5 @@
 ---
 description: Document codebase as-is with thoughts directory for historical context
-model: github-copilot/claude-opus-4.5
 ---
 
 # Research Codebase

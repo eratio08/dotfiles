@@ -1,6 +1,5 @@
 ---
 description: Create detailed implementation plans through interactive research and iteration
-model: github-copilot/claude-opus-4.5
 ---
 
 # Implementation Plan

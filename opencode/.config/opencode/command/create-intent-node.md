@@ -1,6 +1,5 @@
 ---
 description: Create an Intent Layer node (AGENTS.md) for the current directory
-model: github-copilot/claude-opus-4.5
 ---
 
 # Create Intent Node
