@@ -13,7 +13,7 @@ mvnd 1.0.2
 just 1.41.0
 tree-sitter 0.25.8
 playwright 1.16.2
-python 3.14.0t
+python 3.13.11
 opam 2.4.1
 roc nightly-2025-November-29-4555f20
 zig 0.15.2
