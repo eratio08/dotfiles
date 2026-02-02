@@ -11,12 +11,10 @@ Create an AGENTS.md file that compresses this directory's code into high-signal 
 After running this command, you will have:
 - ✅ An AGENTS.md file in the target directory
 - ✅ 500-1500 token document (typically ~800 tokens)
-- ✅ 10:1 or better compression ratio vs source code
+- ✅ 20:1 or better compression ratio vs source code
 - ✅ Documented invariants, gotchas, and boundaries specific to this directory
 - ✅ Clear entry points and anti-patterns for working in this area
 - ✅ (Non-leaf nodes) Links to child Intent Nodes if they exist
-
-**Time estimate:** 2-5 minutes for leaf nodes, 5-10 minutes for non-leaf nodes with existing children.
 
 ## Invocation
 
@@ -54,6 +52,31 @@ After running this command, you will have:
    - If exists and `--force` not set: Ask user "(a) Overwrite, (b) Enhance existing, (c) Cancel"
    - If exists and `--force` set: Backup to `AGENTS.md.bak`, proceed
 
+### Step 0.5: Initialize Code Index
+
+**Initialize the deep code index for efficient file and symbol discovery:**
+
+1. **Determine repository root:**
+   ```bash
+   git rev-parse --show-toplevel
+   ```
+
+2. **Set project path:**
+   ```
+   code-index_set_project_path(path: "[repository_root]")
+   ```
+
+3. **Build deep index:**
+   ```
+   code-index_build_deep_index()
+   ```
+   - Extracts all symbols (functions, classes, methods) for efficient analysis
+   - May take 30-60 seconds on large codebases
+
+4. **If either step 2 or 3 fails:** Continue without code index. Fallback methods (Glob, Read) will be used in subsequent steps.
+
+**Mark Step 0.5 complete in TodoWrite.**
+
 ### Step 1: Directory Structure Analysis
 
 **Run using Bash tool:**
@@ -66,15 +89,20 @@ pwd
 ls -la [target_directory]
 ```
 
-**Count code files in current directory using Bash tool:**
-```bash
-find [target_directory] -maxdepth 1 -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.java" -o -name "*.go" -o -name "*.rs" -o -name "*.rb" -o -name "*.c" -o -name "*.cpp" \) | wc -l
+**Discover code files using code-index_find_files:**
 ```
+code-index_find_files(pattern: "*.{ts,tsx,js,jsx,py,java,go,rs,rb,c,cpp,h,hpp}")
+```
+- Returns all matching files in the indexed project
+- Filter results to count files within `[target_directory]`
+- **Fallback:** Use Glob tool with pattern `**/*.{ts,tsx,js,jsx,py,java,go,rs,rb,c,cpp,h,hpp}` and path `[target_directory]`
 
-**Find subdirectories using Bash tool:**
-```bash
-find [target_directory] -mindepth 1 -maxdepth 1 -type d ! -name "node_modules" ! -name "dist" ! -name "build" ! -name ".git" ! -name "__pycache__"
+**Find subdirectories using code-index_find_files:**
 ```
+code-index_find_files(pattern: "[target_directory]/*")
+```
+- Filter results for directories, excluding: node_modules, dist, build, .git, __pycache__, target, .next, .cache
+- **Fallback:** Use Glob tool with pattern `*/` and path `[target_directory]`
 
 **Determine node type using this decision tree:**
 
@@ -95,9 +123,13 @@ IS LEAF if:
 
 ### Step 2: Load Ancestor Context
 
-**Find parent Intent Nodes using Glob tool:**
-
-Use pattern: `**/AGENTS.md` starting from parent of target directory, searching upward toward repository root (up to 5 levels).
+**Find parent Intent Nodes using code-index_find_files:**
+```
+code-index_find_files(pattern: "**/AGENTS.md")
+```
+- Filter results for paths that are ancestors of `[target_directory]`
+- Search up to 5 levels toward repository root
+- **Fallback:** Use Glob tool with pattern `**/AGENTS.md` starting from parent of target directory
 
 **For each ancestor AGENTS.md found, read the file.** These provide context that should NOT be duplicated in the new node.
 
@@ -108,30 +140,66 @@ Extract from ancestors:
 
 **Key principle:** Use Least Common Ancestor (LCA) - don't duplicate information that's already in parent nodes. This new node should only add information specific to this directory level.
 
+**LCA Optimization:** When you encounter information that applies to multiple child areas, note it for placement at the shallowest node that covers all relevant paths. This prevents duplication across siblings and keeps each node lean. Ask: "What's the shallowest node where this fact is always relevant?"
+
 **Mark Step 2 complete in TodoWrite.**
 
 ### Step 3: Code Analysis
 
-**Discover code files using Glob tool:**
-- **Pattern:** `**/*.{ts,tsx,js,jsx,py,java,go,rs,rb,c,cpp,h,hpp}`
-- **Path:** `[target_directory]`
-- **Automatically excludes:** node_modules, dist, build, .git, __pycache__, target, .next, .cache directories
-
-**IMPORTANT:** Use the Glob tool, not bash find/ls commands. Glob automatically handles exclusions.
+**Discover code files using code-index_find_files:**
+```
+code-index_find_files(pattern: "*.{ts,tsx,js,jsx,py,java,go,rs,rb,c,cpp,h,hpp}")
+```
+- Filter results to files within `[target_directory]`
+- **Fallback:** Use Glob tool with pattern `**/*.{ts,tsx,js,jsx,py,java,go,rs,rb,c,cpp,h,hpp}` and path `[target_directory]`
 
 **Count the discovered files and select strategy:**
 
 | File Count | Strategy |
 |------------|----------|
-| <20 files | Read all files directly using Read tool |
-| 20-50 files | Read key files only using priority order below |
-| 50+ files | Use agent workflow below + read top 5-10 priority files |
+| <20 files | Symbol-aware analysis (get summaries → extract key symbols) |
+| 20-50 files | Symbol-aware analysis for priority files only |
+| 50+ files | Symbol-aware analysis + agent workflow for gap-filling |
 
 ---
 
-**For directories with 50+ files, use this agent workflow:**
+**Primary Approach: Symbol-Aware Analysis**
 
-**Step 3a: Launch `codebase-analyzer` agent using Task tool:**
+**Step 3a: Get file summaries using code-index_get_file_summary:**
+```
+code-index_get_file_summary(file_path: "[each_priority_file]")
+```
+Returns: line count, function/class definitions, import statements.
+
+Process files in priority order:
+1. Entry points: `index.ts`, `main.py`, `mod.rs`, `lib.rs`, `__init__.py`, `app.ts`, `server.ts`
+2. Core logic: `*Service.*`, `*Controller.*`, `*Handler.*`, `*Manager.*`
+3. Contracts: `types.ts`, `interfaces.*`, `models.*`, `schema.*`, `*.d.ts`
+4. Config: `*.config.*` (in root only)
+
+From summaries, identify:
+- Entry point functions (exported, public)
+- Main classes/services and their key methods
+- Complex symbols (high line count, many imports)
+
+**Step 3b: Extract key symbols using code-index_get_symbol_body:**
+```
+code-index_get_symbol_body(
+  file_path: "src/services/PaymentService.ts",
+  symbol_name: "processPayment"
+)
+```
+Returns: signature, docstring, body, and `called_by` references.
+
+Read 10-15 key symbols identified from summaries:
+- Entry point functions
+- Public class constructors and key methods
+- Type definitions and interfaces
+- Critical validation or transformation functions
+
+**Step 3c: For 50+ file directories, launch agents for gap-filling:**
+
+**Launch `codebase-analyzer` agent using Task tool:**
 
 Prompt:
 ```
@@ -150,7 +218,7 @@ Analyze [target_directory] to help create an AGENTS.md Intent Node. Return:
 Focus on architecture and contracts, not line-by-line code description. Be specific with file:line references.
 ```
 
-**Step 3b: Launch `codebase-pattern-finder` agent using Task tool (sequential - after Step 3a completes):**
+**Launch `codebase-pattern-finder` agent using Task tool (sequential - after codebase-analyzer completes):**
 
 Prompt:
 ```
@@ -167,28 +235,20 @@ Find patterns and conventions in [target_directory] for an AGENTS.md Intent Node
 Return concrete examples with file:line references for each finding.
 ```
 
-**Step 3c: Evaluate agent responses:**
+**Step 3d: Evaluate agent responses:**
 
 If either agent returns insufficient information (vague answers, "I couldn't determine", or missing sections):
 
 → **Ask user:** "The [agent-name] agent couldn't fully analyze [target_directory]. It returned: [brief summary of gaps]. Should I:
-   (a) Read more files directly to fill gaps (slower, uses more context)
+   (a) Read more symbols directly to fill gaps (slower, uses more context)
    (b) Proceed with partial information (I'll note gaps in the AGENTS.md)
    (c) Provide guidance on where to look"
 
-**Step 3d: Read priority files:**
-
-After agent analysis, read **top 5-10 files** based on priority order:
-1. Entry points: `index.ts`, `main.py`, `mod.rs`, `lib.rs`, `__init__.py`, `app.ts`, `server.ts`
-2. Core logic: `*Service.*`, `*Controller.*`, `*Handler.*`, `*Manager.*`
-3. Contracts: `types.ts`, `interfaces.*`, `models.*`, `schema.*`, `*.d.ts`
-4. Config: `*.config.*` (in root only)
-
 ---
 
-**For directories with <50 files:**
+**Fallback Approach (if code-index unavailable):**
 
-Read files in priority order until you have enough context:
+Read files in priority order using Read tool:
 1. Entry points: `index.ts`, `main.py`, `mod.rs`, `lib.rs`, `__init__.py`, `app.ts`, `server.ts`
 2. Core logic: `*Service.*`, `*Controller.*`, `*Handler.*`, `*Manager.*`, `*Processor.*`
 3. Contracts: `types.ts`, `interfaces.*`, `models.*`, `schema.*`, `*.d.ts`
@@ -198,7 +258,7 @@ Read files in priority order until you have enough context:
 
 ---
 
-**While analyzing (from agents or direct reading), identify:**
+**While analyzing (from symbols, agents, or direct reading), identify:**
 - [ ] Primary responsibility (1-2 sentences max)
 - [ ] What this area explicitly DOES NOT do
 - [ ] Entry points and public API surface
@@ -216,10 +276,14 @@ Read files in priority order until you have enough context:
 
 If non-leaf node:
 
-**Find child Intent Nodes using Glob tool:**
-- Pattern: `*/AGENTS.md`
-- Path: `[target_directory]`
-- This finds immediate child directories with AGENTS.md files
+**Find child Intent Nodes using code-index_find_files:**
+```
+code-index_find_files(pattern: "*/AGENTS.md")
+```
+- Filter results to immediate children of `[target_directory]`
+- **Fallback:** Use Glob tool with pattern `*/AGENTS.md` and path `[target_directory]`
+
+**Leaf-first principle:** If child directories lack AGENTS.md files but contain significant code, note them as candidates for future Intent Node creation. When building a hierarchy, document children before parents for better compression.
 
 **For each child node found:**
 1. Read the file
@@ -300,10 +364,12 @@ If non-leaf node:
 |-----------|--------|
 | Total length | 500-1500 tokens (aim for 800) |
 | Compression ratio | 10:1 or better |
+| Token coverage | 20k-64k tokens of source code per node (optimal compression sweet spot) |
 | Purpose section | ≤3 sentences |
 | Each contract | 1 line, actionable |
 | Code examples | ≤10 lines each, max 2 examples |
 | No duplication | Don't repeat ancestor node content |
+| Leaf-first | When building hierarchy, document children before parents (enables better parent summarization) |
 
 **Critical: Focus on what code CAN'T express:**
 - Intent and "why" decisions were made
@@ -384,7 +450,9 @@ Next steps:
 | Generated code | Note "DO NOT EDIT" prominently, document generation source |
 | Existing AGENTS.md is comprehensive | Ask user preference: overwrite, enhance, or cancel |
 | User provides directory that doesn't exist | Report error: "Directory not found: [dir]" |
-| Very large directory (>200 files) | Follow Step 3 agent workflow (codebase-analyzer + codebase-pattern-finder), warn about limited coverage, read only top 5 priority files |
+| Very large directory (>200 files) | Follow Step 3 agent workflow (codebase-analyzer + codebase-pattern-finder), warn about limited coverage, use symbol extraction for top 10-15 priority symbols |
+| code-index tools unavailable | Continue with Glob/Read fallback approach (no error, graceful degradation) |
+| Deep index build times out | Skip indexing, continue with fallback approach |
 
 ## Quality Checklist (Verify Before Writing)
 
@@ -394,8 +462,10 @@ Before writing the AGENTS.md file, verify:
 - [ ] At least 1 concrete contract/invariant stated
 - [ ] At least 1 anti-pattern or gotcha documented
 - [ ] No content duplicated from ancestor nodes
+- [ ] Shared knowledge placed at LCA, not duplicated in sibling leaves
 - [ ] All paths in outlinks are correct and files exist
 - [ ] Total length < 1500 tokens (estimate: 1 token ≈ 4 characters)
+- [ ] Node covers 20k-64k tokens of source code (optimal compression range)
 - [ ] Answers: "How do I work here safely?"
 - [ ] Focuses on WHY and hidden context, not WHAT code does
 - [ ] Uses specific file:line references where helpful
