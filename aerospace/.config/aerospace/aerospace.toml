@@ -20,7 +20,16 @@ enable-normalization-opposite-orientation-for-nested-containers = true
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 
 [mode.main.binding]
-alt-enter = 'exec-and-forget open -n /Applications/Ghostty.app'
+alt-enter = '''exec-and-forget osascript -e '
+tell application "Ghostty"
+	if it is running then
+		activate
+		tell application "System Events" to keystroke "n" using {command down}
+	else
+		activate
+	end if
+end tell'
+'''
 
 # i3 wraps focus by default
 alt-h = 'focus --boundaries-action wrap-around-the-workspace left'
