@@ -8,7 +8,7 @@ start-at-login = true
 after-startup-command = []
 persistent-workspaces = ["1", "2", "3", "4", "5", "6", "7", "8"]
 default-root-container-layout = 'tiles'
-default-root-container-orientation = 'auto'
+default-root-container-orientation = 'horizontal'
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
 enable-normalization-flatten-containers = true
@@ -62,6 +62,9 @@ alt-7 = 'workspace 7'
 alt-8 = 'workspace 8'
 alt-9 = 'workspace 9'
 alt-0 = 'workspace 10'
+
+ctrl-left = 'workspace prev'
+ctrl-right = 'workspace next'
 
 alt-shift-1 = 'move-node-to-workspace 1'
 alt-shift-2 = 'move-node-to-workspace 2'
