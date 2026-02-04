@@ -4,9 +4,9 @@
 
 config-version = 2
 
-start-at-login = false
+start-at-login = true
 after-startup-command = []
-persistent-workspaces = ["1", "2", "3", "4"]
+persistent-workspaces = ["1", "2", "3", "4", "5", "6", "7", "8"]
 default-root-container-layout = 'tiles'
 default-root-container-orientation = 'auto'
 
@@ -18,18 +18,19 @@ enable-normalization-opposite-orientation-for-nested-containers = true
 # i3 like #
 ###########
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+# on-focus-changed = ['move-mouse window-lazy-center']
 
 [mode.main.binding]
-alt-enter = '''exec-and-forget osascript -e '
-tell application "Ghostty"
-	if it is running then
-		activate
-		tell application "System Events" to keystroke "n" using {command down}
-	else
-		activate
-	end if
-end tell'
-'''
+# alt-enter = '''exec-and-forget osascript -e '
+# tell application "Ghostty"
+# 	if it is running then
+# 		activate
+# 		tell application "System Events" to keystroke "n" using {command down}
+# 	else
+# 		activate
+# 	end if
+# end tell'
+# '''
 
 # i3 wraps focus by default
 alt-h = 'focus --boundaries-action wrap-around-the-workspace left'
@@ -101,6 +102,17 @@ cmd-shift-l = ['join-with right', 'mode main']
 [[on-window-detected]]
 if.app-id = "com.mitchellh.ghostty"
 run = ["layout tiling"]
+
+[workspace-to-monitor-force-assignment]
+1 = 'main'
+2 = 'main'
+3 = 'main'
+4 = '1'
+5 = '1'
+6 = '3'
+7 = '3'
+8 = '3'
+9 = '3'
 
 # Reference
 #
