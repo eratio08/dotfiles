@@ -21,7 +21,7 @@
 const milestone = await tasks.create({
   description: "Add Authentication System",
   context: `# Add Authentication System\n\n## Implementation\n1. Create database schema...`,
-  priority: 3
+  priority: 1
 });
 
 const subtasks = [
@@ -79,7 +79,7 @@ Update validation regex in auth.ts line 42
 const milestone = await tasks.create({
   description: "Fix Login Validation Bug",
   context: `# Fix Login Validation Bug\n\n## Problem\nLogin fails...`,
-  priority: 3
+  priority: 1
 });
 
 return { milestone: milestone.id, breakdown: false };
@@ -124,7 +124,7 @@ View task: execute `await tasks.get("task_01ABC")`
 const milestone = await tasks.create({
   description: "Complete User Authentication System",
   context: `<full-markdown>`,
-  priority: 3
+  priority: 1
 });
 
 const phases = [
