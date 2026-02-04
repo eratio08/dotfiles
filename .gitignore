@@ -2,3 +2,4 @@
 .cfg
 undodir/
 .DS_Store
+.overseer/
