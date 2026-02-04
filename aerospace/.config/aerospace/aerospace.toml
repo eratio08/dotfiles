@@ -43,8 +43,8 @@ alt-shift-j = 'move down'
 alt-shift-k = 'move up'
 alt-shift-l = 'move right'
 
-alt-v = 'join-with down'
-alt-shift-v = 'join-with right'
+alt-v = 'join-with left'
+alt-shift-v = 'join-with up'
 
 alt-f = 'fullscreen'
 # alt-s = 'layout v_accordion'               # 'layout stacking' in i3
