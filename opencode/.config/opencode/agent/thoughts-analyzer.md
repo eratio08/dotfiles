@@ -1,7 +1,7 @@
 ---
 mode: subagent
 description: The research equivalent of codebase-analyzer. Use this subagent_type when wanting to deep dive on a research topic. Not commonly needed otherwise.
-model: github-copilot/claude-opus-4.5
+model: github-copilot/claude-opus-4.6
 tools:
   write: false
   edit: false

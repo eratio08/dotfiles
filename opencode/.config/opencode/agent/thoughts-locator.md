@@ -1,7 +1,7 @@
 ---
 mode: subagent
 description: Discovers relevant documents in thoughts/ directory (We use this for all sorts of metadata storage!). This is really only relevant/needed when you're in a reseaching mood and need to figure out if we have random thoughts written down that are relevant to your current research task. Based on the name, I imagine you can guess this is the `thoughts` equivilent of `codebase-locator`
-model: github-copilot/claude-opus-4.5
+model: github-copilot/claude-opus-4.6
 tools:
   write: false
   edit: false
