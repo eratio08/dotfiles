@@ -1,7 +1,6 @@
 ---
 description: Primary interface for Overseer task management. Invoke for all task operations—creating milestones, managing tasks/subtasks, converting plans to tasks, finding ready work, recording learnings, tracking progress.
 mode: subagent
-model: github-copilot/claude-opus-4.6
 tools:
   write: false
   edit: false
