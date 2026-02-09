@@ -1,4 +1,6 @@
-font-family = JetBrainsMono Nerd Font
+#font-family = JetBrainsMono Nerd Font
+# brew install --cask font-maple-mono-nf
+font-family = Maple Mono NF
 font-size = 17
 
 macos-titlebar-style = tabs
