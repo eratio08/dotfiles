@@ -2,8 +2,8 @@ elixir 1.18.1-otp-27
 erlang 27.2
 gleam 1.7.0
 rust 1.90.0
-nodejs 25.4.0
-golang 1.25.3
+nodejs 25.6.1
+golang 1.26.0
 opentofu 1.10.6
 helm 3.17.3
 kubectl 1.33.2
