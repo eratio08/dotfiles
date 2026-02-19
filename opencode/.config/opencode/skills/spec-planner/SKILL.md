@@ -35,7 +35,7 @@ Phase: CLARIFY | Waiting for: answers to questions 1-4
 
 1. **STOP.** Do not proceed to planning.
 2. Identify gaps in: scope, motivation, constraints, edge cases, success criteria
-3. Ask 3-5 pointed questions that would change the approach
+3. Ask 3-5 pointed questions that would change the approach, use the question interface
 4. **Wait for responses**
 
 | Category | Example |
@@ -104,7 +104,7 @@ Apply planning framework from [decision-frameworks.md](./references/decision-fra
 
 Use appropriate template from [templates.md](./references/templates.md):
 - **Quick Decision** — Scoped technical choices
-- **Feature Plan** — New feature development  
+- **Feature Plan** — New feature development
 - **ADR** — Architecture decisions
 - **RFC** — Larger proposals
 

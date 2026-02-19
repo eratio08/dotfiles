@@ -138,7 +138,7 @@ When spec is complete, produce final summary for task decomposition:
 1. **[D1]** (S) — [one-line description]
    - Depends on: -
    - Files likely touched: [paths]
-   
+
 2. **[D2]** (M) — [one-line description]
    - Depends on: D1
    - Files likely touched: [paths]
