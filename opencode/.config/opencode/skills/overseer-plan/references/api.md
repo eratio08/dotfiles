@@ -79,9 +79,9 @@ interface Learning {
 
 ```typescript
 declare const tasks: {
-  list(filter?: { 
-    parentId?: string; 
-    ready?: boolean; 
+  list(filter?: {
+    parentId?: string;
+    ready?: boolean;
     completed?: boolean;
     depth?: 0 | 1 | 2;    // 0=milestones, 1=tasks, 2=subtasks
     type?: TaskType;      // Alias: "milestone"|"task"|"subtask" (mutually exclusive with depth)

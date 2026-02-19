@@ -182,7 +182,7 @@ const milestone = await tasks.create({
 
 const subtasks = [
   "Add login endpoint",
-  "Add logout endpoint", 
+  "Add logout endpoint",
   "Implement JWT token service",
   "Add password reset flow"
 ];

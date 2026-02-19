@@ -19,13 +19,13 @@ async () => {
 async () => {
   const [{ source }] = await opensrc.fetch("vercel/ai");
   const sourceName = source.name; // "github.com/vercel/ai"
-  
+
   const files = await opensrc.readMany(sourceName, [
     "package.json",
-    "README.md", 
+    "README.md",
     "src/index.ts"
   ]);
-  
+
   return { sourceName, files };
 }
 ```
@@ -49,14 +49,14 @@ async () => {
 async () => {
   const results = await opensrc.fetch(["zod", "valibot", "yup"]);
   const names = results.map(r => r.source.name);
-  
+
   // Compare how each handles string validation
   const comparisons = {};
   for (const name of names) {
-    const matches = await opensrc.grep("string.*validate|validateString", { 
-      sources: [name], 
+    const matches = await opensrc.grep("string.*validate|validateString", {
+      sources: [name],
       include: "*.ts",
-      maxResults: 10 
+      maxResults: 10
     });
     comparisons[name] = matches.map(m => `${m.file}:${m.line}`);
   }
@@ -70,17 +70,17 @@ async () => {
 
 ```javascript
 async () => {
-  const matches = await opensrc.grep("export function parse\\(", { 
-    sources: ["zod"], 
-    include: "*.ts" 
+  const matches = await opensrc.grep("export function parse\\(", {
+    sources: ["zod"],
+    include: "*.ts"
   });
-  
+
   if (matches.length === 0) return "No matches";
-  
+
   const match = matches[0];
   const content = await opensrc.read(match.source, match.file);
   const lines = content.split("\n");
-  
+
   // Return 40 lines starting from match
   return {
     file: match.file,
@@ -95,7 +95,7 @@ async () => {
 async () => {
   const sources = opensrc.list();
   const results = {};
-  
+
   for (const source of sources) {
     const errorHandling = await opensrc.grep("throw new|catch \\(|\\.catch\\(", {
       sources: [source.name],
@@ -107,7 +107,7 @@ async () => {
       errorPatterns: errorHandling.length
     };
   }
-  
+
   return results;
 }
 ```
@@ -121,12 +121,12 @@ Use `astGrep` for semantic code search with pattern matching.
 ```javascript
 async () => {
   const [{ source }] = await opensrc.fetch("lodash");
-  
+
   const fns = await opensrc.astGrep(source.name, "function $NAME($$$ARGS) { $$$BODY }", {
     lang: "js",
     limit: 20
   });
-  
+
   return fns.map(m => ({
     file: m.file,
     line: m.line,
@@ -140,13 +140,13 @@ async () => {
 ```javascript
 async () => {
   const [{ source }] = await opensrc.fetch("vercel/ai");
-  
+
   const stateHooks = await opensrc.astGrep(
     source.name,
     "const [$STATE, $SETTER] = useState($$$INIT)",
     { lang: ["ts", "tsx"], limit: 50 }
   );
-  
+
   return stateHooks.map(m => ({
     file: m.file,
     state: m.metavars.STATE,
@@ -160,11 +160,11 @@ async () => {
 ```javascript
 async () => {
   const [{ source }] = await opensrc.fetch("zod");
-  
+
   const classes = await opensrc.astGrep(source.name, "class $NAME", {
     glob: "**/*.ts"
   });
-  
+
   const details = [];
   for (const cls of classes.slice(0, 5)) {
     const content = await opensrc.read(source.name, cls.file);
@@ -185,7 +185,7 @@ async () => {
 async () => {
   const results = await opensrc.fetch(["zod", "valibot"]);
   const names = results.map(r => r.source.name);
-  
+
   const exports = {};
   for (const name of names) {
     const matches = await opensrc.astGrep(name, "export const $NAME = $_", {
@@ -216,23 +216,23 @@ async () => {
 ```javascript
 async () => {
   const name = "github.com/vercel/ai";
-  
+
   const allFiles = await opensrc.files(name, "**/*.{ts,js}");
-  const entryPoints = allFiles.filter(f => 
+  const entryPoints = allFiles.filter(f =>
     f.path.match(/^(src\/)?(index|main|mod)\.(ts|js)$/) ||
     f.path.includes("/index.ts")
   );
-  
+
   // Read all entry points
   const contents = {};
   for (const ep of entryPoints.slice(0, 5)) {
     contents[ep.path] = await opensrc.read(name, ep.path);
   }
-  
-  return { 
+
+  return {
     totalFiles: allFiles.length,
     entryPoints: entryPoints.map(f => f.path),
-    contents 
+    contents
   };
 }
 ```
@@ -242,21 +242,21 @@ async () => {
 ```javascript
 async () => {
   const name = "zod";
-  
+
   // Get all TypeScript files
   const tsFiles = await opensrc.files(name, "**/*.ts");
-  
+
   // Group by directory
   const byDir = {};
   for (const f of tsFiles) {
     const dir = f.path.split("/").slice(0, -1).join("/") || ".";
     byDir[dir] = (byDir[dir] || 0) + 1;
   }
-  
+
   // Read key files
   const pkg = await opensrc.read(name, "package.json");
   const readme = await opensrc.read(name, "README.md");
-  
+
   return {
     structure: byDir,
     package: JSON.parse(pkg),
@@ -277,12 +277,12 @@ async () => {
     "src/ZodError.ts",
     "src/helpers/parseUtil.ts"
   ]);
-  
+
   // files is Record<string, string> - errors start with "[Error:"
   const successful = Object.entries(files)
     .filter(([_, content]) => !content.startsWith("[Error:"))
     .map(([path, content]) => ({ path, lines: content.split("\n").length }));
-  
+
   return successful;
 }
 ```
@@ -293,7 +293,7 @@ async () => {
 async () => {
   const targets = ["zod", "valibot"];
   const pattern = "export (type|interface)";
-  
+
   const results = await Promise.all(
     targets.map(async (name) => {
       const matches = await opensrc.grep(pattern, {
@@ -304,7 +304,7 @@ async () => {
       return { name, count: matches.length, matches };
     })
   );
-  
+
   return results;
 }
 ```

@@ -224,10 +224,10 @@ const successful = Object.entries(files)
 ```javascript
 async () => {
   const [{ source }] = await opensrc.fetch("vercel/ai");
-  
+
   // GitHub repos: "vercel/ai" → "github.com/vercel/ai"
   const sourceName = source.name;
-  
+
   // Use sourceName for ALL subsequent calls
   const files = await opensrc.files(sourceName, "src/**/*.ts");
   return files;

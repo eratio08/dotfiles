@@ -33,10 +33,10 @@ const subtasks = [
 ];
 
 for (const sub of subtasks) {
-  await tasks.create({ 
-    description: sub.desc, 
+  await tasks.create({
+    description: sub.desc,
     context: `Part of 'Add Authentication System'.\n\nDone when: ${sub.done}`,
-    parentId: milestone.id 
+    parentId: milestone.id
   });
 }
 
@@ -151,10 +151,10 @@ for (const phase of phases) {
     parentId: milestone.id
   });
   for (const item of phase.items) {
-    await tasks.create({ 
-      description: item.desc, 
+    await tasks.create({
+      description: item.desc,
       context: `Part of '${phase.name}'.\n\nDone when: ${item.done}`,
-      parentId: phaseTask.id 
+      parentId: phaseTask.id
     });
   }
 }
