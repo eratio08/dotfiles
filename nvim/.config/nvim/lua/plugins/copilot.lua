@@ -1,17 +1,18 @@
 return {
-  enabled = false,
+  enabled = true,
   'zbirenbaum/copilot.lua',
+  dependencies = {
+    -- {
+    --   'copilotlsp-nvim/copilot-lsp',
+    --   init = function ()
+    --     vim.g.copilot_nes_debounce = 500
+    --   end,
+    -- },
+  },
   cmd = 'Copilot',
-  -- event = 'BufReadPost',
+  event = 'InsertEnter',
   keys = {
-    { '<M-]>', desc = 'Copilot next' },
-    {
-      '<leader>ct',
-      function ()
-        require('copilot.suggestion').toggle_auto_trigger()
-      end,
-      desc = 'Copilot Toggle Auto Suggestions'
-    }
+    { '<leader>ct', function () require('copilot.suggestion').toggle_auto_trigger() end, desc = 'Copilot Toggle Auto Suggestions' }
   },
   config = function ()
     require('copilot').setup({
@@ -22,20 +23,28 @@ return {
         },
       },
       suggestion = {
-        auto_trigger = false,
+        auto_trigger = true,
         keymap = {
           accept = '<M-CR>',
           next = '<M-]>',
           prev = '<M-[>',
         },
       },
-      filetypes = {
-        markdown = true,
-        help = true,
-        ocaml = false,
-        roc = false,
-        elixir = false,
+      nes = {
+        enabled = false,
+        keymap = {
+          accept_and_goto = '<leader>p',
+          accept = false,
+          dismiss = '<Esc>',
+        },
       },
+      -- filetypes = {
+      --   markdown = true,
+      --   help = true,
+      --   ocaml = false,
+      --   roc = false,
+      --   elixir = false,
+      -- },
     })
 
     -- Hide completion menu on Copilot suggestions
