@@ -2,7 +2,7 @@
 
 local SETUP = $0
 local STOWS
-case $SETUP in 
+case $SETUP in
   "manjaro")
     STOWS=("nvim" "mako" "sway" "swaylock" "waybar" "tmux" "lvim" "manjaro")
     ;;
@@ -21,5 +21,5 @@ case $SETUP in
   ;;
 esac
 
-for pkg in $STOWS; 
+for pkg in $STOWS;
   stow $pkg
