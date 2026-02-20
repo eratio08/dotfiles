@@ -11,50 +11,38 @@
     "context7": {
       "enabled": true,
       "type": "local",
-      "command": [
-        "bunx",
-        "-y",
-        "@upstash/context7-mcp@latest"
-      ]
+      "command": ["bunx", "-y", "@upstash/context7-mcp@latest"]
     },
     "code-index": {
       "enabled": true,
       "type": "local",
-      "command": [
-        "uvx",
-        "code-index-mcp",
-      ]
+      "command": ["uvx", "code-index-mcp"]
+    },
+    "opensrc": {
+      "enabled": false,
+      "type": "local",
+      "command": ["npx", "-y", "opensrc-mcp"]
     },
     // Default Disabled
     "overseer": {
       "enabled": false,
       "type": "local",
-      "command": ["npx", "@dmmulroy/overseer", "mcp"]
+      "command": ["npx", "-y", "@dmmulroy/overseer", "mcp"]
     },
     "browser": {
       "enabled": false,
       "type": "local",
-      "command": [
-        "bunx",
-        "-y",
-        "@browsermcp/mcp@latest"
-      ]
+      "command": ["bunx", "-y", "@browsermcp/mcp@latest"]
     },
     "playwright": {
       "enabled": false,
       "type": "local",
-      "command": [
-        "npx",
-        "@playwright/mcp@latest"
-      ]
+      "command": ["npx", "-y", "@playwright/mcp@latest"]
     },
     "awsdocs":{
       "enabled": false,
       "type": "local",
-      "command": [
-        "uvx",
-        "awslabs.aws-documentation-mcp-server@latest"
-      ]
+      "command": ["uvx", "awslabs.aws-documentation-mcp-server@latest"]
     },
     "awsknowledge": {
       "enabled": false,
@@ -64,53 +52,32 @@
     "awscli": {
       "enabled": false,
       "type": "local",
-      "command": [
-        "uvx",
-        "awslabs.aws-api-mcp-server@latest"
-      ],
+      "command": ["uvx", "awslabs.aws-api-mcp-server@latest"]
     },
     "awstf":{
       "enabled": false,
       "type": "local",
-      "command": [
-        "uvx",
-        "awslabs.terraform-mcp-server@latest"
-      ],
+      "command": ["uvx", "awslabs.terraform-mcp-server@latest"]
     },
     "awsdiagram":{
       "enabled": false,
       "type": "local",
-      "command": [
-        "uvx",
-        "awslabs.aws-diagram-mcp-server"
-      ],
+      "command": ["uvx", "awslabs.aws-diagram-mcp-server"]
     },
     "opentofu":{
       "enabled": false,
       "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "@opentofu/opentofu-mcp-server"
-      ]
+      "command": ["npx", "-y", "@opentofu/opentofu-mcp-server"]
     } ,
     "semgrep":{
       "enabled": false,
       "type": "local",
-      "command": [
-        "uvx",
-        "--from",
-        "git+https://github.com/semgrep/mcp",
-        "semgrep-mcp",
-      ]
+      "command": ["uvx", "--from", "git+https://github.com/semgrep/mcp", "semgrep-mcp"]
     },
     "awscost": {
       "enabled": false,
       "type": "local",
-      "command": [
-        "uvx",
-        "awslabs.billing-cost-management-mcp-server@latest",
-      ],
+      "command": ["uvx", "awslabs.billing-cost-management-mcp-server@latest"],
       "environment": {
         "AWS_PROFILE": "fc-prod-op",
         "AWS_REGION": "eu-central-1",
@@ -120,10 +87,7 @@
     "cloudtrail-mcp-server": {
       "enabled": false,
       "type": "local",
-      "command":[
-        "uvx",
-        "awslabs.cloudtrail-mcp-server@latest",
-      ],
+      "command":["uvx", "awslabs.cloudtrail-mcp-server@latest"],
       "environment": {
         "AWS_PROFILE": "fc-prod-op",
         "AWS_REGION": "eu-central-1",
