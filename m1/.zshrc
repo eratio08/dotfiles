@@ -97,6 +97,10 @@ _evalcache starship init zsh
 # Atuin
 _evalcache atuin init zsh
 
+# zoxide
+eval "$(zoxide init zsh)"
+alias cd="z"
+
 # postgres
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 
