@@ -102,6 +102,10 @@ export STARSHIP_CONFIG="$HOME/.config/startship/config.toml"
 # eval "$(starship init zsh)"
 _evalcache starship init zsh
 
+# zoxide
+eval "$(zoxide init zsh)"
+alias cd="z"
+
 # opam configuration
 # [[ ! -r /Users/el/.opam/opam-init/init.zsh ]] || source /Users/el/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
 
