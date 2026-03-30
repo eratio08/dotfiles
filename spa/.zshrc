@@ -7,9 +7,10 @@ plugins=(
   kubectl
   aws
   mvn
-  terraform
+  opentofu
   helm
   asdf
+  zoxide
 )
 
 setopt HIST_IGNORE_SPACE
@@ -78,6 +79,9 @@ export PATH=~/.cargo/bin:$PATH
 SPA_HELPERS=~/spa-helpers.sh
 [[ -f "$SPA_HELPERS" ]] && source "$SPA_HELPERS"
 
+# load git helpers
+[[ -f "$HOME/git-helpers.sh" ]] && source "$HOME/git-helpers.sh"
+
 # Go
 . ~/.asdf/plugins/golang/set-env.zsh
 
@@ -115,3 +119,6 @@ _evalcache atuin init zsh
 
 # local bin
 export PATH="$HOME/.local/bin:$PATH"
+
+autoload -U +X bashcompinit && bashcompinit
+complete -o nospace -C /Users/el/Downloads/wizcli wizcli
