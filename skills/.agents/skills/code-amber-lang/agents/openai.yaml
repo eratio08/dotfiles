@@ -1,0 +1,4 @@
+interface:
+  display_name: "Amber Lang"
+  short_description: "Read and write Amber safely"
+  default_prompt: "Use $code-amber-lang to help me write and validate an Amber script."
