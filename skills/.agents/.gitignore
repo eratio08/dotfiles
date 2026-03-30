@@ -1,5 +1,9 @@
 /*
+!.gitignore
 !/skills
 /skills/*
 !/skills/code-amber-lang
-!.gitignore
+!/skills/spec-planner
+!/skills/tuicr
+!/skills/index-knowledge
+!/skills/librarian
