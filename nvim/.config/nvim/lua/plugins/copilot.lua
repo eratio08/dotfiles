@@ -38,13 +38,9 @@ return {
           dismiss = '<Esc>',
         },
       },
-      -- filetypes = {
-      --   markdown = true,
-      --   help = true,
-      --   ocaml = false,
-      --   roc = false,
-      --   elixir = false,
-      -- },
+      filetypes = {
+        gleam = false,
+      },
     })
 
     -- Hide completion menu on Copilot suggestions
