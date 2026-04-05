@@ -1,7 +1,7 @@
 elixir 1.18.1-otp-27
 erlang 27.2
 gleam 1.7.0
-rust 1.90.0
+rust 1.94.1
 nodejs 25.6.1
 golang 1.26.0
 opentofu 1.10.6
@@ -17,3 +17,5 @@ python 3.14.3
 opam 2.4.1
 roc nightly-2025-November-29-4555f20
 zig 0.15.2
+rebar 3.27.0
+lua 5.4.7
