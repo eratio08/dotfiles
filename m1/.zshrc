@@ -59,6 +59,7 @@ export NVM_DIR="$HOME/.nvm"
 
 # Rust
 export RUST_WITHOUT=rust-docs # do not install rust-docs with asdf
+export PATH=$HOME/.asdf/installs/rust/1.94.1/bin:$PATH
 
 # Ruby
 export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
