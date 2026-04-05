@@ -1,5 +1,5 @@
 return {
-  enabled = true,
+  enabled = false,
   'echasnovski/mini.surround',
   version = '*',
   keys = { 'sa', 'sd', 'sr', 'sf', 'sF', 'sh' },
