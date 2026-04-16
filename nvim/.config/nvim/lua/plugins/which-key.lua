@@ -1,3 +1,5 @@
+---@module 'lazy'
+---@type LazySpec
 return {
   enabled = true,
   'folke/which-key.nvim',
@@ -18,6 +20,7 @@ return {
     { 'k', "v:count == 0 ? 'gk' : 'k'", desc = 'Better up movement with wrapped words', expr = true },
     { 'j', "v:count == 0 ? 'gj' : 'j'", desc = 'Better down movement with wrapped words', expr = true },
     { '<esc>', '<C-\\><C-n>', desc = 'Normal Mode', mode = 't' },
+    { '<leader>q', vim.diagnostic.setloclist, desc = 'Open diagnostic [Q]uickfix list' },
 
     -- Terminal
     { '<esc>', '<C-\\><C-n>', desc = 'Escape terminal mode', mode = 't' },

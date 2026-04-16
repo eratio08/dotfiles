@@ -2,6 +2,7 @@ require('eRatio.remap')
 require('eRatio.settings')
 require('eRatio.helpers')
 require('eRatio.lazy')
+require('eRatio.diag')
 require('eRatio.cmd')
 require('eRatio.rds-auth')
 

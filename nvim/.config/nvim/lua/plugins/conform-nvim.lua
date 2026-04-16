@@ -23,11 +23,17 @@ return {
         go = { 'goimports', 'gofumpt' },
         -- sql = { 'sqlfmt', 'sqruff', 'sqlfluff', stop_after_first = true },
         gleam = { 'gleam' },
+        sky = { 'sky' },
       },
       formatters = {
         tofu = {
           command = 'tofu',
           args = { 'fmt', '-no-color', '-' }
+        },
+        sky = {
+          command = 'sky',
+          args = { 'fmt', '-' },
+          stdin = true,
         },
         biome = {
           require_cwd = true,
