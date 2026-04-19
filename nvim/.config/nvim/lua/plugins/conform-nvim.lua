@@ -24,6 +24,7 @@ return {
         -- sql = { 'sqlfmt', 'sqruff', 'sqlfluff', stop_after_first = true },
         gleam = { 'gleam' },
         sky = { 'sky' },
+        roc = { 'roc' },
       },
       formatters = {
         tofu = {
@@ -39,10 +40,11 @@ return {
           require_cwd = true,
           require_config_file = false,
         },
-        -- gleam = {
-        --   command = 'gleam',
-        --   args = { 'format' },
-        -- }
+        roc = {
+          command = 'roc',
+          args = { 'fmt', '--stdin', '-' },
+          stdin = true,
+        }
       },
     }
 

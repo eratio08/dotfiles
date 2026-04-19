@@ -6,4 +6,5 @@ return {
     dofile(plugin.dir .. '/editors/nvim/ftdetect/lisette.lua')
     dofile(plugin.dir .. '/editors/nvim/plugin/lisette.lua')
   end,
+  ft = 'lisette',
 }

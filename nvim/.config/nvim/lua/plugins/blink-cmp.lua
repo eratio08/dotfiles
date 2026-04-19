@@ -16,7 +16,6 @@ return {
     -- 'giuxtaposition/blink-cmp-copilot',
     'Kaiser-Yang/blink-cmp-git',
     -- 'ribru17/blink-cmp-spell',
-    'kristijanhusak/vim-dadbod-completion',
   },
   version = '1.*',
   ---@module 'blink.cmp'
