@@ -19,3 +19,4 @@ roc nightly-2025-November-29-4555f20
 zig 0.15.2
 rebar 3.27.0
 lua 5.4.7
+shfmt 3.13.1
