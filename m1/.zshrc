@@ -82,7 +82,7 @@ export PATH=$PATH:$GOBIN
 [[ ! -r ~/.opam/opam-init/init.zsh ]] || source ~/.opam/opam-init/init.zsh > /dev/null 2> /dev/null
 
 # dune
-source $HOME/.dune/env/env.zsh
+source $HOME/.local/share/dune/env/env.zsh
 
 # Roc
 export PATH=$PATH:~/Downloads/roc-lang/roc_nightly-macos_apple_silicon-2024-07-13-070d14a5d60

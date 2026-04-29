@@ -32,6 +32,11 @@ return {
         color = '#b0b1b0',
         name = 'dune-project',
       },
+      ['dune-workspace'] = {
+        icon = ocaml_icon,
+        color = '#b0b1b0',
+        name = 'dune-workspace',
+      },
       dingo = {
         icon = go_icon,
         color = go_color,
