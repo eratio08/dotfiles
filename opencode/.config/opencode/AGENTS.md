@@ -11,6 +11,6 @@
 - Use the `ast-grep` tool for structural code search and transformation
 - Use LaTeX-like one sentence per line style when wiring markdown markdown documents
 - Keep the code as simple as possible (KISS)
-- Avoid abstractions until they have been discovered to be truly needed
 - Do not write any code comments, unless explicitly instructed
 - Do not remove any existing code comments which have not been introduced by yourself
+- Do not repeat yourself (DRY) if you can find an efficient abstraction
