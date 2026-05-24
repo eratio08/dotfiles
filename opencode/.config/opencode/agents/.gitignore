@@ -1,3 +1,9 @@
 *
 !*/
 !.gitignore
+!codebase-analyzer.md
+!codebase-locator.md
+!codebase-pattern-finder.md
+!librarian.md
+!oracle.md
+!web-search-researcher.md
