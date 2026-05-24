@@ -102,7 +102,7 @@ return {
       capabilities = blink_cmp.get_lsp_capabilities(capabilities)
     end)
 
-    vim.lsp.config('*', { capabilities })
+    vim.lsp.config('*', { capabilities = capabilities })
 
     -----------
     -- MASON --

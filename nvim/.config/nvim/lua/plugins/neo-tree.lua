@@ -12,7 +12,7 @@ return {
   config = function ()
     require('neo-tree').setup({
       enable_git_status = false,
-      enable_diagnostics = false,
+      enable_diagnostics = true,
       close_if_last_window = true,
       window = {
         auto_expand_width = false,
