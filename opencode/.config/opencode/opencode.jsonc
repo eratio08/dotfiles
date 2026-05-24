@@ -1,9 +1,15 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "github-copilot/claude-opus-4.6",
+  // "model": "github-copilot/claude-opus-4.6",
+  "model": "github-copilot/gpt-5.4",
   "autoshare": false,
   "autoupdate": false,
-  "plugin": ["cc-safety-net"],
+  "plugin": [
+    "cc-safety-net",
+    "@plannotator/opencode@latest",
+    // "file:///Users/el/src/spa-ai-hub/sparness/plugins/atlassian"
+    "file:///Users/el/src/spa-ai-hub/sparness/plugins/sparness"
+  ],
   "enabled_providers": ["github-copilot"],
   "mcp": {
     // Default Enabled
@@ -18,7 +24,7 @@
       "command": ["uvx", "code-index-mcp"]
     },
     "opensrc": {
-      "enabled": false,
+      "enabled": true,
       "type": "local",
       "command": ["npx", "-y", "opensrc-mcp"]
     },
@@ -98,5 +104,5 @@
       "type": "remote",
       "url":  "https://mcp.atlassian.com/v1/mcp"
     }
-  }
+  },
 }
