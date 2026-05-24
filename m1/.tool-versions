@@ -3,14 +3,14 @@ erlang 27.2
 gleam 1.7.0
 rust 1.94.1
 nodejs 25.6.1
-golang 1.26.0
+golang 1.26.2
 opentofu 1.10.6
 helm 3.17.3
 kubectl 1.33.2
 uv 0.9.3
 bun 1.3.1
 mvnd 1.0.2
-just 1.41.0
+just 1.50.0
 tree-sitter 0.25.8
 playwright 1.16.2
 python 3.14.3
@@ -20,3 +20,4 @@ zig 0.15.2
 rebar 3.27.0
 lua 5.4.7
 shfmt 3.13.1
+golangci-lint 2.11.4
