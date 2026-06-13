@@ -1,5 +1,6 @@
 return {
   'ivov/lisette',
+  enabled = false,
   event = 'VeryLazy',
   config = function (plugin)
     vim.opt.rtp:prepend(plugin.dir .. '/editors/nvim')

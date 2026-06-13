@@ -1,5 +1,5 @@
 return {
-  enabled = false,
+  enabled = true,
   'sindrets/diffview.nvim',
   cmd = { 'DiffviewOpen', 'DiffviewFileHistory' },
   dependencies = {
