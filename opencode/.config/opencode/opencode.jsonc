@@ -1,108 +1,144 @@
 {
-  "$schema": "https://opencode.ai/config.json",
-  // "model": "github-copilot/claude-opus-4.6",
-  "model": "github-copilot/gpt-5.4",
-  "autoshare": false,
-  "autoupdate": false,
-  "plugin": [
-    "cc-safety-net",
-    "@plannotator/opencode@latest",
-    // "file:///Users/el/src/spa-ai-hub/sparness/plugins/atlassian"
-    "file:///Users/el/src/spa-ai-hub/sparness/plugins/sparness"
-  ],
-  "enabled_providers": ["github-copilot"],
-  "mcp": {
-    // Default Enabled
-    "context7": {
-      "enabled": true,
-      "type": "local",
-      "command": ["bunx", "-y", "@upstash/context7-mcp@latest"]
-    },
-    "code-index": {
-      "enabled": true,
-      "type": "local",
-      "command": ["uvx", "code-index-mcp"]
-    },
-    "opensrc": {
-      "enabled": true,
-      "type": "local",
-      "command": ["npx", "-y", "opensrc-mcp"]
-    },
-    // Default Disabled
-    "overseer": {
-      "enabled": false,
-      "type": "local",
-      "command": ["npx", "-y", "@dmmulroy/overseer", "mcp"]
-    },
-    "browser": {
-      "enabled": false,
-      "type": "local",
-      "command": ["bunx", "-y", "@browsermcp/mcp@latest"]
-    },
-    "playwright": {
-      "enabled": false,
-      "type": "local",
-      "command": ["npx", "-y", "@playwright/mcp@latest"]
-    },
-    "awsdocs":{
-      "enabled": false,
-      "type": "local",
-      "command": ["uvx", "awslabs.aws-documentation-mcp-server@latest"]
-    },
-    "awsknowledge": {
-      "enabled": false,
-      "type": "remote",
-      "url": "https://knowledge-mcp.global.api.aws"
-    },
-    "awscli": {
-      "enabled": false,
-      "type": "local",
-      "command": ["uvx", "awslabs.aws-api-mcp-server@latest"]
-    },
-    "awstf":{
-      "enabled": false,
-      "type": "local",
-      "command": ["uvx", "awslabs.terraform-mcp-server@latest"]
-    },
-    "awsdiagram":{
-      "enabled": false,
-      "type": "local",
-      "command": ["uvx", "awslabs.aws-diagram-mcp-server"]
-    },
-    "opentofu":{
-      "enabled": false,
-      "type": "local",
-      "command": ["npx", "-y", "@opentofu/opentofu-mcp-server"]
-    } ,
-    "semgrep":{
-      "enabled": false,
-      "type": "local",
-      "command": ["uvx", "--from", "git+https://github.com/semgrep/mcp", "semgrep-mcp"]
-    },
-    "awscost": {
-      "enabled": false,
-      "type": "local",
-      "command": ["uvx", "awslabs.billing-cost-management-mcp-server@latest"],
-      "environment": {
-        "AWS_PROFILE": "fc-prod-op",
-        "AWS_REGION": "eu-central-1",
-        "FASTMCP_LOG_LEVEL": "ERROR"
-      },
-    },
-    "cloudtrail-mcp-server": {
-      "enabled": false,
-      "type": "local",
-      "command":["uvx", "awslabs.cloudtrail-mcp-server@latest"],
-      "environment": {
-        "AWS_PROFILE": "fc-prod-op",
-        "AWS_REGION": "eu-central-1",
-        "FASTMCP_LOG_LEVEL": "ERROR"
-      },
-    },
-    "jira": {
-      "enabled": false,
-      "type": "remote",
-      "url":  "https://mcp.atlassian.com/v1/mcp"
-    }
-  },
+	"$schema": "https://opencode.ai/config.json",
+	"model": "github-copilot/gpt-5.4",
+	"autoshare": false,
+	"autoupdate": false,
+	"plugin": ["cc-safety-net", "@plannotator/opencode@latest"],
+	"enabled_providers": ["github-copilot", "omlx"],
+	"provider": {
+		"omlx": {
+			"models": {
+				"Qwen3.6-35B-A3B-oQ8-mtp": {
+					"name": "Qwen3.6-35B-A3B",
+					"reasoning": true,
+					"tool_call": true,
+					"modalities": {
+						"input": ["text"],
+						"output": ["text"]
+					},
+					"limit": {
+						// this would demonstrate max supported model context
+						// beware: this naturally allows omlx to consume considerable more memory for context
+						"context": 262144,
+						"output": 32768
+					},
+					// recommendations for coding models: https://unsloth.ai/docs/models/qwen3.6
+					"options": {
+						"temperature": 0.6,
+						"top_p": 0.95,
+						"providerOptions": {
+							"omlx": {
+								"top_k": 20,
+								"min_p": 0.0,
+								"repetition_penalty": 1.0
+							}
+						}
+					}
+				},
+				"gemma-4-26B-A4B-it-qat-4bit": {
+					"name": "gemma-4-26B-A4B",
+					"reasoning": true,
+					"tool_call": true,
+					"modalities": {
+						"input": ["text", "image"],
+						"output": ["text"]
+					},
+					"limit": {
+						"context": 262144,
+						"output": 65536 // https://ai.google.dev/gemma/docs/core/model_card_4#mixture-of-experts_moe_model
+					},
+					// https://ai.google.dev/gemma/docs/core/model_card_4#1_sampling_parameters
+					"options": {
+						"temperature": 1.0,
+						"top_p": 0.95,
+						"providerOptions": { "omlx": { "top_k": 64 } }
+					}
+				}
+			}
+		}
+	},
+	"mcp": {
+		// Default Enabled
+		"context7": {
+			"enabled": true,
+			"type": "local",
+			"command": ["bunx", "-y", "@upstash/context7-mcp@latest"]
+		},
+		"code-index": {
+			"enabled": true,
+			"type": "local",
+			"command": ["uvx", "code-index-mcp"]
+		},
+		"opensrc": {
+			"enabled": true,
+			"type": "local",
+			"command": ["npx", "-y", "opensrc-mcp"]
+		},
+		// Default Disabled
+		"overseer": {
+			"enabled": false,
+			"type": "local",
+			"command": ["npx", "-y", "@dmmulroy/overseer", "mcp"]
+		},
+		"playwright": {
+			"enabled": false,
+			"type": "local",
+			"command": ["npx", "-y", "@playwright/mcp@latest"]
+		},
+		"awsdocs": {
+			"enabled": false,
+			"type": "local",
+			"command": ["uvx", "awslabs.aws-documentation-mcp-server@latest"]
+		},
+		"awsknowledge": {
+			"enabled": false,
+			"type": "remote",
+			"url": "https://knowledge-mcp.global.api.aws"
+		},
+		"awscli": {
+			"enabled": false,
+			"type": "local",
+			"command": ["uvx", "awslabs.aws-api-mcp-server@latest"]
+		},
+		"opentofu": {
+			"enabled": false,
+			"type": "local",
+			"command": ["npx", "-y", "@opentofu/opentofu-mcp-server"]
+		},
+		"semgrep": {
+			"enabled": false,
+			"type": "local",
+			"command": [
+				"uvx",
+				"--from",
+				"git+https://github.com/semgrep/mcp",
+				"semgrep-mcp"
+			]
+		},
+		"awscost": {
+			"enabled": false,
+			"type": "local",
+			"command": ["uvx", "awslabs.billing-cost-management-mcp-server@latest"],
+			"environment": {
+				"AWS_PROFILE": "fc-prod-op",
+				"AWS_REGION": "eu-central-1",
+				"FASTMCP_LOG_LEVEL": "ERROR"
+			}
+		},
+		"cloudtrail-mcp-server": {
+			"enabled": false,
+			"type": "local",
+			"command": ["uvx", "awslabs.cloudtrail-mcp-server@latest"],
+			"environment": {
+				"AWS_PROFILE": "fc-prod-op",
+				"AWS_REGION": "eu-central-1",
+				"FASTMCP_LOG_LEVEL": "ERROR"
+			}
+		},
+		"jira": {
+			"enabled": false,
+			"type": "remote",
+			"url": "https://mcp.atlassian.com/v1/mcp"
+		}
+	}
 }
