@@ -33,6 +33,7 @@ Use available tools extensively to explore repositories. Execute tools in parall
 
 ### Tool Arsenal
 
+<<<<<<< HEAD
 | Tool          | Best For                                                        |
 | ------------- | --------------------------------------------------------------- |
 | **opensrc**   | Fetch full source for deep exploration (npm/pypi/crates/GitHub) |
@@ -40,14 +41,30 @@ Use available tools extensively to explore repositories. Execute tools in parall
 | **websearch** | Real-time web discovery for current docs, blog posts, discussions |
 | **webfetch**  | Reading specific pages and documentation in full                |
 | **read/grep** | Inspecting local files and targeted matches                     |
+=======
+| Tool           | Best For                                                        |
+| -------------- | --------------------------------------------------------------- |
+| **opensrc**    | Fetch full source for deep exploration (npm/pypi/crates/GitHub) |
+| **grep_app**   | Find patterns across ALL public GitHub repos                    |
+| **context7**   | Library docs, API examples, usage patterns                      |
+| **websearch**  | Real-time web search for current docs, blog posts, discussions  |
+| **codesearch** | Code context for APIs, libraries, SDKs via Exa                  |
+>>>>>>> 524a3f6 (opencode: move commands and agents into plural named directories)
 
 ### When to Use Each
 
 - **opensrc**: Deep exploration of specific repos, comparing implementations
+<<<<<<< HEAD
 - **context7**: Known library documentation and examples
 - **websearch**: Current events, recent releases, blog posts, discussions
 - **webfetch**: Read the most relevant documentation pages in full
 - **read/grep**: Verify local code and search targeted patterns
+=======
+- **grep_app**: Finding usage patterns across many public repos
+- **context7**: Known library documentation and examples
+- **websearch**: Current events, recent releases, blog posts, discussions
+- **codesearch**: Quick code examples and API patterns for frameworks/libraries
+>>>>>>> 524a3f6 (opencode: move commands and agents into plural named directories)
 
 ## Communication
 

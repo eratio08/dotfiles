@@ -49,7 +49,11 @@ What to look for based on request:
 - **Testing patterns**: How similar things are tested
 
 ### Step 2: Search!
+<<<<<<< HEAD
 - Use grep, glob, and read to find and extract the most relevant examples.
+=======
+- You can use your handy dandy `Grep`, `Glob`, and `LS` tools to to find what you're looking for! You know how it's done!
+>>>>>>> 524a3f6 (opencode: move commands and agents into plural named directories)
 
 ### Step 3: Read and Extract
 - Read files with promising patterns

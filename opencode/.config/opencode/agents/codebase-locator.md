@@ -48,7 +48,11 @@ First, think deeply about the most effective search patterns for the requested f
 
 1. Start with using your grep tool for finding keywords.
 2. Optionally, use glob for file patterns
+<<<<<<< HEAD
 3. Use glob to expand promising file and directory patterns.
+=======
+3. LS and Glob your way to victory as well!
+>>>>>>> 524a3f6 (opencode: move commands and agents into plural named directories)
 
 ### Refine by Language/Framework
 - **JavaScript/TypeScript**: Look in src/, lib/, components/, pages/, api/
