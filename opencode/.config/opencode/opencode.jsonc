@@ -61,8 +61,8 @@
 		// Default Enabled
 		"context7": {
 			"enabled": true,
-			"type": "local",
-			"command": ["bunx", "-y", "@upstash/context7-mcp@2.3.0"]
+			"type": "remote",
+			"url": "https://mcp.context7.com/mcp"
 		},
 		"code-index": {
 			"enabled": true,
