@@ -7,8 +7,13 @@
 	"enabled_providers": ["github-copilot", "omlx"],
 	"provider": {
 		"omlx": {
+			"npm": "@ai-sdk/openai-compatible",
+			"name": "oMLX",
+			"options": {
+				"baseURL": "http://127.0.0.1:8000/v1"
+			},
 			"models": {
-				"Qwen3.6-35B-A3B-oQ8-mtp": {
+				"Qwen3.6-35B-A3B-oQ8-fp16-mtp": {
 					"name": "Qwen3.6-35B-A3B",
 					"reasoning": true,
 					"tool_call": true,
@@ -17,12 +22,9 @@
 						"output": ["text"]
 					},
 					"limit": {
-						// this would demonstrate max supported model context
-						// beware: this naturally allows omlx to consume considerable more memory for context
-						"context": 262144,
+						"context": 131072,
 						"output": 32768
 					},
-					// recommendations for coding models: https://unsloth.ai/docs/models/qwen3.6
 					"options": {
 						"temperature": 0.6,
 						"top_p": 0.95,
