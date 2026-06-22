@@ -1,9 +1,9 @@
 {
 	"$schema": "https://opencode.ai/config.json",
 	"model": "github-copilot/gpt-5.4",
-	"autoshare": false,
+	"share": "manual",
 	"autoupdate": false,
-	"plugin": ["cc-safety-net", "@plannotator/opencode@latest"],
+	"plugin": ["cc-safety-net", "@plannotator/opencode@latest","./plugins/caveman/plugin.js"],
 	"enabled_providers": ["github-copilot", "omlx"],
 	"provider": {
 		"omlx": {
@@ -13,8 +13,8 @@
 				"baseURL": "http://127.0.0.1:8000/v1"
 			},
 			"models": {
-				"Qwen3.6-35B-A3B-oQ8-fp16-mtp": {
-					"name": "Qwen3.6-35B-A3B",
+				"Qwen3.6-35B-A3B-oQ6-fp16-mtp": {
+					"name": "Qwen3.6-35B-A3B-oQ6",
 					"reasoning": true,
 					"tool_call": true,
 					"modalities": {
@@ -35,25 +35,6 @@
 								"repetition_penalty": 1.0
 							}
 						}
-					}
-				},
-				"gemma-4-26B-A4B-it-qat-4bit": {
-					"name": "gemma-4-26B-A4B",
-					"reasoning": true,
-					"tool_call": true,
-					"modalities": {
-						"input": ["text", "image"],
-						"output": ["text"]
-					},
-					"limit": {
-						"context": 262144,
-						"output": 65536 // https://ai.google.dev/gemma/docs/core/model_card_4#mixture-of-experts_moe_model
-					},
-					// https://ai.google.dev/gemma/docs/core/model_card_4#1_sampling_parameters
-					"options": {
-						"temperature": 1.0,
-						"top_p": 0.95,
-						"providerOptions": { "omlx": { "top_k": 64 } }
 					}
 				}
 			}

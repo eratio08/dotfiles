@@ -4,3 +4,4 @@ package-lock.json
 bun.lock
 atlassian.jsonc
 command/
+.caveman-active
