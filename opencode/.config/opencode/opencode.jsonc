@@ -1,6 +1,14 @@
 {
 	"$schema": "https://opencode.ai/config.json",
 	"model": "github-copilot/gpt-5.4",
+	"agent": {
+		"build": {
+			"model": "github-copilot/gpt-5.4"
+		},
+		"plan": {
+			"model": "github-copilot/gpt-5.5"
+		}
+	},
 	"share": "manual",
 	"autoupdate": false,
 	"plugin": ["cc-safety-net", "@plannotator/opencode@latest","./plugins/caveman/plugin.js"],
