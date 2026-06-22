@@ -45,3 +45,5 @@
   all = true
 [help]
   autocorrect = prompt
+[coderabbit]
+	machineId = cli/6c0ac66566c546ddb75d71c2d135a668
