@@ -1,0 +1,98 @@
+onboarding = false
+
+[theme]
+name = "rose-pine"
+
+[terminal]
+default_shell = "zsh"
+shell_mode = "auto"
+new_cwd = "follow"
+
+[update]
+channel = "stable"
+
+[keys]
+prefix = "ctrl+b"
+help = "prefix+?"
+settings = "prefix+s"
+detach = "prefix+q"
+reload_config = "prefix+shift+r"
+open_notification_target = "prefix+o"
+workspace_picker = "prefix+w"
+goto = "prefix+g"
+new_workspace = "prefix+shift+n"
+new_worktree = "prefix+shift+g"
+# open_worktree = ""    # optional, unset by default
+# remove_worktree = ""  # optional, unset by default; opens confirmation
+rename_workspace = "prefix+shift+w"
+close_workspace = "prefix+shift+d"
+# previous_workspace = "" # optional, unset by default
+# next_workspace = ""     # optional, unset by default
+# previous_agent = ""     # optional, unset by default
+# next_agent = ""         # optional, unset by default
+# focus_agent = ""        # optional indexed binding, e.g. "prefix+alt+1..9"
+new_tab = "prefix+c"
+rename_tab = "prefix+,"
+previous_tab = "prefix+p"
+next_tab = "prefix+n"
+switch_tab = "prefix+1..9"
+switch_workspace = "prefix+ctrl+1..9"
+rename_pane = "prefix+shift+p"
+edit_scrollback = "prefix+e"
+focus_pane_left = "prefix+h"
+focus_pane_down = "prefix+j"
+focus_pane_up = "prefix+k"
+focus_pane_right = "prefix+l"
+cycle_pane_next = "prefix+tab"
+cycle_pane_previous = "prefix+shift+tab"
+# last_pane = ""          # optional, unset by default; bind e.g. "prefix+tab" for global back-and-forth
+split_vertical = "prefix+v"
+split_horizontal = "prefix+minus"
+close_pane = "prefix+x"
+zoom = "prefix+z"
+resize_mode = "prefix+r"
+toggle_sidebar = "prefix+b"
+
+# Navigate-mode movement.
+navigate_workspace_up = "k"
+navigate_workspace_down = "j"
+navigate_pane_down = "down"
+navigate_pane_up = "up"
+
+[worktrees]
+directory = "~/.herdr/worktrees"
+
+[ui]
+pane_borders = false
+pane_gaps = false
+prompt_new_tab_name = false
+mouse_capture = true
+mouse_scroll_lines = 3
+confirm_close = false
+agent_panel_scope = "all"
+
+[ui.toast]
+delivery = "terminal"
+
+[ui.toast.herdr]
+position = "top-right"
+
+[ui.toast.clipboard]
+enabled = true
+position = "bottom-center"
+
+[ui.sound]
+enabled = false
+
+[session]
+resume_agents_on_restore = true
+
+[remote]
+manage_ssh_config = true
+
+[experimental]
+pane_history = true
+allow_nested = false
+
+[advanced]
+scrollback_limit_bytes = 52428800
