@@ -1,0 +1,13 @@
+default:
+  just --list
+
+ponytail:
+  if [ -d ~/src/ponytail/.git ]; then git -C ~/src/ponytail pull; else git clone https://github.com/DietrichGebert/ponytail.git ~/src/ponytail; fi
+  rm -f ./plugins/ponytail.mjs ./commands/ponytail-audit.md ./commands/ponytail-debt.md ./commands/ponytail-gain.md ./commands/help.md ./commands/ponytail-review.md ./commands/ponytail.md
+  cp ~/src/ponytail/.opencode/plugins/ponytail.mjs ./plugins/ponytail.mjs
+  cp ~/src/ponytail/.opencode/command/ponytail-audit.md ./commands/ponytail-audit.md
+  cp ~/src/ponytail/.opencode/command/ponytail-debt.md ./commands/ponytail-debt.md
+  cp ~/src/ponytail/.opencode/command/ponytail-gain.md ./commands/ponytail-gain.md
+  cp ~/src/ponytail/.opencode/command/ponytail-help.md ./commands/ponytail-help.md
+  cp ~/src/ponytail/.opencode/command/ponytail-review.md ./commands/ponytail-review.md
+  cp ~/src/ponytail/.opencode/command/ponytail.md ./commands/ponytail.md
