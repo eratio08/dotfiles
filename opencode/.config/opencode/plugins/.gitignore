@@ -1,0 +1,8 @@
+*
+!*/
+!.gitignore
+!rtk.ts
+!caveman/
+!caveman/**
+!herdr-agent-state.js
+!ponytail.js

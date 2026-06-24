@@ -1,0 +1,7 @@
+*
+!*/
+!.gitignore
+!cave*/
+!cave*/**
+!grilling/**
+!domain-modeling/**
