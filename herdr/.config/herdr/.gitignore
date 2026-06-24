@@ -4,3 +4,5 @@ herdr-server.log
 herdr.sock
 session-history.json
 session.json
+plugins/
+plugins.json
