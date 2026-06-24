@@ -1,5 +1,5 @@
 ---
-description: "- Conversational agent for answering questions and having simple chats"
+description: Conversational agent for answering questions and having simple chats
 mode: primary
 color: warning
 temperature: 0.7

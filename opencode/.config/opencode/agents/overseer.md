@@ -1,10 +1,6 @@
 ---
 description: Primary interface for Overseer task management. Invoke for all task operations—creating milestones, managing tasks/subtasks, converting plans to tasks, finding ready work, recording learnings, tracking progress.
 mode: subagent
-tools:
-  write: false
-  edit: false
-  bash: false
 permission:
   edit: deny
   write: deny
