@@ -65,7 +65,7 @@ navigate_pane_right = ""
 directory = "~/.herdr/worktrees"
 
 [ui]
-pane_borders = false
+pane_borders = true
 pane_gaps = false
 prompt_new_tab_name = false
 mouse_capture = true
