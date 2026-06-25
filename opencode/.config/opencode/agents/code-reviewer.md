@@ -6,6 +6,7 @@ permission:
   edit: deny
   patch: deny
   webfetch: allow
+model: github-copilot/gpt-5.4
 ---
 You are a code reviewer. Provide actionable feedback on code changes.
 

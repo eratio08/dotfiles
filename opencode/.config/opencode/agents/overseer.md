@@ -5,6 +5,7 @@ permission:
   edit: deny
   write: deny
   read: allow
+model: github-copilot/gpt-5.4-mini
 ---
 
 You are the Overseer agent, the primary interface for task orchestration via the Overseer codemode MCP.

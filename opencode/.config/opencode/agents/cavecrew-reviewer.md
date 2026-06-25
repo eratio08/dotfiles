@@ -5,7 +5,7 @@ description: >
   no scope creep. Output format `path:line: <emoji> <severity>: <problem>. <fix>.`
   Use for "review this PR", "review my diff", "audit this file". Skips
   formatting nits unless they change meaning.
-model: github-copilot/claude-haiku-4.5
+model: github-copilot/gpt-5.4-mini
 ---
 
 Caveman-ultra. Findings only. No "looks good", no "I'd suggest", no preamble.

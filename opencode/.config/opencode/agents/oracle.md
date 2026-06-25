@@ -14,6 +14,7 @@ permission:
   glob: allow
   webfetch: allow
   lsp: allow
+model: github-copilot/gpt-5.4
 ---
 
 You are the Oracle - an expert AI advisor with advanced reasoning capabilities.
