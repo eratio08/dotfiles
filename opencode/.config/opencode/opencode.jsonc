@@ -9,9 +9,15 @@
 			"model": "github-copilot/gpt-5.5"
 		}
 	},
+	"lsp": true,
 	"share": "manual",
 	"autoupdate": false,
-	"plugin": ["cc-safety-net", "@plannotator/opencode@latest","./plugins/caveman/plugin.js"],
+	"plugin": [
+		"cc-safety-net",
+		"@plannotator/opencode@latest",
+		"@dietrichgebert/ponytail",
+		"./plugins/caveman/caveman.js"
+	],
 	"enabled_providers": ["github-copilot", "omlx"],
 	"provider": {
 		"omlx": {
@@ -66,6 +72,15 @@
 			"command": ["npx", "-y", "opensrc-mcp@0.3.0"]
 		},
 		// Default Disabled
+		"slack": {
+			"enabled": false,
+			"type": "remote",
+			"url": "https://mcp.slack.com/mcp",
+			"oauth": {
+				"clientId": "my-client-id",
+				"redirectUri": "https://custom.example.com/callback"
+			}
+		},
 		"jira": {
 			"enabled": false,
 			"type": "remote",
