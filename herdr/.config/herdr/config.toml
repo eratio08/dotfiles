@@ -73,6 +73,7 @@ mouse_scroll_lines = 3
 confirm_close = false
 agent_panel_scope = "all"
 
+agent_panel_sort = "priority"
 [ui.toast]
 delivery = "terminal"
 
