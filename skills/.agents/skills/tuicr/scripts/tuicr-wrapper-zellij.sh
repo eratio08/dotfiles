@@ -2,8 +2,15 @@
 set -e -u -o pipefail
 
 # Configuration - override via environment variables
-TUICR_PANE_POSITION="${TUICR_PANE_POSITION:-top}"    # top or bottom
-TUICR_PANE_SIZE="${TUICR_PANE_SIZE:-80}"              # percentage of screen
+TUICR_PANE_DIRECTION="${TUICR_PANE_DIRECTION:-stacked}"  # down or right or stacked
+ZELLIJ_BIN="${ZELLIJ_BIN:-zellij}"
+
+# Backward-compat: map old tmux-style position to zellij direction
+case "${TUICR_PANE_POSITION:-}" in
+  top|bottom) TUICR_PANE_DIRECTION="down" ;;
+  left|right) TUICR_PANE_DIRECTION="right" ;;
+  stacked) TUICR_PANE_DIRECTION="stacked" ;;
+esac
 
 # Colors for output
 RED='\033[0;31m'
@@ -27,24 +34,25 @@ usage() {
   cat << EOF
 Usage: $(basename "$0") [directory]
 
-Launch tuicr in a tmux split pane to review git changes.
+Launch tuicr in a zellij split pane to review git changes.
 
 Arguments:
   directory    Git repository directory to review (default: current directory)
 
 Environment variables:
-  TUICR_PANE_POSITION   Position of tuicr pane: top or bottom (default: top)
-  TUICR_PANE_SIZE       Size of pane as percentage (default: 80)
+  TUICR_PANE_DIRECTION  Split direction: down or right or stacked (default: stacked)
+  ZELLIJ_BIN            Path to zellij executable
 
 Examples:
-  $(basename "$0")                    # Review changes in current directory
-  $(basename "$0") ~/project          # Review changes in ~/project
-  TUICR_PANE_SIZE=70 $(basename "$0") # Use 70% of screen
+  $(basename "$0")                            # Review changes in current directory
+  $(basename "$0") ~/project                  # Review changes in ~/project
+  TUICR_PANE_DIRECTION=right $(basename "$0") # Split to the right instead of below
 EOF
 }
 
-check_tmux() {
-  if [[ -z "${TMUX:-}" ]]; then
+check_zellij() {
+  if [[ ! -x "$ZELLIJ_BIN" ]] && ! command -v zellij &> /dev/null; then
+    log_error "zellij command not found on PATH"
     return 1
   fi
   return 0
@@ -73,9 +81,9 @@ check_git_repo() {
 }
 
 check_tuicr_running() {
-  # Check if tuicr is already running in any tmux pane
-  if tmux list-panes -a -F '#{pane_current_command}' 2>/dev/null | grep -q '^tuicr$'; then
-    return 0  # tuicr is running
+  # Zellij has no panes-list CLI like tmux. Fall back to a process check.
+  if pgrep -x tuicr &> /dev/null; then
+    return 0
   fi
   return 1
 }
@@ -83,60 +91,59 @@ check_tuicr_running() {
 launch_tuicr_pane() {
   local target_dir="$1"
 
-  # Get window height and calculate lines (using -l instead of -p to avoid "size missing" error)
-  local window_height
-  window_height=$(tmux display-message -p '#{window_height}')
-  local pane_lines=$(( window_height * TUICR_PANE_SIZE / 100 ))
+  # Validate direction
+  case "$TUICR_PANE_DIRECTION" in
+    down|right|stacked) ;;
+    *)
+      log_warn "Unknown TUICR_PANE_DIRECTION '$TUICR_PANE_DIRECTION', defaulting to 'stacked'"
+      TUICR_PANE_DIRECTION="stacked"
+      ;;
+  esac
 
-  # Build the split-window command
-  local split_args=()
-
-  # Determine split direction based on position
-  if [[ "$TUICR_PANE_POSITION" == "top" ]]; then
-    split_args+=(-b)  # Create pane above
-  fi
-  # For bottom, no -b flag needed (default)
-
-  # Set pane size in lines (not percentage, to work without TTY)
-  split_args+=(-l "$pane_lines")
-
-  # Change to target directory
-  split_args+=(-c "$target_dir")
-
-  log_info "Launching tuicr in $TUICR_PANE_POSITION pane (${pane_lines} lines, ${TUICR_PANE_SIZE}%)"
+  log_info "Launching tuicr in $TUICR_PANE_DIRECTION-split pane"
   log_info "Directory: $target_dir"
 
-  # Create unique channel for wait-for
-  local wait_channel="tuicr-$$"
+  # FIFO for blocking until tuicr exits (zellij has no wait-for primitive)
+  local fifo
+  fifo=$(mktemp -u "/tmp/tuicr-fifo.XXXXXX")
+  mkfifo "$fifo"
 
-  # Check if --stdout is supported and set up output capture
+  # Optional --stdout capture
   local output_file=""
-  local tuicr_cmd="tuicr"
+  local tuicr_cmd="$(command -v tuicr)"
   local use_stdout=false
 
   if check_tuicr_stdout_support; then
     output_file=$(mktemp /tmp/tuicr-output.XXXXXX)
-    tuicr_cmd="tuicr --stdout > '$output_file'"
+    tuicr_cmd="$tuicr_cmd --stdout > '$output_file'"
     use_stdout=true
     log_info "Using --stdout mode (output will be captured)"
   else
     log_warn "tuicr --stdout not supported, output will be copied to clipboard"
   fi
 
-  # Create the split pane with tuicr, signal when done
-  # Use -d to not switch, -P to print pane info so we can capture the ID
-  local new_pane_id
-  new_pane_id=$(tmux split-window -d -P -F '#{pane_id}' "${split_args[@]}" \
-    "cd '$target_dir' && $tuicr_cmd; tmux wait-for -S '$wait_channel'")
+  # Spawn tuicr in a new zellij pane. --close-on-exit cleans up the pane when
+  # tuicr quits; the trailing FIFO write unblocks the wrapper.
+  zellij_args=("--close-on-exit" "--name" "tuicr")
 
-  # Switch focus to the new tuicr pane
-  tmux select-pane -t "$new_pane_id"
+  if [[ "$TUICR_PANE_DIRECTION" == "stacked" ]]; then
+    zellij_args+=("--stacked")
+  else
+    zellij_args+=("--direction" "$TUICR_PANE_DIRECTION")
+  fi
 
-  log_info "tuicr is running in pane $new_pane_id"
+  zellij_args+=(-- sh -c "$tuicr_cmd; echo done > '$fifo'")
+
+  "$ZELLIJ_BIN" run\
+    "${zellij_args[@]}"
+
+
+  log_info "tuicr is running in a $TUICR_PANE_DIRECTION pane"
   log_info "Waiting for tuicr to exit..."
 
-  # Block until tuicr exits
-  tmux wait-for "$wait_channel"
+  # Block until the spawned command writes to the FIFO
+  read -r _ < "$fifo"
+  rm -f "$fifo"
 
   log_info "tuicr finished"
 
@@ -178,15 +185,15 @@ main() {
     exit 1
   fi
 
-  # Check if we're in tmux
-  if ! check_tmux; then
-    log_error "Not running inside tmux!"
+  # Check if we're in zellij
+  if ! check_zellij; then
+    log_error "Not running inside zellij!"
     echo ""
-    echo "To use tuicr with your coding agent, run that agent inside tmux."
+    echo "To use tuicr with your coding agent, run that agent inside zellij."
     echo ""
     echo "1. Exit the current agent session."
     echo ""
-    echo "2. Restart the agent inside tmux."
+    echo "2. Restart the agent inside zellij (e.g. 'zellij' then run the agent)."
     echo ""
     echo "3. Then run /tuicr again."
     exit 1
@@ -194,8 +201,8 @@ main() {
 
   # Check if tuicr is already running
   if check_tuicr_running; then
-    log_warn "tuicr is already running in another pane"
-    log_info "Switch to it with Ctrl-b + arrow keys"
+    log_warn "tuicr is already running"
+    log_info "Switch to its pane with Alt-arrow keys (default zellij binding)"
     exit 0
   fi
 
