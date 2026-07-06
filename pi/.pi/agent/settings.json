@@ -11,5 +11,10 @@
     "npm:@plannotator/pi-extension"
   ],
   "enableInstallTelemetry": false,
-  "hideThinkingBlock": true
+  "hideThinkingBlock": true,
+  "enabledModels": [
+    "github-copilot/gpt-5.4-mini",
+    "github-copilot/gpt-5.4",
+    "github-copilot/gpt-5.5"
+  ]
 }
