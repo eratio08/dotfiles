@@ -1,0 +1,110 @@
+{
+	"mcp": {
+		"toolMode": "proxy",
+		"startup": "eager",
+		"context7": {
+			"enabled": true,
+			"type": "remote",
+			"url": "https://mcp.context7.com/mcp"
+		},
+		"code-index": {
+			"enabled": true,
+			"type": "local",
+			"command": ["uvx", "code-index-mcp@2.17.0"]
+		},
+		"opensrc": {
+			"enabled": true,
+			"type": "local",
+			"command": ["npx", "-y", "opensrc-mcp@0.3.0"]
+		},
+		"slack": {
+			"enabled": false,
+			"type": "remote",
+			"url": "https://mcp.slack.com/mcp",
+			"oauth": {
+				"clientId": "my-client-id",
+				"redirectUri": "https://custom.example.com/callback"
+			}
+		},
+		"jira": {
+			"enabled": false,
+			"type": "remote",
+			"url": "https://mcp.atlassian.com/v1/mcp"
+		},
+		"overseer": {
+			"enabled": false,
+			"type": "local",
+			"command": ["npx", "-y", "@dmmulroy/overseer@0.11.0", "mcp"]
+		},
+		"browser": {
+			"enabled": false,
+			"type": "local",
+			"command": ["bunx", "-y", "@browsermcp/mcp@0.1.3"]
+		},
+		"playwright": {
+			"enabled": false,
+			"type": "local",
+			"command": ["npx", "-y", "@playwright/mcp@0.0.75"]
+		},
+		"awsdocs": {
+			"enabled": false,
+			"type": "local",
+			"command": ["uvx", "awslabs.aws-documentation-mcp-server@1.1.24"]
+		},
+		"awsknowledge": {
+			"enabled": false,
+			"type": "remote",
+			"url": "https://knowledge-mcp.global.api.aws"
+		},
+		"awscli": {
+			"enabled": false,
+			"type": "local",
+			"command": ["uvx", "awslabs.aws-api-mcp-server@1.3.38"]
+		},
+		"awstf": {
+			"enabled": false,
+			"type": "local",
+			"command": ["uvx", "awslabs.terraform-mcp-server@1.0.18"]
+		},
+		"opentofu": {
+			"enabled": false,
+			"type": "local",
+			"command": ["npx", "-y", "@opentofu/opentofu-mcp-server@0.1.5"]
+		},
+		"semgrep": {
+			"enabled": false,
+			"type": "local",
+			"command": [
+				"uvx",
+				"--from",
+				"git+https://github.com/semgrep/mcp@cade782501e611373844696edc2ceef31eb7e1f7",
+				"semgrep-mcp"
+			]
+		},
+		"awscost": {
+			"enabled": false,
+			"type": "local",
+			"command": ["uvx", "awslabs.billing-cost-management-mcp-server@0.0.22"],
+			"environment": {
+				"AWS_PROFILE": "fc-prod-op",
+				"AWS_REGION": "eu-central-1",
+				"FASTMCP_LOG_LEVEL": "ERROR"
+			}
+		},
+		"cloudtrail-mcp-server": {
+			"enabled": false,
+			"type": "local",
+			"command": ["uvx", "awslabs.cloudtrail-mcp-server@0.0.15"],
+			"environment": {
+				"AWS_PROFILE": "fc-prod-op",
+				"AWS_REGION": "eu-central-1",
+				"FASTMCP_LOG_LEVEL": "ERROR"
+			}
+		},
+		"chrome-devtools": {
+			"enabled": false,
+			"type": "local",
+			"command": ["npx", "-y", "chrome-devtools-mcp@1.0.1"]
+		}
+	}
+}

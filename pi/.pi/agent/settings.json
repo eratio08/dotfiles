@@ -6,6 +6,9 @@
   "defaultThinkingLevel": "medium",
   "packages": [
     "npm:@tran-quil/pi-rose-pine",
-    "git:github.com/DietrichGebert/ponytail"
-  ]
+    "git:github.com/DietrichGebert/ponytail",
+    "git:github.com/dmmulroy/pi-mcp"
+  ],
+  "enableInstallTelemetry": false,
+  "hideThinkingBlock": true
 }
