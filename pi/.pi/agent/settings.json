@@ -7,7 +7,8 @@
   "packages": [
     "npm:@tran-quil/pi-rose-pine",
     "git:github.com/DietrichGebert/ponytail",
-    "git:github.com/dmmulroy/pi-mcp"
+    "git:github.com/dmmulroy/pi-mcp",
+    "npm:@plannotator/pi-extension"
   ],
   "enableInstallTelemetry": false,
   "hideThinkingBlock": true
