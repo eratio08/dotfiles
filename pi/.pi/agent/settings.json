@@ -1,0 +1,11 @@
+{
+  "lastChangelogVersion": "0.80.3",
+  "theme": "rose-pine-moon",
+  "defaultProvider": "github-copilot",
+  "defaultModel": "gpt-5.4",
+  "defaultThinkingLevel": "medium",
+  "packages": [
+    "npm:@tran-quil/pi-rose-pine",
+    "git:github.com/DietrichGebert/ponytail"
+  ]
+}

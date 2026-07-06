@@ -1,0 +1,17 @@
+# Secrets / machine-local auth
+auth.json
+trust.json
+
+# Generated runtime state
+sessions/
+pi-debug.log
+
+# Installed package caches
+npm/
+git/
+
+# Usually machine-local; ignore if it contains secrets or host-specific endpoints
+models.json
+
+# OS noise
+.DS_Store
