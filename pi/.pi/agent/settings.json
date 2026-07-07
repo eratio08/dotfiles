@@ -7,7 +7,7 @@
   "packages": [
     "npm:@tran-quil/pi-rose-pine",
     "git:github.com/DietrichGebert/ponytail",
-    "git:github.com/dmmulroy/pi-mcp",
+    "git:github.com/eratio08/pi-mcp",
     "npm:@plannotator/pi-extension",
     "npm:cc-safety-net"
   ],
