@@ -1,7 +1,2 @@
+# do not use this dir, use ~/.agents/skills
 *
-!*/
-!.gitignore
-!cave*/
-!cave*/**
-!grilling/**
-!domain-modeling/**
