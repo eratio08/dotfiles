@@ -15,3 +15,6 @@ models.json
 
 # OS noise
 .DS_Store
+
+# MCPs
+mcp-auth.json
