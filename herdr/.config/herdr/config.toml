@@ -82,7 +82,7 @@ position = "top-right"
 
 [ui.toast.clipboard]
 enabled = true
-position = "bottom-center"
+position = "top-center"
 
 [ui.sound]
 enabled = false
