@@ -1,7 +1,7 @@
 {
 	"mcp": {
 		"toolMode": "proxy",
-		"startup": "eager",
+		"startup": "lazy",
 		"context7": {
 			"enabled": true,
 			"type": "remote",
