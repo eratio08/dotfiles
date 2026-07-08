@@ -1,0 +1,13 @@
+{
+  "name": "rtk",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "keywords": ["pi-package"],
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": ["./index.ts"]
+  }
+}

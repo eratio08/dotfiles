@@ -1,5 +1,5 @@
 {
-  "name": "pi-web-tools",
+  "name": "web-tools",
   "private": true,
   "type": "module",
   "scripts": {
