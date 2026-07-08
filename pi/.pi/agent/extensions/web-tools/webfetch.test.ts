@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { convertHTMLToMarkdown, extractTextFromHTML } from "./html.ts";
-import { acceptHeaderForFormat, assertSafePublicHttpUrl } from "./webfetch.ts";
+import { acceptHeaderForFormat, assertSafePublicHttpUrl, previewLines as webFetchPreviewLines } from "./webfetch.ts";
 
 test("webfetch blocks localhost and private IPv4", () => {
 	assert.throws(() => assertSafePublicHttpUrl("http://localhost"));
@@ -23,4 +23,13 @@ test("webfetch accept headers vary by format", () => {
 	assert.match(acceptHeaderForFormat("markdown"), /text\/markdown/);
 	assert.match(acceptHeaderForFormat("text"), /text\/plain/);
 	assert.match(acceptHeaderForFormat("html"), /text\/html/);
+});
+
+test("webfetch preview lines trim blanks and truncate long lines", () => {
+	assert.deepEqual(webFetchPreviewLines("\n first line \n\nsecond line\nthird line\nfourth line", 3, 20), [
+		"first line",
+		"second line",
+		"third line",
+	]);
+	assert.deepEqual(webFetchPreviewLines("abcdefghijklmnopqrstuvwxyz", 3, 8), ["abcdefg…"]);
 });

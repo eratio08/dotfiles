@@ -11,6 +11,7 @@ import {
 	truncateHead,
 	withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
+import { Container, Spacer, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
 export const WEBSEARCH_NAME = "websearch";
@@ -29,6 +30,8 @@ type WebSearchProvider = (typeof PROVIDER_VALUES)[number];
 export interface WebSearchDetails {
 	provider: WebSearchProvider;
 	query: string;
+	lineCount: number;
+	preview: string[];
 	truncated: boolean;
 	fullOutputPath?: string;
 }
@@ -149,6 +152,24 @@ async function spillTruncatedOutput(prefix: string, output: string) {
 	return fullOutputPath;
 }
 
+function countLines(text: string): number {
+	return text.length === 0 ? 0 : text.split("\n").length;
+}
+
+function truncateInline(text: string, maxChars: number): string {
+	if (text.length <= maxChars) return text;
+	return `${text.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`;
+}
+
+export function previewLines(text: string, maxLines = 3, maxChars = 100): string[] {
+	return text
+		.split("\n")
+		.map((line) => line.trim())
+		.filter(Boolean)
+		.slice(0, maxLines)
+		.map((line) => truncateInline(line, maxChars));
+}
+
 export const webSearchTool = defineTool({
 	name: WEBSEARCH_NAME,
 	label: "websearch",
@@ -159,6 +180,36 @@ export const webSearchTool = defineTool({
 		"Use websearch before webfetch when the user needs discovery rather than one exact URL.",
 	],
 	parameters: webSearchParameters,
+	renderCall(args, theme) {
+		const query = truncateInline(typeof args.query === "string" ? args.query : "", 80);
+		return new Text(
+			`${theme.fg("toolTitle", theme.bold("websearch "))}${theme.fg("accent", query)}`,
+			0,
+			0,
+		);
+	},
+	renderResult(result, { expanded, isPartial }, theme) {
+		if (isPartial) return new Text(theme.fg("warning", "Searching..."), 0, 0);
+		const details = result.details as WebSearchDetails | undefined;
+		const content = result.content.find((item) => item.type === "text");
+		const text = content?.type === "text" ? content.text : "";
+		if (!details) return new Text(text || theme.fg("muted", "No results"), 0, 0);
+		if (!expanded) {
+			let summary = theme.fg("success", details.provider);
+			summary += theme.fg("muted", ` • ${truncateInline(details.query, 80)}`);
+			summary += theme.fg("dim", ` • ${details.lineCount} lines`);
+			if (details.truncated) summary += theme.fg("warning", " • truncated");
+			if (details.preview.length === 0) return new Text(summary, 0, 0);
+			return new Text(`${summary}\n${theme.fg("toolOutput", details.preview.join("\n"))}`, 0, 0);
+		}
+		const body = new Text(theme.fg("toolOutput", text), 0, 0);
+		if (!details.fullOutputPath) return body;
+		const container = new Container();
+		container.addChild(body);
+		container.addChild(new Spacer(1));
+		container.addChild(new Text(theme.fg("dim", `Full output: ${details.fullOutputPath}`), 0, 0));
+		return container;
+	},
 	async execute(toolCallId, params, signal, _onUpdate, ctx) {
 		const provider = selectProvider();
 		const numResults = clampInt(params.numResults, 8, MAX_NUM_RESULTS);
@@ -212,6 +263,8 @@ export const webSearchTool = defineTool({
 			details: {
 				provider,
 				query: params.query,
+				lineCount: countLines(output),
+				preview: previewLines(output),
 				truncated: truncation.truncated,
 				fullOutputPath,
 			} satisfies WebSearchDetails,

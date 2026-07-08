@@ -8,9 +8,11 @@ import {
 	DEFAULT_MAX_LINES,
 	defineTool,
 	formatSize,
+	getMarkdownTheme,
 	truncateHead,
 	withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
+import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { convertHTMLToMarkdown, extractTextFromHTML } from "./html.ts";
 
@@ -25,8 +27,12 @@ type WebFetchFormat = (typeof FORMAT_VALUES)[number];
 
 export interface WebFetchDetails {
 	url: string;
+	host: string;
 	contentType: string;
+	mime: string;
 	format: WebFetchFormat;
+	lineCount: number;
+	preview: string[];
 	truncated: boolean;
 	fullOutputPath?: string;
 }
@@ -166,6 +172,24 @@ async function spillTruncatedOutput(prefix: string, output: string) {
 	return fullOutputPath;
 }
 
+function countLines(text: string): number {
+	return text.length === 0 ? 0 : text.split("\n").length;
+}
+
+function truncateInline(text: string, maxChars: number): string {
+	if (text.length <= maxChars) return text;
+	return `${text.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`;
+}
+
+export function previewLines(text: string, maxLines = 3, maxChars = 100): string[] {
+	return text
+		.split("\n")
+		.map((line) => line.trim())
+		.filter(Boolean)
+		.slice(0, maxLines)
+		.map((line) => truncateInline(line, maxChars));
+}
+
 export const webFetchTool = defineTool({
 	name: WEBFETCH_NAME,
 	label: "webfetch",
@@ -176,10 +200,47 @@ export const webFetchTool = defineTool({
 		"Use webfetch instead of bash curl for normal public HTTP or HTTPS page retrieval.",
 	],
 	parameters: webFetchParameters,
+	renderCall(args, theme) {
+		const format = typeof args.format === "string" ? args.format : "markdown";
+		let target = typeof args.url === "string" ? args.url : "";
+		try {
+			target = new URL(target).host || target;
+		} catch {}
+		return new Text(
+			`${theme.fg("toolTitle", theme.bold("webfetch "))}${theme.fg("accent", target)}${theme.fg("muted", ` ${format}`)}`,
+			0,
+			0,
+		);
+	},
+	renderResult(result, { expanded, isPartial }, theme) {
+		if (isPartial) return new Text(theme.fg("warning", "Fetching..."), 0, 0);
+		const details = result.details as WebFetchDetails | undefined;
+		const content = result.content.find((item) => item.type === "text");
+		const text = content?.type === "text" ? content.text : "";
+		if (!details) return new Text(text || theme.fg("muted", "No content"), 0, 0);
+		if (!expanded) {
+			let summary = theme.fg("success", details.host);
+			summary += theme.fg("muted", ` • ${details.format} • ${details.mime || details.contentType || "unknown"}`);
+			summary += theme.fg("dim", ` • ${details.lineCount} lines`);
+			if (details.truncated) summary += theme.fg("warning", " • truncated");
+			if (details.preview.length === 0) return new Text(summary, 0, 0);
+			return new Text(`${summary}\n${theme.fg("toolOutput", details.preview.join("\n"))}`, 0, 0);
+		}
+		const body = details.format === "markdown"
+			? new Markdown(text, 0, 0, getMarkdownTheme())
+			: new Text(theme.fg("toolOutput", text), 0, 0);
+		if (!details.fullOutputPath) return body;
+		const container = new Container();
+		container.addChild(body);
+		container.addChild(new Spacer(1));
+		container.addChild(new Text(theme.fg("dim", `Full output: ${details.fullOutputPath}`), 0, 0));
+		return container;
+	},
 	async execute(_toolCallId, params, signal) {
 		const format = (params.format ?? "markdown") as WebFetchFormat;
 		const timeoutSeconds = clampTimeout(params.timeout);
-		const url = assertSafePublicHttpUrl(params.url).toString();
+		const safeUrl = assertSafePublicHttpUrl(params.url);
+		const url = safeUrl.toString();
 		const response = await fetchWithTimeout(
 			url,
 			{
@@ -219,8 +280,12 @@ export const webFetchTool = defineTool({
 			content: [{ type: "text", text }],
 			details: {
 				url,
+				host: safeUrl.host,
 				contentType,
+				mime,
 				format,
+				lineCount: countLines(converted),
+				preview: previewLines(converted),
 				truncated: truncation.truncated,
 				fullOutputPath,
 			} satisfies WebFetchDetails,
