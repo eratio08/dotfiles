@@ -180,11 +180,11 @@ export default function (pi: ExtensionAPI) {
 		name: "todowrite",
 		label: "Todo",
 		description:
-			"Replace the current session todo list with a full snapshot. Use this for multi-step work tracking, not trivial one-step tasks.",
-		promptSnippet: "Track multi-step work with a full todo list snapshot via todowrite({ todos: [...] })",
+			"Replace the current session todo list with a full snapshot. Use this for work with 3+ distinct steps or other non-trivial tasks, not trivial one-step tasks.",
+		promptSnippet: "Track work with 3+ distinct steps using a full todo list snapshot via todowrite({ todos: [...] })",
 		promptGuidelines: [
-			"Use todowrite for multi-step or non-trivial work that benefits from explicit progress tracking.",
-			"Do not use todowrite for trivial one-step requests or work you can finish immediately.",
+			"Use todowrite for work with 3+ distinct steps or other non-trivial tasks that benefit from explicit progress tracking.",
+			"Do not use todowrite for trivial one-step requests, single straightforward tasks, or work you can finish immediately.",
 			"Use todowrite with the full current list each time: todowrite({ todos: [...] }).",
 			"Keep exactly one todowrite item in_progress while work remains, unless the user explicitly wants parallel active tasks.",
 			"Update todowrite in real time as work progresses instead of batching updates at the end.",
