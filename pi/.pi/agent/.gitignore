@@ -19,3 +19,6 @@ models.json
 
 # MCPs
 mcp-auth.json
+
+# machine local configs
+atlassion.json
