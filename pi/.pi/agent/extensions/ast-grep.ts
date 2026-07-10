@@ -1,6 +1,12 @@
 import { spawn } from "node:child_process";
 import { Type } from "@earendil-works/pi-ai";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { keyHint, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
+
+interface AstGrepDetails {
+	output: string;
+	summary: string;
+}
 
 function runSg(args: string[], signal?: AbortSignal): Promise<{ exitCode: number; stdout: string; stderr: string }> {
 	return new Promise((resolve, reject) => {
@@ -28,7 +34,7 @@ export default function (pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "ast_grep_search",
 		label: "AST Grep Search",
-		description: "Search code with ast-grep structural pattern matching",
+		description: "Structurally search code with ast-grep. Use `$NAME` for one AST node and `$$$NAMES` for zero or more nodes. Set `lang` for reliable parsing, narrow `path` when possible, and set `json: true` for structured match locations. Use this before ast_grep_rewrite.",
 		parameters: Type.Object({
 			pattern: Type.String({ description: "AST pattern to match" }),
 			path: Type.Optional(Type.String({ description: "Path to search" })),
@@ -67,22 +73,36 @@ export default function (pi: ExtensionAPI) {
 			if (result.exitCode !== 0 && result.stderr.trim()) {
 				return {
 					content: [{ type: "text", text: `Error: ${result.stderr}` }],
-					details: {},
+					details: { output: `Error: ${result.stderr}`, summary: "Search failed." } satisfies AstGrepDetails,
 					isError: true,
 				};
 			}
 
+			const output = result.stdout.trim();
 			return {
-				content: [{ type: "text", text: result.stdout.trim() || "No matches found." }],
-				details: {},
+				content: [{ type: "text", text: output || "No matches found." }],
+				details: { output, summary: output ? "Search completed." : "No matches found." } satisfies AstGrepDetails,
 			};
+		},
+		renderResult(result, { expanded, isPartial }, theme, context) {
+			const text = context.lastComponent as Text | undefined ?? new Text("", 0, 0);
+			if (isPartial) {
+				text.setText(theme.fg("warning", "Searching..."));
+				return text;
+			}
+			const details = result.details as AstGrepDetails | undefined;
+			const content = result.content.find((item) => item.type === "text");
+			const output = details?.output ?? (content?.type === "text" ? content.text : "");
+			const summary = details?.summary ?? "Search completed.";
+			text.setText(expanded && output ? theme.fg("toolOutput", output) : `${theme.fg("success", summary)}${expanded ? "" : theme.fg("muted", ` (${keyHint("app.tools.expand", "to expand")})`)}`);
+			return text;
 		},
 	});
 
 	pi.registerTool({
 		name: "ast_grep_rewrite",
 		label: "AST Grep Rewrite",
-		description: "Rewrite code with ast-grep structural pattern matching",
+		description: "Structurally rewrite code with ast-grep and update matching files in place. First use ast_grep_search with the same `pattern`, `path`, and `lang` to verify matches. Use `$NAME` and `$$$NAMES` consistently between `pattern` and `rewrite`. Narrow `path` to avoid unintended edits.",
 		parameters: Type.Object({
 			pattern: Type.String({ description: "AST pattern to match" }),
 			rewrite: Type.String({ description: "Replacement pattern" }),
@@ -98,15 +118,29 @@ export default function (pi: ExtensionAPI) {
 			if (result.exitCode !== 0 && result.stderr.trim()) {
 				return {
 					content: [{ type: "text", text: `Error: ${result.stderr}` }],
-					details: {},
+					details: { output: `Error: ${result.stderr}`, summary: "Rewrite failed." } satisfies AstGrepDetails,
 					isError: true,
 				};
 			}
 
+			const output = result.stdout.trim();
 			return {
-				content: [{ type: "text", text: result.stdout.trim() || "No changes needed." }],
-				details: {},
+				content: [{ type: "text", text: output || "Rewrite completed." }],
+				details: { output, summary: "Rewrite completed." } satisfies AstGrepDetails,
 			};
+		},
+		renderResult(result, { expanded, isPartial }, theme, context) {
+			const text = context.lastComponent as Text | undefined ?? new Text("", 0, 0);
+			if (isPartial) {
+				text.setText(theme.fg("warning", "Rewriting..."));
+				return text;
+			}
+			const details = result.details as AstGrepDetails | undefined;
+			const content = result.content.find((item) => item.type === "text");
+			const output = details?.output ?? (content?.type === "text" ? content.text : "");
+			const summary = details?.summary ?? "Rewrite completed.";
+			text.setText(expanded && output ? theme.fg("toolOutput", output) : `${theme.fg("success", summary)}${expanded ? "" : theme.fg("muted", ` (${keyHint("app.tools.expand", "to expand")})`)}`);
+			return text;
 		},
 	});
 }
