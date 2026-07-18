@@ -1,5 +1,5 @@
 return {
-  enabled = true,
+  enabled = false,
   'esmuellert/codediff.nvim',
   cmd = 'CodeDiff',
 }

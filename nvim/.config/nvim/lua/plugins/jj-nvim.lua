@@ -10,7 +10,14 @@ return {
   config = function ()
     require('jj').setup({
       diff = {
-        backend = 'codediff'
+        backend = 'diffview'
+      },
+      cmd = {
+        keymaps = {
+          floating = {
+            hide = {},
+          },
+        },
       },
     })
   end,
