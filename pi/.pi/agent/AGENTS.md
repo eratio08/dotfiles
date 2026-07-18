@@ -9,6 +9,9 @@
 * If results look stale after file changes or branch switches, run `code-index_refresh_index` and retry.
 * Default order: set path -> build index -> find/search -> summary/symbol -> targeted reads.
 
+* Use the `opensrc_execute` to access public github repositories source code.
+* Use the `gh` cli to access private repositories source code.
+
 - Use the `ast-grep` tool for structural code search and transformation
 
 - Use LaTeX-like one sentence per line style when wiring markdown markdown documents
