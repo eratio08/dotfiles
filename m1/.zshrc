@@ -49,33 +49,14 @@ alias jo="joshuto"
 alias toggle="~/dotfiles/darktoggle.swift"
 alias k="kubectl"
 
-# asdf
-# export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"
-
-# NVM
-export NVM_DIR="$HOME/.nvm"
-[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
-[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
-
 # Rust
 export RUST_WITHOUT=rust-docs # do not install rust-docs with asdf
-export PATH=$HOME/.asdf/installs/rust/1.94.1/bin:$PATH
-
-# Ruby
-export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
-export LDFLAGS="-L/opt/homebrew/opt/ruby/lib"
-export CPPFLAGS="-I/opt/homebrew/opt/ruby/include"
-export PKG_CONFIG_PATH="/opt/homebrew/opt/ruby/lib/pkgconfig"
-
-# pnpm
-# export PNPM_HOME="$HOME/Library/pnpm"
-# export PATH="$PNPM_HOME:$PATH"
 
 # Tell macOS about XDG_CONFIG_HOME
 export XDG_CONFIG_HOME=~/.config/
 
 # Go
-source ~/.asdf/plugins/golang/set-env.zsh
+. ${ASDF_DATA_DIR:-$HOME/.asdf}/plugins/golang/set-env.zsh
 export PATH=$PATH:$GOBIN
 
 # OCaml
@@ -83,9 +64,6 @@ export PATH=$PATH:$GOBIN
 
 # dune
 source $HOME/.local/share/dune/env/env.zsh
-
-# Roc
-export PATH=$PATH:~/Downloads/roc-lang/roc_nightly-macos_apple_silicon-2024-07-13-070d14a5d60
 
 # Nix
 if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
@@ -99,7 +77,7 @@ _evalcache starship init zsh
 _evalcache atuin init zsh
 
 # zoxide
-eval "$(zoxide init zsh)"
+_evalcache zoxide init zsh
 alias cd="z"
 
 # postgres
