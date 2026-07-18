@@ -3,7 +3,7 @@ erlang 27.2
 gleam 1.7.0
 rust 1.94.1
 nodejs 25.9.0
-golang 1.26.2
+golang 1.26.5
 opentofu 1.10.6
 helm 3.17.3
 kubectl 1.33.2
