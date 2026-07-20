@@ -3,6 +3,7 @@ onboarding = false
 [theme]
 name = "rose-pine"
 
+auto_switch = false
 [terminal]
 default_shell = "zsh"
 shell_mode = "auto"
@@ -31,7 +32,7 @@ next_workspace = "prefix+)"
 # previous_agent = ""     # optional, unset by default
 # next_agent = ""         # optional, unset by default
 # focus_agent = ""        # optional indexed binding, e.g. "prefix+alt+1..9"
-new_tab = "prefix+c"
+new_tab = ""
 rename_tab = "prefix+,"
 previous_tab = "prefix+p"
 next_tab = "prefix+n"
@@ -60,6 +61,12 @@ navigate_pane_down = ""
 navigate_pane_up = ""
 navigate_pane_left = ""
 navigate_pane_right = ""
+
+[[keys.command]]
+key = "prefix+c"
+type = "shell"
+command = "cwd=\"${HERDR_ACTIVE_PANE_CWD:-$PWD}\"; cwd=\"${cwd%/}\"; name=\"${cwd##*/}\"; [ -n \"$name\" ] || name=tab; exec herdr tab create --label \"$name\" --focus"
+description = "new named tab"
 
 [worktrees]
 directory = "~/.herdr/worktrees"
