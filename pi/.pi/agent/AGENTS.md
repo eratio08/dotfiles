@@ -18,3 +18,4 @@
 
 - Do not write any code comments, unless explicitly instructed
 - Do not remove any existing code comments which have not been introduced by yourself
+- Never guess. Always read up on facts when unsure.
