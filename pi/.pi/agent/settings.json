@@ -1,9 +1,9 @@
 {
-  "lastChangelogVersion": "0.80.10",
+  "lastChangelogVersion": "0.82.0",
   "theme": "rose-pine-moon",
   "defaultProvider": "github-copilot",
   "defaultModel": "gpt-5.6-luna",
-  "defaultThinkingLevel": "medium",
+  "defaultThinkingLevel": "high",
   "packages": [
     "npm:@tran-quil/pi-rose-pine",
     "git:github.com/DietrichGebert/ponytail",
@@ -16,6 +16,8 @@
   "enabledModels": [
     "github-copilot/gpt-5.6-luna",
     "github-copilot/gpt-5.6-terra",
-    "github-copilot/gpt-5.6-sol"
+    "github-copilot/gpt-5.6-sol",
+    "github-copilot/kimi-k2.7-code",
+    "github-copilot/gemini-3.6-flash"
   ]
 }
