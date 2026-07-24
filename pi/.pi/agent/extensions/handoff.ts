@@ -1,6 +1,14 @@
+import { appendFile } from "node:fs/promises";
+import { join } from "node:path";
 import { complete, type Message } from "@earendil-works/pi-ai/compat";
 import type { ExtensionAPI, SessionEntry } from "@earendil-works/pi-coding-agent";
 import { BorderedLoader, convertToLlm, serializeConversation } from "@earendil-works/pi-coding-agent";
+
+const DEBUG_LOG = join(process.env.TMPDIR ?? "/tmp", "pi-handoff-debug.log");
+
+function debug(event: string, details: Record<string, unknown> = {}) {
+	return appendFile(DEBUG_LOG, `${new Date().toISOString()} [DEBUG-handoff-38e1] ${event} ${JSON.stringify(details)}\n`).catch(() => {});
+}
 
 const SYSTEM_PROMPT = `You are a context transfer assistant. Given a conversation history, generate a focused handoff prompt for a new thread that:
 
@@ -88,12 +96,17 @@ export default function (pi: ExtensionAPI) {
 			const conversationText = serializeConversation(llmMessages);
 			const currentSessionFile = ctx.sessionManager.getSessionFile();
 
+			await debug("handoff-start", { model: ctx.model.provider, messages: messages.length });
 			const handoffPrompt = await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
 				const loader = new BorderedLoader(tui, theme, "Generating handoff prompt...");
-				loader.onAbort = () => done(null);
+				loader.onAbort = () => {
+					void debug("loader-abort");
+					done(null);
+				};
 
 				const doGenerate = async () => {
 					const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model!);
+					void debug("auth-resolved", { ok: auth.ok, hasApiKey: auth.ok && Boolean(auth.apiKey) });
 					if (!auth.ok || !auth.apiKey) {
 						throw new Error(auth.ok ? `No API key for ${ctx.model!.provider}` : auth.error);
 					}
@@ -109,26 +122,37 @@ export default function (pi: ExtensionAPI) {
 						timestamp: Date.now(),
 					};
 
+					void debug("completion-start", { aborted: loader.signal.aborted });
 					const response = await complete(
 						ctx.model!,
 						{ systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
 						{ apiKey: auth.apiKey, headers: auth.headers, env: auth.env, signal: loader.signal },
 					);
+					void debug("completion-finished", { stopReason: response.stopReason, error: response.errorMessage });
 
 					if (response.stopReason === "aborted") {
 						return null;
 					}
+					if (response.stopReason === "error") {
+						throw new Error(response.errorMessage ?? "Handoff generation failed");
+					}
 
-					return response.content
+					const prompt = response.content
 						.filter((content): content is { type: "text"; text: string } => content.type === "text")
 						.map((content) => content.text)
 						.join("\n")
 						.trim();
+					void debug("prompt-generated", { length: prompt.length });
+					return prompt;
 				};
 
 				doGenerate()
-					.then(done)
+					.then((prompt) => {
+						void debug("generation-resolved", { prompt: prompt !== null });
+						done(prompt);
+					})
 					.catch((error) => {
+						void debug("generation-error", { message: error instanceof Error ? error.message : String(error) });
 						ctx.ui.notify(error instanceof Error ? error.message : "Handoff generation failed", "error");
 						done(null);
 					});
@@ -136,6 +160,7 @@ export default function (pi: ExtensionAPI) {
 				return loader;
 			});
 
+			await debug("handoff-prompt-result", { prompt: handoffPrompt !== null, length: handoffPrompt?.length ?? 0 });
 			if (!handoffPrompt) {
 				ctx.ui.notify("Cancelled", "info");
 				return;
@@ -144,8 +169,7 @@ export default function (pi: ExtensionAPI) {
 			const result = await ctx.newSession({
 				parentSession: currentSessionFile,
 				withSession: async (replacementCtx) => {
-					replacementCtx.ui.setEditorText(handoffPrompt);
-					replacementCtx.ui.notify("Handoff ready. Add your next prompt and submit.", "info");
+					await replacementCtx.sendUserMessage(handoffPrompt);
 				},
 			});
 
