@@ -7,9 +7,6 @@
 !librarian/**
 !README.md
 
-# !cave*/**
-# !plannotator*/**
-
 # github.com/mattpocock/skills
 !codebase-design/**
 !diagnosing-bugs/**
@@ -29,3 +26,8 @@
 !writing-great-skills/**
 !process-dependabot-prs/**
 !create-jira-pr/**
+
+!aws-*/**
+!cave*/**
+!plannotator*/**
+!dd-*/**
