@@ -7,7 +7,7 @@
           "name": "GPT-5.6 Luna (low context)",
           "api": "openai-responses",
           "provider": "github-copilot",
-          "baseUrl": "https://api.individual.githubcopilot.com",
+          "baseUrl": "https://api.enterprise.githubcopilot.com",
           "reasoning": true,
           "input": [
             "text",
@@ -39,7 +39,7 @@
           "name": "GPT-5.6 Sol (low context)",
           "api": "openai-responses",
           "provider": "github-copilot",
-          "baseUrl": "https://api.individual.githubcopilot.com",
+          "baseUrl": "https://api.enterprise.githubcopilot.com",
           "reasoning": true,
           "input": [
             "text",
@@ -71,7 +71,7 @@
           "name": "GPT-5.6 Terra (low context)",
           "api": "openai-responses",
           "provider": "github-copilot",
-          "baseUrl": "https://api.individual.githubcopilot.com",
+          "baseUrl": "https://api.enterprise.githubcopilot.com",
           "reasoning": true,
           "input": [
             "text",
@@ -103,7 +103,7 @@
           "name": "Gemini 3.6 Flash",
           "api": "openai-completions",
           "provider": "github-copilot",
-          "baseUrl": "https://api.individual.githubcopilot.com",
+          "baseUrl": "https://api.enterprise.githubcopilot.com",
           "reasoning": true,
           "input": [
             "text",
