@@ -12,7 +12,7 @@ git/
 node_modules/
 
 # Usually machine-local; ignore if it contains secrets or host-specific endpoints
-models.json
+# models.json
 models-store.json
 
 # OS noise
