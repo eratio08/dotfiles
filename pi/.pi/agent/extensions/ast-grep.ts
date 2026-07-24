@@ -8,9 +8,9 @@ interface AstGrepDetails {
 	summary: string;
 }
 
-function runSg(args: string[], signal?: AbortSignal): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+function runAstGrep(args: string[], signal?: AbortSignal): Promise<{ exitCode: number; stdout: string; stderr: string }> {
 	return new Promise((resolve, reject) => {
-		const child = spawn("sg", args, { stdio: ["ignore", "pipe", "pipe"] });
+		const child = spawn("ast-grep", args, { stdio: ["ignore", "pipe", "pipe"] });
 		const stdout: Buffer[] = [];
 		const stderr: Buffer[] = [];
 
@@ -35,6 +35,8 @@ export default function (pi: ExtensionAPI) {
 		name: "ast_grep_search",
 		label: "AST Grep Search",
 		description: "Structurally search code with ast-grep. Use `$NAME` for one AST node and `$$$NAMES` for zero or more nodes. Set `lang` for reliable parsing, narrow `path` when possible, and set `json: true` for structured match locations. Use this before ast_grep_rewrite.",
+		promptSnippet: "Search source structurally with ast-grep",
+		promptGuidelines: ["Use ast_grep_search for syntax-aware matches before grep or manual scanning."],
 		parameters: Type.Object({
 			pattern: Type.String({ description: "AST pattern to match" }),
 			path: Type.Optional(Type.String({ description: "Path to search" })),
@@ -69,11 +71,12 @@ export default function (pi: ExtensionAPI) {
 			if (params.json) args.push("--json");
 			args.push(params.path ?? ".");
 
-			const result = await runSg(args, signal);
-			if (result.exitCode !== 0 && result.stderr.trim()) {
+			const result = await runAstGrep(args, signal);
+			if (result.exitCode !== 0) {
+				const error = result.stderr.trim() || `ast-grep exited with code ${result.exitCode}`;
 				return {
-					content: [{ type: "text", text: `Error: ${result.stderr}` }],
-					details: { output: `Error: ${result.stderr}`, summary: "Search failed." } satisfies AstGrepDetails,
+					content: [{ type: "text", text: `Error: ${error}` }],
+					details: { output: `Error: ${error}`, summary: "Search failed." } satisfies AstGrepDetails,
 					isError: true,
 				};
 			}
@@ -103,6 +106,8 @@ export default function (pi: ExtensionAPI) {
 		name: "ast_grep_rewrite",
 		label: "AST Grep Rewrite",
 		description: "Structurally rewrite code with ast-grep and update matching files in place. First use ast_grep_search with the same `pattern`, `path`, and `lang` to verify matches. Use `$NAME` and `$$$NAMES` consistently between `pattern` and `rewrite`. Narrow `path` to avoid unintended edits.",
+		promptSnippet: "Rewrite source structurally with ast-grep",
+		promptGuidelines: ["Use ast_grep_rewrite only after ast_grep_search verifies the same pattern, path, and language."],
 		parameters: Type.Object({
 			pattern: Type.String({ description: "AST pattern to match" }),
 			rewrite: Type.String({ description: "Replacement pattern" }),
@@ -114,11 +119,12 @@ export default function (pi: ExtensionAPI) {
 			if (params.lang) args.push("--lang", params.lang);
 			args.push(params.path ?? ".");
 
-			const result = await runSg(args, signal);
-			if (result.exitCode !== 0 && result.stderr.trim()) {
+			const result = await runAstGrep(args, signal);
+			if (result.exitCode !== 0) {
+				const error = result.stderr.trim() || `ast-grep exited with code ${result.exitCode}`;
 				return {
-					content: [{ type: "text", text: `Error: ${result.stderr}` }],
-					details: { output: `Error: ${result.stderr}`, summary: "Rewrite failed." } satisfies AstGrepDetails,
+					content: [{ type: "text", text: `Error: ${error}` }],
+					details: { output: `Error: ${error}`, summary: "Rewrite failed." } satisfies AstGrepDetails,
 					isError: true,
 				};
 			}
