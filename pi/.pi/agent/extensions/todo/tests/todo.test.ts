@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { extractLatestTodoSnapshot, getTodoCounts, normalizeTodos, summarizeTodos } from "./state.ts";
+import { extractLatestTodoSnapshot, getTodoCounts, normalizeTodos, summarizeTodos } from "../state.ts";
 
 const snapshot = normalizeTodos([
 	{ content: "  first task  ", status: "pending", priority: "high" },

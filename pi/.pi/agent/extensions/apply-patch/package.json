@@ -1,7 +1,7 @@
 {
   "name": "apply-patch",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "keywords": ["pi-package"],
   "scripts": {
