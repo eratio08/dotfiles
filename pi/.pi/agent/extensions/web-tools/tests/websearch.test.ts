@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { hasWebSearchCredentials, parseSearchResponse, previewLines as webSearchPreviewLines, selectProvider } from "./websearch.ts";
+import { hasWebSearchCredentials, parseSearchResponse, previewLines as webSearchPreviewLines, selectProvider } from "../websearch.ts";
 
 test("websearch registration gate checks credentials", () => {
 	assert.equal(hasWebSearchCredentials({} as NodeJS.ProcessEnv), false);

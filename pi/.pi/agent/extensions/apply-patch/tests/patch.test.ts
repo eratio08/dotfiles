@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import test from "node:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { applyPatch, parsePatch } from "./patch.ts";
+import { applyPatch, parsePatch } from "../patch.ts";
 
 async function fixture(files: Record<string, string>, run: (directory: string) => Promise<void>) {
 	const directory = await mkdtemp(join(tmpdir(), "pi-apply-patch-"));

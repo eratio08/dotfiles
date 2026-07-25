@@ -6,7 +6,7 @@ import {
 	parseCavemanCommand,
 	parseModeChange,
 	resolveSessionMode,
-} from "./core.ts";
+} from "../core.ts";
 
 test("parse command modes", () => {
 	assert.deepEqual(parseCavemanCommand(""), { type: "set-mode", mode: DEFAULT_MODE });

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { convertHTMLToMarkdown, extractTextFromHTML } from "./html.ts";
-import { acceptHeaderForFormat, assertSafePublicHttpUrl, previewLines as webFetchPreviewLines } from "./webfetch.ts";
+import { convertHTMLToMarkdown, extractTextFromHTML } from "../html.ts";
+import { acceptHeaderForFormat, assertSafePublicHttpUrl, previewLines as webFetchPreviewLines } from "../webfetch.ts";
 
 test("webfetch blocks localhost and private IPv4", () => {
 	assert.throws(() => assertSafePublicHttpUrl("http://localhost"));

@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "keywords": ["pi-package"],
+  "scripts": {
+    "test": "node --test tests/*.test.ts"
+  },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
   },

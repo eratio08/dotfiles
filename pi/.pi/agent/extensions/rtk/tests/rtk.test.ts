@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeRewrite, resolveRewrite } from "./index.ts";
+import { normalizeRewrite, resolveRewrite } from "../index.ts";
 
 test("normalizeRewrite returns rewritten command when changed", () => {
 	assert.equal(normalizeRewrite("ls", "eza\n"), "eza");
