@@ -14,7 +14,7 @@
 
 - Use the `ast-grep` tool for structural code search and transformation
 
-- Use LaTeX-like one sentence per line style when wiring markdown markdown documents
+- In Markdown files, place one sentence per line without blank lines between sentences unless starting a new paragraph.
 
 - Do not write any code comments, unless explicitly instructed
 - Do not remove any existing code comments which have not been introduced by yourself
