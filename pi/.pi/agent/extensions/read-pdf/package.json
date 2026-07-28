@@ -1,0 +1,21 @@
+{
+  "name": "read-pdf",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "keywords": ["pi-package"],
+  "scripts": {
+    "test": "node --test tests/*.test.ts"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  },
+  "dependencies": {
+    "unpdf": "^1.8.0"
+  },
+  "pi": {
+    "extensions": ["./index.ts"]
+  }
+}
