@@ -18,6 +18,8 @@ Read the relevant Pi documentation before coding, especially `docs/extensions.md
 Use Pi's existing APIs and components instead of reimplementing behavior already provided by Pi.
 Write 100% TypeScript.
 Export the extension's default factory function receiving `ExtensionAPI`.
+Give every custom tool a `promptSnippet`.
+Give every custom tool concise `promptGuidelines` describing when to use it and important constraints.
 Keep the implementation minimal.
 Do not add comments unless they explain a non-obvious constraint.
 Do not hard-code Pi defaults that users can configure.
