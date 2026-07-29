@@ -7,10 +7,12 @@ import {
 	TODO_STATUSES,
 	cloneTodos,
 	extractLatestTodoSnapshot,
+	formatTodoReminder,
 	getTodoCounts,
 	isOpenTodo,
 	normalizeTodos,
 	summarizeTodos,
+	validateTodoUpdate,
 	type Todo,
 	type TodoPriority,
 	type TodoStatus,
@@ -180,23 +182,27 @@ export default function (pi: ExtensionAPI) {
 		name: "todowrite",
 		label: "Todo",
 		description:
-			"Replace the current session todo list with a full snapshot. Use this for work with 3+ distinct steps or other non-trivial tasks, not trivial one-step tasks.",
-		promptSnippet: "Track work with 3+ distinct steps using a full todo list snapshot via todowrite({ todos: [...] })",
+			"Create and maintain a structured task list for the current coding session. Use it for multi-step work, keep statuses current, and complete tasks one at a time as they are actually finished.",
+		promptSnippet: "Track multi-step work with todowrite({ todos: [...] }) and update it after each completed step",
 		promptGuidelines: [
 			"Use todowrite for work with 3+ distinct steps or other non-trivial tasks that benefit from explicit progress tracking.",
 			"Do not use todowrite for trivial one-step requests, single straightforward tasks, or work you can finish immediately.",
 			"Use todowrite with the full current list each time: todowrite({ todos: [...] }).",
-			"Keep exactly one todowrite item in_progress while work remains, unless the user explicitly wants parallel active tasks.",
-			"Update todowrite in real time as work progresses instead of batching updates at the end.",
-			"Preserve user commands verbatim inside todowrite todo text when relevant.",
+			"Before starting work, create the plan and mark the first actionable item in_progress.",
+			"Keep exactly one item in_progress while work remains.",
+			"After each item is actually completed and verified, immediately call todowrite, mark only that item completed, and mark exactly one next item in_progress.",
+			"Never mark planned, partially complete, or multiple items completed in one update.",
+			"Do not finish the agent turn while open todos remain; continue until all are completed or explicitly cancelled.",
+			"Preserve user commands verbatim inside todo content when relevant.",
 		],
 		parameters: Params,
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const next = normalizeTodos(params.todos);
-			if (!next) {
+			const error = next ? validateTodoUpdate(todos, next) : "invalid todo list";
+			if (!next || error) {
 				return {
-					content: [{ type: "text", text: "Error: invalid todo list" }],
-					details: { todos: cloneTodos(todos), error: "invalid todo list" } satisfies TodoToolDetails,
+					content: [{ type: "text", text: `Error: ${error}\n${formatTodoReminder(todos)}` }],
+					details: { todos: cloneTodos(todos), error } satisfies TodoToolDetails,
 				};
 			}
 
@@ -204,7 +210,7 @@ export default function (pi: ExtensionAPI) {
 			updateUi(ctx, todos);
 
 			return {
-				content: [{ type: "text", text: summarizeTodos(todos) }],
+				content: [{ type: "text", text: `${summarizeTodos(todos)}\n${formatTodoReminder(todos)}` }],
 				details: { todos: cloneTodos(todos) } satisfies TodoToolDetails,
 			};
 		},

@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { extractLatestTodoSnapshot, getTodoCounts, normalizeTodos, summarizeTodos } from "../state.ts";
+import {
+	extractLatestTodoSnapshot,
+	formatTodoReminder,
+	getTodoCounts,
+	normalizeTodos,
+	summarizeTodos,
+	validateTodoUpdate,
+} from "../state.ts";
 
 const snapshot = normalizeTodos([
 	{ content: "  first task  ", status: "pending", priority: "high" },
@@ -12,6 +19,27 @@ assert.deepEqual(snapshot, [
 ]);
 
 assert.equal(normalizeTodos([{ content: "", status: "pending", priority: "high" }]), undefined);
+
+const plan = normalizeTodos([
+	{ content: "first", status: "in_progress", priority: "high" },
+	{ content: "second", status: "pending", priority: "low" },
+])!;
+assert.equal(validateTodoUpdate([], plan), undefined);
+assert.equal(
+	validateTodoUpdate(plan, [
+		{ content: "first", status: "completed", priority: "high" },
+		{ content: "second", status: "completed", priority: "low" },
+	]),
+	"Complete one todo at a time; update the list again before completing another.",
+);
+assert.equal(
+	validateTodoUpdate(plan, [
+		{ content: "first", status: "completed", priority: "high" },
+		{ content: "second", status: "pending", priority: "low" },
+	]),
+	"Keep one open todo in_progress while work remains.",
+);
+assert.match(formatTodoReminder(plan), /Current item: first/);
 
 const restored = extractLatestTodoSnapshot([
 	{

@@ -20,6 +20,38 @@ export interface TodoCounts {
 	closed: number;
 }
 
+export function validateTodoUpdate(previous: readonly Todo[], next: readonly Todo[]): string | undefined {
+	if (next.length === 0 && previous.some(isOpenTodo)) {
+		return "Do not clear the todo list while work remains; complete or cancel each open todo first.";
+	}
+
+	if (next.filter((todo) => todo.status === "in_progress").length > 1) {
+		return "Keep exactly one todo in_progress at a time.";
+	}
+
+	if (previous.length > 0 && next.some(isOpenTodo) && !next.some((todo) => todo.status === "in_progress")) {
+		return "Keep one open todo in_progress while work remains.";
+	}
+
+	const newlyCompleted = next.filter((todo) => {
+		if (todo.status !== "completed") return false;
+		const old = previous.find((candidate) => candidate.content === todo.content);
+		return old?.status !== "completed";
+	});
+	if (newlyCompleted.length > 1) {
+		return "Complete one todo at a time; update the list again before completing another.";
+	}
+
+	for (const todo of newlyCompleted) {
+		const old = previous.find((candidate) => candidate.content === todo.content);
+		if (!old || old.status !== "in_progress") {
+			return `Only the current in_progress todo can be marked completed: ${todo.content}`;
+		}
+	}
+
+	return undefined;
+}
+
 function isTodoStatus(value: unknown): value is TodoStatus {
 	return typeof value === "string" && TODO_STATUSES.includes(value as TodoStatus);
 }
@@ -72,6 +104,25 @@ export function normalizeTodos(value: unknown): Todo[] | undefined {
 
 export function isOpenTodo(todo: Todo): boolean {
 	return todo.status === "pending" || todo.status === "in_progress";
+}
+
+export function getNextTodo(todos: readonly Todo[]): Todo | undefined {
+	return todos.find((todo) => todo.status === "in_progress") ?? todos.find((todo) => todo.status === "pending");
+}
+
+export function formatTodoReminder(todos: readonly Todo[]): string {
+	const next = getNextTodo(todos);
+	if (!next) {
+		return "TODO STATUS: all tracked todos are complete or cancelled.";
+	}
+
+	return [
+		"TODO STATUS: work remains.",
+		`Current item: ${next.content}`,
+		"Continue working on the current item now.",
+		"When it is actually complete and verified, call todowrite immediately: mark only that item completed and activate exactly one next item.",
+		"Do not mark future or merely planned work completed.",
+	].join(" ");
 }
 
 export function getTodoCounts(todos: readonly Todo[]): TodoCounts {
