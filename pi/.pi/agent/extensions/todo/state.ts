@@ -21,16 +21,19 @@ export interface TodoCounts {
 }
 
 export function validateTodoUpdate(previous: readonly Todo[], next: readonly Todo[]): string | undefined {
+	const reject = (message: string) =>
+		`${message} Update rejected; no changes were applied. ${formatTodoState(previous)}`;
+
 	if (next.length === 0 && previous.some(isOpenTodo)) {
-		return "Do not clear the todo list while work remains; complete or cancel each open todo first.";
+		return reject("Cannot clear the todo list while work remains; complete or cancel each open todo first.");
 	}
 
 	if (next.filter((todo) => todo.status === "in_progress").length > 1) {
-		return "Keep exactly one todo in_progress at a time.";
+		return reject("Cannot have multiple in_progress todos; keep exactly one active todo.");
 	}
 
 	if (previous.length > 0 && next.some(isOpenTodo) && !next.some((todo) => todo.status === "in_progress")) {
-		return "Keep one open todo in_progress while work remains.";
+		return reject("Open todos remain, but none is in_progress; activate one pending todo before continuing.");
 	}
 
 	const newlyCompleted = next.filter((todo) => {
@@ -39,17 +42,33 @@ export function validateTodoUpdate(previous: readonly Todo[], next: readonly Tod
 		return old?.status !== "completed";
 	});
 	if (newlyCompleted.length > 1) {
-		return "Complete one todo at a time; update the list again before completing another.";
+		const items = newlyCompleted.map((todo) => `\"${todo.content}\"`).join(", ");
+		return reject(`Cannot complete multiple todos in one update: ${items}. Complete only the accepted active todo.`);
 	}
 
 	for (const todo of newlyCompleted) {
 		const old = previous.find((candidate) => candidate.content === todo.content);
-		if (!old || old.status !== "in_progress") {
-			return `Only the current in_progress todo can be marked completed: ${todo.content}`;
+		if (!old) {
+			return reject(
+				`Cannot complete \"${todo.content}\": it is not in the accepted todo list. Copy its content exactly and activate it in a separate update first.`,
+			);
+		}
+		if (old.status !== "in_progress") {
+			return reject(
+				`Cannot complete \"${todo.content}\": its accepted status is ${old.status}. First change it to in_progress in one update, then complete it in a later update.`,
+			);
 		}
 	}
 
 	return undefined;
+}
+
+function formatTodoState(todos: readonly Todo[]): string {
+	if (todos.length === 0) {
+		return "The accepted todo list is empty.";
+	}
+
+	return `Accepted todo state: ${todos.map((todo) => `\"${todo.content}\"=${todo.status}`).join(", ")}.`;
 }
 
 function isTodoStatus(value: unknown): value is TodoStatus {
@@ -120,7 +139,7 @@ export function formatTodoReminder(todos: readonly Todo[]): string {
 		"TODO STATUS: work remains.",
 		`Current item: ${next.content}`,
 		"Continue working on the current item now.",
-		"When it is actually complete and verified, call todowrite immediately: mark only that item completed and activate exactly one next item.",
+		"When it is actually complete and verified, call todowrite immediately: mark only that item completed and activate one pending next item if work remains; otherwise leave all tasks closed.",
 		"Do not mark future or merely planned work completed.",
 	].join(" ");
 }

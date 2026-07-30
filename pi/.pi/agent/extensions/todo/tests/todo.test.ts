@@ -25,19 +25,19 @@ const plan = normalizeTodos([
 	{ content: "second", status: "pending", priority: "low" },
 ])!;
 assert.equal(validateTodoUpdate([], plan), undefined);
-assert.equal(
+assert.match(
 	validateTodoUpdate(plan, [
 		{ content: "first", status: "completed", priority: "high" },
 		{ content: "second", status: "completed", priority: "low" },
-	]),
-	"Complete one todo at a time; update the list again before completing another.",
+	]) ?? "",
+	/Cannot complete multiple todos in one update.*Update rejected.*Accepted todo state:/,
 );
-assert.equal(
+assert.match(
 	validateTodoUpdate(plan, [
-		{ content: "first", status: "completed", priority: "high" },
-		{ content: "second", status: "pending", priority: "low" },
-	]),
-	"Keep one open todo in_progress while work remains.",
+		{ content: "first", status: "in_progress", priority: "high" },
+		{ content: "second", status: "completed", priority: "low" },
+	]) ?? "",
+	/Cannot complete \"second\": its accepted status is pending.*First change it to in_progress.*Accepted todo state:/,
 );
 assert.match(formatTodoReminder(plan), /Current item: first/);
 
