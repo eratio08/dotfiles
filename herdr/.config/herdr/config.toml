@@ -32,7 +32,7 @@ next_workspace = "prefix+)"
 # previous_agent = ""     # optional, unset by default
 # next_agent = ""         # optional, unset by default
 # focus_agent = ""        # optional indexed binding, e.g. "prefix+alt+1..9"
-new_tab = ""
+new_tab = "prefix+c"
 rename_tab = "prefix+,"
 previous_tab = "prefix+p"
 next_tab = "prefix+n"
@@ -62,24 +62,19 @@ navigate_pane_up = ""
 navigate_pane_left = ""
 navigate_pane_right = ""
 
-[[keys.command]]
-key = "prefix+c"
-type = "shell"
-command = "cwd=\"${HERDR_ACTIVE_PANE_CWD:-$PWD}\"; cwd=\"${cwd%/}\"; name=\"${cwd##*/}\"; [ -n \"$name\" ] || name=tab; exec herdr tab create --label \"$name\" --focus"
-description = "new named tab"
-
 [worktrees]
 directory = "~/.herdr/worktrees"
 
 [ui]
 pane_borders = true
 pane_gaps = false
-prompt_new_tab_name = false
+prompt_new_tab_name = true
 mouse_capture = true
 mouse_scroll_lines = 3
 confirm_close = false
 agent_panel_sort = "priority"
 
+show_agent_labels_on_pane_borders = true
 [ui.toast]
 delivery = "terminal"
 
