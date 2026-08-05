@@ -533,9 +533,15 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			const questions = params.questions.map(normalizeQuestion);
-			const result = await ctx.ui.custom<ToolOutcome>((tui, theme, keybindings, done) => {
-				return new QuestionComponent(questions, tui, theme, keybindings, done);
-			});
+			let result: ToolOutcome;
+			pi.events.emit("herdr:blocked", { active: true, label: "Waiting for answer" });
+			try {
+				result = await ctx.ui.custom<ToolOutcome>((tui, theme, keybindings, done) => {
+					return new QuestionComponent(questions, tui, theme, keybindings, done);
+				});
+			} finally {
+				pi.events.emit("herdr:blocked", { active: false });
+			}
 
 			if (result.cancelled) {
 				return {
