@@ -7,6 +7,7 @@ import {
 	TODO_STATUSES,
 	cloneTodos,
 	extractLatestTodoSnapshot,
+	formatTodoContext,
 	formatTodoReminder,
 	getTodoCounts,
 	isOpenTodo,
@@ -165,6 +166,24 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("session_start", async (_event, ctx) => syncFromSession(ctx));
 	pi.on("session_tree", async (_event, ctx) => syncFromSession(ctx));
+	pi.on("session_compact", async (event, ctx) => {
+		if (todos.length === 0) {
+			return;
+		}
+
+		const message = {
+			customType: "todo",
+			content: formatTodoContext(todos),
+			display: false,
+		};
+		if (event.willRetry) {
+			pi.sendMessage(message, { deliverAs: "steer" });
+		} else if (ctx.isIdle()) {
+			pi.sendMessage(message, { triggerTurn: false });
+		} else {
+			pi.sendMessage(message, { deliverAs: "nextTurn" });
+		}
+	});
 	pi.on("session_shutdown", async (_event, ctx) => {
 		if (!ctx.hasUI) {
 			return;

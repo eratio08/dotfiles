@@ -129,6 +129,13 @@ export function getNextTodo(todos: readonly Todo[]): Todo | undefined {
 	return todos.find((todo) => todo.status === "in_progress") ?? todos.find((todo) => todo.status === "pending");
 }
 
+export function formatTodoContext(todos: readonly Todo[]): string {
+	const snapshot = todos
+		.map((todo) => `- content=${JSON.stringify(todo.content)} status=${todo.status} priority=${todo.priority}`)
+		.join("\n");
+	return ["TODO STATUS: authoritative accepted snapshot.", snapshot, formatTodoReminder(todos)].join("\n");
+}
+
 export function formatTodoReminder(todos: readonly Todo[]): string {
 	const next = getNextTodo(todos);
 	if (!next) {
