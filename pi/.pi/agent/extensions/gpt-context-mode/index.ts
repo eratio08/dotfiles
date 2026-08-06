@@ -1,7 +1,6 @@
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-// Usage: /gpt-context-mode [low|high|toggle]; Ctrl+Shift+L toggles default/long context.
 export const GPT5_HIGH_CONTEXT_WINDOW = 1_050_000;
 
 const GPT5_6_LOW_CONTEXT_WINDOWS = new Map([
@@ -141,11 +140,6 @@ export default function gptContextModeExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("gpt-context-mode", {
 		description: "Switch GPT-5.6 between default and long context windows",
 		handler: runCommand,
-	});
-
-	pi.registerShortcut("ctrl+shift+l", {
-		description: "Toggle GPT-5.6 default and long context",
-		handler: async (ctx) => runCommand("toggle", ctx),
 	});
 
 	pi.on("session_start", async (_event, ctx) => {

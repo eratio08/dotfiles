@@ -31,7 +31,6 @@ function model(contextWindow = 272000): Gpt5Model {
 function contextHarness(initialModel = model()) {
 	let activeModel = initialModel;
 	const commands = new Map<string, Command>();
-	const shortcuts = new Map<string, Command["handler"]>();
 	const events = new Map<string, EventHandler>();
 	const savedModes: Array<{ mode: GptContextMode }> = [];
 	const notifications: string[] = [];
@@ -42,9 +41,6 @@ function contextHarness(initialModel = model()) {
 	const pi = {
 		registerCommand(name: string, command: Command) {
 			commands.set(name, command);
-		},
-		registerShortcut(shortcut: string, command: { handler: Command["handler"] }) {
-			shortcuts.set(shortcut, command.handler);
 		},
 		on(event: string, handler: EventHandler) {
 			events.set(event, handler);
@@ -83,7 +79,6 @@ function contextHarness(initialModel = model()) {
 
 	return {
 		commands,
-		shortcuts,
 		events,
 		savedModes,
 		notifications,
@@ -120,8 +115,6 @@ test("switches the active GPT-5.6 model without changing its upstream identity",
 	const harness = contextHarness();
 	const command = harness.commands.get("gpt-context-mode");
 	assert.ok(command);
-	assert.ok(harness.shortcuts.has("ctrl+shift+l"));
-
 	await command.handler("high", harness.ctx);
 
 	assert.equal(harness.modelChanges.at(-1)?.contextWindow, GPT5_HIGH_CONTEXT_WINDOW);

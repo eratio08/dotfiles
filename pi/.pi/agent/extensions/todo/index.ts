@@ -139,13 +139,8 @@ function updateUi(ctx: ExtensionContext, todos: readonly Todo[]): void {
 
 	if (todos.length === 0) {
 		ctx.ui.setWidget("todo", undefined);
-		ctx.ui.setStatus("todo", undefined);
 		return;
 	}
-
-	const counts = getTodoCounts(todos);
-	const status = `${counts.completed}/${counts.total} done${counts.cancelled > 0 ? ` • ${counts.cancelled} cancelled` : ""}`;
-	ctx.ui.setStatus("todo", ctx.ui.theme.fg("accent", `todo ${status}`));
 
 	const unfinished = todos.filter(isOpenTodo);
 	if (unfinished.length === 0) {
@@ -175,7 +170,6 @@ export default function (pi: ExtensionAPI) {
 			return;
 		}
 		ctx.ui.setWidget("todo", undefined);
-		ctx.ui.setStatus("todo", undefined);
 	});
 
 	pi.registerTool({
