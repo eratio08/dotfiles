@@ -27,8 +27,7 @@ function syncStatus(ctx: ExtensionContext | null, mode: CavemanMode, isActive: b
 	const theme = ctx.ui.theme;
 	const indicator = isActive ? theme.fg("accent", "●") : theme.fg("dim", "○");
 	const icon = LEVEL_ICONS[mode as Exclude<CavemanMode, "off">] ?? "🪨";
-	const label = mode.toUpperCase();
-	ctx.ui.setStatus("caveman", indicator + " 🪨 " + theme.fg("muted", "caveman: ") + theme.fg("text", icon + " " + label));
+	ctx.ui.setStatus("caveman", indicator + " 🪨 " + theme.fg("muted", "caveman: ") + theme.fg("text", icon));
 }
 
 function restoreMode(ctx: ExtensionContext, fallbackMode: CavemanMode) {
