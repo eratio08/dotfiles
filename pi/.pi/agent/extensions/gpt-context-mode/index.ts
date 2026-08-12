@@ -143,12 +143,12 @@ export default function gptContextModeExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.on("session_start", async (_event, ctx) => {
-		mode = restoreGptContextMode(ctx.sessionManager.getBranch());
+		mode = restoreGptContextMode(ctx.sessionManager.getEntries());
 		await applyMode(ctx.model, ctx);
 	});
 
 	pi.on("session_tree", async (_event, ctx) => {
-		mode = restoreGptContextMode(ctx.sessionManager.getBranch());
+		mode = restoreGptContextMode(ctx.sessionManager.getEntries());
 		await applyMode(ctx.model, ctx);
 	});
 

@@ -37,6 +37,7 @@ function contextHarness(initialModel = model()) {
 	const statuses: string[] = [];
 	const modelChanges: Gpt5Model[] = [];
 	let branch: unknown[] = [];
+	let entries: unknown[] = [];
 
 	const pi = {
 		registerCommand(name: string, command: Command) {
@@ -72,6 +73,9 @@ function contextHarness(initialModel = model()) {
 			getBranch() {
 				return branch;
 			},
+			getEntries() {
+				return entries;
+			},
 		},
 	} as unknown as ExtensionCommandContext;
 
@@ -87,6 +91,9 @@ function contextHarness(initialModel = model()) {
 		ctx,
 		setBranch(nextBranch: unknown[]) {
 			branch = nextBranch;
+		},
+		setEntries(nextEntries: unknown[]) {
+			entries = nextEntries;
 		},
 	};
 }
@@ -149,7 +156,7 @@ test("uses the documented default threshold for each GPT-5.6 model", async () =>
 
 test("reapplies saved high mode after session restore and model selection", async () => {
 	const harness = contextHarness();
-	harness.setBranch([{ type: "custom", customType: "gpt-context-mode", data: { mode: "high" } }]);
+	harness.setEntries([{ type: "custom", customType: "gpt-context-mode", data: { mode: "high" } }]);
 	const sessionStart = harness.events.get("session_start");
 	const modelSelect = harness.events.get("model_select");
 	assert.ok(sessionStart);
@@ -163,6 +170,38 @@ test("reapplies saved high mode after session restore and model selection", asyn
 	} as never, harness.ctx);
 
 	assert.equal(harness.modelChanges.at(-1)?.contextWindow, GPT5_HIGH_CONTEXT_WINDOW);
+});
+
+test("restores a persisted mode from another branch during session start", async () => {
+	const harness = contextHarness({ ...model(), contextWindow: GPT5_HIGH_CONTEXT_WINDOW });
+	const activeBranchMode = { type: "custom", customType: "gpt-context-mode", data: { mode: "high" } };
+	harness.setBranch([activeBranchMode]);
+	harness.setEntries([
+		activeBranchMode,
+		{ type: "custom", customType: "gpt-context-mode", data: { mode: "low" } },
+	]);
+	const sessionStart = harness.events.get("session_start");
+	assert.ok(sessionStart);
+
+	await sessionStart({} as never, harness.ctx);
+
+	assert.equal(harness.modelChanges.at(-1)?.contextWindow, 272000);
+});
+
+test("restores a persisted mode from another branch during session tree switching", async () => {
+	const harness = contextHarness({ ...model(), contextWindow: GPT5_HIGH_CONTEXT_WINDOW });
+	const activeBranchMode = { type: "custom", customType: "gpt-context-mode", data: { mode: "high" } };
+	harness.setBranch([activeBranchMode]);
+	harness.setEntries([
+		activeBranchMode,
+		{ type: "custom", customType: "gpt-context-mode", data: { mode: "low" } },
+	]);
+	const sessionTree = harness.events.get("session_tree");
+	assert.ok(sessionTree);
+
+	await sessionTree({} as never, harness.ctx);
+
+	assert.equal(harness.modelChanges.at(-1)?.contextWindow, 272000);
 });
 
 test("does not alter other GPT-5 models", async () => {
