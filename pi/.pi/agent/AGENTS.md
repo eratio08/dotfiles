@@ -15,6 +15,7 @@
 - Use the `ast-grep` tool for structural code search and transformation
 
 - In Markdown files, place one sentence per line without blank lines between sentences unless starting a new paragraph.
+- In Markdown and pull request descriptions always use `ASD-STE100 Simplified Technical English`.
 
 - Do not write any code comments, unless explicitly instructed
 - Do not remove any existing code comments which have not been introduced by yourself
