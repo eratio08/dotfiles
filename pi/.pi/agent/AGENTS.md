@@ -14,7 +14,24 @@
 
 - Use the `ast-grep` tool for structural code search and transformation
 
-- In Markdown files, place one sentence per line without blank lines between sentences unless starting a new paragraph.
+- In Markdown files, write one sentence per line.
+- Never put a blank line between sentences of the same paragraph; a blank line starts a new paragraph.
+- Group related sentences into multi-sentence paragraphs; do not make every sentence its own paragraph.
+
+Bad — every sentence is its own paragraph:
+
+    CodeRabbit runs on Windows.
+
+    It requires PowerShell 5.1 or 7.
+
+    Git must be on `PATH`.
+
+Good — sentences of one paragraph share a block:
+
+    CodeRabbit runs on Windows.
+    It requires PowerShell 5.1 or 7.
+    Git must be on `PATH`.
+
 - In Markdown and pull request descriptions always use `ASD-STE100 Simplified Technical English`.
 
 - Do not write any code comments, unless explicitly instructed
