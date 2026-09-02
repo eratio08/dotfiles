@@ -11,6 +11,7 @@
 
 * Use the `opensrc_execute` to access public github repositories source code.
 * Use the `gh` cli to access private repositories source code.
+* Never commit anything to Git without the user's explicit instruction.
 
 - Use the `ast-grep` tool for structural code search and transformation
 
