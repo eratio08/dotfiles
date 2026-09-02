@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export default function herdrBlockerExtension(pi: ExtensionAPI) {
 	let blockedAfterCompaction = false;
+	let compactionPending = false;
 
 	function blockAfterCompaction() {
 		if (blockedAfterCompaction) return;
@@ -13,6 +14,7 @@ export default function herdrBlockerExtension(pi: ExtensionAPI) {
 	}
 
 	function clearCompactionBlock() {
+		compactionPending = false;
 		if (!blockedAfterCompaction) return;
 		blockedAfterCompaction = false;
 		pi.events.emit("herdr:blocked", { active: false });
@@ -20,6 +22,16 @@ export default function herdrBlockerExtension(pi: ExtensionAPI) {
 
 	pi.on("session_compact", (event) => {
 		if (event.reason === "manual" || event.willRetry) return;
+		compactionPending = true;
+	});
+
+	pi.on("turn_start", () => {
+		compactionPending = false;
+	});
+
+	pi.on("agent_settled", () => {
+		if (!compactionPending) return;
+		compactionPending = false;
 		blockAfterCompaction();
 	});
 
