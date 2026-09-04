@@ -3,6 +3,12 @@ import { join } from "node:path";
 import type { Message } from "@earendil-works/pi-ai/compat";
 import type { ExtensionAPI, SessionEntry } from "@earendil-works/pi-coding-agent";
 import { BorderedLoader, convertToLlm, serializeConversation } from "@earendil-works/pi-coding-agent";
+import {
+	HANDOFF_MODEL_APPLIED_ENTRY,
+	HANDOFF_MODEL_ENTRY,
+	getPendingHandoffModel,
+	type HandoffModelState,
+} from "./handoff-model.ts";
 
 const DEBUG_LOG = join(process.env.TMPDIR ?? "/tmp", "pi-handoff-debug.log");
 
@@ -72,6 +78,37 @@ function getHandoffMessages(branch: SessionEntry[]) {
 }
 
 export default function (pi: ExtensionAPI) {
+	pi.on("before_agent_start", async (_event, ctx) => {
+		const pending = getPendingHandoffModel(ctx.sessionManager.getBranch());
+		if (!pending) {
+			return;
+		}
+
+		const markApplied = (applied: boolean, reason?: string) => {
+			pi.appendEntry(HANDOFF_MODEL_APPLIED_ENTRY, { sourceId: pending.id, applied, reason });
+		};
+		const model = ctx.modelRegistry.find(pending.state.provider, pending.state.modelId);
+		if (!model) {
+			markApplied(false, "model-not-found");
+			ctx.ui.notify(`Handoff model not found: ${pending.state.provider}/${pending.state.modelId}`, "warning");
+			return;
+		}
+
+		try {
+			if (!(await pi.setModel(model))) {
+				markApplied(false, "auth-missing");
+				ctx.ui.notify(`No API key for handoff model: ${pending.state.provider}/${pending.state.modelId}`, "warning");
+				return;
+			}
+			pi.setThinkingLevel(pending.state.thinkingLevel);
+			markApplied(true);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			markApplied(false, message);
+			ctx.ui.notify(`Could not restore handoff model: ${message}`, "warning");
+		}
+	});
+
 	pi.registerCommand("handoff", {
 		description: "Compact the current conversation so a fresh session can continue the work",
 		handler: async (_args, ctx) => {
@@ -80,10 +117,16 @@ export default function (pi: ExtensionAPI) {
 				return;
 			}
 
-			if (!ctx.model) {
+			const selectedModel = ctx.model;
+			if (!selectedModel) {
 				ctx.ui.notify("No model selected", "error");
 				return;
 			}
+			const handoffModel: HandoffModelState = {
+				provider: selectedModel.provider,
+				modelId: selectedModel.id,
+				thinkingLevel: ctx.thinkingLevel ?? pi.getThinkingLevel(),
+			};
 
 
 			const branch = ctx.sessionManager.getBranch();
@@ -166,6 +209,7 @@ export default function (pi: ExtensionAPI) {
 			const result = await ctx.newSession({
 				parentSession: currentSessionFile,
 				setup: async (sessionManager) => {
+					sessionManager.appendCustomEntry(HANDOFF_MODEL_ENTRY, handoffModel);
 					if (todoState && handoffTodos.length > 0) {
 						sessionManager.appendCustomMessageEntry(
 							"todo",
