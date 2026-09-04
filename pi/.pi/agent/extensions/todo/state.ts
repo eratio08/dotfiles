@@ -8,6 +8,7 @@ export interface Todo {
 	content: string;
 	status: TodoStatus;
 	priority: TodoPriority;
+	description?: string;
 }
 
 export interface TodoCounts {
@@ -98,11 +99,12 @@ export function normalizeTodo(value: unknown): Todo | undefined {
 		return undefined;
 	}
 
-	return {
-		content,
-		status,
-		priority,
-	};
+	const rawDescription = (value as { description?: unknown }).description;
+	const description = typeof rawDescription === "string" ? rawDescription.trim() : "";
+	if (description) {
+		return { content, status, priority, description };
+	}
+	return { content, status, priority };
 }
 
 export function normalizeTodos(value: unknown): Todo[] | undefined {
@@ -140,7 +142,10 @@ export function getTodoHandoffSnapshot(todos: readonly Todo[]): Todo[] {
 
 export function formatTodoContext(todos: readonly Todo[]): string {
 	const snapshot = todos
-		.map((todo) => `- content=${JSON.stringify(todo.content)} status=${todo.status} priority=${todo.priority}`)
+		.map(
+			(todo) =>
+				`- content=${JSON.stringify(todo.content)} status=${todo.status} priority=${todo.priority}${todo.description ? ` description=${JSON.stringify(todo.description)}` : ""}`,
+		)
 		.join("\n");
 	return ["TODO STATUS: authoritative accepted snapshot.", snapshot, formatTodoReminder(todos)].join("\n");
 }
@@ -153,7 +158,7 @@ export function formatTodoReminder(todos: readonly Todo[]): string {
 
 	return [
 		"TODO STATUS: work remains.",
-		`Current item: ${next.content}`,
+		`Current item: ${next.content}${next.description ? ` — ${next.description}` : ""}`,
 		"Continue working on the current item now.",
 		"When it is actually complete and verified, call todowrite immediately: mark only that item completed and activate one pending next item if work remains; otherwise leave all tasks closed.",
 		"Do not mark future or merely planned work completed.",

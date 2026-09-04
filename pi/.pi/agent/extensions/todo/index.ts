@@ -82,9 +82,15 @@ function isApprovedPlanSubmission(event: ToolResultEvent): boolean {
 }
 
 const TodoSchema = Type.Object({
-	content: Type.String({ description: "Todo text" }),
+	content: Type.String({ description: "Short task title" }),
 	status: StringEnum(TODO_STATUSES),
 	priority: StringEnum(TODO_PRIORITIES),
+	description: Type.Optional(
+		Type.String({
+			description:
+				"Optional longer details, for example file paths, acceptance criteria, and decisions. Reminders and compaction snapshots include this text.",
+		}),
+	),
 });
 
 const Params = Type.Object({
@@ -94,12 +100,15 @@ const Params = Type.Object({
 class TodoViewer {
 	private cachedWidth?: number;
 	private cachedLines?: string[];
+	private readonly todos: readonly Todo[];
+	private readonly theme: Theme;
+	private readonly onClose: () => void;
 
-	constructor(
-		private readonly todos: readonly Todo[],
-		private readonly theme: Theme,
-		private readonly onClose: () => void,
-	) {}
+	constructor(todos: readonly Todo[], theme: Theme, onClose: () => void) {
+		this.todos = todos;
+		this.theme = theme;
+		this.onClose = onClose;
+	}
 
 	handleInput(data: string): void {
 		if (matchesKey(data, "escape") || matchesKey(data, "ctrl+c")) {
@@ -360,6 +369,8 @@ export default function (pi: ExtensionAPI) {
 		promptSnippet: "Use todowrite with the full accepted list and advance one active task at a time",
 		promptGuidelines: [
 			"Use todowrite for work with 3+ distinct steps; skip trivial work.",
+			"Keep content a short title. Put details that you need later in the optional description field.",
+			"The description stays available after compaction. Record file paths, acceptance criteria, and decisions in the description when later steps depend on them.",
 			"Accepted snapshot: every call replaces the full list, so preserve every task and its exact content.",
 			"Start: mark exactly one actionable task in_progress; leave other unfinished tasks pending.",
 			"Advance: after verified work, mark only the task that was in_progress in the last accepted snapshot completed.",

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
 	extractLatestTodoSnapshot,
+	formatTodoContext,
 	formatTodoReminder,
 	getTodoCounts,
 	getTodoHandoffSnapshot,
@@ -20,6 +21,19 @@ assert.deepEqual(snapshot, [
 ]);
 
 assert.equal(normalizeTodos([{ content: "", status: "pending", priority: "high" }]), undefined);
+
+const withDescription = normalizeTodos([
+	{ content: "first", status: "pending", priority: "high", description: "  details here  " },
+	{ content: "second", status: "pending", priority: "low", description: "   " },
+	{ content: "third", status: "pending", priority: "low", description: 42 },
+]);
+assert.deepEqual(withDescription, [
+	{ content: "first", status: "pending", priority: "high", description: "details here" },
+	{ content: "second", status: "pending", priority: "low" },
+	{ content: "third", status: "pending", priority: "low" },
+]);
+assert.match(formatTodoContext(withDescription!), /description="details here"/);
+assert.match(formatTodoReminder(withDescription!), /Current item: first — details here/);
 
 const plan = normalizeTodos([
 	{ content: "first", status: "in_progress", priority: "high" },
