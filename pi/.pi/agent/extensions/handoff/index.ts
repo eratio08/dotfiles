@@ -1,19 +1,29 @@
 import { appendFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Message } from "@earendil-works/pi-ai/compat";
-import type { ExtensionAPI, SessionEntry } from "@earendil-works/pi-coding-agent";
-import { BorderedLoader, convertToLlm, serializeConversation } from "@earendil-works/pi-coding-agent";
+import type {
+	ExtensionAPI,
+	SessionEntry,
+} from "@earendil-works/pi-coding-agent";
 import {
+	BorderedLoader,
+	convertToLlm,
+	serializeConversation,
+} from "@earendil-works/pi-coding-agent";
+import {
+	getPendingHandoffModel,
 	HANDOFF_MODEL_APPLIED_ENTRY,
 	HANDOFF_MODEL_ENTRY,
-	getPendingHandoffModel,
 	type HandoffModelState,
 } from "./handoff-model.ts";
 
 const DEBUG_LOG = join(process.env.TMPDIR ?? "/tmp", "pi-handoff-debug.log");
 
 function debug(event: string, details: Record<string, unknown> = {}) {
-	return appendFile(DEBUG_LOG, `${new Date().toISOString()} [DEBUG-handoff-38e1] ${event} ${JSON.stringify(details)}\n`).catch(() => {});
+	return appendFile(
+		DEBUG_LOG,
+		`${new Date().toISOString()} [DEBUG-handoff-38e1] ${event} ${JSON.stringify(details)}\n`,
+	).catch(() => {});
 }
 
 const SYSTEM_PROMPT = `You are a context transfer assistant. Given a conversation history, generate a focused handoff prompt for a new thread that:
@@ -61,20 +71,32 @@ function getHandoffMessages(branch: SessionEntry[]) {
 		}
 	}
 	if (compactionIndex < 0) {
-		return branch.map(entryToMessage).filter((message): message is NonNullable<ReturnType<typeof entryToMessage>> => message !== undefined);
+		return branch
+			.map(entryToMessage)
+			.filter(
+				(message): message is NonNullable<ReturnType<typeof entryToMessage>> =>
+					message !== undefined,
+			);
 	}
 
 	const compaction = branch[compactionIndex];
 	const firstKeptIndex =
-		compaction.type === "compaction" ? branch.findIndex((entry) => entry.id === compaction.firstKeptEntryId) : -1;
+		compaction.type === "compaction"
+			? branch.findIndex((entry) => entry.id === compaction.firstKeptEntryId)
+			: -1;
 	const compactedBranch = [
 		compaction,
-		...(firstKeptIndex >= 0 ? branch.slice(firstKeptIndex, compactionIndex) : []),
+		...(firstKeptIndex >= 0
+			? branch.slice(firstKeptIndex, compactionIndex)
+			: []),
 		...branch.slice(compactionIndex + 1),
 	];
 	return compactedBranch
 		.map(entryToMessage)
-		.filter((message): message is NonNullable<ReturnType<typeof entryToMessage>> => message !== undefined);
+		.filter(
+			(message): message is NonNullable<ReturnType<typeof entryToMessage>> =>
+				message !== undefined,
+		);
 }
 
 export default function (pi: ExtensionAPI) {
@@ -85,19 +107,32 @@ export default function (pi: ExtensionAPI) {
 		}
 
 		const markApplied = (applied: boolean, reason?: string) => {
-			pi.appendEntry(HANDOFF_MODEL_APPLIED_ENTRY, { sourceId: pending.id, applied, reason });
+			pi.appendEntry(HANDOFF_MODEL_APPLIED_ENTRY, {
+				sourceId: pending.id,
+				applied,
+				reason,
+			});
 		};
-		const model = ctx.modelRegistry.find(pending.state.provider, pending.state.modelId);
+		const model = ctx.modelRegistry.find(
+			pending.state.provider,
+			pending.state.modelId,
+		);
 		if (!model) {
 			markApplied(false, "model-not-found");
-			ctx.ui.notify(`Handoff model not found: ${pending.state.provider}/${pending.state.modelId}`, "warning");
+			ctx.ui.notify(
+				`Handoff model not found: ${pending.state.provider}/${pending.state.modelId}`,
+				"warning",
+			);
 			return;
 		}
 
 		try {
 			if (!(await pi.setModel(model))) {
 				markApplied(false, "auth-missing");
-				ctx.ui.notify(`No API key for handoff model: ${pending.state.provider}/${pending.state.modelId}`, "warning");
+				ctx.ui.notify(
+					`No API key for handoff model: ${pending.state.provider}/${pending.state.modelId}`,
+					"warning",
+				);
 				return;
 			}
 			pi.setThinkingLevel(pending.state.thinkingLevel);
@@ -110,7 +145,8 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("handoff", {
-		description: "Compact the current conversation so a fresh session can continue the work",
+		description:
+			"Compact the current conversation so a fresh session can continue the work",
 		handler: async (_args, ctx) => {
 			if (ctx.mode !== "tui") {
 				ctx.ui.notify("handoff requires interactive mode", "error");
@@ -128,11 +164,13 @@ export default function (pi: ExtensionAPI) {
 				thinkingLevel: ctx.thinkingLevel ?? pi.getThinkingLevel(),
 			};
 
-
 			const branch = ctx.sessionManager.getBranch();
 			const messages = getHandoffMessages(branch);
 			const todoState = await import("./todo/state.ts").catch(() => undefined);
-			const handoffTodos = todoState?.getTodoHandoffSnapshot(todoState.extractLatestTodoSnapshot(branch)) ?? [];
+			const handoffTodos =
+				todoState?.getTodoHandoffSnapshot(
+					todoState.extractLatestTodoSnapshot(branch),
+				) ?? [];
 			if (messages.length === 0) {
 				ctx.ui.notify("No conversation to hand off", "error");
 				return;
@@ -142,65 +180,92 @@ export default function (pi: ExtensionAPI) {
 			const conversationText = serializeConversation(llmMessages);
 			const currentSessionFile = ctx.sessionManager.getSessionFile();
 
-			await debug("handoff-start", { model: ctx.model.provider, messages: messages.length });
-			const handoffPrompt = await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
-				const loader = new BorderedLoader(tui, theme, "Generating handoff prompt...");
-				loader.onAbort = () => {
-					void debug("loader-abort");
-					done(null);
-				};
-
-				const doGenerate = async () => {
-					const userMessage: Message = {
-						role: "user",
-						content: [
-							{
-								type: "text",
-								text: `## Conversation History\n\n${conversationText}`,
-							},
-						],
-						timestamp: Date.now(),
+			await debug("handoff-start", {
+				model: ctx.model.provider,
+				messages: messages.length,
+			});
+			const handoffPrompt = await ctx.ui.custom<string | null>(
+				(tui, theme, _kb, done) => {
+					const loader = new BorderedLoader(
+						tui,
+						theme,
+						"Generating handoff prompt...",
+					);
+					loader.onAbort = () => {
+						void debug("loader-abort");
+						done(null);
 					};
 
-					void debug("completion-start", { aborted: loader.signal.aborted });
-					const response = await ctx.modelRegistry.complete(
-						ctx.model!,
-						{ systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
-						{ signal: loader.signal, cacheRetention: "none" },
-					);
-					void debug("completion-finished", { stopReason: response.stopReason, error: response.errorMessage });
+					const doGenerate = async () => {
+						const userMessage: Message = {
+							role: "user",
+							content: [
+								{
+									type: "text",
+									text: `## Conversation History\n\n${conversationText}`,
+								},
+							],
+							timestamp: Date.now(),
+						};
 
-					if (response.stopReason === "aborted") {
-						return null;
-					}
-					if (response.stopReason === "error") {
-						throw new Error(response.errorMessage ?? "Handoff generation failed");
-					}
+						void debug("completion-start", { aborted: loader.signal.aborted });
+						const response = await ctx.modelRegistry.complete(
+							selectedModel,
+							{ systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
+							{ signal: loader.signal, cacheRetention: "none" },
+						);
+						void debug("completion-finished", {
+							stopReason: response.stopReason,
+							error: response.errorMessage,
+						});
 
-					const prompt = response.content
-						.filter((content): content is { type: "text"; text: string } => content.type === "text")
-						.map((content) => content.text)
-						.join("\n")
-						.trim();
-					void debug("prompt-generated", { length: prompt.length });
-					return prompt;
-				};
+						if (response.stopReason === "aborted") {
+							return null;
+						}
+						if (response.stopReason === "error") {
+							throw new Error(
+								response.errorMessage ?? "Handoff generation failed",
+							);
+						}
 
-				doGenerate()
-					.then((prompt) => {
-						void debug("generation-resolved", { prompt: prompt !== null });
-						done(prompt);
-					})
-					.catch((error) => {
-						void debug("generation-error", { message: error instanceof Error ? error.message : String(error) });
-						ctx.ui.notify(error instanceof Error ? error.message : "Handoff generation failed", "error");
-						done(null);
-					});
+						const prompt = response.content
+							.filter(
+								(content): content is { type: "text"; text: string } =>
+									content.type === "text",
+							)
+							.map((content) => content.text)
+							.join("\n")
+							.trim();
+						void debug("prompt-generated", { length: prompt.length });
+						return prompt;
+					};
 
-				return loader;
+					doGenerate()
+						.then((prompt) => {
+							void debug("generation-resolved", { prompt: prompt !== null });
+							done(prompt);
+						})
+						.catch((error) => {
+							void debug("generation-error", {
+								message: error instanceof Error ? error.message : String(error),
+							});
+							ctx.ui.notify(
+								error instanceof Error
+									? error.message
+									: "Handoff generation failed",
+								"error",
+							);
+							done(null);
+						});
+
+					return loader;
+				},
+			);
+
+			await debug("handoff-prompt-result", {
+				prompt: handoffPrompt !== null,
+				length: handoffPrompt?.length ?? 0,
 			});
-
-			await debug("handoff-prompt-result", { prompt: handoffPrompt !== null, length: handoffPrompt?.length ?? 0 });
 			if (!handoffPrompt) {
 				ctx.ui.notify("Cancelled", "info");
 				return;
