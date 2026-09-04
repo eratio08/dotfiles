@@ -304,6 +304,7 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("session_start", async (_event, ctx) => syncFromSession(ctx));
 	pi.on("session_tree", async (_event, ctx) => syncFromSession(ctx));
+	pi.on("before_agent_start", async (_event, ctx) => syncFromSession(ctx));
 	pi.on("input", async (_event, ctx) => {
 		await requestPlannotatorPhase(ctx);
 		return { action: "continue" };

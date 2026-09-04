@@ -129,6 +129,15 @@ export function getNextTodo(todos: readonly Todo[]): Todo | undefined {
 	return todos.find((todo) => todo.status === "in_progress") ?? todos.find((todo) => todo.status === "pending");
 }
 
+export function getTodoHandoffSnapshot(todos: readonly Todo[]): Todo[] {
+	const openTodos = todos.filter(isOpenTodo).map((todo) => ({ ...todo }));
+	if (openTodos.length === 0 || openTodos.some((todo) => todo.status === "in_progress")) {
+		return openTodos;
+	}
+
+	return openTodos.map((todo, index) => (index === 0 ? { ...todo, status: "in_progress" as const } : todo));
+}
+
 export function formatTodoContext(todos: readonly Todo[]): string {
 	const snapshot = todos
 		.map((todo) => `- content=${JSON.stringify(todo.content)} status=${todo.status} priority=${todo.priority}`)
@@ -208,7 +217,18 @@ export function extractLatestTodoSnapshot(entries: readonly unknown[]): Todo[] {
 		if (!entry || typeof entry !== "object") {
 			continue;
 		}
-		if ((entry as { type?: unknown }).type !== "message") {
+		const entryType = (entry as { type?: unknown }).type;
+		if (entryType === "custom_message") {
+			if ((entry as { customType?: unknown }).customType !== "todo") {
+				continue;
+			}
+			const todos = normalizeTodos((entry as { details?: { todos?: unknown } }).details?.todos);
+			if (todos) {
+				latest = todos;
+			}
+			continue;
+		}
+		if (entryType !== "message") {
 			continue;
 		}
 

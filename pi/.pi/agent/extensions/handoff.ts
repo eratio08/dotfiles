@@ -86,7 +86,10 @@ export default function (pi: ExtensionAPI) {
 			}
 
 
-			const messages = getHandoffMessages(ctx.sessionManager.getBranch());
+			const branch = ctx.sessionManager.getBranch();
+			const messages = getHandoffMessages(branch);
+			const todoState = await import("./todo/state.ts").catch(() => undefined);
+			const handoffTodos = todoState?.getTodoHandoffSnapshot(todoState.extractLatestTodoSnapshot(branch)) ?? [];
 			if (messages.length === 0) {
 				ctx.ui.notify("No conversation to hand off", "error");
 				return;
@@ -162,6 +165,16 @@ export default function (pi: ExtensionAPI) {
 
 			const result = await ctx.newSession({
 				parentSession: currentSessionFile,
+				setup: async (sessionManager) => {
+					if (todoState && handoffTodos.length > 0) {
+						sessionManager.appendCustomMessageEntry(
+							"todo",
+							todoState.formatTodoContext(handoffTodos),
+							false,
+							{ todos: handoffTodos },
+						);
+					}
+				},
 				withSession: async (replacementCtx) => {
 					await replacementCtx.sendUserMessage(handoffPrompt);
 				},

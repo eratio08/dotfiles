@@ -219,6 +219,42 @@ test("does not send a snapshot when no todos are restored", async () => {
 	assert.deepEqual(value.sentMessages, []);
 });
 
+test("restores handoff todos before the agent starts", async () => {
+	const value = harness(
+		[
+			{
+				type: "custom_message",
+				customType: "todo",
+				details: {
+					todos: [
+						{ content: "carried active", status: "in_progress", priority: "high" },
+						{ content: "carried next", status: "pending", priority: "medium" },
+					],
+				},
+			},
+		],
+		true,
+	);
+
+	const beforeAgentStart = value.events.get("before_agent_start");
+	assert.ok(beforeAgentStart);
+	await beforeAgentStart({ type: "before_agent_start" }, value.ctx);
+
+	const result = await value.registeredTool?.execute(
+		"todo-call",
+		{
+			todos: [
+				{ content: "carried active", status: "completed", priority: "high" },
+				{ content: "carried next", status: "in_progress", priority: "medium" },
+			],
+		},
+		undefined,
+		undefined,
+		value.ctx,
+	);
+	assert.equal(result.details.error, undefined);
+});
+
 test("keeps local tracking enabled during planning", async () => {
 	const value = harness(branchWithTodos, true, "planning");
 	await restoreTodos(value);
