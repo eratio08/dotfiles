@@ -7,6 +7,7 @@ import {
 	getTodoHandoffSnapshot,
 	normalizeTodos,
 	summarizeTodos,
+	todoDescriptionLines,
 	validateTodoUpdate,
 } from "../state.ts";
 
@@ -164,5 +165,11 @@ assert.deepEqual(
 		{ content: "next", status: "pending", priority: "medium" },
 	],
 );
+
+assert.deepEqual(
+	todoDescriptionLines({ content: "task", status: "pending", priority: "high", description: "  line one \n\n line two  " }),
+	["line one", "line two"],
+);
+assert.deepEqual(todoDescriptionLines({ content: "task", status: "pending", priority: "high" }), []);
 
 console.log("todo extension check: ok");

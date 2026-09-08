@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext, Theme, ToolResultEvent } from "@earendil-works/pi-coding-agent";
-import { matchesKey, Text, truncateToWidth } from "@earendil-works/pi-tui";
+import { matchesKey, Text, truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import {
 	TODO_PRIORITIES,
@@ -14,6 +14,7 @@ import {
 	isOpenTodo,
 	normalizeTodos,
 	summarizeTodos,
+	todoDescriptionLines,
 	validateTodoUpdate,
 	type Todo,
 	type TodoPriority,
@@ -199,6 +200,10 @@ function renderTodoLine(todo: Todo, theme: Theme, includePriority: boolean): str
 	return `${renderMarker(todo.status, theme)} ${renderContent(todo, theme)}${priority}`;
 }
 
+function renderDescriptionLines(todo: Todo, theme: Theme): string[] {
+	return todoDescriptionLines(todo).map((line) => `    ${theme.fg("dim", line)}`);
+}
+
 function updateUi(ctx: ExtensionContext, todos: readonly Todo[], suspended = false): void {
 	if (!ctx.hasUI) {
 		return;
@@ -215,11 +220,28 @@ function updateUi(ctx: ExtensionContext, todos: readonly Todo[], suspended = fal
 		return;
 	}
 
-	const lines = unfinished.slice(0, 8).map((todo) => renderTodoLine(todo, ctx.ui.theme, false));
-	if (unfinished.length > 8) {
-		lines.push(ctx.ui.theme.fg("dim", `… ${unfinished.length - 8} more`));
-	}
-	ctx.ui.setWidget("todo", lines);
+	ctx.ui.setWidget("todo", (_tui, theme) => ({
+		render(width: number) {
+			const visible = unfinished.slice(0, 8);
+			const expanded = ctx.ui.getToolsExpanded();
+			const lines: string[] = [];
+			for (const todo of visible) {
+				lines.push(truncateToWidth(renderTodoLine(todo, theme, false), width));
+				if (expanded) {
+					for (const line of todoDescriptionLines(todo)) {
+						for (const wrapped of wrapTextWithAnsi(line, Math.max(1, width - 4))) {
+							lines.push(`    ${theme.fg("dim", wrapped)}`);
+						}
+					}
+				}
+			}
+			if (unfinished.length > 8) {
+				lines.push(theme.fg("dim", `… ${unfinished.length - 8} more`));
+			}
+			return lines;
+		},
+		invalidate() {},
+	}));
 }
 
 export default function (pi: ExtensionAPI) {
@@ -442,6 +464,9 @@ export default function (pi: ExtensionAPI) {
 			const lines = [theme.fg("muted", formatCounts(counts))];
 			for (const todo of visible) {
 				lines.push(renderTodoLine(todo, theme, true));
+				if (expanded) {
+					lines.push(...renderDescriptionLines(todo, theme));
+				}
 			}
 			if (!expanded && visible.length < list.length) {
 				lines.push(theme.fg("dim", `… ${list.length - visible.length} more`));

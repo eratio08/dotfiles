@@ -123,6 +123,13 @@ export function normalizeTodos(value: unknown): Todo[] | undefined {
 	return todos;
 }
 
+export function todoDescriptionLines(todo: Todo): string[] {
+	if (!todo.description) {
+		return [];
+	}
+	return todo.description.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+}
+
 export function isOpenTodo(todo: Todo): boolean {
 	return todo.status === "pending" || todo.status === "in_progress";
 }

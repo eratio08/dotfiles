@@ -166,7 +166,12 @@ export default function (pi: ExtensionAPI) {
 
 			const branch = ctx.sessionManager.getBranch();
 			const messages = getHandoffMessages(branch);
-			const todoState = await import("./todo/state.ts").catch(() => undefined);
+			const todoState = await import("../todo/state.ts").catch((error) => {
+				void debug("todo-state-import-failed", {
+					message: error instanceof Error ? error.message : String(error),
+				});
+				return undefined;
+			});
 			const handoffTodos =
 				todoState?.getTodoHandoffSnapshot(
 					todoState.extractLatestTodoSnapshot(branch),
