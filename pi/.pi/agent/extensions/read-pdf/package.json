@@ -3,9 +3,12 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "keywords": ["pi-package"],
+  "keywords": [
+    "pi-package"
+  ],
   "scripts": {
-    "test": "node --test tests/*.test.ts"
+    "test": "bun test tests/*.test.ts",
+    "check": "biome check ."
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
@@ -16,6 +19,11 @@
     "unpdf": "^1.8.0"
   },
   "pi": {
-    "extensions": ["./index.ts"]
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.12"
   }
 }

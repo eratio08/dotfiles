@@ -3,22 +3,28 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "keywords": ["pi-package"],
+  "keywords": [
+    "pi-package"
+  ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/*.test.ts"
+    "test": "bun test tests/*.test.ts",
+    "check": "biome check ."
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.12",
     "@earendil-works/pi-ai": "^0.83.0",
     "@earendil-works/pi-coding-agent": "^0.83.0",
     "@types/node": "^24.10.1",
     "typescript": "^5.9.3"
   },
   "pi": {
-    "extensions": ["./index.ts"]
+    "extensions": [
+      "./index.ts"
+    ]
   }
 }
