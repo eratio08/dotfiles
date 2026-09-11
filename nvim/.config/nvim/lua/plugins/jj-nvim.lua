@@ -1,4 +1,5 @@
 return {
+  enabled = false,
   'nicolasgb/jj.nvim',
   cmd = 'J',
   version = '*',
