@@ -1,5 +1,5 @@
 nodejs 26.4.0
-golang 1.26.5
+golang 1.27.0
 opentofu 1.9.4
 java temurin-21.0.9+10.0.LTS
 kotlin 2.4.0
@@ -13,6 +13,6 @@ tree-sitter 0.25.8
 python 3.13.7
 pnpm 11.8.0
 tflint 0.63.1
-biome 2.4.13
+biome 2.5.7
 just 1.55.1
 golangci-lint 2.11.4
