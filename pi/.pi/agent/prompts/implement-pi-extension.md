@@ -15,6 +15,9 @@ Ask for clarification only when essential information is missing.
 
 Implement the extension as a Pi-idiomatic TypeScript extension.
 Read the relevant Pi documentation before coding, especially `docs/extensions.md`, `docs/keybindings.md`, and `docs/tui.md`.
+Before creating or changing package files, read `docs/packages.md`, especially `Dependencies`, and follow its dependency rules exactly.
+For local extension dependency setup, also follow `docs/extensions.md`, especially `Available Imports` and `Extension Styles`.
+Do not guess dependency placement or install steps.
 Use Pi's existing APIs and components instead of reimplementing behavior already provided by Pi.
 Write 100% TypeScript.
 Export the extension's default factory function receiving `ExtensionAPI`.
