@@ -1,10 +1,3 @@
-# Pi extension instructions
-
-Treat the extension specification as the source of truth.
-Implement the specification end to end.
-Do not add unrelated features.
-Ask for clarification only when essential information is missing.
-
 ## Runtime and implementation
 
 Use Bun as the runtime, not Node.js.
@@ -18,6 +11,8 @@ Export the default factory function that receives `ExtensionAPI`.
 Keep the implementation minimal.
 Do not add code comments unless they explain a non-obvious constraint.
 Do not hard-code Pi defaults that users can configure.
+Add return types to all non-test code.
+Only used functions if you need to capture anything, otherwise use functions.
 
 ## Custom tools
 
@@ -91,5 +86,5 @@ Add focused tests for the implemented logic.
 Use Bun's native test runner instead of adding a testing framework.
 Test custom rendering in both collapsed and expanded states when applicable.
 Run the relevant tests and type checks with Bun before you finish.
-Use BDD style tests using //given //when //then structuring; each section must only be used once in a single test.
-The //when section must only contain a single invocation.
+Use BDD style tests using `//given //when //then` structuring; each section must only be used once in a single test.
+The `//when` section must only contain a single invocation.
