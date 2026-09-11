@@ -10,7 +10,7 @@
 		"code-index": {
 			"enabled": true,
 			"type": "local",
-			"command": ["uvx", "code-index-mcp@2.17.0"]
+			"command": ["uvx", "code-index-mcp@2.17.1"]
 		},
 		"opensrc": {
 			"enabled": true,
