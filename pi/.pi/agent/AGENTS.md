@@ -19,6 +19,8 @@
 - Never put a blank line between sentences of the same paragraph; a blank line starts a new paragraph.
 - Group related sentences into multi-sentence paragraphs; do not make every sentence its own paragraph.
 
+- Follow principals of the book `A Philosophy of Software Design` from John Ousterhout
+
 Bad — every sentence is its own paragraph:
 
     CodeRabbit runs on Windows.
