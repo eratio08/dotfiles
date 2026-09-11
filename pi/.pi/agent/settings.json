@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.84.4",
+  "lastChangelogVersion": "0.85.1",
   "theme": "rose-pine-moon",
   "defaultProvider": "github-copilot",
   "defaultModel": "gpt-5.6-luna",
@@ -14,7 +14,8 @@
     "git:github.com/DietrichGebert/ponytail",
     "git:github.com/eratio08/pi-mcp",
     "npm:@plannotator/pi-extension",
-    "npm:cc-safety-net"
+    "npm:cc-safety-net",
+    "ssh://git@github.com/eratio08/pi-spa.git"
   ],
   "enableInstallTelemetry": false,
   "hideThinkingBlock": true,
@@ -24,6 +25,7 @@
     "github-copilot/gpt-5.6-terra"
   ],
   "skills": [
+    "~/.local/state/sparness/opencode/skills",
     "-skills/cavecrew/SKILL.md"
   ]
 }
