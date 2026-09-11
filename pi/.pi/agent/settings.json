@@ -21,8 +21,7 @@
   "hideThinkingBlock": true,
   "enabledModels": [
     "github-copilot/gpt-5.6-luna",
-    "github-copilot/kimi-k3",
-    "github-copilot/gpt-5.6-terra"
+    "github-copilot/kimi-k3"
   ],
   "skills": [
     "~/.local/state/sparness/opencode/skills",
