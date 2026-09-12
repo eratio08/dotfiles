@@ -1,76 +1,32 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
-import {
-  type CavemanMode,
-  DEFAULT_MODE,
-  getModeInstructions,
-  parseCavemanCommand,
-  parseModeChange,
-  resolveSessionMode,
-} from './core.ts'
+import { Effect, ManagedRuntime } from 'effect'
+import { Caveman, CavemanContext, CavemanLayer } from './src/effects.ts'
 
-const SAVE_TYPE = 'caveman-mode'
-const LEVEL_ICONS: Record<Exclude<CavemanMode, 'off'>, string> = {
-  lite: '🌿',
-  full: '⚡',
-  ultra: '🔥',
-  'wenyan-lite': '🌿',
-  'wenyan-full': '⚡',
-  'wenyan-ultra': '🔥',
-}
+export default function cavemanExtension(pi: ExtensionAPI): void {
+  const runtime = ManagedRuntime.make(CavemanLayer(pi))
+  let shuttingDown = false
 
-function syncStatus(ctx: ExtensionContext | null, mode: CavemanMode, isActive: boolean) {
-  if (!ctx?.ui?.setStatus || !ctx.ui.theme?.fg) return
-  if (mode === 'off') {
-    ctx.ui.setStatus('caveman', '')
-    return
-  }
-  const theme = ctx.ui.theme
-  const indicator = isActive ? theme.fg('accent', '●') : theme.fg('dim', '○')
-  const icon = LEVEL_ICONS[mode as Exclude<CavemanMode, 'off'>] ?? '🪨'
-  ctx.ui.setStatus('caveman', `${indicator} 🪨 ${theme.fg('muted', 'caveman: ')}${theme.fg('text', icon)}`)
-}
-
-function restoreMode(ctx: ExtensionContext, fallbackMode: CavemanMode) {
-  return resolveSessionMode(ctx.sessionManager.getBranch(), fallbackMode)
-}
-
-export default function cavemanExtension(pi: ExtensionAPI) {
-  let currentMode: CavemanMode = DEFAULT_MODE
-  let lastCtx: ExtensionContext | null = null
-  let isActive = false
-
-  function setMode(mode: CavemanMode, ctx?: ExtensionContext | null, notify = true) {
-    currentMode = mode
-    pi.appendEntry(SAVE_TYPE, { mode })
-    if (ctx) lastCtx = ctx
-    syncStatus(ctx ?? lastCtx, currentMode, isActive)
-    if (notify) {
-      ;(ctx ?? lastCtx)?.ui?.notify?.(`caveman: ${currentMode}`, 'info')
-    }
-  }
-
-  function sendAlias(skillName: string, args: string, ctx?: ExtensionContext | null) {
-    const suffix = String(args || '').trim()
-    const message = suffix ? `/skill:${skillName} ${suffix}` : `/skill:${skillName}`
-    if (ctx?.isIdle?.() === false) {
-      pi.sendUserMessage(message, { deliverAs: 'followUp' })
-      ctx.ui.notify(`${skillName} queued`, 'info')
-      return
-    }
-    pi.sendUserMessage(message)
-  }
+  const sendAlias = (skillName: string, args: string, ctx: ExtensionContext): Promise<void> =>
+    runtime.runPromise(
+      Effect.provideService(
+        Caveman.use((caveman) => caveman.sendAlias(skillName, args)),
+        CavemanContext,
+        ctx,
+      ),
+      { signal: ctx.signal },
+    )
 
   pi.registerCommand('caveman', {
     description: 'Set caveman mode: off|lite|full|ultra|wenyan-lite|wenyan-full|wenyan-ultra',
-    handler: async (args, ctx) => {
-      lastCtx = ctx
-      const parsed = parseCavemanCommand(args, DEFAULT_MODE)
-      if (parsed.type !== 'set-mode') {
-        ctx.ui.notify('Unknown caveman mode', 'warning')
-        return
-      }
-      setMode(parsed.mode, ctx)
-    },
+    handler: async (args, ctx) =>
+      runtime.runPromise(
+        Effect.provideService(
+          Caveman.use((caveman) => caveman.handleCommand(args)),
+          CavemanContext,
+          ctx,
+        ),
+        { signal: ctx.signal },
+      ),
   })
 
   pi.registerCommand('caveman-commit', {
@@ -89,44 +45,90 @@ export default function cavemanExtension(pi: ExtensionAPI) {
   })
 
   pi.on('session_start', async (_event, ctx) => {
-    lastCtx = ctx
-    currentMode = restoreMode(ctx, DEFAULT_MODE)
-    syncStatus(ctx, currentMode, isActive)
+    if (shuttingDown) return
+    await runtime.runPromise(
+      Effect.provideService(
+        Caveman.use((caveman) => caveman.restoreMode()),
+        CavemanContext,
+        ctx,
+      ),
+      { signal: ctx.signal },
+    )
   })
 
   pi.on('session_tree', async (_event, ctx) => {
-    lastCtx = ctx
-    currentMode = restoreMode(ctx, DEFAULT_MODE)
-    syncStatus(ctx, currentMode, isActive)
+    if (shuttingDown) return
+    await runtime.runPromise(
+      Effect.provideService(
+        Caveman.use((caveman) => caveman.restoreMode()),
+        CavemanContext,
+        ctx,
+      ),
+      { signal: ctx.signal },
+    )
   })
 
   pi.on('agent_start', async (_event, ctx) => {
-    lastCtx = ctx
-    isActive = true
-    syncStatus(ctx, currentMode, isActive)
+    if (shuttingDown) return
+    await runtime.runPromise(
+      Effect.provideService(
+        Caveman.use((caveman) => caveman.setAgentActive(true)),
+        CavemanContext,
+        ctx,
+      ),
+      { signal: ctx.signal },
+    )
   })
 
   pi.on('agent_end', async (_event, ctx) => {
-    lastCtx = ctx
-    isActive = false
-    syncStatus(ctx, currentMode, isActive)
+    if (shuttingDown) return
+    await runtime.runPromise(
+      Effect.provideService(
+        Caveman.use((caveman) => caveman.setAgentActive(false)),
+        CavemanContext,
+        ctx,
+      ),
+      { signal: ctx.signal },
+    )
   })
 
-  pi.on('input', async (event) => {
-    if (event.source === 'extension') return { action: 'continue' }
-    const nextMode = parseModeChange(event.text, DEFAULT_MODE)
-    if (nextMode) {
-      setMode(nextMode, lastCtx, false)
-    }
+  pi.on('input', async (event, ctx) => {
+    if (shuttingDown || event.source === 'extension') return { action: 'continue' }
+    await runtime.runPromise(
+      Effect.provideService(
+        Caveman.use((caveman) => caveman.handleInput(event.text)),
+        CavemanContext,
+        ctx,
+      ),
+      { signal: ctx.signal },
+    )
     return { action: 'continue' }
   })
 
-  pi.on('before_agent_start', async (event) => {
-    if (!currentMode || currentMode === 'off') return
-    const instructions = getModeInstructions(currentMode)
-    if (!instructions) return
-    return {
-      systemPrompt: `${event.systemPrompt}\n\n${instructions}`,
+  pi.on('before_agent_start', async (event, ctx) => {
+    if (shuttingDown) return
+    const systemPrompt = await runtime.runPromise(
+      Caveman.use((caveman) => caveman.buildSystemPrompt(event.systemPrompt)),
+      { signal: ctx.signal },
+    )
+    if (!systemPrompt) return
+    return { systemPrompt }
+  })
+
+  pi.on('session_shutdown', async (_event, ctx) => {
+    if (shuttingDown) return
+    shuttingDown = true
+    try {
+      await runtime.runPromise(
+        Effect.provideService(
+          Caveman.use((caveman) => caveman.shutdown()),
+          CavemanContext,
+          ctx,
+        ),
+        { signal: ctx.signal },
+      )
+    } finally {
+      await runtime.dispose()
     }
   })
 }

@@ -1,6 +1,14 @@
+import { Result, Schema } from 'effect'
+
 export const VALID_MODES = ['off', 'lite', 'full', 'ultra', 'wenyan-lite', 'wenyan-full', 'wenyan-ultra'] as const
 
 export type CavemanMode = (typeof VALID_MODES)[number]
+export const CavemanModeSchema = Schema.Literals(VALID_MODES)
+export const CavemanModeEntrySchema = Schema.Struct({
+  type: Schema.Literal('custom'),
+  customType: Schema.Literal('caveman-mode'),
+  data: Schema.Struct({ mode: CavemanModeSchema }),
+})
 
 export const DEFAULT_MODE: CavemanMode = 'full'
 const MODE_SET = new Set<string>(VALID_MODES)
@@ -14,19 +22,12 @@ export function normalizeMode(value: unknown, fallback: CavemanMode | null = nul
 
 export function resolveSessionMode(entries: unknown, fallbackMode: CavemanMode = DEFAULT_MODE): CavemanMode {
   const fallback = normalizeMode(fallbackMode, DEFAULT_MODE) ?? DEFAULT_MODE
-  if (!Array.isArray(entries)) return fallback
+  const decodedEntries = Schema.decodeUnknownResult(Schema.Array(Schema.Unknown))(entries)
+  if (Result.isFailure(decodedEntries)) return fallback
 
-  for (let index = entries.length - 1; index >= 0; index -= 1) {
-    const entry = entries[index] as
-      | {
-          type?: string
-          customType?: string
-          data?: { mode?: unknown }
-        }
-      | undefined
-    if (entry?.type !== 'custom' || entry.customType !== 'caveman-mode') continue
-    const mode = normalizeMode(entry.data?.mode)
-    if (mode) return mode
+  for (let index = decodedEntries.success.length - 1; index >= 0; index -= 1) {
+    const decodedEntry = Schema.decodeUnknownResult(CavemanModeEntrySchema)(decodedEntries.success[index])
+    if (Result.isSuccess(decodedEntry)) return decodedEntry.success.data.mode
   }
 
   return fallback
