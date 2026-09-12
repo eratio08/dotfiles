@@ -1,0 +1,17 @@
+version=1
+skill=ripwire-before-you-build
+skill=ripwire-change-check
+skill=ripwire-find-bug
+skill=ripwire-fresh-eyes
+skill=ripwire-graph-query
+skill=ripwire-handoff
+skill=ripwire-layers
+skill=ripwire-mcp
+skill=ripwire-navigate
+skill=ripwire-orient
+skill=ripwire-perf-target
+skill=ripwire-quality-bar
+skill=ripwire-reuse-first
+skill=ripwire-router
+skill=ripwire-security-scan
+skill=ripwire-write-tests
