@@ -38,8 +38,8 @@ export SSH_AUTH_SOCK="$HOME/Library/Containers/com.bitwarden.desktop/Data/.bitwa
 # aliases
 alias vim="nvim"
 alias cat="bat -p"
-alias ls="eza -la"
-alias tree="eza -T"
+alias ls="eza --all --long --icons=auto"
+alias tree="eza --tree --icons=auto"
 alias lzd="lazydocker"
 alias lzg="lazygit"
 # alias find="fd"
