@@ -44,11 +44,5 @@ return {
 
     -- Buffers
     { '<leader>CA', ':%bd|e#<CR>', desc = 'Close All other Buffers', mode = 'n' },
-
-    -- Lua
-    -- TODO: Move into after filetype to only register for lua files
-    { '<space><space>x', '<cmd>source %<CR>', desc = 'Source current file', mode = 'n' },
-    { '<space>x', ':.lua<CR>', desc = 'Execute current file in lua', mode = 'n' },
-    { '<space>x', ':lua<CR>', desc = 'Execute current line in lua', mode = 'v' },
   },
 }

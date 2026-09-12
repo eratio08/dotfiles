@@ -26,6 +26,8 @@ return {
         hijack_netrw_behavior = 'open_current',
         filtered_items = {
           visible = false,
+          hide_dotfiles = true,
+          hide_gitignored = true,
         },
         follow_current_file = {
           enabled = true,
