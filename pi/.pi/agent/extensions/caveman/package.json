@@ -6,11 +6,11 @@
   "scripts": {
     "test": "bun test tests/*.test.ts",
     "check": "biome check .",
-    "typecheck": "tsc --noEmit --strict --skipLibCheck --module esnext --moduleResolution bundler --target es2023 --allowImportingTsExtensions src/core.ts src/effects.ts src/index.ts tests/*.test.ts"
+    "typecheck": "tsc --noEmit"
   },
   "pi": {
     "extensions": [
-      "./src/index.ts"
+      "./index.ts"
     ]
   },
   "peerDependencies": {

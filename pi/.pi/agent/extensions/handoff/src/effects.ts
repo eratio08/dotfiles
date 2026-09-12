@@ -14,7 +14,7 @@ import {
   HANDOFF_MODEL_APPLIED_ENTRY,
   HANDOFF_MODEL_ENTRY,
   type HandoffModelState,
-} from '../handoff-model.ts'
+} from './handoff-model.ts'
 
 const DEBUG_LOG = join(process.env.TMPDIR ?? '/tmp', 'pi-handoff-debug.log')
 

@@ -102,7 +102,7 @@ Cancellation should be a normal result, not an exception.
 
 ### Pure handoff logic
 
-Keep `handoff-model.ts` pure.
+Keep `handoff/src/handoff-model.ts` pure.
 
 Add pure helpers only when they reduce orchestration complexity, such as:
 - Select the branch point.

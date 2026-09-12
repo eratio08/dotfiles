@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
+import todoExtension from '../index.ts'
 import { TodoUiError } from '../src/effects.ts'
-import todoExtension from '../src/index.ts'
 import { extractLatestTodoSnapshot } from '../src/state.ts'
 
 type EventHandler = (event: unknown, ctx: ExtensionContext) => Promise<unknown> | unknown

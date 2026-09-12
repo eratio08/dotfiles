@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { getPendingHandoffModel } from '../handoff-model.ts'
+import { getPendingHandoffModel } from '../src/handoff-model.ts'
 
 const handoffEntry = {
   type: 'custom',

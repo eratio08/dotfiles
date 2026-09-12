@@ -2,8 +2,8 @@ import { type ExtensionAPI, keyHint } from '@earendil-works/pi-coding-agent'
 import { Text } from '@earendil-works/pi-tui'
 import { type Effect, ManagedRuntime, Schema } from 'effect'
 import { Type } from 'typebox'
-import { type CommentData, type TuicrToolInput, TuicrToolInputSchema } from './core.ts'
-import { Tuicr, TuicrLayer, type TuicrOpenResult } from './effects.ts'
+import { type CommentData, type TuicrToolInput, TuicrToolInputSchema } from './src/core.ts'
+import { Tuicr, TuicrLayer, type TuicrOpenResult } from './src/effects.ts'
 
 const Parameters = Type.Union([
   Type.Object({

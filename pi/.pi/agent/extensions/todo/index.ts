@@ -3,7 +3,7 @@ import type { ExtensionAPI, ExtensionContext, Theme, ToolResultEvent } from '@ea
 import { matchesKey, Text, truncateToWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui'
 import { Effect, Layer, ManagedRuntime } from 'effect'
 import { Type } from 'typebox'
-import { TodoContext, TodoEffects, TodoEffectsLayer, type TodoToolDetails, TodoUi, TodoUiError } from './effects.ts'
+import { TodoContext, TodoEffects, TodoEffectsLayer, type TodoToolDetails, TodoUi, TodoUiError } from './src/effects.ts'
 import {
   getTodoCounts,
   isOpenTodo,
@@ -15,7 +15,7 @@ import {
   type TodoStatus,
   TodoStore,
   todoDescriptionLines,
-} from './state.ts'
+} from './src/state.ts'
 
 const PLAN_SUBMIT_TOOL_NAME = 'plannotator_submit_plan'
 

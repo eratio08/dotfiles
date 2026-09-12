@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { type ExecResult, type ExtensionAPI, initTheme } from '@earendil-works/pi-coding-agent'
 import { Effect, ManagedRuntime } from 'effect'
+import tuicrExtension from '../index.ts'
 import {
   buildTuicrArgs,
   buildTuicrBlockingCommand,
@@ -15,7 +16,6 @@ import {
   TUICR_COMPLETION_MARKER,
 } from '../src/core.ts'
 import { Tuicr, TuicrLayer } from '../src/effects.ts'
-import tuicrExtension from '../src/index.ts'
 
 type ExecCall = {
   readonly command: string

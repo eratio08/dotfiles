@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from '@earendil-works/pi-coding-agent'
-import { HANDOFF_MODEL_APPLIED_ENTRY, HANDOFF_MODEL_ENTRY } from '../handoff-model.ts'
 import handoffExtension from '../index.ts'
+import { HANDOFF_MODEL_APPLIED_ENTRY, HANDOFF_MODEL_ENTRY } from '../src/handoff-model.ts'
 
 type Action =
   | { kind: 'append'; customType: string; data: unknown }

@@ -2,7 +2,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { keyHint, withFileMutationQueue } from '@earendil-works/pi-coding-agent'
 import { Text } from '@earendil-works/pi-tui'
 import { Type } from 'typebox'
-import { type AppliedFile, applyPatch, parsePatch } from './patch.ts'
+import { type AppliedFile, applyPatch, parsePatch } from './src/patch.ts'
 
 const parameters = Type.Object({
   patchText: Type.String({ description: 'OpenCode-style patch text enclosed by *** Begin Patch and *** End Patch' }),

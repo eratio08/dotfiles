@@ -9,7 +9,7 @@
   "scripts": {
     "test": "bun test tests/*.test.ts",
     "check": "biome check .",
-    "typecheck": "tsc --noEmit --strict --skipLibCheck --module esnext --moduleResolution bundler --target es2023 --allowImportingTsExtensions index.ts src/effects.ts handoff-model.ts tests/*.test.ts"
+    "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",

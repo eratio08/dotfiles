@@ -1,13 +1,13 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Layer, ManagedRuntime } from 'effect'
-import { SkillTogglePlannerLive } from './apply/planner.ts'
-import { SkillChangeWriterLive } from './apply/writer.ts'
-import { runToggleSkillsCommand } from './command.ts'
-import { SkillLocatorLive } from './discovery/skill-locator.ts'
-import { SimpleFrontmatterCodec } from './frontmatter/parser.ts'
-import { MinimalFrontmatterPatcher } from './frontmatter/patcher.ts'
-import { SkillInventoryLive } from './inventory/loader.ts'
-import { FileSystemLive } from './ports/fs.ts'
+import { SkillTogglePlannerLive } from './src/apply/planner.ts'
+import { SkillChangeWriterLive } from './src/apply/writer.ts'
+import { runToggleSkillsCommand } from './src/command.ts'
+import { SkillLocatorLive } from './src/discovery/skill-locator.ts'
+import { SimpleFrontmatterCodec } from './src/frontmatter/parser.ts'
+import { MinimalFrontmatterPatcher } from './src/frontmatter/patcher.ts'
+import { SkillInventoryLive } from './src/inventory/loader.ts'
+import { FileSystemLive } from './src/ports/fs.ts'
 
 export default function piSkillToggle(pi: ExtensionAPI): void {
   const codec = new SimpleFrontmatterCodec()

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
-import rtk from '../src/index.ts'
+import rtk from '../index.ts'
 
 type Handler = (...args: unknown[]) => unknown
 

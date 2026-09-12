@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
-import { assertSafePublicHttpUrl, WEBFETCH_NAME, webFetchTool } from './webfetch.ts'
-import { hasWebSearchCredentials, webSearchTool } from './websearch.ts'
+import { assertSafePublicHttpUrl, WEBFETCH_NAME, webFetchTool } from './src/webfetch.ts'
+import { hasWebSearchCredentials, webSearchTool } from './src/websearch.ts'
 
 export default function webToolsExtension(pi: ExtensionAPI) {
   pi.registerTool(webFetchTool)
