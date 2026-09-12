@@ -1,78 +1,23 @@
-import { randomUUID } from 'node:crypto'
 import { StringEnum } from '@earendil-works/pi-ai'
 import type { ExtensionAPI, ExtensionContext, Theme, ToolResultEvent } from '@earendil-works/pi-coding-agent'
 import { matchesKey, Text, truncateToWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui'
+import { Effect, Layer, ManagedRuntime } from 'effect'
 import { Type } from 'typebox'
+import { TodoContext, TodoEffects, TodoEffectsLayer, type TodoToolDetails, TodoUi, TodoUiError } from './effects.ts'
 import {
-  cloneTodos,
-  extractLatestTodoSnapshot,
-  formatTodoContext,
-  formatTodoReminder,
   getTodoCounts,
   isOpenTodo,
   normalizeTodos,
-  summarizeTodos,
   TODO_PRIORITIES,
   TODO_STATUSES,
   type Todo,
   type TodoPriority,
   type TodoStatus,
+  TodoStore,
   todoDescriptionLines,
-  validateTodoUpdate,
 } from './state.ts'
 
-interface TodoToolDetails {
-  todos: Todo[]
-  error?: string
-}
-
-type PlannotatorPhase = 'idle' | 'planning' | 'executing'
-
-type PlannotatorStatusResponse =
-  | { status: 'handled'; result: { phase: PlannotatorPhase } }
-  | { status: 'unavailable'; error?: string }
-  | { status: 'error'; error: string }
-
-type PlannotatorStatusRequest = {
-  requestId: string
-  action: 'plan-mode'
-  payload: { mode: 'status' }
-  respond: (response: PlannotatorStatusResponse) => void
-}
-
-interface TodoTrackingState {
-  lastKnownPhase?: PlannotatorPhase
-  suspended: boolean
-  wasActiveBeforeSuspend: boolean
-}
-
-const TODO_TOOL_NAME = 'todowrite'
 const PLAN_SUBMIT_TOOL_NAME = 'plannotator_submit_plan'
-const PLANNOTATOR_REQUEST_CHANNEL = 'plannotator:request'
-const SUSPENDED_TODO_ERROR = 'Todo tracking is disabled while Plannotator executes the approved plan.'
-
-function isPlannotatorPhase(value: unknown): value is PlannotatorPhase {
-  return value === 'idle' || value === 'planning' || value === 'executing'
-}
-
-function isPlannotatorStatusResponse(value: unknown): value is PlannotatorStatusResponse {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const response = value as { status?: unknown; result?: unknown; error?: unknown }
-  if (response.status === 'unavailable') {
-    return true
-  }
-  if (response.status === 'error') {
-    return typeof response.error === 'string'
-  }
-  if (response.status !== 'handled' || !response.result || typeof response.result !== 'object') {
-    return false
-  }
-
-  return isPlannotatorPhase((response.result as { phase?: unknown }).phase)
-}
 
 function isApprovedPlanSubmission(event: ToolResultEvent): boolean {
   if (event.toolName !== PLAN_SUBMIT_TOOL_NAME || event.isError) {
@@ -244,143 +189,83 @@ function updateUi(ctx: ExtensionContext, todos: readonly Todo[], suspended = fal
   }))
 }
 
+function toTodoUiError(operation: string, cause: unknown): TodoUiError {
+  return new TodoUiError({ operation, message: String(cause) })
+}
+
+const todoUiLayer = Layer.effect(
+  TodoUi,
+  Effect.gen(function* () {
+    const ctx = yield* TodoContext
+    return TodoUi.of({
+      update: (todos, suspended) =>
+        Effect.try({
+          try: () => updateUi(ctx, todos, suspended),
+          catch: (cause) => toTodoUiError('update', cause),
+        }),
+      show: (todos) =>
+        Effect.tryPromise({
+          try: () =>
+            ctx.ui.custom<void>((_tui, theme, _keybindings, done) => new TodoViewer(todos, theme, () => done())),
+          catch: (cause) => toTodoUiError('show', cause),
+        }),
+    })
+  }),
+)
+
 export default function (pi: ExtensionAPI) {
-  let todos: Todo[] = []
-  const tracking: TodoTrackingState = {
-    suspended: false,
-    wasActiveBeforeSuspend: false,
-  }
-  let statusRequestVersion = 0
+  const runtime = ManagedRuntime.make(TodoStore.layer)
+  const statusRequestVersion = { value: 0 }
+  let shuttingDown = false
 
-  const suspendTracking = (ctx: ExtensionContext): void => {
-    if (tracking.suspended) {
-      if (ctx.hasUI) ctx.ui.setWidget('todo', undefined)
-      return
-    }
-
-    tracking.suspended = true
-    const activeTools = pi.getActiveTools()
-    tracking.wasActiveBeforeSuspend = activeTools.includes(TODO_TOOL_NAME)
-    if (tracking.wasActiveBeforeSuspend) {
-      pi.setActiveTools(activeTools.filter((toolName) => toolName !== TODO_TOOL_NAME))
-    }
-    if (ctx.hasUI) ctx.ui.setWidget('todo', undefined)
-  }
-
-  const resumeTracking = (ctx: ExtensionContext): void => {
-    if (!tracking.suspended) {
-      return
-    }
-
-    tracking.suspended = false
-    if (tracking.wasActiveBeforeSuspend) {
-      const activeTools = pi.getActiveTools()
-      if (!activeTools.includes(TODO_TOOL_NAME)) {
-        pi.setActiveTools([...activeTools, TODO_TOOL_NAME])
-      }
-    }
-    tracking.wasActiveBeforeSuspend = false
-    updateUi(ctx, todos)
-  }
-
-  const reconcilePhase = (phase: PlannotatorPhase, ctx: ExtensionContext): void => {
-    tracking.lastKnownPhase = phase
-    if (phase === 'executing') {
-      suspendTracking(ctx)
-    } else {
-      resumeTracking(ctx)
-    }
-  }
-
-  const requestPlannotatorPhase = (ctx: ExtensionContext): Promise<void> => {
-    const version = ++statusRequestVersion
-    return new Promise((resolve) => {
-      let settled = false
-      const finish = () => {
-        if (settled) return
-        settled = true
-        resolve()
-      }
-      const request: PlannotatorStatusRequest = {
-        requestId: randomUUID(),
-        action: 'plan-mode',
-        payload: { mode: 'status' },
-        respond: (response) => {
-          if (settled || version !== statusRequestVersion || !isPlannotatorStatusResponse(response)) {
-            finish()
-            return
-          }
-          if (response.status === 'handled') {
-            reconcilePhase(response.result.phase, ctx)
-          }
-          finish()
-        },
-      }
-      pi.events.emit(PLANNOTATOR_REQUEST_CHANNEL, request)
-      queueMicrotask(finish)
+  const run = <A, E>(
+    use: (effects: TodoEffects['Service']) => Effect.Effect<A, E>,
+    ctx: ExtensionContext,
+    signal?: AbortSignal,
+  ): Promise<A> => {
+    const effectsLayer = TodoEffectsLayer(pi, statusRequestVersion).pipe(
+      Layer.provide(todoUiLayer),
+      Layer.provide(Layer.succeed(TodoContext, ctx)),
+    )
+    return runtime.runPromise(Effect.provide(TodoEffects.use(use), effectsLayer), {
+      signal: signal ?? ctx.signal,
     })
   }
 
-  const scheduleSessionPhaseSync = (ctx: ExtensionContext): void => {
-    setTimeout(() => {
-      void requestPlannotatorPhase(ctx)
-    }, 0)
-  }
-
-  const syncFromSession = (ctx: ExtensionContext) => {
-    todos = extractLatestTodoSnapshot(ctx.sessionManager.getBranch())
-    updateUi(ctx, todos, tracking.suspended)
-    scheduleSessionPhaseSync(ctx)
-  }
-
-  pi.on('session_start', async (_event, ctx) => syncFromSession(ctx))
-  pi.on('session_tree', async (_event, ctx) => syncFromSession(ctx))
-  pi.on('before_agent_start', async (_event, ctx) => syncFromSession(ctx))
+  pi.on('session_start', async (_event, ctx) => {
+    await run((effects) => effects.syncFromSession(), ctx)
+  })
+  pi.on('session_tree', async (_event, ctx) => {
+    await run((effects) => effects.syncFromSession(), ctx)
+  })
+  pi.on('before_agent_start', async (_event, ctx) => {
+    await run((effects) => effects.syncFromSession(), ctx)
+  })
   pi.on('input', async (_event, ctx) => {
-    await requestPlannotatorPhase(ctx)
+    await run((effects) => effects.requestPlannotatorPhase(), ctx)
     return { action: 'continue' }
   })
   pi.on('tool_result', async (event, ctx) => {
     if (isApprovedPlanSubmission(event)) {
-      await requestPlannotatorPhase(ctx)
+      await run((effects) => effects.requestPlannotatorPhase(), ctx)
     }
   })
   pi.on('agent_end', async (_event, ctx) => {
-    if (!tracking.suspended) {
-      return
-    }
-    await new Promise<void>((resolve) => setTimeout(resolve, 0))
-    await requestPlannotatorPhase(ctx)
+    await run((effects) => effects.handleAgentEnd(), ctx)
   })
   pi.on('session_compact', async (event, ctx) => {
-    if (tracking.suspended) {
-      await requestPlannotatorPhase(ctx)
-      if (tracking.suspended) {
-        return
-      }
-    }
-    if (todos.length === 0) {
-      return
-    }
-
-    const message = {
-      customType: 'todo',
-      content: formatTodoContext(todos),
-      display: false,
-    }
-    if (event.willRetry) {
-      pi.sendMessage(message, { deliverAs: 'steer' })
-    } else if (ctx.isIdle()) {
-      pi.sendMessage(message, { triggerTurn: false })
-    } else {
-      pi.sendMessage(message, { deliverAs: 'nextTurn' })
-    }
+    await run((effects) => effects.handleCompaction(event), ctx)
   })
   pi.on('session_shutdown', async (_event, ctx) => {
-    if (!ctx.hasUI) {
+    if (shuttingDown) {
       return
     }
-    ctx.ui.setWidget('todo', undefined)
+    shuttingDown = true
+    try {
+      await run((effects) => effects.clearTodoWidget(), ctx)
+    } finally {
+      await runtime.dispose()
+    }
   })
 
   pi.registerTool({
@@ -403,30 +288,8 @@ export default function (pi: ExtensionAPI) {
       'Continue until no open task remains or the user explicitly cancels it.',
     ],
     parameters: Params,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      if (tracking.suspended) {
-        return {
-          content: [{ type: 'text', text: SUSPENDED_TODO_ERROR }],
-          details: { todos: cloneTodos(todos), error: SUSPENDED_TODO_ERROR } satisfies TodoToolDetails,
-        }
-      }
-
-      const next = normalizeTodos(params.todos)
-      const error = next ? validateTodoUpdate(todos, next) : 'invalid todo list'
-      if (!next || error) {
-        return {
-          content: [{ type: 'text', text: `Error: ${error}\n${formatTodoReminder(todos)}` }],
-          details: { todos: cloneTodos(todos), error } satisfies TodoToolDetails,
-        }
-      }
-
-      todos = cloneTodos(next)
-      updateUi(ctx, todos, tracking.suspended)
-
-      return {
-        content: [{ type: 'text', text: `${summarizeTodos(todos)}\n${formatTodoReminder(todos)}` }],
-        details: { todos: cloneTodos(todos) } satisfies TodoToolDetails,
-      }
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+      return run((effects) => effects.executeTodo(params), ctx, signal)
     },
     renderCall(args, theme) {
       const next = normalizeTodos(args.todos) ?? []
@@ -479,19 +342,16 @@ export default function (pi: ExtensionAPI) {
     description: 'Show todos on the current branch',
     handler: async (_args, ctx) => {
       if (ctx.mode !== 'tui') {
-        ctx.ui.notify('/todos requires interactive mode', 'error')
+        if (ctx.hasUI) {
+          ctx.ui.notify('/todos requires interactive mode', 'error')
+        }
+        return
+      }
+      if (!ctx.hasUI) {
         return
       }
 
-      await requestPlannotatorPhase(ctx)
-      if (tracking.suspended) {
-        ctx.ui.notify(SUSPENDED_TODO_ERROR, 'info')
-        return
-      }
-
-      await ctx.ui.custom<void>((_tui, theme, _keybindings, done) => {
-        return new TodoViewer(todos, theme, () => done())
-      })
+      await run((effects) => effects.showTodos(), ctx)
     },
   })
 }

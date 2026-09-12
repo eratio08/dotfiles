@@ -7,7 +7,7 @@ import gptContextModeExtension, {
   type GptContextMode,
   parseGptContextCommand,
   restoreGptContextMode,
-} from '../index.ts'
+} from '../src/index.ts'
 
 type Gpt5Model = Model<'openai-responses'>
 type Command = { handler: (args: string, ctx: ExtensionCommandContext) => Promise<void> }

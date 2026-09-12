@@ -3,9 +3,6 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "keywords": [
-    "pi-package"
-  ],
   "scripts": {
     "test": "bun test tests/*.test.ts",
     "check": "biome check ."
@@ -17,11 +14,6 @@
   },
   "dependencies": {
     "unpdf": "^1.8.0"
-  },
-  "pi": {
-    "extensions": [
-      "./index.ts"
-    ]
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.12"

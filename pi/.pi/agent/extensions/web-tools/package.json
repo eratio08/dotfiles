@@ -16,11 +16,6 @@
     "htmlparser2": "^12.0.0",
     "turndown": "^7.2.4"
   },
-  "pi": {
-    "extensions": [
-      "./index.ts"
-    ]
-  },
   "devDependencies": {
     "@biomejs/biome": "2.5.12"
   }

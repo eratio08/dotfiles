@@ -5,7 +5,7 @@ import {
   parseSearchResponse,
   selectProvider,
   previewLines as webSearchPreviewLines,
-} from '../websearch.ts'
+} from '../src/websearch.ts'
 
 test('websearch registration gate checks credentials', () => {
   assert.equal(hasWebSearchCredentials({} as NodeJS.ProcessEnv), false)

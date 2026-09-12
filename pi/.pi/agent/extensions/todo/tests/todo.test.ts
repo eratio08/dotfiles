@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict'
+import test from 'node:test'
+import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
+import { Effect, Layer, ManagedRuntime } from 'effect'
+import { TodoContext, TodoEffects, TodoEffectsLayer, TodoUi } from '../src/effects.ts'
 import {
   extractLatestTodoSnapshot,
   formatTodoContext,
@@ -7,9 +11,12 @@ import {
   getTodoHandoffSnapshot,
   normalizeTodos,
   summarizeTodos,
+  type Todo,
+  TodoStore,
+  TodoUpdateError,
   todoDescriptionLines,
   validateTodoUpdate,
-} from '../state.ts'
+} from '../src/state.ts'
 
 const snapshot = normalizeTodos([
   { content: '  first task  ', status: 'pending', priority: 'high' },
@@ -178,5 +185,120 @@ assert.deepEqual(
   ['line one', 'line two'],
 )
 assert.deepEqual(todoDescriptionLines({ content: 'task', status: 'pending', priority: 'high' }), [])
+
+async function runStore<A, E>(effect: Effect.Effect<A, E, TodoStore>): Promise<A> {
+  const runtime = ManagedRuntime.make(TodoStore.layer)
+  try {
+    return await runtime.runPromise(effect)
+  } finally {
+    await runtime.dispose()
+  }
+}
+
+test('schema decoding rejects malformed todo snapshots', () => {
+  //given
+  const value = [{ content: 'task', status: 'unknown', priority: 'high' }]
+
+  //when
+  const result = normalizeTodos(value)
+
+  //then
+  assert.equal(result, undefined)
+})
+
+test('builds TodoEffects with testing layers', async () => {
+  //given
+  const updates: Todo[][] = []
+  const pi = {} as unknown as ExtensionAPI
+  const testLayer = TodoEffectsLayer(pi, { value: 0 }).pipe(
+    Layer.provide(
+      Layer.succeed(
+        TodoUi,
+        TodoUi.of({
+          update: (todos) => Effect.sync(() => updates.push([...todos])),
+          show: () => Effect.void,
+        }),
+      ),
+    ),
+    Layer.provide(Layer.succeed(TodoContext, {} as ExtensionContext)),
+    Layer.provide(TodoStore.layer),
+  )
+  const runtime = ManagedRuntime.make(testLayer)
+
+  try {
+    //when
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const effects = yield* TodoEffects
+        return yield* effects.executeTodo({
+          todos: [{ content: 'active', status: 'in_progress', priority: 'high' }],
+        })
+      }),
+    )
+
+    //then
+    assert.deepEqual(result.details.todos, [{ content: 'active', status: 'in_progress', priority: 'high' }])
+    assert.deepEqual(updates, [[{ content: 'active', status: 'in_progress', priority: 'high' }]])
+  } finally {
+    await runtime.dispose()
+  }
+})
+
+test('todo store rejects updates without changing the accepted snapshot', async () => {
+  //given
+  const previous = normalizeTodos([{ content: 'active', status: 'in_progress', priority: 'high' }])
+  assert.ok(previous)
+
+  //when
+  const result = await runStore(
+    Effect.gen(function* () {
+      const store = yield* TodoStore
+      yield* store.replace(previous)
+      const update = yield* Effect.match(store.replace([]), {
+        onFailure: (error) => ({ error }),
+        onSuccess: (todos) => ({ todos }),
+      })
+      return { update, current: yield* store.snapshot }
+    }),
+  )
+
+  //then
+  assert.ok('error' in result.update)
+  assert.ok(result.update.error instanceof TodoUpdateError)
+  assert.deepEqual(result.current, previous)
+})
+
+test('todo store suspends and resumes atomically', async () => {
+  //given
+  const todos = normalizeTodos([{ content: 'active', status: 'in_progress', priority: 'high' }])
+  assert.ok(todos)
+
+  //when
+  const result = await runStore(
+    Effect.gen(function* () {
+      const store = yield* TodoStore
+      yield* store.replace(todos)
+      const firstSuspend = yield* store.suspend(true)
+      const secondSuspend = yield* store.suspend(false)
+      const resume = yield* store.resume
+      const secondResume = yield* store.resume
+      return { firstSuspend, secondSuspend, resume, secondResume }
+    }),
+  )
+
+  //then
+  assert.equal(result.firstSuspend, true)
+  assert.equal(result.secondSuspend, false)
+  assert.deepEqual(result.resume, {
+    resumed: true,
+    wasActiveBeforeSuspend: true,
+    todos,
+  })
+  assert.deepEqual(result.secondResume, {
+    resumed: false,
+    wasActiveBeforeSuspend: false,
+    todos,
+  })
+})
 
 console.log('todo extension check: ok')

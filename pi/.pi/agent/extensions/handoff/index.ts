@@ -1,120 +1,56 @@
-import { appendFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import type { Message } from '@earendil-works/pi-ai/compat'
-import type { ExtensionAPI, SessionEntry } from '@earendil-works/pi-coding-agent'
-import { BorderedLoader, convertToLlm, serializeConversation } from '@earendil-works/pi-coding-agent'
-import {
-  getPendingHandoffModel,
-  HANDOFF_MODEL_APPLIED_ENTRY,
-  HANDOFF_MODEL_ENTRY,
-  type HandoffModelState,
-} from './handoff-model.ts'
+import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
+import { Effect, ManagedRuntime } from 'effect'
+import { HandoffEffects, HandoffEffectsLayer, type HandoffRestoreResult, type HandoffRunResult } from './src/effects.ts'
 
-const DEBUG_LOG = join(process.env.TMPDIR ?? '/tmp', 'pi-handoff-debug.log')
-
-function debug(event: string, details: Record<string, unknown> = {}) {
-  return appendFile(
-    DEBUG_LOG,
-    `${new Date().toISOString()} [DEBUG-handoff-38e1] ${event} ${JSON.stringify(details)}\n`,
-  ).catch(() => {})
+function notify(ctx: ExtensionContext, message: string, type: 'info' | 'warning' | 'error'): void {
+  if (ctx.hasUI) {
+    ctx.ui.notify(message, type)
+  }
 }
 
-const SYSTEM_PROMPT = `You are a context transfer assistant. Given a conversation history, generate a focused handoff prompt for a new thread that:
-
-1. Summarizes relevant context from the conversation (decisions made, approaches taken, key findings)
-2. Lists any relevant files that were discussed or modified
-3. Is self-contained - the new thread should be able to proceed without the old conversation
-4. Ends in a way that makes it natural for the user to add the next instruction
-
-Format your response as a prompt the user can send to start the new thread. Be concise but include all necessary context. Do not include any preamble like "Here's the prompt" - just output the prompt itself.
-
-Example output format:
-## Context
-We've been working on X. Key decisions:
-- Decision 1
-- Decision 2
-
-Files involved:
-- path/to/file1.ts
-- path/to/file2.ts
-
-I will give you the next instruction after you read this handoff.`
-
-function entryToMessage(entry: SessionEntry) {
-  if (entry.type === 'message') {
-    return entry.message
-  }
-  if (entry.type === 'compaction') {
+function runResultMessage(result: HandoffRunResult): { message: string; type: 'info' | 'error' } | undefined {
+  if (result.status === 'cancelled') {
     return {
-      role: 'compactionSummary',
-      summary: entry.summary,
-      tokensBefore: entry.tokensBefore,
-      timestamp: new Date(entry.timestamp).getTime(),
+      message: result.stage === 'navigation' ? 'Branch cancelled' : 'Cancelled',
+      type: 'info',
     }
+  }
+  if (result.status === 'skipped') {
+    const messages = {
+      'no-model': 'No model selected',
+      'no-conversation': 'No conversation to hand off',
+    } as const
+    return { message: messages[result.reason], type: 'error' }
   }
   return undefined
 }
 
-function getHandoffMessages(branch: SessionEntry[]) {
-  let compactionIndex = -1
-  for (let i = branch.length - 1; i >= 0; i--) {
-    if (branch[i].type === 'compaction') {
-      compactionIndex = i
-      break
-    }
-  }
-  if (compactionIndex < 0) {
-    return branch
-      .map(entryToMessage)
-      .filter((message): message is NonNullable<ReturnType<typeof entryToMessage>> => message !== undefined)
-  }
-
-  const compaction = branch[compactionIndex]
-  const firstKeptIndex =
-    compaction.type === 'compaction' ? branch.findIndex((entry) => entry.id === compaction.firstKeptEntryId) : -1
-  const compactedBranch = [
-    compaction,
-    ...(firstKeptIndex >= 0 ? branch.slice(firstKeptIndex, compactionIndex) : []),
-    ...branch.slice(compactionIndex + 1),
-  ]
-  return compactedBranch
-    .map(entryToMessage)
-    .filter((message): message is NonNullable<ReturnType<typeof entryToMessage>> => message !== undefined)
+function restoreResultMessage(result: HandoffRestoreResult): string | undefined {
+  return result.status === 'warning' ? result.message : undefined
 }
 
-export default function (pi: ExtensionAPI) {
-  pi.on('before_agent_start', async (_event, ctx) => {
-    const pending = getPendingHandoffModel(ctx.sessionManager.getBranch())
-    if (!pending) {
-      return
-    }
+export default function handoffExtension(pi: ExtensionAPI): void {
+  const runtime = ManagedRuntime.make(HandoffEffectsLayer(pi))
+  let shuttingDown = false
 
-    const markApplied = (applied: boolean, reason?: string) => {
-      pi.appendEntry(HANDOFF_MODEL_APPLIED_ENTRY, {
-        sourceId: pending.id,
-        applied,
-        reason,
-      })
-    }
-    const model = ctx.modelRegistry.find(pending.state.provider, pending.state.modelId)
-    if (!model) {
-      markApplied(false, 'model-not-found')
-      ctx.ui.notify(`Handoff model not found: ${pending.state.provider}/${pending.state.modelId}`, 'warning')
+  pi.on('before_agent_start', async (_event, ctx) => {
+    if (shuttingDown) {
       return
     }
 
     try {
-      if (!(await pi.setModel(model))) {
-        markApplied(false, 'auth-missing')
-        ctx.ui.notify(`No API key for handoff model: ${pending.state.provider}/${pending.state.modelId}`, 'warning')
-        return
+      const result = await runtime.runPromise(
+        HandoffEffects.use((effects) => effects.restoreModel(ctx)),
+        {
+          signal: ctx.signal,
+        },
+      )
+      const message = restoreResultMessage(result)
+      if (message) {
+        notify(ctx, message, 'warning')
       }
-      pi.setThinkingLevel(pending.state.thinkingLevel)
-      markApplied(true)
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      markApplied(false, message)
-      ctx.ui.notify(`Could not restore handoff model: ${message}`, 'warning')
+      notify(ctx, error instanceof Error ? error.message : String(error), 'warning')
     }
   })
 
@@ -122,132 +58,36 @@ export default function (pi: ExtensionAPI) {
     description: 'Compact the current conversation so a fresh session can continue the work',
     handler: async (_args, ctx) => {
       if (ctx.mode !== 'tui') {
-        ctx.ui.notify('handoff requires interactive mode', 'error')
+        notify(ctx, 'handoff requires interactive mode', 'error')
         return
       }
 
-      const selectedModel = ctx.model
-      if (!selectedModel) {
-        ctx.ui.notify('No model selected', 'error')
-        return
-      }
-      const handoffModel: HandoffModelState = {
-        provider: selectedModel.provider,
-        modelId: selectedModel.id,
-        thinkingLevel: ctx.thinkingLevel ?? pi.getThinkingLevel(),
-      }
-
-      const branch = ctx.sessionManager.getBranch()
-      const messages = getHandoffMessages(branch)
-      const todoState = await import('../todo/state.ts').catch((error) => {
-        void debug('todo-state-import-failed', {
-          message: error instanceof Error ? error.message : String(error),
-        })
-        return undefined
-      })
-      const handoffTodos = todoState?.getTodoHandoffSnapshot(todoState.extractLatestTodoSnapshot(branch)) ?? []
-      if (messages.length === 0) {
-        ctx.ui.notify('No conversation to hand off', 'error')
-        return
-      }
-
-      const llmMessages = convertToLlm(messages)
-      const conversationText = serializeConversation(llmMessages)
-      const currentSessionFile = ctx.sessionManager.getSessionFile()
-
-      await debug('handoff-start', {
-        model: ctx.model.provider,
-        messages: messages.length,
-      })
-      const handoffPrompt = await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
-        const loader = new BorderedLoader(tui, theme, 'Generating handoff prompt...')
-        loader.onAbort = () => {
-          void debug('loader-abort')
-          done(null)
+      try {
+        const result = await runtime.runPromise(
+          HandoffEffects.use((effects) => effects.run(ctx)),
+          {
+            signal: ctx.signal,
+          },
+        )
+        const message = runResultMessage(result)
+        if (message) {
+          notify(ctx, message.message, message.type)
         }
-
-        const doGenerate = async () => {
-          const userMessage: Message = {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: `## Conversation History\n\n${conversationText}`,
-              },
-            ],
-            timestamp: Date.now(),
-          }
-
-          void debug('completion-start', { aborted: loader.signal.aborted })
-          const response = await ctx.modelRegistry.complete(
-            selectedModel,
-            { systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
-            { signal: loader.signal, cacheRetention: 'none' },
-          )
-          void debug('completion-finished', {
-            stopReason: response.stopReason,
-            error: response.errorMessage,
-          })
-
-          if (response.stopReason === 'aborted') {
-            return null
-          }
-          if (response.stopReason === 'error') {
-            throw new Error(response.errorMessage ?? 'Handoff generation failed')
-          }
-
-          const prompt = response.content
-            .filter((content): content is { type: 'text'; text: string } => content.type === 'text')
-            .map((content) => content.text)
-            .join('\n')
-            .trim()
-          void debug('prompt-generated', { length: prompt.length })
-          return prompt
-        }
-
-        doGenerate()
-          .then((prompt) => {
-            void debug('generation-resolved', { prompt: prompt !== null })
-            done(prompt)
-          })
-          .catch((error) => {
-            void debug('generation-error', {
-              message: error instanceof Error ? error.message : String(error),
-            })
-            ctx.ui.notify(error instanceof Error ? error.message : 'Handoff generation failed', 'error')
-            done(null)
-          })
-
-        return loader
-      })
-
-      await debug('handoff-prompt-result', {
-        prompt: handoffPrompt !== null,
-        length: handoffPrompt?.length ?? 0,
-      })
-      if (!handoffPrompt) {
-        ctx.ui.notify('Cancelled', 'info')
-        return
-      }
-
-      const result = await ctx.newSession({
-        parentSession: currentSessionFile,
-        setup: async (sessionManager) => {
-          sessionManager.appendCustomEntry(HANDOFF_MODEL_ENTRY, handoffModel)
-          if (todoState && handoffTodos.length > 0) {
-            sessionManager.appendCustomMessageEntry('todo', todoState.formatTodoContext(handoffTodos), false, {
-              todos: handoffTodos,
-            })
-          }
-        },
-        withSession: async (replacementCtx) => {
-          await replacementCtx.sendUserMessage(handoffPrompt)
-        },
-      })
-
-      if (result.cancelled) {
-        ctx.ui.notify('New session cancelled', 'info')
+      } catch (error) {
+        notify(ctx, error instanceof Error ? error.message : 'Handoff failed', 'error')
       }
     },
+  })
+
+  pi.on('session_shutdown', async (_event, ctx) => {
+    if (shuttingDown) {
+      return
+    }
+    shuttingDown = true
+    try {
+      await runtime.runPromise(Effect.void, { signal: ctx.signal })
+    } finally {
+      await runtime.dispose()
+    }
   })
 }

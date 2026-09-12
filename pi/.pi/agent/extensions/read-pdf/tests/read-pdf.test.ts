@@ -6,7 +6,7 @@ import test from 'node:test'
 
 import { type ExtensionAPI, initTheme } from '@earendil-works/pi-coding-agent'
 
-import readPdfExtension, { pagesToMarkdown, readPdf } from '../index.ts'
+import readPdfExtension, { pagesToMarkdown, readPdf } from '../src/index.ts'
 
 function pdfWithText(text: string): Buffer {
   const stream = `BT\n/F1 12 Tf\n72 720 Td\n(${text}) Tj\nET\n`

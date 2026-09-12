@@ -8,7 +8,8 @@
   ],
   "scripts": {
     "test": "bun test tests/*.test.ts",
-    "check": "biome check ."
+    "check": "biome check .",
+    "typecheck": "tsc --noEmit --strict --skipLibCheck --module esnext --moduleResolution bundler --target es2023 --allowImportingTsExtensions index.ts src/effects.ts handoff-model.ts tests/*.test.ts"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
@@ -20,6 +21,10 @@
     ]
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.12"
+    "@biomejs/biome": "2.5.12",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "effect": "4.0.0-rc.112"
   }
 }

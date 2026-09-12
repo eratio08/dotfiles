@@ -2,6 +2,11 @@
 	"mcp": {
 		"toolMode": "proxy",
 		"startup": "lazy",
+		"ripwire": {
+			"enabled": true,
+			"type": "local",
+			"command": ["ripwire", "--mcp"]
+		},
 		"context7": {
 			"enabled": true,
 			"type": "remote",
@@ -39,7 +44,12 @@
 		"chrome-devtools": {
 			"enabled": true,
 			"type": "local",
-			"command": ["npx", "-y", "chrome-devtools-mcp@1.9.0", "--no-usage-statistics"]
+			"command": [
+				"npx",
+				"-y",
+				"chrome-devtools-mcp@1.9.0",
+				"--no-usage-statistics"
+			]
 		}
 	}
 }

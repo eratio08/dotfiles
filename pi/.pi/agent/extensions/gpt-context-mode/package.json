@@ -3,9 +3,6 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "keywords": [
-    "pi-package"
-  ],
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test tests/*.test.ts",
@@ -21,10 +18,5 @@
     "@earendil-works/pi-coding-agent": "^0.83.0",
     "@types/node": "^24.10.1",
     "typescript": "^5.9.3"
-  },
-  "pi": {
-    "extensions": [
-      "./index.ts"
-    ]
   }
 }

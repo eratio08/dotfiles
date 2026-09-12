@@ -3,12 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "keywords": [
-    "pi-package"
-  ],
   "scripts": {
     "test": "bun test tests/*.test.ts",
-    "check": "biome check ."
+    "check": "biome check .",
+    "typecheck": "tsc --noEmit --strict --skipLibCheck --module esnext --moduleResolution bundler --target es2023 --allowImportingTsExtensions src/index.ts src/effects.ts src/state.ts tests/*.test.ts"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
@@ -16,12 +14,11 @@
     "@earendil-works/pi-tui": "*",
     "typebox": "*"
   },
-  "pi": {
-    "extensions": [
-      "./index.ts"
-    ]
-  },
   "devDependencies": {
-    "@biomejs/biome": "2.5.12"
+    "@biomejs/biome": "2.5.12",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "effect": "4.0.0-rc.112"
   }
 }

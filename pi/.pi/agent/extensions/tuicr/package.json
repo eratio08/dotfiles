@@ -1,0 +1,23 @@
+{
+  "name": "tuicr",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "bun test tests/*.test.ts",
+    "check": "biome check .",
+    "typecheck": "tsc --noEmit --strict --skipLibCheck --module esnext --moduleResolution bundler --target es2023 --allowImportingTsExtensions src/index.ts src/core.ts src/effects.ts tests/*.test.ts"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.12",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "effect": "4.0.0-rc.112"
+  }
+}

@@ -1,8 +1,22 @@
+import { Context, Effect, Layer, Ref, Result, Schema } from 'effect'
+
 export const TODO_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'] as const
 export const TODO_PRIORITIES = ['high', 'medium', 'low'] as const
 
-export type TodoStatus = (typeof TODO_STATUSES)[number]
-export type TodoPriority = (typeof TODO_PRIORITIES)[number]
+export const TodoStatusSchema = Schema.Literals(TODO_STATUSES)
+export const TodoPrioritySchema = Schema.Literals(TODO_PRIORITIES)
+export const TodoDataSchema = Schema.Struct({
+  content: Schema.String,
+  status: TodoStatusSchema,
+  priority: TodoPrioritySchema,
+  description: Schema.optionalKey(Schema.Unknown),
+})
+export const TodoListSchema = Schema.Array(TodoDataSchema)
+
+type DecodedTodo = (typeof TodoDataSchema)['Type']
+
+export type TodoStatus = (typeof TodoStatusSchema)['Type']
+export type TodoPriority = (typeof TodoPrioritySchema)['Type']
 
 export interface Todo {
   content: string
@@ -20,6 +34,25 @@ export interface TodoCounts {
   open: number
   closed: number
 }
+
+const TodoDetailsSchema = Schema.Struct({
+  todos: Schema.Unknown,
+})
+
+const TodoHandoffEntrySchema = Schema.Struct({
+  type: Schema.Literal('custom_message'),
+  customType: Schema.Literal('todo'),
+  details: TodoDetailsSchema,
+})
+
+const TodoToolResultEntrySchema = Schema.Struct({
+  type: Schema.Literal('message'),
+  message: Schema.Struct({
+    role: Schema.Literal('toolResult'),
+    toolName: Schema.Literal('todowrite'),
+    details: TodoDetailsSchema,
+  }),
+})
 
 export function validateTodoUpdate(previous: readonly Todo[], next: readonly Todo[]): string | undefined {
   const reject = (message: string) =>
@@ -72,54 +105,49 @@ function formatTodoState(todos: readonly Todo[]): string {
   return `Accepted todo state: ${todos.map((todo) => `"${todo.content}"=${todo.status}`).join(', ')}.`
 }
 
-function isTodoStatus(value: unknown): value is TodoStatus {
-  return typeof value === 'string' && TODO_STATUSES.includes(value as TodoStatus)
-}
-
-function isTodoPriority(value: unknown): value is TodoPriority {
-  return typeof value === 'string' && TODO_PRIORITIES.includes(value as TodoPriority)
-}
-
 export function cloneTodos(todos: readonly Todo[]): Todo[] {
   return todos.map((todo) => ({ ...todo }))
 }
 
-export function normalizeTodo(value: unknown): Todo | undefined {
-  if (!value || typeof value !== 'object') {
+function normalizeDecodedTodo(value: DecodedTodo): Todo | undefined {
+  const content = value.content.trim()
+  if (!content) {
     return undefined
   }
 
-  const content =
-    typeof (value as { content?: unknown }).content === 'string' ? (value as { content: string }).content.trim() : ''
-  const status = (value as { status?: unknown }).status
-  const priority = (value as { priority?: unknown }).priority
-
-  if (!content || !isTodoStatus(status) || !isTodoPriority(priority)) {
-    return undefined
-  }
-
-  const rawDescription = (value as { description?: unknown }).description
-  const description = typeof rawDescription === 'string' ? rawDescription.trim() : ''
+  const description = typeof value.description === 'string' ? value.description.trim() : ''
   if (description) {
-    return { content, status, priority, description }
+    return { content, status: value.status, priority: value.priority, description }
   }
-  return { content, status, priority }
+  return { content, status: value.status, priority: value.priority }
 }
 
-export function normalizeTodos(value: unknown): Todo[] | undefined {
-  if (!Array.isArray(value)) {
+export function normalizeTodo(value: unknown): Todo | undefined {
+  const result = Schema.decodeUnknownResult(TodoDataSchema)(value)
+  if (Result.isFailure(result)) {
     return undefined
   }
+  return normalizeDecodedTodo(result.success)
+}
 
+export function normalizeDecodedTodos(value: readonly DecodedTodo[]): Todo[] | undefined {
   const todos: Todo[] = []
   for (const item of value) {
-    const todo = normalizeTodo(item)
+    const todo = normalizeDecodedTodo(item)
     if (!todo) {
       return undefined
     }
     todos.push(todo)
   }
   return todos
+}
+
+export function normalizeTodos(value: unknown): Todo[] | undefined {
+  const result = Schema.decodeUnknownResult(TodoListSchema)(value)
+  if (Result.isFailure(result)) {
+    return undefined
+  }
+  return normalizeDecodedTodos(result.success)
 }
 
 export function todoDescriptionLines(todo: Todo): string[] {
@@ -228,41 +256,121 @@ export function extractLatestTodoSnapshot(entries: readonly unknown[]): Todo[] {
   let latest: Todo[] = []
 
   for (const entry of entries) {
-    if (!entry || typeof entry !== 'object') {
-      continue
-    }
-    const entryType = (entry as { type?: unknown }).type
-    if (entryType === 'custom_message') {
-      if ((entry as { customType?: unknown }).customType !== 'todo') {
-        continue
-      }
-      const todos = normalizeTodos((entry as { details?: { todos?: unknown } }).details?.todos)
+    const handoff = Schema.decodeUnknownResult(TodoHandoffEntrySchema)(entry)
+    if (Result.isSuccess(handoff)) {
+      const todos = normalizeTodos(handoff.success.details.todos)
       if (todos) {
         latest = todos
       }
       continue
     }
-    if (entryType !== 'message') {
-      continue
-    }
 
-    const message = (entry as { message?: unknown }).message
-    if (!message || typeof message !== 'object') {
-      continue
-    }
-    if ((message as { role?: unknown }).role !== 'toolResult') {
-      continue
-    }
-    if ((message as { toolName?: unknown }).toolName !== 'todowrite') {
-      continue
-    }
-
-    const details = (message as { details?: { todos?: unknown } }).details
-    const todos = normalizeTodos(details?.todos)
-    if (todos) {
-      latest = todos
+    const toolResult = Schema.decodeUnknownResult(TodoToolResultEntrySchema)(entry)
+    if (Result.isSuccess(toolResult)) {
+      const todos = normalizeTodos(toolResult.success.message.details.todos)
+      if (todos) {
+        latest = todos
+      }
     }
   }
 
   return latest
+}
+
+export class TodoUpdateError extends Schema.TaggedError<TodoUpdateError>()('TodoUpdateError', {
+  message: Schema.String,
+}) {}
+
+interface TodoStoreState {
+  readonly todos: readonly Todo[]
+  readonly suspended: boolean
+  readonly wasActiveBeforeSuspend: boolean
+}
+
+export interface TodoResumeResult {
+  resumed: boolean
+  wasActiveBeforeSuspend: boolean
+  todos: readonly Todo[]
+}
+
+export class TodoStore extends Context.Service<
+  TodoStore,
+  {
+    readonly snapshot: Effect.Effect<readonly Todo[]>
+    readonly restore: (entries: readonly unknown[]) => Effect.Effect<readonly Todo[]>
+    readonly replace: (next: readonly Todo[]) => Effect.Effect<readonly Todo[], TodoUpdateError>
+    readonly isSuspended: Effect.Effect<boolean>
+    readonly suspend: (wasActiveBeforeSuspend: boolean) => Effect.Effect<boolean>
+    readonly resume: Effect.Effect<TodoResumeResult>
+  }
+>()('todo/TodoStore') {
+  static readonly layer = Layer.effect(
+    TodoStore,
+    Effect.gen(function* () {
+      const state = yield* Ref.make<TodoStoreState>({
+        todos: [],
+        suspended: false,
+        wasActiveBeforeSuspend: false,
+      })
+
+      const snapshot = Ref.get(state).pipe(Effect.map((value) => cloneTodos(value.todos)))
+
+      const restore = Effect.fnUntraced(function* (entries: readonly unknown[]) {
+        const todos = extractLatestTodoSnapshot(entries)
+        yield* Ref.update(state, (value) => ({ ...value, todos: cloneTodos(todos) }))
+        return cloneTodos(todos)
+      })
+
+      const replace = Effect.fnUntraced(function* (next: readonly Todo[]) {
+        const result = yield* Ref.modify(
+          state,
+          (value): readonly [Result.Result<readonly Todo[], TodoUpdateError>, TodoStoreState] => {
+            const error = validateTodoUpdate(value.todos, next)
+            if (error) {
+              return [
+                Result.fail(new TodoUpdateError({ message: error })) as Result.Result<readonly Todo[], TodoUpdateError>,
+                value,
+              ]
+            }
+
+            const todos = cloneTodos(next)
+            return [Result.succeed(todos) as Result.Result<readonly Todo[], TodoUpdateError>, { ...value, todos }]
+          },
+        )
+
+        if (Result.isFailure(result)) {
+          return yield* Effect.fail(result.failure)
+        }
+        return cloneTodos(result.success)
+      })
+
+      const isSuspended = Ref.get(state).pipe(Effect.map((value) => value.suspended))
+
+      const suspend = Effect.fnUntraced(function* (wasActiveBeforeSuspend: boolean) {
+        return yield* Ref.modify(state, (value) =>
+          value.suspended ? [false, value] : [true, { ...value, suspended: true, wasActiveBeforeSuspend }],
+        )
+      })
+
+      const resume: Effect.Effect<TodoResumeResult> = Ref.modify(
+        state,
+        (value): readonly [TodoResumeResult, TodoStoreState] => {
+          if (!value.suspended) {
+            return [{ resumed: false, wasActiveBeforeSuspend: false, todos: cloneTodos(value.todos) }, value]
+          }
+
+          return [
+            {
+              resumed: true,
+              wasActiveBeforeSuspend: value.wasActiveBeforeSuspend,
+              todos: cloneTodos(value.todos),
+            },
+            { ...value, suspended: false, wasActiveBeforeSuspend: false },
+          ]
+        },
+      )
+
+      return TodoStore.of({ snapshot, restore, replace, isSuspended, suspend, resume })
+    }),
+  )
 }

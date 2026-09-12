@@ -3,9 +3,6 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "keywords": [
-    "pi-package"
-  ],
   "scripts": {
     "test": "bun test tests/*.test.ts",
     "check": "biome check ."
@@ -13,11 +10,6 @@
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*"
-  },
-  "pi": {
-    "extensions": [
-      "./index.ts"
-    ]
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.12"

@@ -1,33 +1,51 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
-import todoExtension from '../index.ts'
+import { TodoUiError } from '../src/effects.ts'
+import todoExtension from '../src/index.ts'
+import { extractLatestTodoSnapshot } from '../src/state.ts'
 
 type EventHandler = (event: unknown, ctx: ExtensionContext) => Promise<unknown> | unknown
 type PlannotatorPhase = 'idle' | 'planning' | 'executing'
 type StatusRequest = { respond: (response: unknown) => void }
+type Renderable = { render: (width: number) => string[] }
+type RenderTheme = {
+  fg: (color: string, text: string) => string
+  bold: (text: string) => string
+  strikethrough: (text: string) => string
+}
 type SentMessage = {
   message: {
     customType: string
     content: string
     display: boolean
+    details?: { todos: unknown[] }
   }
   options?: { triggerTurn?: boolean; deliverAs?: 'steer' | 'followUp' | 'nextTurn' }
 }
 
 type ToolResult = {
-  details: { error?: string }
+  details: { todos?: unknown[]; error?: string }
 }
 
 type RegisteredTool = {
   execute: (...args: unknown[]) => Promise<ToolResult>
+  renderCall?: (args: unknown, theme: unknown) => Renderable
+  renderResult?: (result: unknown, options: { expanded: boolean }, theme: unknown) => Renderable
 }
 
 type RegisteredCommand = {
   handler: (...args: unknown[]) => Promise<void>
 }
 
-function harness(branch: unknown[] = [], idle = true, phase?: PlannotatorPhase) {
+type HarnessOptions = {
+  customError?: unknown
+  deferResponses?: boolean
+  response?: unknown
+  signal?: AbortSignal
+}
+
+function harness(branch: unknown[] = [], idle = true, phase?: PlannotatorPhase, options: HarnessOptions = {}) {
   const events = new Map<string, EventHandler>()
   const sentMessages: SentMessage[] = []
   const activeTools = ['read', 'todowrite', 'write']
@@ -36,8 +54,11 @@ function harness(branch: unknown[] = [], idle = true, phase?: PlannotatorPhase) 
   let registeredTool: RegisteredTool | undefined
   let registeredCommand: RegisteredCommand | undefined
   let currentPhase = phase
+  let hasResponseOverride = 'response' in options
+  let responseOverride: unknown = options.response
+  const pendingResponses: Array<{ request: StatusRequest; response: unknown }> = []
 
-  const theme = {
+  const theme: RenderTheme = {
     fg(_color: string, text: string) {
       return text
     },
@@ -69,8 +90,14 @@ function harness(branch: unknown[] = [], idle = true, phase?: PlannotatorPhase) 
     },
     events: {
       emit(channel: string, data: StatusRequest) {
-        if (channel === 'plannotator:request' && currentPhase) {
-          data.respond({ status: 'handled', result: { phase: currentPhase } })
+        if (channel !== 'plannotator:request' || (!currentPhase && !hasResponseOverride)) {
+          return
+        }
+        const response = hasResponseOverride ? responseOverride : { status: 'handled', result: { phase: currentPhase } }
+        if (options.deferResponses) {
+          pendingResponses.push({ request: data, response })
+        } else {
+          data.respond(response)
         }
       },
       on() {
@@ -90,6 +117,9 @@ function harness(branch: unknown[] = [], idle = true, phase?: PlannotatorPhase) 
         notifications.push(message)
       },
       async custom() {
+        if (options.customError !== undefined) {
+          throw options.customError
+        }
         return undefined
       },
     },
@@ -101,6 +131,7 @@ function harness(branch: unknown[] = [], idle = true, phase?: PlannotatorPhase) 
         return branch
       },
     },
+    signal: options.signal,
   } as unknown as ExtensionContext
 
   todoExtension(pi)
@@ -121,6 +152,17 @@ function harness(branch: unknown[] = [], idle = true, phase?: PlannotatorPhase) 
     setPhase(next: PlannotatorPhase | undefined) {
       currentPhase = next
     },
+    setStatusResponse(response: unknown) {
+      responseOverride = response
+      hasResponseOverride = true
+    },
+    flushStatusResponses() {
+      const responses = pendingResponses.splice(0)
+      for (const pending of responses) {
+        pending.request.respond(pending.response)
+      }
+    },
+    theme,
   }
 }
 
@@ -190,6 +232,29 @@ test('adds one hidden snapshot after idle manual compaction without starting a t
   assert.match(value.sentMessages[0]?.message.content ?? '', /in_progress/)
   assert.match(value.sentMessages[0]?.message.content ?? '', /high/)
   assert.match(value.sentMessages[0]?.message.content ?? '', /second task/)
+})
+
+test('persists compaction snapshot for later restoration', async () => {
+  //given
+  const value = harness(branchWithTodos, true)
+  await restoreTodos(value)
+  const sessionCompact = value.events.get('session_compact')
+  assert.ok(sessionCompact)
+
+  //when
+  await sessionCompact(compactionEvent(false, 'manual'), value.ctx)
+
+  //then
+  const message = value.sentMessages[0]?.message
+  assert.ok(message)
+  const entries = [{ type: 'custom_message', ...message }]
+  assert.deepEqual(extractLatestTodoSnapshot(entries), branchWithTodos[0].message.details.todos)
+
+  const restored = harness(entries, true)
+  await restoreTodos(restored)
+  const result = await restored.registeredTool?.execute('todo-call', { todos: [] }, undefined, undefined, restored.ctx)
+  assert.ok(result)
+  assert.deepEqual(result.details.todos, branchWithTodos[0].message.details.todos)
 })
 
 test('queues one snapshot for the next prompt after active threshold compaction', async () => {
@@ -340,8 +405,29 @@ test('rejects /todos while suspended and allows it after idle', async () => {
   assert.equal(value.notifications.length, 1)
 })
 
+test('reports UI failures as typed errors', async () => {
+  //given
+  const value = harness(branchWithTodos, true, 'idle', { customError: new Error('viewer failed') })
+  await restoreTodos(value)
+  const command = value.registeredCommand?.handler
+  assert.ok(command)
+
+  //when
+  const pending = command('', value.ctx)
+
+  //then
+  await assert.rejects(pending, (error: unknown) => {
+    assert.ok(error instanceof TodoUiError)
+    assert.equal(error.operation, 'show')
+    assert.equal(error.message, 'Error: viewer failed')
+    return true
+  })
+})
+
 test('leaves tracking unchanged when Plannotator status is unavailable', async () => {
-  const value = harness(branchWithTodos, true)
+  const value = harness(branchWithTodos, true, 'executing', {
+    response: { status: 'unavailable', error: 42 },
+  })
   await restoreTodos(value)
   const toolResult = value.events.get('tool_result')
   assert.ok(toolResult)
@@ -349,4 +435,104 @@ test('leaves tracking unchanged when Plannotator status is unavailable', async (
 
   assert.ok(value.activeTools.includes('todowrite'))
   assert.notEqual(value.widgets.get('todo'), undefined)
+})
+
+test('ignores invalid Plannotator status responses', async () => {
+  //given
+  const value = harness(branchWithTodos, true, 'planning', {
+    response: { status: 'handled', result: { phase: 'invalid' } },
+  })
+  await restoreTodos(value)
+  const input = value.events.get('input')
+  assert.ok(input)
+
+  //when
+  await input({ type: 'input', text: 'continue' }, value.ctx)
+
+  //then
+  assert.ok(value.activeTools.includes('todowrite'))
+  assert.notEqual(value.widgets.get('todo'), undefined)
+})
+
+test('ignores stale Plannotator status responses', async () => {
+  //given
+  const value = harness(branchWithTodos, true, 'executing', { deferResponses: true })
+  const input = value.events.get('input')
+  assert.ok(input)
+  const first = input({ type: 'input', text: 'first' }, value.ctx)
+  value.setStatusResponse({ status: 'unavailable', error: 'not connected' })
+  const second = input({ type: 'input', text: 'second' }, value.ctx)
+
+  //when
+  value.flushStatusResponses()
+
+  //then
+  await Promise.all([first, second])
+  assert.ok(value.activeTools.includes('todowrite'))
+})
+
+test('cancels a pending Plannotator status request', async () => {
+  //given
+  const controller = new AbortController()
+  const value = harness([], true, undefined, { signal: controller.signal })
+  const input = value.events.get('input')
+  assert.ok(input)
+  const pending = Promise.resolve(input({ type: 'input', text: 'cancel' }, value.ctx))
+
+  //when
+  controller.abort()
+
+  //then
+  await assert.rejects(pending)
+})
+
+test('renders collapsed todo results with open items', () => {
+  //given
+  const value = harness()
+  const renderResult = value.registeredTool?.renderResult
+  assert.ok(renderResult)
+  const result = {
+    content: [],
+    details: {
+      todos: [
+        { content: 'active task', status: 'in_progress', priority: 'high', description: 'active details' },
+        { content: 'finished task', status: 'completed', priority: 'low', description: 'finished details' },
+      ],
+    },
+  }
+
+  //when
+  const rendered = renderResult(result, { expanded: false }, value.theme)
+
+  //then
+  const text = rendered.render(120).join('\n')
+  assert.match(text, /active task/)
+  assert.doesNotMatch(text, /finished task/)
+  assert.doesNotMatch(text, /active details/)
+})
+
+test('renders expanded todo results with descriptions', () => {
+  //given
+  const value = harness()
+  const renderResult = value.registeredTool?.renderResult
+  assert.ok(renderResult)
+  const result = {
+    content: [],
+    details: {
+      todos: [
+        { content: 'active task', status: 'in_progress', priority: 'high', description: 'active details' },
+        { content: 'finished task', status: 'completed', priority: 'low', description: 'finished details' },
+      ],
+    },
+  }
+
+  //when
+  const rendered = renderResult(result, { expanded: true }, value.theme)
+
+  //then
+  const text = rendered.render(120).join('\n')
+  assert.match(text, /active task/)
+  assert.match(text, /finished task/)
+  assert.match(text, /active details/)
+  assert.match(text, /finished details/)
 })

@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 import { Effect, ManagedRuntime } from 'effect'
-import cavemanExtension from '../index.ts'
 import { getModeInstructions } from '../src/core.ts'
 import { Caveman, CavemanContext, CavemanHostError, CavemanLayer } from '../src/effects.ts'
+import cavemanExtension from '../src/index.ts'
 
 type MessageOptions = {
   deliverAs?: 'steer' | 'followUp'
