@@ -258,9 +258,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/agavra/tuicr.git",
       "skillPath": "skills/tuicr/SKILL.md",
-      "skillFolderHash": "8431951a84ef5f691e1e3a6b2bcd6c7a184436ae",
+      "skillFolderHash": "e562ca662244ca6908a1733646cccf5c4d36d609",
       "installedAt": "2026-07-03T12:28:37.605Z",
-      "updatedAt": "2026-07-03T12:28:37.605Z"
+      "updatedAt": "2026-09-12T15:08:19.641Z"
     },
     "wait-what": {
       "source": "mattpocock/skills",
@@ -321,9 +321,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/AminBlg/SimpleEnglish.git",
       "skillPath": "skills/simple-english/SKILL.md",
-      "skillFolderHash": "405ca771e6f711c56fe87b1f34d90a7a973246ab",
+      "skillFolderHash": "7d780ce604b8ec3ccf6ad64b61aff131436d746b",
       "installedAt": "2026-08-20T05:52:17.473Z",
-      "updatedAt": "2026-08-20T05:52:17.473Z"
+      "updatedAt": "2026-09-11T17:35:10.710Z"
     },
     "show-me": {
       "source": "humanlayer/skills",
@@ -337,5 +337,19 @@
   },
   "dismissed": {
     "findSkillsPrompt": true
-  }
+  },
+  "lastSelectedAgents": [
+    "amp",
+    "cline",
+    "codex",
+    "cursor",
+    "droid",
+    "gemini-cli",
+    "github-copilot",
+    "kilo",
+    "kimi-code-cli",
+    "opencode",
+    "warp",
+    "zed"
+  ]
 }
