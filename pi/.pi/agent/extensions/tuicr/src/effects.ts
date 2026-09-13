@@ -6,6 +6,7 @@ import {
   buildHerdrPaneRunArgs,
   buildHerdrPaneSplitArgs,
   buildHerdrPaneWaitOutputArgs,
+  buildHerdrPaneZoomArgs,
   buildTuicrBlockingCommand,
   buildTuicrCommentsArgs,
   buildTuicrListArgs,
@@ -40,7 +41,7 @@ export class TuicrProcessError extends Schema.TaggedError<TuicrProcessError>()('
 
 export type TuicrOpenResult = {
   readonly pane: PaneState
-  readonly session: SessionSummary
+  readonly session?: SessionSummary
   readonly comments: readonly CommentData[]
 }
 
@@ -82,8 +83,8 @@ function stateFailure(operation: string, message: string): TuicrError {
 }
 
 export function TuicrLayer(pi: ExtensionAPI, options: TuicrLayerOptions = {}): Layer.Layer<Tuicr, never, never> {
-  const discoveryAttempts = Math.max(1, Math.floor(options.discoveryAttempts ?? 20))
-  const discoveryDelayMs = Math.max(0, options.discoveryDelayMs ?? 250)
+  const discoveryAttempts = Math.max(1, Math.floor(options.discoveryAttempts ?? 1))
+  const discoveryDelayMs = Math.max(0, options.discoveryDelayMs ?? 0)
   const herdrCommand = process.env.HERDR_BIN?.trim() || HERDR_COMMAND
   const paneDirection = process.env.TUICR_PANE_DIRECTION === 'down' ? 'down' : 'right'
 
@@ -146,6 +147,9 @@ export function TuicrLayer(pi: ExtensionAPI, options: TuicrLayerOptions = {}): L
         if (!pane.owned) {
           return yield* stateFailure('close', 'refusing to close a pane not owned by tuicr')
         }
+        yield* runProcess(herdrCommand, buildHerdrPaneZoomArgs(pane.paneId, false)).pipe(
+          Effect.catch(() => Effect.void),
+        )
         yield* runProcess(herdrCommand, buildHerdrPaneCloseArgs(pane.paneId))
         yield* Ref.set(paneRef, undefined)
       })
@@ -153,7 +157,7 @@ export function TuicrLayer(pi: ExtensionAPI, options: TuicrLayerOptions = {}): L
       const discoverSession = Effect.fnUntraced(function* (
         repo: string,
         before: readonly SessionSummary[],
-      ): Effect.fn.Return<SessionSummary, TuicrError | TuicrProcessError> {
+      ): Effect.fn.Return<SessionSummary | undefined, TuicrError | TuicrProcessError> {
         for (let attempt = 0; attempt < discoveryAttempts; attempt += 1) {
           const after = yield* readSessions(repo)
           const selection = selectSessionSlug(before, after)
@@ -167,7 +171,7 @@ export function TuicrLayer(pi: ExtensionAPI, options: TuicrLayerOptions = {}): L
           }
         }
 
-        return yield* stateFailure('session-discovery', 'tuicr did not create a persisted review session')
+        return undefined
       })
 
       const openAttempt = Effect.fnUntraced(function* (
@@ -207,6 +211,7 @@ export function TuicrLayer(pi: ExtensionAPI, options: TuicrLayerOptions = {}): L
           owned: true,
         }
         yield* Ref.set(paneRef, pane)
+        yield* runProcess(herdrCommand, buildHerdrPaneZoomArgs(paneId, true))
         const completionMarker = `${TUICR_COMPLETION_MARKER}_${randomUUID()}`
         const runArgs = buildHerdrPaneRunArgs(
           paneId,
@@ -229,9 +234,9 @@ export function TuicrLayer(pi: ExtensionAPI, options: TuicrLayerOptions = {}): L
           return yield* stateFailure('review', `tuicr exited with status ${tuicrStatus}`)
         }
         const session = yield* discoverSession(repo, before)
-        const activePane: PaneState = { ...pane, sessionSlug: session.slug }
+        const activePane: PaneState = session ? { ...pane, sessionSlug: session.slug } : pane
         yield* Ref.set(paneRef, activePane)
-        const allComments = yield* readComments(repo, session.slug)
+        const allComments = session ? yield* readComments(repo, session.slug) : []
         return { pane: activePane, session, comments: normalizeComments(allComments) }
       })
 

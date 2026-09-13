@@ -227,6 +227,10 @@ export function buildHerdrPaneRunArgs(paneId: string, command: string): readonly
   return ['pane', 'run', paneId, command]
 }
 
+export function buildHerdrPaneZoomArgs(paneId: string, zoomed: boolean): readonly string[] {
+  return ['pane', 'zoom', zoomed ? '--on' : '--off', '--pane', paneId]
+}
+
 export function buildHerdrPaneWaitOutputArgs(paneId: string, match: string): readonly string[] {
   return ['pane', 'wait-output', paneId, '--match', match, '--source', 'recent-unwrapped']
 }

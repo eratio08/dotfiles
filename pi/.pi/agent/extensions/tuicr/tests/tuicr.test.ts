@@ -235,7 +235,7 @@ test('opens the owned pane, retrieves user comments, and closes only that pane',
 
     //then
     assert.equal(result.pane.paneId, 'window:pane')
-    assert.equal(result.session.slug, 'new-session')
+    assert.equal(result.session?.slug, 'new-session')
     assert.deepEqual(
       result.comments.map((item) => item.id),
       ['user-comment'],
@@ -254,21 +254,56 @@ test('opens the owned pane, retrieves user comments, and closes only that pane',
       '/repo',
       '--focus',
     ])
-    assert.deepEqual(calls[3]?.slice(0, 4), ['herdr', 'pane', 'run', 'window:pane'])
-    assert.match(calls[3]?.[4] ?? '', new RegExp(`^bash -c .*${TUICR_COMPLETION_MARKER}_`))
-    assert.match(calls[3]?.[4] ?? '', /--stdout/)
-    assert.deepEqual(calls[4]?.slice(0, 5), ['herdr', 'pane', 'wait-output', 'window:pane', '--match'])
-    const completionMarker = calls[4]?.[5] ?? ''
+    assert.deepEqual(calls[3], ['herdr', 'pane', 'zoom', '--on', '--pane', 'window:pane'])
+    assert.deepEqual(calls[4]?.slice(0, 4), ['herdr', 'pane', 'run', 'window:pane'])
+    assert.match(calls[4]?.[4] ?? '', new RegExp(`^bash -c .*${TUICR_COMPLETION_MARKER}_`))
+    assert.match(calls[4]?.[4] ?? '', /--stdout/)
+    assert.deepEqual(calls[5]?.slice(0, 5), ['herdr', 'pane', 'wait-output', 'window:pane', '--match'])
+    const completionMarker = calls[5]?.[5] ?? ''
     assert.match(completionMarker, new RegExp(`^${TUICR_COMPLETION_MARKER}_[0-9a-f-]+$`))
-    assert.deepEqual(calls[4]?.slice(6), ['--source', 'recent-unwrapped'])
-    assert.deepEqual(calls[5], ['tuicr', 'review', 'list', '--repo', '/repo'])
-    assert.deepEqual(calls[6], ['tuicr', 'review', 'comments', '--repo', '/repo', '--session', 'new-session'])
-    assert.deepEqual(calls[7], ['herdr', 'pane', 'close', 'window:pane'])
+    assert.deepEqual(calls[5]?.slice(6), ['--source', 'recent-unwrapped'])
+    assert.deepEqual(calls[6], ['tuicr', 'review', 'list', '--repo', '/repo'])
+    assert.deepEqual(calls[7], ['tuicr', 'review', 'comments', '--repo', '/repo', '--session', 'new-session'])
+    assert.deepEqual(calls[8], ['herdr', 'pane', 'zoom', '--off', '--pane', 'window:pane'])
+    assert.deepEqual(calls[9], ['herdr', 'pane', 'close', 'window:pane'])
     assert.ok(fixture.calls.every((call) => call.signal instanceof AbortSignal))
     assert.equal(
       fixture.calls.some((call) => call.args.includes('add')),
       false,
     )
+    await runtime.dispose()
+  })
+})
+
+test('returns no comments when tuicr creates no persisted session', async () => {
+  //given
+  await withHerdrEnvironment('1', async () => {
+    const calls: Array<readonly string[]> = []
+    const pi = {
+      exec: async (command: string, args: readonly string[]): Promise<ExecResult> => {
+        calls.push([command, ...args])
+        if (command === 'tuicr') return execResult('[]')
+        if (args[1] === 'split') return execResult(JSON.stringify({ result: { pane: { pane_id: 'owned:pane' } } }))
+        if (args[1] === 'wait-output') return execResult(JSON.stringify({ result: { matched_line: `${args[4]}:0` } }))
+        return execResult()
+      },
+    } as unknown as ExtensionAPI
+    const runtime = ManagedRuntime.make(TuicrLayer(pi))
+
+    //when
+    const result = await runtime.runPromise(
+      Effect.gen(function* () {
+        const service = yield* Tuicr
+        return yield* service.open('/repo', { type: 'working-tree' })
+      }),
+    )
+
+    //then
+    assert.equal(result.session, undefined)
+    assert.deepEqual(result.comments, [])
+    assert.equal(calls.filter((call) => call[0] === 'tuicr' && call[1] === 'review' && call[2] === 'list').length, 2)
+    assert.deepEqual(calls.at(-2), ['herdr', 'pane', 'zoom', '--off', '--pane', 'owned:pane'])
+    assert.deepEqual(calls.at(-1), ['herdr', 'pane', 'close', 'owned:pane'])
     await runtime.dispose()
   })
 })

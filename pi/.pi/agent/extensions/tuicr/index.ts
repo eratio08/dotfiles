@@ -21,7 +21,7 @@ const Parameters = Type.Object({
 
 type TuicrToolDetails = {
   readonly paneId: string
-  readonly sessionSlug: string
+  readonly sessionSlug?: string
   readonly scope: TuicrOpenResult['pane']['scope']
   readonly comments: readonly CommentData[]
 }
@@ -51,7 +51,8 @@ function failureMessage(error: unknown): string {
 }
 
 function reviewText(details: TuicrToolDetails): string {
-  return `User completed the tuicr review for session ${details.sessionSlug}.\n${commentOutput(details.comments)}`
+  const session = details.sessionSlug ? ` for session ${details.sessionSlug}` : ''
+  return `User completed the tuicr review${session}.\n${commentOutput(details.comments)}`
 }
 
 async function resolveRepositoryRoot(pi: ExtensionAPI, cwd: string, signal?: AbortSignal): Promise<string> {
@@ -98,7 +99,7 @@ export default function tuicrExtension(pi: ExtensionAPI): void {
         const opened = await run((service) => service.open(repo, input.scope), signal)
         const details: TuicrToolDetails = {
           paneId: opened.pane.paneId,
-          sessionSlug: opened.session.slug,
+          sessionSlug: opened.session?.slug,
           scope: opened.pane.scope,
           comments: opened.comments,
         }
@@ -117,8 +118,9 @@ export default function tuicrExtension(pi: ExtensionAPI): void {
       if (!details) return new Text(theme.fg('muted', content), 0, 0)
       if (expanded) return new Text(theme.fg('toolOutput', content), 0, 0)
 
+      const session = details.sessionSlug ? ` session ${theme.fg('muted', details.sessionSlug)}` : ''
       return new Text(
-        `${theme.fg('success', '✓')} tuicr session ${theme.fg('muted', details.sessionSlug)} · ${details.comments.length} comment${details.comments.length === 1 ? '' : 's'}${theme.fg('muted', ` (${keyHint('app.tools.expand', 'to expand')})`)}`,
+        `${theme.fg('success', '✓')} tuicr${session} · ${details.comments.length} comment${details.comments.length === 1 ? '' : 's'}${theme.fg('muted', ` (${keyHint('app.tools.expand', 'to expand')})`)}`,
         0,
         0,
       )
