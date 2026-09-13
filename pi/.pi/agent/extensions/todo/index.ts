@@ -291,11 +291,17 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       return run((effects) => effects.executeTodo(params), ctx, signal)
     },
-    renderCall(args, theme) {
-      const next = normalizeTodos(args.todos) ?? []
+    renderCall(args, theme, context) {
+      const next = context?.argsComplete ? normalizeTodos(args.todos) : undefined
+      const label = theme.fg('toolTitle', theme.bold('todowrite'))
+      if (!next) {
+        return new Text(label, 0, 0)
+      }
+
       const counts = getTodoCounts(next)
       return new Text(
-        theme.fg('toolTitle', theme.bold('todowrite ')) +
+        label +
+          ' ' +
           theme.fg('muted', `${counts.total} item${counts.total === 1 ? '' : 's'}`) +
           (counts.inProgress > 0 ? ` ${theme.fg('accent', `${counts.inProgress} active`)}` : ''),
         0,

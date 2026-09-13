@@ -9,6 +9,7 @@ type EventHandler = (event: unknown, ctx: ExtensionContext) => Promise<unknown> 
 type PlannotatorPhase = 'idle' | 'planning' | 'executing'
 type StatusRequest = { respond: (response: unknown) => void }
 type Renderable = { render: (width: number) => string[] }
+type RenderCallContext = { argsComplete: boolean }
 type RenderTheme = {
   fg: (color: string, text: string) => string
   bold: (text: string) => string
@@ -30,7 +31,7 @@ type ToolResult = {
 
 type RegisteredTool = {
   execute: (...args: unknown[]) => Promise<ToolResult>
-  renderCall?: (args: unknown, theme: unknown) => Renderable
+  renderCall?: (args: unknown, theme: unknown, context?: RenderCallContext) => Renderable
   renderResult?: (result: unknown, options: { expanded: boolean }, theme: unknown) => Renderable
 }
 
@@ -484,6 +485,19 @@ test('cancels a pending Plannotator status request', async () => {
 
   //then
   await assert.rejects(pending)
+})
+
+test('does not render zero count while todowrite arguments are incomplete', () => {
+  //given
+  const value = harness()
+  const renderCall = value.registeredTool?.renderCall
+  assert.ok(renderCall)
+
+  //when
+  const rendered = renderCall({}, value.theme, { argsComplete: false })
+
+  //then
+  assert.doesNotMatch(rendered.render(120).join('\n'), /0 items/)
 })
 
 test('renders collapsed todo results with open items', () => {
