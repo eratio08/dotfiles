@@ -84,6 +84,9 @@ function makePi(): PiFixture {
   const pi = {
     exec: async (command: string, args: readonly string[], options: { signal: AbortSignal }): Promise<ExecResult> => {
       calls.push({ command, args, signal: options.signal })
+      if (command === 'tuicr' && args[0] === '--help') {
+        return execResult('  --stdout  Output to stdout')
+      }
       if (command === 'tuicr' && args[0] === 'review' && args[1] === 'list') {
         sessionListCalls += 1
         return execResult(JSON.stringify(sessionListCalls === 1 ? [] : [session('new-session', true)]))
@@ -93,6 +96,9 @@ function makePi(): PiFixture {
       }
       if (command === 'herdr' && args[0] === 'pane' && args[1] === 'split') {
         return execResult(JSON.stringify({ result: { pane: { pane_id: 'window:pane' } } }))
+      }
+      if (command === 'herdr' && args[0] === 'pane' && args[1] === 'wait-output') {
+        return execResult(JSON.stringify({ result: { matched_line: `${args[4]}:0` } }))
       }
       if (command === 'herdr' && args[0] === 'pane') return execResult()
       throw new Error(`unexpected process: ${command} ${args.join(' ')}`)
@@ -153,6 +159,8 @@ test('builds explicit and shell-safe review arguments', () => {
   //then
   assert.deepEqual(result.args, ['tui', '--revisions', scope.revset])
   assert.equal(result.command, "'tuicr' 'tui' '--revisions' 'HEAD~1..HEAD; printf '\\''bad'\\'''")
+  assert.match(result.blockingCommand, /bash -c/)
+  assert.match(result.blockingCommand, /%s%s:%s/)
   assert.equal(result.blockingCommand.includes(TUICR_COMPLETION_MARKER), false)
 })
 
@@ -170,6 +178,18 @@ test('compares sessions and rejects ambiguous discovery', () => {
     ['one', 'two'],
   )
   assert.equal(result.selection._tag, 'ambiguous')
+})
+
+test('selects an updated existing session', () => {
+  //given
+  const before = [session('existing', false)]
+  const after = [{ ...session('existing', false), comment_count: 1, updated_at: '2026-01-01T00:01:00Z' }]
+
+  //when
+  const result = selectSessionSlug(before, after)
+
+  //then
+  assert.deepEqual(result, { _tag: 'found', session: after[0] })
 })
 
 test('normalizes comments to user-authored records', () => {
@@ -208,9 +228,7 @@ test('opens the owned pane, retrieves user comments, and closes only that pane',
     const result = await runtime.runPromise(
       Effect.gen(function* () {
         const service = yield* Tuicr
-        const opened = yield* service.open('/repo', { type: 'working-tree' })
-        yield* service.close()
-        return opened
+        return yield* service.open('/repo', { type: 'working-tree' })
       }),
       { signal: controller.signal },
     )
@@ -222,38 +240,65 @@ test('opens the owned pane, retrieves user comments, and closes only that pane',
       result.comments.map((item) => item.id),
       ['user-comment'],
     )
-    assert.deepEqual(
-      fixture.calls.map(({ command, args }) => [command, ...args]),
-      [
-        ['tuicr', 'review', 'list', '--repo', '/repo'],
-        ['herdr', 'pane', 'split', '--current', '--direction', 'right', '--cwd', '/repo', '--no-focus'],
-        [
-          'herdr',
-          'pane',
-          'run',
-          'window:pane',
-          "'tuicr' 'tui' '--working-tree'; 'printf' '%s%s\\n' '__PI_TUICR_' 'COMPLETED__'",
-        ],
-        ['tuicr', 'review', 'list', '--repo', '/repo'],
-        [
-          'herdr',
-          'pane',
-          'wait-output',
-          'window:pane',
-          '--match',
-          '__PI_TUICR_COMPLETED__',
-          '--source',
-          'recent-unwrapped',
-        ],
-        ['tuicr', 'review', 'comments', '--repo', '/repo', '--session', 'new-session'],
-        ['herdr', 'pane', 'close', 'window:pane'],
-      ],
-    )
+    const calls = fixture.calls.map(({ command, args }) => [command, ...args])
+    assert.deepEqual(calls[0], ['tuicr', '--help'])
+    assert.deepEqual(calls[1], ['tuicr', 'review', 'list', '--repo', '/repo'])
+    assert.deepEqual(calls[2], [
+      'herdr',
+      'pane',
+      'split',
+      '--current',
+      '--direction',
+      'right',
+      '--cwd',
+      '/repo',
+      '--focus',
+    ])
+    assert.deepEqual(calls[3]?.slice(0, 4), ['herdr', 'pane', 'run', 'window:pane'])
+    assert.match(calls[3]?.[4] ?? '', new RegExp(`^bash -c .*${TUICR_COMPLETION_MARKER}_`))
+    assert.match(calls[3]?.[4] ?? '', /--stdout/)
+    assert.deepEqual(calls[4]?.slice(0, 5), ['herdr', 'pane', 'wait-output', 'window:pane', '--match'])
+    const completionMarker = calls[4]?.[5] ?? ''
+    assert.match(completionMarker, new RegExp(`^${TUICR_COMPLETION_MARKER}_[0-9a-f-]+$`))
+    assert.deepEqual(calls[4]?.slice(6), ['--source', 'recent-unwrapped'])
+    assert.deepEqual(calls[5], ['tuicr', 'review', 'list', '--repo', '/repo'])
+    assert.deepEqual(calls[6], ['tuicr', 'review', 'comments', '--repo', '/repo', '--session', 'new-session'])
+    assert.deepEqual(calls[7], ['herdr', 'pane', 'close', 'window:pane'])
     assert.ok(fixture.calls.every((call) => call.signal instanceof AbortSignal))
     assert.equal(
       fixture.calls.some((call) => call.args.includes('add')),
       false,
     )
+    await runtime.dispose()
+  })
+})
+
+test('reports the tuicr exit status and closes the owned pane', async () => {
+  //given
+  await withHerdrEnvironment('1', async () => {
+    const calls: Array<readonly string[]> = []
+    const pi = {
+      exec: async (command: string, args: readonly string[]): Promise<ExecResult> => {
+        calls.push([command, ...args])
+        if (command === 'tuicr') return execResult('[]')
+        if (args[1] === 'split') return execResult(JSON.stringify({ result: { pane: { pane_id: 'owned:pane' } } }))
+        if (args[1] === 'wait-output') return execResult(JSON.stringify({ result: { matched_line: `${args[4]}:7` } }))
+        return execResult()
+      },
+    } as unknown as ExtensionAPI
+    const runtime = ManagedRuntime.make(TuicrLayer(pi, { discoveryAttempts: 1, discoveryDelayMs: 0 }))
+
+    //when
+    const rejection = runtime.runPromise(
+      Effect.gen(function* () {
+        const service = yield* Tuicr
+        return yield* service.open('/repo', { type: 'working-tree' })
+      }),
+    )
+
+    //then
+    await assert.rejects(rejection, /tuicr exited with status 7/)
+    assert.deepEqual(calls.at(-1), ['herdr', 'pane', 'close', 'owned:pane'])
     await runtime.dispose()
   })
 })
@@ -318,12 +363,13 @@ test('passes cancellation to the process effect', async () => {
   await withHerdrEnvironment('1', async () => {
     const controller = new AbortController()
     let receivedSignal: AbortSignal | undefined
+    const calls: Array<readonly string[]> = []
     const pi = {
-      exec: async (
-        _command: string,
-        _args: readonly string[],
-        options: { signal: AbortSignal },
-      ): Promise<ExecResult> => {
+      exec: async (command: string, args: readonly string[], options: { signal: AbortSignal }): Promise<ExecResult> => {
+        calls.push([command, ...args])
+        if (command === 'tuicr') return execResult('[]')
+        if (args[1] === 'split') return execResult(JSON.stringify({ result: { pane: { pane_id: 'owned:pane' } } }))
+        if (args[1] !== 'wait-output') return execResult()
         receivedSignal = options.signal
         await new Promise<never>((_resolve, reject) => {
           options.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
@@ -346,6 +392,7 @@ test('passes cancellation to the process effect', async () => {
     //then
     await assert.rejects(pending)
     assert.equal(receivedSignal?.aborted, true)
+    assert.deepEqual(calls.at(-1), ['herdr', 'pane', 'close', 'owned:pane'])
     await runtime.dispose()
   })
 })
@@ -368,7 +415,12 @@ test('renders collapsed and expanded comment results', () => {
   }
   const result: ToolResultLike = {
     content: [{ type: 'text', text: 'src/core.ts:10: fix this' }],
-    details: { action: 'comments', comments: [comment('one')] },
+    details: {
+      paneId: 'window:pane',
+      sessionSlug: 'session',
+      scope: { type: 'working-tree' },
+      comments: [comment('one')],
+    },
   }
 
   //when
@@ -376,6 +428,6 @@ test('renders collapsed and expanded comment results', () => {
 
   //then
   assert.equal(tool.name, 'tuicr')
-  assert.match(states.collapsed.join('\n'), /1 user comment/)
+  assert.match(states.collapsed.join('\n'), /1 comment/)
   assert.match(states.expanded.join('\n'), /fix this/)
 })

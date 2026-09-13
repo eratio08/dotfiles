@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { ExecResult, ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Context, Effect, Layer, Ref, Schema } from 'effect'
 import {
@@ -12,6 +13,7 @@ import {
   CommentListSchema,
   decodeHerdrPaneId,
   HERDR_COMMAND,
+  HerdrPaneWaitOutputResponseSchema,
   hasHerdrEnvironment,
   normalizeComments,
   type PaneState,
@@ -19,7 +21,6 @@ import {
   ReviewScopeSchema,
   SessionListSchema,
   type SessionSummary,
-  selectNewSession,
   selectSessionSlug,
   TUICR_COMMAND,
   TUICR_COMPLETION_MARKER,
@@ -47,8 +48,6 @@ export class Tuicr extends Context.Service<
   Tuicr,
   {
     readonly open: (repo: string, scope: ReviewScope) => Effect.Effect<TuicrOpenResult, TuicrError | TuicrProcessError>
-    readonly comments: () => Effect.Effect<readonly CommentData[], TuicrError | TuicrProcessError>
-    readonly close: () => Effect.Effect<void, TuicrError | TuicrProcessError>
     readonly shutdown: () => Effect.Effect<void, never>
   }
 >()('tuicr/Tuicr') {}
@@ -85,6 +84,8 @@ function stateFailure(operation: string, message: string): TuicrError {
 export function TuicrLayer(pi: ExtensionAPI, options: TuicrLayerOptions = {}): Layer.Layer<Tuicr, never, never> {
   const discoveryAttempts = Math.max(1, Math.floor(options.discoveryAttempts ?? 20))
   const discoveryDelayMs = Math.max(0, options.discoveryDelayMs ?? 250)
+  const herdrCommand = process.env.HERDR_BIN?.trim() || HERDR_COMMAND
+  const paneDirection = process.env.TUICR_PANE_DIRECTION === 'down' ? 'down' : 'right'
 
   return Layer.effect(
     Tuicr,
@@ -145,7 +146,7 @@ export function TuicrLayer(pi: ExtensionAPI, options: TuicrLayerOptions = {}): L
         if (!pane.owned) {
           return yield* stateFailure('close', 'refusing to close a pane not owned by tuicr')
         }
-        yield* runProcess(HERDR_COMMAND, buildHerdrPaneCloseArgs(pane.paneId))
+        yield* runProcess(herdrCommand, buildHerdrPaneCloseArgs(pane.paneId))
         yield* Ref.set(paneRef, undefined)
       })
 
@@ -155,18 +156,10 @@ export function TuicrLayer(pi: ExtensionAPI, options: TuicrLayerOptions = {}): L
       ): Effect.fn.Return<SessionSummary, TuicrError | TuicrProcessError> {
         for (let attempt = 0; attempt < discoveryAttempts; attempt += 1) {
           const after = yield* readSessions(repo)
-          const selection = selectNewSession(before, after)
+          const selection = selectSessionSlug(before, after)
           if (selection._tag === 'found') return selection.session
           if (selection._tag === 'ambiguous') {
-            return yield* stateFailure('session-discovery', 'multiple new tuicr sessions were found')
-          }
-
-          if (before.every((session) => !session.active)) {
-            const fallback = selectSessionSlug([], after)
-            if (fallback._tag === 'found') return fallback.session
-            if (fallback._tag === 'ambiguous') {
-              return yield* stateFailure('session-discovery', 'multiple active tuicr sessions were found')
-            }
+            return yield* stateFailure('session-discovery', 'multiple relevant tuicr sessions were found')
           }
 
           if (attempt + 1 < discoveryAttempts) {
@@ -194,10 +187,14 @@ export function TuicrLayer(pi: ExtensionAPI, options: TuicrLayerOptions = {}): L
           try: () => Schema.decodeUnknownSync(ReviewScopeSchema)(scope),
           catch: (cause) => stateFailure('open', String(cause)),
         })
+        const helpResult = yield* runProcess(TUICR_COMMAND, ['--help']).pipe(
+          Effect.catch(() => Effect.succeed(undefined)),
+        )
+        const useStdout = helpResult !== undefined && `${helpResult.stdout}\n${helpResult.stderr}`.includes('--stdout')
         const before = yield* readSessions(repo)
-        const splitArgs = buildHerdrPaneSplitArgs(repo)
-        const splitResult = yield* runProcess(HERDR_COMMAND, splitArgs)
-        const splitValue = yield* parseJson(HERDR_COMMAND, splitArgs, splitResult.stdout)
+        const splitArgs = buildHerdrPaneSplitArgs(repo, paneDirection)
+        const splitResult = yield* runProcess(herdrCommand, splitArgs)
+        const splitValue = yield* parseJson(herdrCommand, splitArgs, splitResult.stdout)
         const paneId = decodeHerdrPaneId(splitValue)
         if (!paneId) {
           return yield* stateFailure('open', 'Herdr pane split response did not contain a pane id')
@@ -210,12 +207,30 @@ export function TuicrLayer(pi: ExtensionAPI, options: TuicrLayerOptions = {}): L
           owned: true,
         }
         yield* Ref.set(paneRef, pane)
-        const runArgs = buildHerdrPaneRunArgs(paneId, buildTuicrBlockingCommand(normalizedScope))
-        yield* runProcess(HERDR_COMMAND, runArgs)
+        const completionMarker = `${TUICR_COMPLETION_MARKER}_${randomUUID()}`
+        const runArgs = buildHerdrPaneRunArgs(
+          paneId,
+          buildTuicrBlockingCommand(normalizedScope, completionMarker, useStdout),
+        )
+        yield* runProcess(herdrCommand, runArgs)
+        const waitArgs = buildHerdrPaneWaitOutputArgs(paneId, completionMarker)
+        const waitResult = yield* runProcess(herdrCommand, waitArgs)
+        const waitValue = yield* parseJson(herdrCommand, waitArgs, waitResult.stdout)
+        const waitResponse = yield* Schema.decodeUnknownEffect(HerdrPaneWaitOutputResponseSchema)(waitValue).pipe(
+          Effect.mapError((cause) => processFailure(herdrCommand, waitArgs, cause)),
+        )
+        const matchedLine = waitResponse.result.matched_line
+        const statusText = matchedLine.slice(matchedLine.lastIndexOf(':') + 1)
+        if (!matchedLine.includes(completionMarker) || !/^\d+$/.test(statusText)) {
+          return yield* stateFailure('review', 'Herdr output did not contain a tuicr exit status')
+        }
+        const tuicrStatus = Number(statusText)
+        if (tuicrStatus !== 0) {
+          return yield* stateFailure('review', `tuicr exited with status ${tuicrStatus}`)
+        }
         const session = yield* discoverSession(repo, before)
         const activePane: PaneState = { ...pane, sessionSlug: session.slug }
         yield* Ref.set(paneRef, activePane)
-        yield* runProcess(HERDR_COMMAND, buildHerdrPaneWaitOutputArgs(paneId, TUICR_COMPLETION_MARKER))
         const allComments = yield* readComments(repo, session.slug)
         return { pane: activePane, session, comments: normalizeComments(allComments) }
       })
@@ -224,36 +239,7 @@ export function TuicrLayer(pi: ExtensionAPI, options: TuicrLayerOptions = {}): L
         repo: string,
         scope: ReviewScope,
       ): Effect.fn.Return<TuicrOpenResult, TuicrError | TuicrProcessError> {
-        return yield* openAttempt(repo, scope).pipe(
-          Effect.catch((error) =>
-            Effect.gen(function* () {
-              yield* closeOwnedPane().pipe(Effect.catch(() => Effect.void))
-              return yield* Effect.fail(error)
-            }),
-          ),
-        )
-      })
-
-      const comments = Effect.fnUntraced(function* (): Effect.fn.Return<
-        readonly CommentData[],
-        TuicrError | TuicrProcessError
-      > {
-        const pane = yield* Ref.get(paneRef)
-        if (!pane) {
-          return yield* stateFailure('comments', 'no tuicr review is open')
-        }
-        if (!pane.sessionSlug) {
-          return yield* stateFailure('comments', 'tuicr review session is not ready')
-        }
-        const allComments = yield* readComments(pane.repo, pane.sessionSlug)
-        return normalizeComments(allComments)
-      })
-
-      const close = Effect.fnUntraced(function* (): Effect.fn.Return<void, TuicrError | TuicrProcessError> {
-        if (!hasHerdrEnvironment(process.env.HERDR_ENV)) {
-          return yield* stateFailure('close', 'HERDR_ENV=1 is required to close a tuicr pane')
-        }
-        yield* closeOwnedPane()
+        return yield* Effect.ensuring(openAttempt(repo, scope), closeOwnedPane().pipe(Effect.catch(() => Effect.void)))
       })
 
       const shutdown = Effect.fnUntraced(function* (): Effect.fn.Return<void, never> {
@@ -262,7 +248,7 @@ export function TuicrLayer(pi: ExtensionAPI, options: TuicrLayerOptions = {}): L
         }
       })
 
-      return Tuicr.of({ open, comments, close, shutdown })
+      return Tuicr.of({ open, shutdown })
     }),
   )
 }

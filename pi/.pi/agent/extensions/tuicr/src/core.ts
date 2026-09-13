@@ -18,19 +18,9 @@ export const RevisionsScopeSchema = Schema.Struct({
 export const ReviewScopeSchema = Schema.Union([WorkingTreeScopeSchema, RevisionsScopeSchema])
 export type ReviewScope = (typeof ReviewScopeSchema)['Type']
 
-export const TuicrActionSchema = Schema.Literals(['open', 'comments', 'close'] as const)
-export const OpenReviewInputSchema = Schema.Struct({
-  action: Schema.Literal('open'),
+export const TuicrToolInputSchema = Schema.Struct({
   scope: ReviewScopeSchema,
 })
-export const CommentsInputSchema = Schema.Struct({
-  action: Schema.Literal('comments'),
-})
-export const CloseInputSchema = Schema.Struct({
-  action: Schema.Literal('close'),
-})
-export const TuicrToolInputSchema = Schema.Union([OpenReviewInputSchema, CommentsInputSchema, CloseInputSchema])
-export type TuicrAction = (typeof TuicrActionSchema)['Type']
 export type TuicrToolInput = (typeof TuicrToolInputSchema)['Type']
 
 export const PaneStateSchema = Schema.Struct({
@@ -83,6 +73,13 @@ export const HerdrPaneSplitResponseSchema = Schema.Struct({
   }),
 })
 export type HerdrPaneSplitResponse = (typeof HerdrPaneSplitResponseSchema)['Type']
+
+export const HerdrPaneWaitOutputResponseSchema = Schema.Struct({
+  result: Schema.Struct({
+    matched_line: NonBlankStringSchema,
+  }),
+})
+export type HerdrPaneWaitOutputResponse = (typeof HerdrPaneWaitOutputResponseSchema)['Type']
 
 export type SessionSelection =
   | { readonly _tag: 'found'; readonly session: SessionSummary }
@@ -143,6 +140,17 @@ export function selectSessionSlug(
 ): SessionSelection {
   const newSession = selectNewSession(before, after)
   if (newSession._tag !== 'none') return newSession
+
+  const updated = after.filter((candidate) =>
+    before.some(
+      (previous) => sameSession(previous, candidate) && JSON.stringify(previous) !== JSON.stringify(candidate),
+    ),
+  )
+  if (updated.length === 1) {
+    const session = updated[0]
+    if (session) return { _tag: 'found', session }
+  }
+  if (updated.length > 1) return { _tag: 'ambiguous', sessions: updated }
   return selectActiveSession(after)
 }
 
@@ -173,8 +181,8 @@ export function buildReviewScopeArgs(scope: unknown): readonly string[] {
   return decoded.type === 'working-tree' ? ['--working-tree'] : ['--revisions', decoded.revset]
 }
 
-export function buildTuicrArgs(scope: unknown): readonly string[] {
-  return ['tui', ...buildReviewScopeArgs(scope)]
+export function buildTuicrArgs(scope: unknown, useStdout = false): readonly string[] {
+  return ['tui', ...buildReviewScopeArgs(scope), ...(useStdout ? ['--stdout'] : [])]
 }
 
 export function buildTuicrListArgs(repo: string): readonly string[] {
@@ -193,21 +201,26 @@ export function buildShellCommand(command: string, args: readonly string[] = [])
   return [command, ...args].map(shellQuote).join(' ')
 }
 
-export function buildTuicrCommand(scope: unknown): string {
-  return buildShellCommand(TUICR_COMMAND, buildTuicrArgs(scope))
+export function buildTuicrCommand(scope: unknown, useStdout = false): string {
+  return buildShellCommand(TUICR_COMMAND, buildTuicrArgs(scope, useStdout))
 }
 
-export function buildTuicrBlockingCommand(scope: unknown): string {
-  const splitAt = Math.floor(TUICR_COMPLETION_MARKER.length / 2)
-  return `${buildTuicrCommand(scope)}; ${buildShellCommand('printf', [
-    '%s%s\\n',
-    TUICR_COMPLETION_MARKER.slice(0, splitAt),
-    TUICR_COMPLETION_MARKER.slice(splitAt),
-  ])}`
+export function buildTuicrBlockingCommand(
+  scope: unknown,
+  completionMarker = TUICR_COMPLETION_MARKER,
+  useStdout = false,
+): string {
+  const splitAt = Math.floor(completionMarker.length / 2)
+  const completionCommand = `${buildShellCommand('printf', [
+    '\\n%s%s:%s\\n',
+    completionMarker.slice(0, splitAt),
+    completionMarker.slice(splitAt),
+  ])} $?`
+  return `bash -c ${shellQuote(`${buildTuicrCommand(scope, useStdout)}; ${completionCommand}`)}`
 }
 
-export function buildHerdrPaneSplitArgs(repo: string): readonly string[] {
-  return ['pane', 'split', '--current', '--direction', 'right', '--cwd', repo, '--no-focus']
+export function buildHerdrPaneSplitArgs(repo: string, direction = 'right'): readonly string[] {
+  return ['pane', 'split', '--current', '--direction', direction, '--cwd', repo, '--focus']
 }
 
 export function buildHerdrPaneRunArgs(paneId: string, command: string): readonly string[] {
@@ -216,10 +229,6 @@ export function buildHerdrPaneRunArgs(paneId: string, command: string): readonly
 
 export function buildHerdrPaneWaitOutputArgs(paneId: string, match: string): readonly string[] {
   return ['pane', 'wait-output', paneId, '--match', match, '--source', 'recent-unwrapped']
-}
-
-export function buildHerdrPaneReadArgs(paneId: string, lines = 200): readonly string[] {
-  return ['pane', 'read', paneId, '--source', 'recent-unwrapped', '--lines', String(lines)]
 }
 
 export function buildHerdrPaneCloseArgs(paneId: string): readonly string[] {
