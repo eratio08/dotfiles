@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { type ExecResult, type ExtensionAPI, initTheme } from '@earendil-works/pi-coding-agent'
-import { Effect, ManagedRuntime } from 'effect'
+import { Effect, Layer, ManagedRuntime } from 'effect'
 import tuicrExtension from '../index.ts'
 import {
   buildTuicrArgs,
@@ -15,7 +15,7 @@ import {
   selectSessionSlug,
   TUICR_COMPLETION_MARKER,
 } from '../src/core.ts'
-import { Tuicr, TuicrLayer } from '../src/effects.ts'
+import { Tuicr, TuicrConfig, TuicrLayer, type TuicrLayerOptions, TuicrPi } from '../src/effects.ts'
 
 type ExecCall = {
   readonly command: string
@@ -105,6 +105,12 @@ function makePi(): PiFixture {
     },
   } as unknown as ExtensionAPI
   return { pi, calls }
+}
+
+function makeRuntime(pi: ExtensionAPI, options: TuicrLayerOptions = {}) {
+  return ManagedRuntime.make(
+    TuicrLayer.pipe(Layer.provide(Layer.succeed(TuicrPi, pi)), Layer.provide(Layer.succeed(TuicrConfig, options))),
+  )
 }
 
 async function withHerdrEnvironment<T>(value: string | undefined, action: () => Promise<T>): Promise<T> {
@@ -221,7 +227,7 @@ test('opens the owned pane, retrieves user comments, and closes only that pane',
   //given
   await withHerdrEnvironment('1', async () => {
     const fixture = makePi()
-    const runtime = ManagedRuntime.make(TuicrLayer(fixture.pi, { discoveryAttempts: 2, discoveryDelayMs: 0 }))
+    const runtime = makeRuntime(fixture.pi, { discoveryAttempts: 2, discoveryDelayMs: 0 })
     const controller = new AbortController()
 
     //when
@@ -288,7 +294,7 @@ test('returns no comments when tuicr creates no persisted session', async () => 
         return execResult()
       },
     } as unknown as ExtensionAPI
-    const runtime = ManagedRuntime.make(TuicrLayer(pi))
+    const runtime = makeRuntime(pi)
 
     //when
     const result = await runtime.runPromise(
@@ -321,7 +327,7 @@ test('reports the tuicr exit status and closes the owned pane', async () => {
         return execResult()
       },
     } as unknown as ExtensionAPI
-    const runtime = ManagedRuntime.make(TuicrLayer(pi, { discoveryAttempts: 1, discoveryDelayMs: 0 }))
+    const runtime = makeRuntime(pi, { discoveryAttempts: 1, discoveryDelayMs: 0 })
 
     //when
     const rejection = runtime.runPromise(
@@ -342,7 +348,7 @@ test('refuses Herdr operations without the required environment', async () => {
   //given
   await withHerdrEnvironment(undefined, async () => {
     const fixture = makePi()
-    const runtime = ManagedRuntime.make(TuicrLayer(fixture.pi, { discoveryAttempts: 1, discoveryDelayMs: 0 }))
+    const runtime = makeRuntime(fixture.pi, { discoveryAttempts: 1, discoveryDelayMs: 0 })
 
     //when
     const rejection = runtime.runPromise(
@@ -376,7 +382,7 @@ test('closes a pane when launch fails after ownership starts', async () => {
         return execResult()
       },
     } as unknown as ExtensionAPI
-    const runtime = ManagedRuntime.make(TuicrLayer(pi, { discoveryAttempts: 1, discoveryDelayMs: 0 }))
+    const runtime = makeRuntime(pi, { discoveryAttempts: 1, discoveryDelayMs: 0 })
 
     //when
     const rejection = runtime.runPromise(
@@ -412,7 +418,7 @@ test('passes cancellation to the process effect', async () => {
         throw new Error('unreachable')
       },
     } as unknown as ExtensionAPI
-    const runtime = ManagedRuntime.make(TuicrLayer(pi, { discoveryAttempts: 1, discoveryDelayMs: 0 }))
+    const runtime = makeRuntime(pi, { discoveryAttempts: 1, discoveryDelayMs: 0 })
     const pending = runtime.runPromise(
       Effect.gen(function* () {
         const service = yield* Tuicr

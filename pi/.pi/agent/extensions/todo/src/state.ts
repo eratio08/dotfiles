@@ -36,7 +36,7 @@ export interface TodoCounts {
 }
 
 const TodoDetailsSchema = Schema.Struct({
-  todos: Schema.Unknown,
+  todos: TodoListSchema,
 })
 
 const TodoHandoffEntrySchema = Schema.Struct({
@@ -258,7 +258,7 @@ export function extractLatestTodoSnapshot(entries: readonly unknown[]): Todo[] {
   for (const entry of entries) {
     const handoff = Schema.decodeUnknownResult(TodoHandoffEntrySchema)(entry)
     if (Result.isSuccess(handoff)) {
-      const todos = normalizeTodos(handoff.success.details.todos)
+      const todos = normalizeDecodedTodos(handoff.success.details.todos)
       if (todos) {
         latest = todos
       }
@@ -267,7 +267,7 @@ export function extractLatestTodoSnapshot(entries: readonly unknown[]): Todo[] {
 
     const toolResult = Schema.decodeUnknownResult(TodoToolResultEntrySchema)(entry)
     if (Result.isSuccess(toolResult)) {
-      const todos = normalizeTodos(toolResult.success.message.details.todos)
+      const todos = normalizeDecodedTodos(toolResult.success.message.details.todos)
       if (todos) {
         latest = todos
       }

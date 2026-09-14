@@ -3,7 +3,17 @@ import type { ExtensionAPI, ExtensionContext, Theme, ToolResultEvent } from '@ea
 import { matchesKey, Text, truncateToWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui'
 import { Effect, Layer, ManagedRuntime } from 'effect'
 import { Type } from 'typebox'
-import { TodoContext, TodoEffects, TodoEffectsLayer, type TodoToolDetails, TodoUi, TodoUiError } from './src/effects.ts'
+import {
+  TodoContext,
+  TodoEffects,
+  TodoEffectsLayer,
+  type TodoEffectsRequirements,
+  TodoPi,
+  TodoStatusRequestVersion,
+  type TodoToolDetails,
+  TodoUi,
+  TodoUiError,
+} from './src/effects.ts'
 import {
   getTodoCounts,
   isOpenTodo,
@@ -193,7 +203,7 @@ function toTodoUiError(operation: string, cause: unknown): TodoUiError {
   return new TodoUiError({ operation, message: String(cause) })
 }
 
-const todoUiLayer = Layer.effect(
+const todoUiLayer: Layer.Layer<TodoUi, never, TodoContext> = Layer.effect(
   TodoUi,
   Effect.gen(function* () {
     const ctx = yield* TodoContext
@@ -214,18 +224,27 @@ const todoUiLayer = Layer.effect(
 )
 
 export default function (pi: ExtensionAPI) {
+  // ManagedRuntime owns the store because its mutable state must survive across Pi callbacks.
+  // ExtensionContext arrives with each callback, and todoUiLayer captures that current context, so the other layers stay at the per-call boundary instead of capturing stale context.
   const runtime = ManagedRuntime.make(TodoStore.layer)
   const statusRequestVersion = { value: 0 }
   let shuttingDown = false
 
+  // Bridge Pi's callback API to Effect: bind callback-scoped services, then forward Pi's cancellation signal.
   const run = <A, E>(
-    use: (effects: TodoEffects['Service']) => Effect.Effect<A, E>,
+    use: (effects: TodoEffects['Service']) => Effect.Effect<A, E, TodoEffectsRequirements>,
     ctx: ExtensionContext,
     signal?: AbortSignal,
   ): Promise<A> => {
-    const effectsLayer = TodoEffectsLayer(pi, statusRequestVersion).pipe(
-      Layer.provide(todoUiLayer),
-      Layer.provide(Layer.succeed(TodoContext, ctx)),
+    const todoContextLayer = Layer.succeed(TodoContext, ctx)
+    const effectsLayer = TodoEffectsLayer.pipe(
+      Layer.provideMerge(
+        Layer.mergeAll(
+          todoUiLayer.pipe(Layer.provideMerge(todoContextLayer)),
+          Layer.succeed(TodoPi, pi),
+          Layer.succeed(TodoStatusRequestVersion, statusRequestVersion),
+        ),
+      ),
     )
     return runtime.runPromise(Effect.provide(TodoEffects.use(use), effectsLayer), {
       signal: signal ?? ctx.signal,

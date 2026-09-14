@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 import { Effect, Layer, ManagedRuntime } from 'effect'
-import { TodoContext, TodoEffects, TodoEffectsLayer, TodoUi } from '../src/effects.ts'
+import { TodoContext, TodoEffects, TodoEffectsLayer, TodoPi, TodoStatusRequestVersion, TodoUi } from '../src/effects.ts'
 import {
   extractLatestTodoSnapshot,
   formatTodoContext,
@@ -210,18 +210,19 @@ test('builds TodoEffects with testing layers', async () => {
   //given
   const updates: Todo[][] = []
   const pi = {} as unknown as ExtensionAPI
-  const testLayer = TodoEffectsLayer(pi, { value: 0 }).pipe(
-    Layer.provide(
-      Layer.succeed(
-        TodoUi,
-        TodoUi.of({
-          update: (todos) => Effect.sync(() => updates.push([...todos])),
-          show: () => Effect.void,
-        }),
-      ),
+  const testLayer = Layer.mergeAll(
+    TodoEffectsLayer,
+    Layer.succeed(
+      TodoUi,
+      TodoUi.of({
+        update: (todos) => Effect.sync(() => updates.push([...todos])),
+        show: () => Effect.void,
+      }),
     ),
-    Layer.provide(Layer.succeed(TodoContext, {} as ExtensionContext)),
-    Layer.provide(TodoStore.layer),
+    Layer.succeed(TodoContext, {} as ExtensionContext),
+    Layer.succeed(TodoPi, pi),
+    Layer.succeed(TodoStatusRequestVersion, { value: 0 }),
+    TodoStore.layer,
   )
   const runtime = ManagedRuntime.make(testLayer)
 

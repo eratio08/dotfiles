@@ -7,10 +7,10 @@ import {
   truncateHead,
 } from '@earendil-works/pi-coding-agent'
 import { Text } from '@earendil-works/pi-tui'
-import { type Effect, ManagedRuntime, Schema } from 'effect'
+import { type Effect, Layer, ManagedRuntime, Schema } from 'effect'
 import { Type } from 'typebox'
 import { type CommentData, type TuicrToolInput, TuicrToolInputSchema } from './src/core.ts'
-import { Tuicr, TuicrLayer, type TuicrOpenResult } from './src/effects.ts'
+import { Tuicr, TuicrConfig, TuicrLayer, type TuicrOpenResult, TuicrPi } from './src/effects.ts'
 
 const Parameters = Type.Object({
   scope: Type.Union([
@@ -67,7 +67,9 @@ async function resolveRepositoryRoot(pi: ExtensionAPI, cwd: string, signal?: Abo
 }
 
 export default function tuicrExtension(pi: ExtensionAPI): void {
-  const runtime = ManagedRuntime.make(TuicrLayer(pi))
+  const runtime = ManagedRuntime.make(
+    TuicrLayer.pipe(Layer.provide(Layer.succeed(TuicrPi, pi)), Layer.provide(Layer.succeed(TuicrConfig, {}))),
+  )
   let shuttingDown = false
 
   const run = <A, E>(
