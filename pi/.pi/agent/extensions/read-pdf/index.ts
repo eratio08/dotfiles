@@ -1,65 +1,30 @@
-import { randomUUID } from 'node:crypto'
-import { readFile, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { resolve } from 'node:path'
 
-import {
-  DEFAULT_MAX_BYTES,
-  DEFAULT_MAX_LINES,
-  type ExtensionAPI,
-  formatSize,
-  keyHint,
-  truncateHead,
-} from '@earendil-works/pi-coding-agent'
+import { type ExtensionAPI, formatSize, keyHint } from '@earendil-works/pi-coding-agent'
 import { Text } from '@earendil-works/pi-tui'
+import { Layer, ManagedRuntime } from 'effect'
 import { Type } from 'typebox'
-import { extractText } from 'unpdf'
+import { type PdfReaderDetails, pagesToMarkdown, readPdf } from './src/effects.ts'
+import { FileSystemLive } from './src/services/fs.ts'
+import { PdfExtractorLive } from './src/services/pdf.ts'
 
-export interface PdfReaderDetails {
-  path: string
-  pages: number
-  markdownBytes: number
-  truncated: boolean
-  fullOutputPath?: string
-}
-
-export function pagesToMarkdown(pages: readonly string[]): string {
-  return pages
-    .map((page, index) => {
-      const lines = page
-        .replace(/\r\n?/g, '\n')
-        .split('\n')
-        .map((line) => line.replace(/[ \t]+/g, ' ').trim())
-      const paragraphs: string[] = []
-      let paragraph: string[] = []
-      for (const line of lines) {
-        if (line) {
-          paragraph.push(line)
-        } else if (paragraph.length > 0) {
-          paragraphs.push(paragraph.join('\n'))
-          paragraph = []
-        }
-      }
-      if (paragraph.length > 0) paragraphs.push(paragraph.join('\n'))
-      return `# Page ${index + 1}${paragraphs.length > 0 ? `\n\n${paragraphs.join('\n\n')}` : ''}`
-    })
-    .join('\n\n')
-}
-
-export async function readPdf(path: string, signal?: AbortSignal): Promise<{ markdown: string; pages: number }> {
-  if (signal?.aborted) throw new Error('Operation aborted')
-  const data = await readFile(path)
-  if (signal?.aborted) throw new Error('Operation aborted')
-  const extracted = await extractText(new Uint8Array(data), { mergePages: false })
-  if (signal?.aborted) throw new Error('Operation aborted')
-  return { markdown: pagesToMarkdown(extracted.text), pages: extracted.totalPages }
-}
+export type { PdfReaderDetails }
+export { pagesToMarkdown, readPdf }
 
 const parameters = Type.Object({
   path: Type.String({ description: 'Path to a PDF file, relative to the current working directory' }),
 })
 
 export default function (pi: ExtensionAPI) {
+  const runtime = ManagedRuntime.make(Layer.mergeAll(FileSystemLive, PdfExtractorLive))
+  let shuttingDown = false
+
+  pi.on('session_shutdown', async () => {
+    if (shuttingDown) return
+    shuttingDown = true
+    await runtime.dispose()
+  })
+
   pi.registerTool({
     name: 'read-pdf',
     label: 'read-pdf',
@@ -69,28 +34,12 @@ export default function (pi: ExtensionAPI) {
     promptGuidelines: ['Use read-pdf instead of treating a PDF as plain text.'],
     parameters,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-      const absolutePath = resolve(ctx.cwd, params.path)
-      const { markdown, pages } = await readPdf(absolutePath, signal)
-      const truncation = truncateHead(markdown, {
-        maxBytes: DEFAULT_MAX_BYTES,
-        maxLines: DEFAULT_MAX_LINES,
-      })
-      let text = truncation.content
-      let fullOutputPath: string | undefined
-      if (truncation.truncated) {
-        fullOutputPath = join(tmpdir(), `pi-read-pdf-${randomUUID()}.md`)
-        await writeFile(fullOutputPath, markdown, 'utf8')
-        text += `\n\n[Output truncated: showing ${truncation.outputLines} of ${truncation.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}). Full output saved to: ${fullOutputPath}]`
-      }
+      const path = params.path.startsWith('@') ? params.path.slice(1) : params.path
+      const absolutePath = resolve(ctx.cwd, path)
+      const result = await runtime.runPromise(readPdf(absolutePath, params.path), { signal })
       return {
-        content: [{ type: 'text', text }],
-        details: {
-          path: params.path,
-          pages,
-          markdownBytes: Buffer.byteLength(markdown),
-          truncated: truncation.truncated,
-          fullOutputPath,
-        } satisfies PdfReaderDetails,
+        content: [{ type: 'text', text: result.text }],
+        details: result.details,
       }
     },
     renderCall(args, theme, context) {

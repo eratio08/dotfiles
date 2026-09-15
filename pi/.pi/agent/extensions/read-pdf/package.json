@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "bun test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
     "check": "biome check ."
   },
   "peerDependencies": {
@@ -12,10 +13,14 @@
     "@earendil-works/pi-tui": "*",
     "typebox": "*"
   },
-  "dependencies": {
-    "unpdf": "^1.8.0"
-  },
   "devDependencies": {
-    "@biomejs/biome": "2.5.12"
+    "@biomejs/biome": "2.5.12",
+    "@types/bun": "^1.4.2",
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "effect": "4.0.0-rc.112",
+    "unpdf": "^1.8.0"
   }
 }
