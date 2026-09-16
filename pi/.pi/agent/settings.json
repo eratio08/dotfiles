@@ -11,7 +11,12 @@
         "-themes/rose-pine.json"
       ]
     },
-    "git:github.com/DietrichGebert/ponytail",
+    {
+      "source": "git:github.com/DietrichGebert/ponytail",
+      "extensions": [
+        "-pi-extension/index.js"
+      ]
+    },
     "git:github.com/eratio08/pi-mcp",
     "npm:@plannotator/pi-extension",
     "npm:cc-safety-net",
@@ -25,6 +30,31 @@
   ],
   "skills": [
     "~/.local/state/sparness/opencode/skills",
-    "-skills/cavecrew/SKILL.md"
+    "-skills/cavecrew/SKILL.md",
+    "-skills/aws-billing-and-cost-management/SKILL.md",
+    "-skills/aws-blocks/SKILL.md",
+    "-skills/aws-cdk/SKILL.md",
+    "-skills/aws-cloudformation/SKILL.md",
+    "-skills/aws-compute/SKILL.md",
+    "-skills/aws-containers/SKILL.md",
+    "-skills/aws-deployment/SKILL.md",
+    "-skills/aws-messaging-and-streaming/SKILL.md",
+    "-skills/aws-observability/SKILL.md",
+    "-skills/aws-sdk-js-v3-usage/SKILL.md",
+    "-skills/aws-sdk-python-usage/SKILL.md",
+    "-skills/aws-serverless/SKILL.md",
+    "-skills/dd-apm/SKILL.md",
+    "-skills/dd-code-generation/SKILL.md",
+    "-skills/dd-debugger/SKILL.md",
+    "-skills/dd-docs/SKILL.md",
+    "-skills/dd-file-issue/SKILL.md",
+    "-skills/dd-logs/SKILL.md",
+    "-skills/dd-monitors/SKILL.md",
+    "-skills/dd-pup/SKILL.md",
+    "-skills/dd-symdb/SKILL.md",
+    "-skills/dd-triage-flaky-test/SKILL.md"
+  ],
+  "extensions": [
+    "-extensions/caveman/index.ts"
   ]
 }
