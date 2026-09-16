@@ -12,12 +12,11 @@ description: |
   says "STE", "Simplified Technical English", "ASD-STE100", "plain English",
   "layman's terms", "explain it simply", "no jargon", "de-slop", "make this
   readable", "write for non-native readers", or asks for docs that translate
-  well. The same rules govern the reply: answer first, five sentences or
-  fewer, prose only.
+  well. The same rules govern the reply: answer first, prose only.
 license: MIT
 compatibility: claude-code cursor codex gemini-cli opencode
 metadata:
-  version: "2.0.2"
+  version: "2.1.0"
   standard: ASD-STE100 Issue 9 (2025-01-15)
 ---
 
@@ -37,7 +36,7 @@ When asked to write or rewrite documentation, apply these rules to the prose:
 6. **Complete grammar.** No contractions, keep articles, keep "that". Short sentences, not telegraph style.
 7. **No semicolons and no em-dashes.** Write two sentences, or name the relation.
 8. **One word, one meaning, for the whole document.** Use `make sure that` for check, verify, confirm, validate, ensure. Use `configuration` for config, settings, options. Break noun chains over three words with a preposition ("the timeout value for the connection pool").
-9. **Define a concept term at its first use**, under ten words, one per sentence. Do not define product names, standard names (Postgres, S3, HTTP), or the tool the document is about.
+9. **State what the reader needs before you name the action.** Define a concept term at its first use, under ten words, one per sentence. Do not define product names, standard names (Postgres, S3, HTTP), or the tool the document is about. The same rule covers a fact, not just a word: name the host, the flag, or the prior step that a command depends on, instead of assuming the reader already has it. "Restart the service" becomes "Restart the `sync` service on the host that runs the job."
 10. **State the fact, not its importance.** Delete words that carry no fact: simply, seamlessly, robust, powerful, comprehensive, leverage, crucial, "in order to", "it is worth noting". No "not just X, it is Y". No decorative triplets. No "in conclusion".
 11. **Format for the eye, not for decoration.** No bold lead-ins, no bold as emphasis, no emoji, no heading over two sentences. A vertical list is for three or more parallel items or steps: colon on the lead-in, uppercase start, one instruction per item.
 12. **Warnings: command or condition first, then the risk.** "Do not run this against production. The command deletes rows."
@@ -62,20 +61,19 @@ Use American spelling. `references/word-swaps.md` maps the overused words to pla
 Every chat reply, in every mode, follows these rules. Read them last, apply them first:
 
 1. Answer in prose. No headers, no bullet lists, no bold, no tables. A code block is legal when the reader must copy it.
-2. Five sentences maximum. Every sentence counts, list items and captions included. Count them before you send. Over five, delete sentences until five remain.
-3. The first sentence gives the answer or the result. Do not restate the question.
-4. No em-dashes. Name the relation ("because", "but", "for example") or write two sentences.
-5. Define a concept term in a few words the first time you use it: "idempotent (safe to run twice)". Do not define product names.
-6. No contractions. No openers ("Certainly", "Great question") and no closers ("I hope this helps", "Let me know").
-7. Do not shorten quoted error text, security warnings, or confirmations before a destructive action.
+2. The first sentence gives the answer or the result. Do not restate the question.
+3. No em-dashes. Name the relation ("because", "but", "for example") or write two sentences.
+4. Define a concept term in a few words the first time you use it: "idempotent (safe to run twice)". Do not define product names.
+5. No contractions. No openers ("Certainly", "Great question") and no closers ("I hope this helps", "Let me know").
+6. Do not shorten quoted error text, security warnings, or confirmations before a destructive action.
 
 **Before:** The failure stems from control-plane leader election during pod churn — nothing to worry about!
 **After:** The pods restarted and the queue lost its leader for a short time. It recovered without help. You do not have to do anything.
 
 ## Self-Check Before You Deliver
 
-1. Reply: count the sentences. Over five, cut. Search for `—`, `**`, `#`, and a line that starts with `-`. Remove each one.
-2. Document: count the words in your three longest sentences. Over 20 or 25, split. Search for `'`, `has been`, `should`, `may`, `;`, `—`, `, making`, `**`, `check`, `verify`, `config`, and any heading that covers fewer than three sentences. Fix each hit.
+1. Reply: search for `—`, `**`, `#`, and a line that starts with `-`. Remove each one.
+2. Document: count the words in your three longest sentences. Over 20 or 25, split. Search for `'`, `has been`, `should`, `may`, `;`, `—`, `, making`, `**`, `check`, `verify`, `config`, and any heading that covers fewer than three sentences. Fix each hit. Read each step: does it name a host, a flag, or a prior step the reader must already have? If not, add it or point to it.
 
 ## Modes
 
