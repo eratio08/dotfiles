@@ -29,8 +29,8 @@ rename_workspace = "prefix+shift+w"
 close_workspace = ""
 previous_workspace = "prefix+("
 next_workspace = "prefix+)"
-# previous_agent = ""     # optional, unset by default
-# next_agent = ""         # optional, unset by default
+previous_agent = "prefix+["           # optional, unset by default
+next_agent = "prefix+]"               # optional, unset by default
 # focus_agent = ""        # optional indexed binding, e.g. "prefix+alt+1..9"
 new_tab = "prefix+c"
 rename_tab = "prefix+,"
@@ -63,7 +63,7 @@ navigate_pane_left = ""
 navigate_pane_right = ""
 
 [worktrees]
-directory = "~/.herdr/worktrees"
+directory = "~/src/wt"
 
 [ui]
 pane_borders = true
@@ -86,7 +86,7 @@ enabled = true
 position = "top-center"
 
 [ui.sound]
-enabled = false
+enabled = true
 
 [session]
 resume_agents_on_restore = true
