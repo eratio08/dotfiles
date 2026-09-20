@@ -22,25 +22,25 @@ for (const name of ['extractLatestTodoSnapshot', 'getTodoHandoffSnapshot', 'form
 
 const branch = [
   {
-    type: 'message',
-    message: {
-      role: 'toolResult',
-      toolName: 'todowrite',
-      details: {
-        todos: [
-          { content: 'done work', status: 'completed', priority: 'high' },
-          { content: 'active work', status: 'in_progress', priority: 'medium' },
-          { content: 'later work', status: 'pending', priority: 'low' },
-        ],
-      },
+    type: 'custom',
+    customType: 'todo',
+    data: {
+      todos: [
+        { id: '018f00000000-7000-8000-0000-000000000001', content: 'done work', status: 'completed', dependsOn: [] },
+        {
+          id: '018f00000001-7000-8000-0000-000000000002',
+          content: 'active work',
+          status: 'in_progress',
+          dependsOn: [],
+        },
+        { id: '018f00000002-7000-8000-0000-000000000003', content: 'later work', status: 'pending', dependsOn: [] },
+      ],
     },
   },
 ]
 
 const handoffTodos = todoState.getTodoHandoffSnapshot(todoState.extractLatestTodoSnapshot(branch))
 assert.deepEqual(handoffTodos, [
-  { content: 'active work', status: 'in_progress', priority: 'medium' },
-  { content: 'later work', status: 'pending', priority: 'low' },
+  { id: '018f00000001-7000-8000-0000-000000000002', content: 'active work', status: 'in_progress', dependsOn: [] },
+  { id: '018f00000002-7000-8000-0000-000000000003', content: 'later work', status: 'pending', dependsOn: [] },
 ])
-
-console.log('handoff todo state check: ok')

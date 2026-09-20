@@ -67,5 +67,3 @@ assert.equal(
   ]),
   undefined,
 )
-
-console.log('handoff model state check: ok')

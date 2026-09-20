@@ -1,9 +1,9 @@
-export const HANDOFF_MODEL_ENTRY = 'handoff-model'
-export const HANDOFF_MODEL_APPLIED_ENTRY = 'handoff-model-applied'
+const HANDOFF_MODEL_ENTRY = 'handoff-model'
+const HANDOFF_MODEL_APPLIED_ENTRY = 'handoff-model-applied'
 
-export type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
-export interface HandoffModelState {
+interface HandoffModelState {
   provider: string
   modelId: string
   thinkingLevel: ThinkingLevel
@@ -30,9 +30,7 @@ function parseHandoffModelState(value: unknown): HandoffModelState | undefined {
   return { provider, modelId, thinkingLevel }
 }
 
-export function getPendingHandoffModel(
-  entries: readonly unknown[],
-): { id: string; state: HandoffModelState } | undefined {
+function getPendingHandoffModel(entries: readonly unknown[]): { id: string; state: HandoffModelState } | undefined {
   let pending: { id: string; state: HandoffModelState } | undefined
   for (const entry of entries) {
     if (!entry || typeof entry !== 'object' || (entry as { type?: unknown }).type !== 'custom') {
@@ -54,4 +52,12 @@ export function getPendingHandoffModel(
     }
   }
   return pending
+}
+
+export {
+  getPendingHandoffModel,
+  HANDOFF_MODEL_APPLIED_ENTRY,
+  HANDOFF_MODEL_ENTRY,
+  type HandoffModelState,
+  type ThinkingLevel,
 }

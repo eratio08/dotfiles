@@ -3,7 +3,7 @@ import test from 'node:test'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 import todoExtension from '../index.ts'
 import { TodoUiError } from '../src/effects.ts'
-import { extractLatestTodoSnapshot } from '../src/state.ts'
+import { extractLatestTodoSnapshot, TODO_STATE_ENTRY } from '../src/state.ts'
 
 type EventHandler = (event: unknown, ctx: ExtensionContext) => Promise<unknown> | unknown
 type PlannotatorPhase = 'idle' | 'planning' | 'executing'
@@ -30,6 +30,7 @@ type ToolResult = {
 }
 
 type RegisteredTool = {
+  name?: string
   execute: (...args: unknown[]) => Promise<ToolResult>
   renderCall?: (args: unknown, theme: unknown, context?: RenderCallContext) => Renderable
   renderResult?: (result: unknown, options: { expanded: boolean }, theme: unknown) => Renderable
@@ -49,10 +50,13 @@ type HarnessOptions = {
 function harness(branch: unknown[] = [], idle = true, phase?: PlannotatorPhase, options: HarnessOptions = {}) {
   const events = new Map<string, EventHandler>()
   const sentMessages: SentMessage[] = []
-  const activeTools = ['read', 'todowrite', 'write']
+  const activeTools = ['read', 'todowrite', 'todonext', 'write']
   const widgets = new Map<string, string[] | undefined>()
   const notifications: string[] = []
-  let registeredTool: RegisteredTool | undefined
+  const sessionEntries = [...branch]
+  const appendedEntries: unknown[] = []
+  let registeredTodoTool: RegisteredTool | undefined
+  let registeredNextTool: RegisteredTool | undefined
   let registeredCommand: RegisteredCommand | undefined
   let currentPhase = phase
   let hasResponseOverride = 'response' in options
@@ -75,7 +79,23 @@ function harness(branch: unknown[] = [], idle = true, phase?: PlannotatorPhase, 
       events.set(event, handler)
     },
     registerTool(tool: RegisteredTool) {
-      registeredTool = tool
+      if (tool.name === 'todonext') {
+        registeredNextTool = tool
+      } else {
+        registeredTodoTool = tool
+      }
+    },
+    appendEntry(customType: string, data: unknown) {
+      const entry = {
+        type: 'custom',
+        id: `custom-${appendedEntries.length + 1}`,
+        parentId: (sessionEntries.at(-1) as { id?: string } | undefined)?.id ?? null,
+        timestamp: new Date().toISOString(),
+        customType,
+        data,
+      }
+      sessionEntries.push(entry)
+      appendedEntries.push(entry)
     },
     registerCommand(_name: string, command: RegisteredCommand) {
       registeredCommand = command
@@ -129,7 +149,7 @@ function harness(branch: unknown[] = [], idle = true, phase?: PlannotatorPhase, 
     },
     sessionManager: {
       getBranch() {
-        return branch
+        return sessionEntries
       },
     },
     signal: options.signal,
@@ -145,8 +165,12 @@ function harness(branch: unknown[] = [], idle = true, phase?: PlannotatorPhase, 
     widgets,
     notifications,
     get registeredTool() {
-      return registeredTool
+      return registeredTodoTool
     },
+    get nextTool() {
+      return registeredNextTool
+    },
+    appendedEntries,
     get registeredCommand() {
       return registeredCommand
     },
@@ -169,16 +193,18 @@ function harness(branch: unknown[] = [], idle = true, phase?: PlannotatorPhase, 
 
 const branchWithTodos = [
   {
-    type: 'message',
-    message: {
-      role: 'toolResult',
-      toolName: 'todowrite',
-      details: {
-        todos: [
-          { content: 'first task', status: 'in_progress', priority: 'high' },
-          { content: 'second task', status: 'pending', priority: 'low' },
-        ],
-      },
+    type: 'custom',
+    customType: TODO_STATE_ENTRY,
+    data: {
+      todos: [
+        {
+          id: '018f00000000-7000-8000-0000-000000000001',
+          content: 'first task',
+          status: 'in_progress',
+          dependsOn: [],
+        },
+        { id: '018f00000001-7000-8000-0000-000000000002', content: 'second task', status: 'pending', dependsOn: [] },
+      ],
     },
   },
 ]
@@ -216,6 +242,138 @@ function approvedPlanResult(approved = true) {
   }
 }
 
+test('persists each accepted todo snapshot in the session store', async () => {
+  //given
+  const value = harness([], true)
+  const todoTool = value.registeredTool
+  assert.ok(todoTool)
+
+  //when
+  const result = await todoTool.execute(
+    'todo-call',
+    { operation: 'replace', todos: [{ content: 'new task', dependsOn: [] }] },
+    undefined,
+    undefined,
+    value.ctx,
+  )
+
+  //then
+  assert.equal(result.details.error, undefined)
+  assert.equal(value.appendedEntries.length, 1)
+  assert.equal((value.appendedEntries[0] as { customType: string }).customType, TODO_STATE_ENTRY)
+  assert.deepEqual((value.appendedEntries[0] as { data: { todos: unknown[] } }).data.todos, result.details.todos)
+  assert.deepEqual(value.sentMessages, [])
+})
+
+test('todonext returns the active task without mutating the session store', async () => {
+  //given
+  const value = harness(branchWithTodos, true)
+  await restoreTodos(value)
+  const nextTool = value.nextTool
+  assert.ok(nextTool)
+
+  //when
+  const result = await nextTool.execute('next-call', {}, undefined, undefined, value.ctx)
+
+  //then
+  const details = result.details as {
+    status: string
+    todo?: { content: string }
+    waiting: unknown[]
+    blocked: unknown[]
+  }
+  assert.equal(details.status, 'active')
+  assert.equal(details.todo?.content, 'first task')
+  assert.deepEqual(details.waiting, [])
+  assert.deepEqual(details.blocked, [])
+  assert.deepEqual(value.appendedEntries, [])
+  assert.deepEqual(value.sentMessages, [])
+})
+
+test('todonext starts the first ready task when none is active', async () => {
+  //given
+  const value = harness([
+    {
+      type: 'custom',
+      customType: TODO_STATE_ENTRY,
+      data: {
+        todos: [
+          {
+            id: '018f00000000-7000-8000-0000-000000000001',
+            content: 'ready task',
+            status: 'pending',
+            dependsOn: [],
+          },
+        ],
+      },
+    },
+  ])
+  await restoreTodos(value)
+  const nextTool = value.nextTool
+  assert.ok(nextTool)
+
+  //when
+  const result = await nextTool.execute('next-call', {}, undefined, undefined, value.ctx)
+
+  //then
+  const details = result.details as { status: string; todo?: { content: string } }
+  assert.equal(details.status, 'started')
+  assert.equal(details.todo?.content, 'ready task')
+  assert.equal(value.appendedEntries.length, 1)
+  assert.equal(
+    (value.appendedEntries[0] as { data: { todos: Array<{ status: string }> } }).data.todos[0]?.status,
+    'in_progress',
+  )
+})
+
+test('todonext reports waiting and blocked tasks when no task is ready', async () => {
+  //given
+  const value = harness([
+    {
+      type: 'custom',
+      customType: TODO_STATE_ENTRY,
+      data: {
+        todos: [
+          {
+            id: '018f00000000-7000-8000-0000-000000000001',
+            content: 'waiting task',
+            status: 'pending',
+            dependsOn: ['018f00000001-7000-8000-0000-000000000002'],
+          },
+          {
+            id: '018f00000001-7000-8000-0000-000000000002',
+            content: 'blocked task',
+            status: 'blocked',
+            dependsOn: [],
+          },
+        ],
+      },
+    },
+  ])
+  await restoreTodos(value)
+  const nextTool = value.nextTool
+  assert.ok(nextTool)
+
+  //when
+  const result = await nextTool.execute('next-call', {}, undefined, undefined, value.ctx)
+
+  //then
+  const details = result.details as {
+    status: string
+    waiting: Array<{ content: string }>
+    blocked: Array<{ content: string }>
+  }
+  assert.equal(details.status, 'none')
+  assert.deepEqual(
+    details.waiting.map((todo) => todo.content),
+    ['waiting task'],
+  )
+  assert.deepEqual(
+    details.blocked.map((todo) => todo.content),
+    ['blocked task'],
+  )
+})
+
 test('adds one hidden snapshot after idle manual compaction without starting a turn', async () => {
   const value = harness(branchWithTodos, true)
   await restoreTodos(value)
@@ -231,8 +389,10 @@ test('adds one hidden snapshot after idle manual compaction without starting a t
   assert.equal(value.sentMessages[0]?.message.display, false)
   assert.match(value.sentMessages[0]?.message.content ?? '', /first task/)
   assert.match(value.sentMessages[0]?.message.content ?? '', /in_progress/)
-  assert.match(value.sentMessages[0]?.message.content ?? '', /high/)
-  assert.match(value.sentMessages[0]?.message.content ?? '', /second task/)
+  assert.doesNotMatch(value.sentMessages[0]?.message.content ?? '', /018f00000000-7000-8000-0000-000000000001/)
+  assert.doesNotMatch(value.sentMessages[0]?.message.content ?? '', /second task/)
+  assert.match(value.sentMessages[0]?.message.content ?? '', /1 more open task remain after this one/)
+  assert.match(value.sentMessages[0]?.message.content ?? '', /todonext/)
 })
 
 test('persists compaction snapshot for later restoration', async () => {
@@ -248,14 +408,22 @@ test('persists compaction snapshot for later restoration', async () => {
   //then
   const message = value.sentMessages[0]?.message
   assert.ok(message)
-  const entries = [{ type: 'custom_message', ...message }]
-  assert.deepEqual(extractLatestTodoSnapshot(entries), branchWithTodos[0].message.details.todos)
+  const entry = value.appendedEntries[0]
+  assert.ok(entry)
+  assert.equal((entry as { customType: string }).customType, TODO_STATE_ENTRY)
+  assert.deepEqual(extractLatestTodoSnapshot([entry]), branchWithTodos[0].data.todos)
 
-  const restored = harness(entries, true)
+  const restored = harness([entry], true)
   await restoreTodos(restored)
-  const result = await restored.registeredTool?.execute('todo-call', { todos: [] }, undefined, undefined, restored.ctx)
+  const result = await restored.registeredTool?.execute(
+    'todo-call',
+    { operation: 'replace', todos: [] },
+    undefined,
+    undefined,
+    restored.ctx,
+  )
   assert.ok(result)
-  assert.deepEqual(result.details.todos, branchWithTodos[0].message.details.todos)
+  assert.deepEqual(result.details.todos, branchWithTodos[0].data.todos)
 })
 
 test('queues one snapshot for the next prompt after active threshold compaction', async () => {
@@ -289,7 +457,36 @@ test('does not send a snapshot when no todos are restored', async () => {
   assert.deepEqual(value.sentMessages, [])
 })
 
-test('restores handoff todos before the agent starts', async () => {
+test('restores durable handoff todos when a later hidden message has no details', async () => {
+  //given
+  const value = harness(
+    [
+      ...branchWithTodos,
+      {
+        type: 'custom_message',
+        customType: 'todo',
+        content: 'TODO STATUS\nHidden handoff context',
+        display: false,
+      },
+    ],
+    true,
+  )
+  const beforeAgentStart = value.events.get('before_agent_start')
+  assert.ok(beforeAgentStart)
+  await beforeAgentStart({ type: 'before_agent_start' }, value.ctx)
+  const nextTool = value.nextTool
+  assert.ok(nextTool)
+
+  //when
+  const result = await nextTool.execute('next-call', {}, undefined, undefined, value.ctx)
+
+  //then
+  const details = result.details as { status: string; todo?: { content: string } }
+  assert.equal(details.status, 'active')
+  assert.equal(details.todo?.content, 'first task')
+})
+
+test('does not restore Todo state from hidden message details', async () => {
   const value = harness(
     [
       {
@@ -297,8 +494,12 @@ test('restores handoff todos before the agent starts', async () => {
         customType: 'todo',
         details: {
           todos: [
-            { content: 'carried active', status: 'in_progress', priority: 'high' },
-            { content: 'carried next', status: 'pending', priority: 'medium' },
+            {
+              id: '018f00000000-7000-8000-0000-000000000001',
+              content: 'legacy active',
+              status: 'in_progress',
+              dependsOn: [],
+            },
           ],
         },
       },
@@ -313,17 +514,14 @@ test('restores handoff todos before the agent starts', async () => {
   const result = await value.registeredTool?.execute(
     'todo-call',
     {
-      todos: [
-        { content: 'carried active', status: 'completed', priority: 'high' },
-        { content: 'carried next', status: 'in_progress', priority: 'medium' },
-      ],
+      operation: 'complete_task',
     },
     undefined,
     undefined,
     value.ctx,
   )
   assert.ok(result)
-  assert.equal(result.details.error, undefined)
+  assert.match(result.details.error ?? '', /No active task/)
 })
 
 test('keeps local tracking enabled during planning', async () => {
@@ -353,7 +551,7 @@ test('suspends local tracking after automatic plan approval', async () => {
 
   const result = await value.registeredTool?.execute(
     'todo-call',
-    { todos: [{ content: 'new', status: 'in_progress', priority: 'high' }] },
+    { operation: 'replace', todos: [{ content: 'new', dependsOn: [] }] },
     undefined,
     undefined,
     value.ctx,
@@ -509,8 +707,20 @@ test('renders collapsed todo results with open items', () => {
     content: [],
     details: {
       todos: [
-        { content: 'active task', status: 'in_progress', priority: 'high', description: 'active details' },
-        { content: 'finished task', status: 'completed', priority: 'low', description: 'finished details' },
+        {
+          id: '018f00000000-7000-8000-0000-000000000001',
+          content: 'active task',
+          status: 'in_progress',
+          dependsOn: [],
+          description: 'active details',
+        },
+        {
+          id: '018f00000001-7000-8000-0000-000000000002',
+          content: 'finished task',
+          status: 'completed',
+          dependsOn: [],
+          description: 'finished details',
+        },
       ],
     },
   }
@@ -521,6 +731,7 @@ test('renders collapsed todo results with open items', () => {
   //then
   const text = rendered.render(120).join('\n')
   assert.match(text, /active task/)
+  assert.doesNotMatch(text, /018f00000000-7000-8000-0000-000000000001/)
   assert.doesNotMatch(text, /finished task/)
   assert.doesNotMatch(text, /active details/)
 })
@@ -534,8 +745,20 @@ test('renders expanded todo results with descriptions', () => {
     content: [],
     details: {
       todos: [
-        { content: 'active task', status: 'in_progress', priority: 'high', description: 'active details' },
-        { content: 'finished task', status: 'completed', priority: 'low', description: 'finished details' },
+        {
+          id: '018f00000000-7000-8000-0000-000000000001',
+          content: 'active task',
+          status: 'in_progress',
+          dependsOn: [],
+          description: 'active details',
+        },
+        {
+          id: '018f00000001-7000-8000-0000-000000000002',
+          content: 'finished task',
+          status: 'completed',
+          dependsOn: [],
+          description: 'finished details',
+        },
       ],
     },
   }
@@ -546,6 +769,7 @@ test('renders expanded todo results with descriptions', () => {
   //then
   const text = rendered.render(120).join('\n')
   assert.match(text, /active task/)
+  assert.doesNotMatch(text, /018f00000000-7000-8000-0000-000000000001/)
   assert.match(text, /finished task/)
   assert.match(text, /active details/)
   assert.match(text, /finished details/)

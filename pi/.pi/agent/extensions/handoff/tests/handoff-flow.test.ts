@@ -7,7 +7,6 @@ import { HANDOFF_MODEL_APPLIED_ENTRY, HANDOFF_MODEL_ENTRY } from '../src/handoff
 type Action =
   | { kind: 'append'; customType: string; data: unknown }
   | { kind: 'message'; message: unknown; options: unknown }
-  | { kind: 'label'; entryId: string; label: string }
   | { kind: 'user'; content: string }
 
 type HarnessOptions = {
@@ -53,23 +52,21 @@ function makeBranch(withTodos = false): readonly unknown[] {
   ]
   if (withTodos) {
     entries.push({
-      type: 'message',
-      id: 'todo-result',
+      type: 'custom',
+      id: 'todo-state',
       parentId: 'root',
       timestamp: new Date().toISOString(),
-      message: {
-        role: 'toolResult',
-        toolCallId: 'todo-call',
-        toolName: 'todowrite',
-        content: [{ type: 'text', text: 'Todo state' }],
-        isError: false,
-        timestamp: Date.now(),
-        details: {
-          todos: [
-            { content: 'active work', status: 'in_progress', priority: 'high' },
-            { content: 'later work', status: 'pending', priority: 'low' },
-          ],
-        },
+      customType: 'todo',
+      data: {
+        todos: [
+          {
+            id: '018f00000000-7000-8000-0000-000000000001',
+            content: 'active work',
+            status: 'in_progress',
+            dependsOn: [],
+          },
+          { id: '018f00000001-7000-8000-0000-000000000002', content: 'later work', status: 'pending', dependsOn: [] },
+        ],
       },
     })
   }
@@ -86,7 +83,6 @@ function makeHarness(options: HarnessOptions = {}): Harness {
   const sessionId = 'handoff-session'
   let waitForIdleCalls = 0
   let newSessionCalls = 0
-  let leafId = (branch.at(-1) as { id?: string } | undefined)?.id ?? null
   const setModelCalls: unknown[] = []
   const thinkingLevels: string[] = []
   const model = { provider: 'test-provider', id: 'test-model' }
@@ -106,10 +102,6 @@ function makeHarness(options: HarnessOptions = {}): Harness {
     },
     sendMessage(message: unknown, options: unknown): void {
       actions.push({ kind: 'message', message, options })
-      leafId = 'todo-entry'
-    },
-    setLabel(entryId: string, label: string): void {
-      actions.push({ kind: 'label', entryId, label })
     },
     sendUserMessage(content: string): void {
       actions.push({ kind: 'user', content })
@@ -145,7 +137,6 @@ function makeHarness(options: HarnessOptions = {}): Harness {
     cwd: '/tmp',
     sessionManager: {
       getBranch: () => branch,
-      getLeafId: () => leafId,
       getSessionFile: () => sessionFile,
       getSessionId: () => sessionId,
       getEntries: () => branch,
@@ -214,7 +205,7 @@ test('branches in the current session and preserves continuation ordering', asyn
   assert.deepEqual(harness.navigation, [{ targetId: 'root', options: { summarize: false } }])
   assert.deepEqual(
     harness.actions.map((action) => action.kind),
-    ['append', 'message', 'label', 'user'],
+    ['append', 'append', 'message', 'user'],
   )
   const modelEntry = harness.actions[0]
   assert.equal(modelEntry.kind, 'append')
@@ -225,48 +216,32 @@ test('branches in the current session and preserves continuation ordering', asyn
     thinkingLevel: 'high',
   })
   assert.equal(harness.newSessionCalls, 0)
-  const todoAction = harness.actions[1]
+  const todoEntry = harness.actions[1]
+  assert.equal(todoEntry.kind, 'append')
+  assert.equal(todoEntry.customType, 'todo')
+  assert.deepEqual(todoEntry.data, {
+    todos: [
+      { id: '018f00000000-7000-8000-0000-000000000001', content: 'active work', status: 'in_progress', dependsOn: [] },
+      { id: '018f00000001-7000-8000-0000-000000000002', content: 'later work', status: 'pending', dependsOn: [] },
+    ],
+  })
+  assert.deepEqual(
+    harness.actions.filter((action) => action.kind === 'append' && action.customType === 'todo'),
+    [todoEntry],
+  )
+  const todoAction = harness.actions[2]
   assert.equal(todoAction.kind, 'message')
   assert.deepEqual(todoAction.options, { triggerTurn: false })
   assert.deepEqual(todoAction.message, {
     customType: 'todo',
     content: (todoAction.message as { content: string }).content,
     display: false,
-    details: {
-      todos: [
-        { content: 'active work', status: 'in_progress', priority: 'high' },
-        { content: 'later work', status: 'pending', priority: 'low' },
-      ],
-    },
   })
   assert.match((todoAction.message as { content: string }).content, /TODO STATUS/)
-  assert.deepEqual(harness.actions[2], { kind: 'label', entryId: 'todo-entry', label: 'Handoff 1' })
   assert.deepEqual(harness.actions[3], { kind: 'user', content: 'Continue from the generated handoff.' })
   assert.deepEqual(harness.branch, harness.originalBranch)
   assert.equal(harness.sessionFile, '/tmp/handoff-session.jsonl')
   assert.equal(harness.sessionId, 'handoff-session')
-})
-
-test('increments the handoff tree label number', async () => {
-  //given
-  const branch = [
-    ...makeBranch(true),
-    {
-      type: 'custom',
-      id: 'previous-handoff',
-      parentId: 'todo-result',
-      timestamp: new Date().toISOString(),
-      customType: HANDOFF_MODEL_ENTRY,
-      data: {},
-    },
-  ]
-  const harness = makeHarness({ branch, prompt: 'Continue from the next handoff.' })
-
-  //when
-  await harness.command('', harness.context)
-
-  //then
-  assert.deepEqual(harness.actions[2], { kind: 'label', entryId: 'todo-entry', label: 'Handoff 2' })
 })
 
 test('continues without Todo items', async () => {

@@ -1,5 +1,6 @@
 import { StringEnum } from '@earendil-works/pi-ai'
 import type { ExtensionAPI, ExtensionContext, Theme, ToolResultEvent } from '@earendil-works/pi-coding-agent'
+import { keyHint } from '@earendil-works/pi-coding-agent'
 import { matchesKey, Text, truncateToWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui'
 import { Effect, Layer, ManagedRuntime } from 'effect'
 import { Type } from 'typebox'
@@ -8,6 +9,7 @@ import {
   TodoEffects,
   TodoEffectsLayer,
   type TodoEffectsRequirements,
+  type TodoNextToolDetails,
   TodoPi,
   TodoStatusRequestVersion,
   type TodoToolDetails,
@@ -15,19 +17,27 @@ import {
   TodoUiError,
 } from './src/effects.ts'
 import {
+  decodeStoredTodos,
+  decodeTodoList,
   getTodoCounts,
+  getWaitingTodos,
   isOpenTodo,
-  normalizeTodos,
-  TODO_PRIORITIES,
-  TODO_STATUSES,
+  TODO_OPERATIONS,
   type Todo,
-  type TodoPriority,
   type TodoStatus,
-  TodoStore,
   todoDescriptionLines,
 } from './src/state.ts'
+import { TodoStore } from './src/store.ts'
 
 const PLAN_SUBMIT_TOOL_NAME = 'plannotator_submit_plan'
+
+function toolExpandHint(): string {
+  try {
+    return keyHint('app.tools.expand', 'to expand')
+  } catch {
+    return 'to expand'
+  }
+}
 
 function isApprovedPlanSubmission(event: ToolResultEvent): boolean {
   if (event.toolName !== PLAN_SUBMIT_TOOL_NAME || event.isError) {
@@ -39,8 +49,7 @@ function isApprovedPlanSubmission(event: ToolResultEvent): boolean {
 
 const TodoSchema = Type.Object({
   content: Type.String({ description: 'Short task title' }),
-  status: StringEnum(TODO_STATUSES),
-  priority: StringEnum(TODO_PRIORITIES),
+  dependsOn: Type.Array(Type.String(), { description: 'Task titles that must complete first' }),
   description: Type.Optional(
     Type.String({
       description:
@@ -50,7 +59,8 @@ const TodoSchema = Type.Object({
 })
 
 const Params = Type.Object({
-  todos: Type.Array(TodoSchema, { description: 'Full todo list snapshot' }),
+  operation: StringEnum(TODO_OPERATIONS),
+  todos: Type.Optional(Type.Array(TodoSchema, { description: 'Task definitions for the replace operation' })),
 })
 
 class TodoViewer {
@@ -87,8 +97,9 @@ class TodoViewer {
     if (this.todos.length === 0) {
       lines.push(truncateToWidth(`  ${this.theme.fg('dim', 'No todos')}`, width))
     } else {
+      const waitingIds = new Set(getWaitingTodos(this.todos).map((todo) => todo.id))
       for (const todo of this.todos) {
-        lines.push(truncateToWidth(`  ${renderTodoLine(todo, this.theme, true)}`, width))
+        lines.push(truncateToWidth(`  ${renderTodoLine(todo, this.theme, waitingIds.has(todo.id))}`, width))
       }
     }
 
@@ -111,8 +122,9 @@ function formatCounts(counts: ReturnType<typeof getTodoCounts>): string {
   const parts: string[] = []
   if (counts.pending > 0) parts.push(`${counts.pending} pending`)
   if (counts.inProgress > 0) parts.push(`${counts.inProgress} active`)
+  if (counts.blocked > 0) parts.push(`${counts.blocked} blocked`)
   if (counts.completed > 0) parts.push(`${counts.completed} done`)
-  if (counts.cancelled > 0) parts.push(`${counts.cancelled} cancelled`)
+  if (counts.omitted > 0) parts.push(`${counts.omitted} omitted`)
   return parts.join(' • ') || 'empty'
 }
 
@@ -122,26 +134,17 @@ function renderMarker(status: TodoStatus, theme: Theme): string {
       return theme.fg('dim', '[ ]')
     case 'in_progress':
       return theme.fg('accent', '[•]')
+    case 'blocked':
+      return theme.fg('warning', '[!]')
     case 'completed':
       return theme.fg('success', '[✓]')
-    case 'cancelled':
-      return theme.fg('warning', '[-]')
-  }
-}
-
-function renderPriority(priority: TodoPriority, theme: Theme): string {
-  switch (priority) {
-    case 'high':
-      return theme.fg('error', 'high')
-    case 'medium':
-      return theme.fg('warning', 'medium')
-    case 'low':
-      return theme.fg('dim', 'low')
+    case 'omitted':
+      return theme.fg('dim', '[-]')
   }
 }
 
 function renderContent(todo: Todo, theme: Theme): string {
-  if (todo.status === 'completed' || todo.status === 'cancelled') {
+  if (todo.status === 'completed' || todo.status === 'omitted') {
     return theme.fg('muted', theme.strikethrough(todo.content))
   }
   if (todo.status === 'in_progress') {
@@ -150,9 +153,9 @@ function renderContent(todo: Todo, theme: Theme): string {
   return theme.fg('muted', todo.content)
 }
 
-function renderTodoLine(todo: Todo, theme: Theme, includePriority: boolean): string {
-  const priority = includePriority ? ` ${theme.fg('dim', `(${renderPriority(todo.priority, theme)})`)}` : ''
-  return `${renderMarker(todo.status, theme)} ${renderContent(todo, theme)}${priority}`
+function renderTodoLine(todo: Todo, theme: Theme, waiting = false): string {
+  const state = waiting ? ` ${theme.fg('warning', '(waiting)')}` : ''
+  return `${renderMarker(todo.status, theme)} ${renderContent(todo, theme)}${state}`
 }
 
 function renderDescriptionLines(todo: Todo, theme: Theme): string[] {
@@ -175,13 +178,14 @@ function updateUi(ctx: ExtensionContext, todos: readonly Todo[], suspended = fal
     return
   }
 
+  const waitingIds = new Set(getWaitingTodos(todos).map((todo) => todo.id))
   ctx.ui.setWidget('todo', (_tui, theme) => ({
     render(width: number) {
       const visible = unfinished.slice(0, 8)
       const expanded = ctx.ui.getToolsExpanded()
       const lines: string[] = []
       for (const todo of visible) {
-        lines.push(truncateToWidth(renderTodoLine(todo, theme, false), width))
+        lines.push(truncateToWidth(`  ${renderTodoLine(todo, theme, waitingIds.has(todo.id))}`, width))
         if (expanded) {
           for (const line of todoDescriptionLines(todo)) {
             for (const wrapped of wrapTextWithAnsi(line, Math.max(1, width - 4))) {
@@ -223,14 +227,11 @@ const todoUiLayer: Layer.Layer<TodoUi, never, TodoContext> = Layer.effect(
   }),
 )
 
-export default function (pi: ExtensionAPI) {
-  // ManagedRuntime owns the store because its mutable state must survive across Pi callbacks.
-  // ExtensionContext arrives with each callback, and todoUiLayer captures that current context, so the other layers stay at the per-call boundary instead of capturing stale context.
+function todoExtension(pi: ExtensionAPI): void {
   const runtime = ManagedRuntime.make(TodoStore.layer)
   const statusRequestVersion = { value: 0 }
   let shuttingDown = false
 
-  // Bridge Pi's callback API to Effect: bind callback-scoped services, then forward Pi's cancellation signal.
   const run = <A, E>(
     use: (effects: TodoEffects['Service']) => Effect.Effect<A, E, TodoEffectsRequirements>,
     ctx: ExtensionContext,
@@ -290,28 +291,23 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: 'todowrite',
     label: 'Todo',
-    description:
-      'Maintain the accepted full todo snapshot for multi-step work. Keep one active item and advance it only after verified work.',
-    promptSnippet: 'Use todowrite with the full accepted list and advance one active task at a time',
+    description: 'Create or update the todo plan, or apply a task operation to the active task.',
+    promptSnippet: 'Use todowrite to create a plan or apply a task operation',
     promptGuidelines: [
       'Use todowrite for work with 3+ distinct steps; skip trivial work.',
+      'Use operation replace to create or revise the task plan.',
       'Keep content a short title. Put details that you need later in the optional description field.',
-      'The description stays available after compaction. Record file paths, acceptance criteria, and decisions in the description when later steps depend on them.',
-      'Accepted snapshot: every call replaces the full list, so preserve every task and its exact content.',
-      'Start: mark exactly one actionable task in_progress; leave other unfinished tasks pending.',
-      'Advance: after verified work, mark only the task that was in_progress in the last accepted snapshot completed.',
-      'When work remains, activate exactly one pending next task in the same update; when none remains, leave all tasks closed.',
-      'Starting a task and completing it require separate accepted updates: pending -> in_progress -> completed.',
-      'Complete at most one task per update; the active count shown for a tool call describes the proposed snapshot, not the accepted state.',
-      'On Error, no changes were applied; use the accepted state shown in the error and retry one valid transition.',
-      'Continue until no open task remains or the user explicitly cancels it.',
+      'Use operation complete_task only after the active task is complete and verified.',
+      'Use todonext to return the current active task or start the next ready task.',
+      'On Error, no changes were applied; use the accepted state shown in the error and retry the operation.',
+      'Continue until no open task remains or the user explicitly omits it.',
     ],
     parameters: Params,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       return run((effects) => effects.executeTodo(params), ctx, signal)
     },
     renderCall(args, theme, context) {
-      const next = context?.argsComplete ? normalizeTodos(args.todos) : undefined
+      const next = context?.argsComplete && args.operation === 'replace' ? decodeTodoList(args.todos) : undefined
       const label = theme.fg('toolTitle', theme.bold('todowrite'))
       if (!next) {
         return new Text(label, 0, 0)
@@ -337,7 +333,7 @@ export default function (pi: ExtensionAPI) {
         return new Text(theme.fg('error', `Error: ${details.error}`), 0, 0)
       }
 
-      const list = normalizeTodos(details.todos) ?? []
+      const list = decodeStoredTodos(details.todos) ?? []
       if (list.length === 0) {
         return new Text(theme.fg('dim', 'Todo list cleared'), 0, 0)
       }
@@ -349,15 +345,55 @@ export default function (pi: ExtensionAPI) {
             const unfinished = list.filter(isOpenTodo)
             return (unfinished.length > 0 ? unfinished : list).slice(0, 4)
           })()
+      const waitingIds = new Set(getWaitingTodos(list).map((todo) => todo.id))
       const lines = [theme.fg('muted', formatCounts(counts))]
       for (const todo of visible) {
-        lines.push(renderTodoLine(todo, theme, true))
+        lines.push(renderTodoLine(todo, theme, waitingIds.has(todo.id)))
         if (expanded) {
           lines.push(...renderDescriptionLines(todo, theme))
         }
       }
       if (!expanded && visible.length < list.length) {
         lines.push(theme.fg('dim', `… ${list.length - visible.length} more`))
+      }
+      return new Text(lines.join('\n'), 0, 0)
+    },
+  })
+
+  pi.registerTool({
+    name: 'todonext',
+    label: 'Todo Next',
+    description: 'Return the current active task or start the next ready task.',
+    promptSnippet: 'Use todonext to return the current task or start the next ready task',
+    promptGuidelines: ['Use todonext when you need the current task or when no task is active.'],
+    parameters: Type.Object({}),
+    async execute(_toolCallId, _params, signal, _onUpdate, ctx) {
+      return run((effects) => effects.executeTodoNext(), ctx, signal)
+    },
+    renderCall(_args, theme) {
+      return new Text(theme.fg('toolTitle', theme.bold('todonext')), 0, 0)
+    },
+    renderResult(result, { expanded }, theme) {
+      const details = result.details as TodoNextToolDetails | undefined
+      if (!details) {
+        const text = result.content[0]
+        return new Text(text?.type === 'text' ? text.text : '', 0, 0)
+      }
+
+      const lines =
+        details.status !== 'none' && details.todo
+          ? [`${theme.fg('accent', details.status === 'started' ? 'Started' : 'Current')}: ${details.todo.content}`]
+          : [theme.fg('warning', 'No ready task')]
+      if (expanded || details.status === 'none') {
+        if (details.waiting.length > 0) {
+          lines.push(`Waiting: ${details.waiting.map((todo) => todo.content).join(', ')}`)
+        }
+        if (details.blocked.length > 0) {
+          lines.push(`Blocked: ${details.blocked.map((todo) => todo.content).join(', ')}`)
+        }
+      }
+      if (!expanded) {
+        lines.push(theme.fg('dim', toolExpandHint()))
       }
       return new Text(lines.join('\n'), 0, 0)
     },
@@ -380,3 +416,5 @@ export default function (pi: ExtensionAPI) {
     },
   })
 }
+
+export { todoExtension as default }

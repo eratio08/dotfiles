@@ -1,6 +1,7 @@
-import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
-import { Effect, ManagedRuntime } from 'effect'
-import { HandoffEffects, HandoffEffectsLayer, type HandoffRestoreResult, type HandoffRunResult } from './src/effects.ts'
+import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from '@earendil-works/pi-coding-agent'
+import { Effect, Layer, ManagedRuntime } from 'effect'
+import { type HandoffRestoreResult, type HandoffRunResult, restoreResultMessage, runResultMessage } from './src/core.ts'
+import { HandoffCommandContext, HandoffContext, HandoffEffects, HandoffEffectsLayer, HandoffPi } from './src/effects.ts'
 
 function notify(ctx: ExtensionContext, message: string, type: 'info' | 'warning' | 'error'): void {
   if (ctx.hasUI) {
@@ -8,30 +9,21 @@ function notify(ctx: ExtensionContext, message: string, type: 'info' | 'warning'
   }
 }
 
-function runResultMessage(result: HandoffRunResult): { message: string; type: 'info' | 'error' } | undefined {
-  if (result.status === 'cancelled') {
-    return {
-      message: result.stage === 'navigation' ? 'Branch cancelled' : 'Cancelled',
-      type: 'info',
-    }
-  }
-  if (result.status === 'skipped') {
-    const messages = {
-      'no-model': 'No model selected',
-      'no-conversation': 'No conversation to hand off',
-    } as const
-    return { message: messages[result.reason], type: 'error' }
-  }
-  return undefined
-}
-
-function restoreResultMessage(result: HandoffRestoreResult): string | undefined {
-  return result.status === 'warning' ? result.message : undefined
-}
-
-export default function handoffExtension(pi: ExtensionAPI): void {
-  const runtime = ManagedRuntime.make(HandoffEffectsLayer(pi))
+function handoffExtension(pi: ExtensionAPI): void {
+  const runtime = ManagedRuntime.make(Layer.mergeAll(HandoffEffectsLayer, Layer.succeed(HandoffPi, pi)))
   let shuttingDown = false
+
+  const runCommand = (ctx: ExtensionCommandContext): Promise<HandoffRunResult> =>
+    runtime.runPromise(
+      HandoffEffects.use((effects) => effects.run()).pipe(Effect.provide(Layer.succeed(HandoffCommandContext, ctx))),
+      { signal: ctx.signal },
+    )
+
+  const restoreModel = (ctx: ExtensionContext): Promise<HandoffRestoreResult> =>
+    runtime.runPromise(
+      HandoffEffects.use((effects) => effects.restoreModel()).pipe(Effect.provide(Layer.succeed(HandoffContext, ctx))),
+      { signal: ctx.signal },
+    )
 
   pi.on('before_agent_start', async (_event, ctx) => {
     if (shuttingDown) {
@@ -39,12 +31,7 @@ export default function handoffExtension(pi: ExtensionAPI): void {
     }
 
     try {
-      const result = await runtime.runPromise(
-        HandoffEffects.use((effects) => effects.restoreModel(ctx)),
-        {
-          signal: ctx.signal,
-        },
-      )
+      const result = await restoreModel(ctx)
       const message = restoreResultMessage(result)
       if (message) {
         notify(ctx, message, 'warning')
@@ -63,12 +50,7 @@ export default function handoffExtension(pi: ExtensionAPI): void {
       }
 
       try {
-        const result = await runtime.runPromise(
-          HandoffEffects.use((effects) => effects.run(ctx)),
-          {
-            signal: ctx.signal,
-          },
-        )
+        const result = await runCommand(ctx)
         const message = runResultMessage(result)
         if (message) {
           notify(ctx, message.message, message.type)
@@ -91,3 +73,5 @@ export default function handoffExtension(pi: ExtensionAPI): void {
     }
   })
 }
+
+export { handoffExtension as default }
