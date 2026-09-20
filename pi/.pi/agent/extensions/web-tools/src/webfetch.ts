@@ -16,16 +16,16 @@ import { Container, Markdown, Spacer, Text } from '@earendil-works/pi-tui'
 import { Type } from 'typebox'
 import { convertHTMLToMarkdown, extractTextFromHTML } from './html.ts'
 
-export const WEBFETCH_NAME = 'webfetch'
-export const DEFAULT_TIMEOUT_SECONDS = 30
-export const MAX_TIMEOUT_SECONDS = 120
-export const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
+const WEBFETCH_NAME = 'webfetch'
+const DEFAULT_TIMEOUT_SECONDS = 30
+const MAX_TIMEOUT_SECONDS = 120
+const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
 
 const FORMAT_VALUES = ['text', 'markdown', 'html'] as const
 
 type WebFetchFormat = (typeof FORMAT_VALUES)[number]
 
-export interface WebFetchDetails {
+interface WebFetchDetails {
   url: string
   host: string
   contentType: string
@@ -48,7 +48,7 @@ const webFetchParameters = Type.Object({
 const browserUserAgent =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
 
-export function acceptHeaderForFormat(format: WebFetchFormat): string {
+function acceptHeaderForFormat(format: WebFetchFormat): string {
   switch (format) {
     case 'markdown':
       return 'text/markdown;q=1.0, text/x-markdown;q=0.9, text/plain;q=0.8, text/html;q=0.7, */*;q=0.1'
@@ -74,7 +74,7 @@ function isPrivateIpv4(hostname: string): boolean {
   return false
 }
 
-export function assertSafePublicHttpUrl(rawUrl: string): URL {
+function assertSafePublicHttpUrl(rawUrl: string): URL {
   let url: URL
   try {
     url = new URL(rawUrl)
@@ -183,7 +183,7 @@ function truncateInline(text: string, maxChars: number): string {
   return `${text.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`
 }
 
-export function previewLines(text: string, maxLines = 3, maxChars = 100): string[] {
+function previewLines(text: string, maxLines = 3, maxChars = 100): string[] {
   return text
     .split('\n')
     .map((line) => line.trim())
@@ -192,7 +192,7 @@ export function previewLines(text: string, maxLines = 3, maxChars = 100): string
     .map((line) => truncateInline(line, maxChars))
 }
 
-export const webFetchTool = defineTool({
+const webFetchTool = defineTool({
   name: WEBFETCH_NAME,
   label: 'webfetch',
   description: `Fetch content from an HTTP or HTTPS URL and return it as text, markdown, or HTML. Markdown is the default. Output is truncated to ${DEFAULT_MAX_LINES} lines or ${formatSize(DEFAULT_MAX_BYTES)}.`,
@@ -295,3 +295,15 @@ export const webFetchTool = defineTool({
     }
   },
 })
+
+export {
+  acceptHeaderForFormat,
+  assertSafePublicHttpUrl,
+  DEFAULT_TIMEOUT_SECONDS,
+  MAX_RESPONSE_BYTES,
+  MAX_TIMEOUT_SECONDS,
+  previewLines,
+  WEBFETCH_NAME,
+  type WebFetchDetails,
+  webFetchTool,
+}

@@ -3,7 +3,7 @@ import type { FrontmatterDocument, SkillDiagnostic } from '../types.ts'
 
 const FRONTMATTER_KEY_RE = /^([A-Za-z0-9_-]+)\s*:/
 
-export function deriveSkillMetadata(
+function deriveSkillMetadata(
   filePath: string,
   doc: FrontmatterDocument,
 ): {
@@ -38,15 +38,15 @@ export function deriveSkillMetadata(
   return { name, description: description || '', diagnostics }
 }
 
-export function getDisableModelInvocation(doc: FrontmatterDocument): boolean {
+function getDisableModelInvocation(doc: FrontmatterDocument): boolean {
   return doc.fields['disable-model-invocation'] === true
 }
 
-export function hasDuplicateDisableModelInvocation(doc: FrontmatterDocument): boolean {
+function hasDuplicateDisableModelInvocation(doc: FrontmatterDocument): boolean {
   return (getTopLevelFrontmatterKeyCounts(doc).get('disable-model-invocation') ?? 0) > 1
 }
 
-export function getDuplicateFrontmatterKeys(doc: FrontmatterDocument): string[] {
+function getDuplicateFrontmatterKeys(doc: FrontmatterDocument): string[] {
   return [...getTopLevelFrontmatterKeyCounts(doc)]
     .filter(([, count]) => count > 1)
     .map(([key]) => key)
@@ -70,4 +70,11 @@ function getTopLevelFrontmatterKeyCounts(doc: FrontmatterDocument): Map<string, 
 
 function stringField(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+export {
+  deriveSkillMetadata,
+  getDisableModelInvocation,
+  getDuplicateFrontmatterKeys,
+  hasDuplicateDisableModelInvocation,
 }

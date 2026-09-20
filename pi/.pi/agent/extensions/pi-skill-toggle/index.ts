@@ -9,7 +9,7 @@ import { MinimalFrontmatterPatcher } from './src/frontmatter/patcher.ts'
 import { SkillInventoryLive } from './src/inventory/loader.ts'
 import { FileSystemLive } from './src/ports/fs.ts'
 
-export default function piSkillToggle(pi: ExtensionAPI): void {
+function piSkillToggle(pi: ExtensionAPI): void {
   const codec = new SimpleFrontmatterCodec()
   const locatorLayer = SkillLocatorLive
   const runtime = ManagedRuntime.make(
@@ -36,3 +36,5 @@ export default function piSkillToggle(pi: ExtensionAPI): void {
     await runtime.dispose()
   })
 }
+
+export { piSkillToggle as default }

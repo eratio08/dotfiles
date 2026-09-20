@@ -4,7 +4,7 @@ import { Effect } from 'effect'
 import { FileSystem, type FileSystemError } from './services/fs.ts'
 import { type PdfExtractionError, PdfExtractor } from './services/pdf.ts'
 
-export interface PdfReaderDetails {
+interface PdfReaderDetails {
   path: string
   pages: number
   markdownBytes: number
@@ -12,12 +12,12 @@ export interface PdfReaderDetails {
   fullOutputPath?: string
 }
 
-export interface PdfReaderResult {
+interface PdfReaderResult {
   text: string
   details: PdfReaderDetails
 }
 
-export function pagesToMarkdown(pages: readonly string[]): string {
+function pagesToMarkdown(pages: readonly string[]): string {
   return pages
     .map((page, index) => {
       const lines = page
@@ -40,7 +40,7 @@ export function pagesToMarkdown(pages: readonly string[]): string {
     .join('\n\n')
 }
 
-export const readPdf = Effect.fn('readPdf')(function* (
+const readPdf = Effect.fn('readPdf')(function* (
   path: string,
   displayPath = path,
 ): Effect.fn.Return<PdfReaderResult, FileSystemError | PdfExtractionError, FileSystem | PdfExtractor> {
@@ -70,3 +70,5 @@ export const readPdf = Effect.fn('readPdf')(function* (
     },
   }
 })
+
+export { type PdfReaderDetails, type PdfReaderResult, pagesToMarkdown, readPdf }

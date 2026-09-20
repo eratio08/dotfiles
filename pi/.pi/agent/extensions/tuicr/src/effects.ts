@@ -27,25 +27,25 @@ import {
   TUICR_COMPLETION_MARKER,
 } from './core.ts'
 
-export class TuicrError extends Schema.TaggedError<TuicrError>()('TuicrError', {
+class TuicrError extends Schema.TaggedError<TuicrError>()('TuicrError', {
   operation: Schema.String,
   message: Schema.String,
 }) {}
 
-export class TuicrProcessError extends Schema.TaggedError<TuicrProcessError>()('TuicrProcessError', {
+class TuicrProcessError extends Schema.TaggedError<TuicrProcessError>()('TuicrProcessError', {
   command: Schema.String,
   message: Schema.String,
   code: Schema.optionalKey(Schema.Number),
   stderr: Schema.optionalKey(Schema.String),
 }) {}
 
-export type TuicrOpenResult = {
+type TuicrOpenResult = {
   readonly pane: PaneState
   readonly session?: SessionSummary
   readonly comments: readonly CommentData[]
 }
 
-export class Tuicr extends Context.Service<
+class Tuicr extends Context.Service<
   Tuicr,
   {
     readonly open: (repo: string, scope: ReviewScope) => Effect.Effect<TuicrOpenResult, TuicrError | TuicrProcessError>
@@ -53,14 +53,14 @@ export class Tuicr extends Context.Service<
   }
 >()('tuicr/Tuicr') {}
 
-export type TuicrLayerOptions = {
+type TuicrLayerOptions = {
   readonly discoveryAttempts?: number
   readonly discoveryDelayMs?: number
 }
 
-export class TuicrPi extends Context.Service<TuicrPi, ExtensionAPI>()('tuicr/Pi') {}
+class TuicrPi extends Context.Service<TuicrPi, ExtensionAPI>()('tuicr/Pi') {}
 
-export class TuicrConfig extends Context.Service<TuicrConfig, TuicrLayerOptions>()('tuicr/TuicrConfig') {}
+class TuicrConfig extends Context.Service<TuicrConfig, TuicrLayerOptions>()('tuicr/TuicrConfig') {}
 
 function commandText(command: string, args: readonly string[]): string {
   return [command, ...args].join(' ')
@@ -86,7 +86,7 @@ function stateFailure(operation: string, message: string): TuicrError {
   return new TuicrError({ operation, message })
 }
 
-export const TuicrLayer: Layer.Layer<Tuicr, never, TuicrPi | TuicrConfig> = Layer.effect(
+const TuicrLayer: Layer.Layer<Tuicr, never, TuicrPi | TuicrConfig> = Layer.effect(
   Tuicr,
   Effect.gen(function* () {
     const pi = yield* TuicrPi
@@ -259,3 +259,14 @@ export const TuicrLayer: Layer.Layer<Tuicr, never, TuicrPi | TuicrConfig> = Laye
     return Tuicr.of({ open, shutdown })
   }),
 )
+
+export {
+  Tuicr,
+  TuicrConfig,
+  TuicrError,
+  TuicrLayer,
+  type TuicrLayerOptions,
+  type TuicrOpenResult,
+  TuicrPi,
+  TuicrProcessError,
+}

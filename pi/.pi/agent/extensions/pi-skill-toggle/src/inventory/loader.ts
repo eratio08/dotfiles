@@ -7,7 +7,7 @@ import { FileSystem, type FileSystemError } from '../ports/fs.ts'
 import type { LocatedSkillFile, SkillRecord } from '../types.ts'
 import { classifyInvocationMode } from './classifier.ts'
 
-export class SkillInventory extends Context.Service<
+class SkillInventory extends Context.Service<
   SkillInventory,
   {
     readonly load: (cwd: string) => Effect.Effect<SkillRecord[], FileSystemError>
@@ -78,9 +78,7 @@ const load = Effect.fn('SkillInventory.load')(function* (
   return records.sort((a, b) => a.name.localeCompare(b.name) || a.filePath.localeCompare(b.filePath))
 })
 
-export function SkillInventoryLive(
-  codec: FrontmatterCodec,
-): Layer.Layer<SkillInventory, never, FileSystem | SkillLocator> {
+function SkillInventoryLive(codec: FrontmatterCodec): Layer.Layer<SkillInventory, never, FileSystem | SkillLocator> {
   return Layer.effect(
     SkillInventory,
     Effect.gen(function* () {
@@ -90,3 +88,5 @@ export function SkillInventoryLive(
     }),
   )
 }
+
+export { SkillInventory, SkillInventoryLive }

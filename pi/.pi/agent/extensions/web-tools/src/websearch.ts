@@ -14,12 +14,12 @@ import {
 import { Container, Spacer, Text } from '@earendil-works/pi-tui'
 import { Type } from 'typebox'
 
-export const WEBSEARCH_NAME = 'websearch'
-export const EXA_URL = 'https://mcp.exa.ai/mcp'
-export const PARALLEL_URL = 'https://search.parallel.ai/mcp'
-export const MAX_NUM_RESULTS = 20
-export const MAX_CONTEXT_CHARACTERS = 50000
-export const NO_RESULTS = 'No search results found. Please try a different query.'
+const WEBSEARCH_NAME = 'websearch'
+const EXA_URL = 'https://mcp.exa.ai/mcp'
+const PARALLEL_URL = 'https://search.parallel.ai/mcp'
+const MAX_NUM_RESULTS = 20
+const MAX_CONTEXT_CHARACTERS = 50000
+const NO_RESULTS = 'No search results found. Please try a different query.'
 
 const PROVIDER_VALUES = ['exa', 'parallel'] as const
 const LIVECRAWL_VALUES = ['fallback', 'preferred'] as const
@@ -27,7 +27,7 @@ const SEARCH_TYPE_VALUES = ['auto', 'fast', 'deep'] as const
 
 type WebSearchProvider = (typeof PROVIDER_VALUES)[number]
 
-export interface WebSearchDetails {
+interface WebSearchDetails {
   provider: WebSearchProvider
   query: string
   lineCount: number
@@ -60,11 +60,11 @@ function clampInt(value: number | undefined, fallback: number, max: number): num
   return Math.min(max, Math.max(1, Math.floor(value)))
 }
 
-export function hasWebSearchCredentials(env: NodeJS.ProcessEnv = process.env): boolean {
+function hasWebSearchCredentials(env: NodeJS.ProcessEnv = process.env): boolean {
   return Boolean(env.EXA_API_KEY?.trim() || env.PARALLEL_API_KEY?.trim())
 }
 
-export function selectProvider(env: NodeJS.ProcessEnv = process.env): WebSearchProvider {
+function selectProvider(env: NodeJS.ProcessEnv = process.env): WebSearchProvider {
   const preferred = env.PI_WEBSEARCH_PROVIDER
   const hasExa = Boolean(env.EXA_API_KEY?.trim())
   const hasParallel = Boolean(env.PARALLEL_API_KEY?.trim())
@@ -74,7 +74,7 @@ export function selectProvider(env: NodeJS.ProcessEnv = process.env): WebSearchP
   return 'exa'
 }
 
-export function parseSearchResponse(body: string): string | undefined {
+function parseSearchResponse(body: string): string | undefined {
   const parsePayload = (payload: string) => {
     const trimmed = payload.trim()
     if (!trimmed.startsWith('{')) return undefined
@@ -163,7 +163,7 @@ function truncateInline(text: string, maxChars: number): string {
   return `${text.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`
 }
 
-export function previewLines(text: string, maxLines = 3, maxChars = 100): string[] {
+function previewLines(text: string, maxLines = 3, maxChars = 100): string[] {
   return text
     .split('\n')
     .map((line) => line.trim())
@@ -172,7 +172,7 @@ export function previewLines(text: string, maxLines = 3, maxChars = 100): string
     .map((line) => truncateInline(line, maxChars))
 }
 
-export const webSearchTool = defineTool({
+const webSearchTool = defineTool({
   name: WEBSEARCH_NAME,
   label: 'websearch',
   description: `Search the public web for current information using Exa or Parallel. Output is truncated to ${DEFAULT_MAX_LINES} lines or ${formatSize(DEFAULT_MAX_BYTES)}.`,
@@ -268,3 +268,18 @@ export const webSearchTool = defineTool({
     }
   },
 })
+
+export {
+  EXA_URL,
+  hasWebSearchCredentials,
+  MAX_CONTEXT_CHARACTERS,
+  MAX_NUM_RESULTS,
+  NO_RESULTS,
+  PARALLEL_URL,
+  parseSearchResponse,
+  previewLines,
+  selectProvider,
+  WEBSEARCH_NAME,
+  type WebSearchDetails,
+  webSearchTool,
+}

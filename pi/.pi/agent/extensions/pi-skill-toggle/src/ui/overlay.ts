@@ -5,7 +5,7 @@ import type { SkillDraft, SkillInvocationMode, SkillRecord, SkillToggleUiResult 
 import { bottomBorder, combineColumns, divider, fit, frameLine, topBorder } from './render.ts'
 import { filterSkills, modeLabel, toggleMode } from './view-model.ts'
 
-export async function showSkillToggleUi(ctx: ExtensionContext, skills: SkillRecord[]): Promise<SkillToggleUiResult> {
+async function showSkillToggleUi(ctx: ExtensionContext, skills: SkillRecord[]): Promise<SkillToggleUiResult> {
   return ctx.ui.custom<SkillToggleUiResult>(
     (tui, theme, _keybindings, done) => new SkillToggleOverlay(tui, theme, skills, done),
     {
@@ -281,3 +281,5 @@ const ANSI_COLOR_RE = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
 function visibleLength(input: string): number {
   return input.replace(ANSI_COLOR_RE, '').length
 }
+
+export { showSkillToggleUi }

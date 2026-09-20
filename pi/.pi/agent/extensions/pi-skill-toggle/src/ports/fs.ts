@@ -3,27 +3,27 @@ import fs from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { Context, Effect, Layer, Schema } from 'effect'
 
-export interface DirectoryEntry {
+interface DirectoryEntry {
   readonly name: string
   readonly isDirectory: boolean
   readonly isFile: boolean
   readonly isSymbolicLink: boolean
 }
 
-export interface FileStats {
+interface FileStats {
   readonly isDirectory: boolean
   readonly isFile: boolean
   readonly mode: number
 }
 
-export class FileSystemError extends Schema.TaggedError<FileSystemError>()('FileSystemError', {
+class FileSystemError extends Schema.TaggedError<FileSystemError>()('FileSystemError', {
   operation: Schema.String,
   path: Schema.String,
   message: Schema.String,
   cause: Schema.Unknown,
 }) {}
 
-export class FileSystem extends Context.Service<
+class FileSystem extends Context.Service<
   FileSystem,
   {
     readonly readFile: (path: string) => Effect.Effect<string, FileSystemError>
@@ -111,7 +111,9 @@ const stat = Effect.fn('FileSystem.stat')(function* (path: string): Effect.fn.Re
   return { isDirectory: stats.isDirectory(), isFile: stats.isFile(), mode: stats.mode }
 })
 
-export const FileSystemLive: Layer.Layer<FileSystem> = Layer.succeed(
+const FileSystemLive: Layer.Layer<FileSystem> = Layer.succeed(
   FileSystem,
   FileSystem.of({ readFile, writeFileAtomic, access, readdir, realpath, stat }),
 )
+
+export { type DirectoryEntry, type FileStats, FileSystem, FileSystemError, FileSystemLive }

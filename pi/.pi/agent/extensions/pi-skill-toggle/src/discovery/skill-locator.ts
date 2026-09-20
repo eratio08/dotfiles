@@ -5,7 +5,7 @@ import { type DirectoryEntry, FileSystem, type FileSystemError } from '../ports/
 import type { LocatedSkillFile, SkillSource } from '../types.ts'
 import { getSkillRoots } from './pi-paths.ts'
 
-export class SkillLocator extends Context.Service<
+class SkillLocator extends Context.Service<
   SkillLocator,
   {
     readonly findSkillFiles: (cwd: string) => Effect.Effect<LocatedSkillFile[], FileSystemError>
@@ -100,10 +100,12 @@ const findSkillFiles = Effect.fn('SkillLocator.findSkillFiles')(function* (
   return files.sort((a, b) => a.filePath.localeCompare(b.filePath))
 })
 
-export const SkillLocatorLive: Layer.Layer<SkillLocator, never, FileSystem> = Layer.effect(
+const SkillLocatorLive: Layer.Layer<SkillLocator, never, FileSystem> = Layer.effect(
   SkillLocator,
   Effect.gen(function* () {
     const fs = yield* FileSystem
     return SkillLocator.of({ findSkillFiles: (cwd) => findSkillFiles(fs, cwd) })
   }),
 )
+
+export { SkillLocator, SkillLocatorLive }

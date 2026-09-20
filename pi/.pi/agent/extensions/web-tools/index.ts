@@ -2,7 +2,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { assertSafePublicHttpUrl, WEBFETCH_NAME, webFetchTool } from './src/webfetch.ts'
 import { hasWebSearchCredentials, webSearchTool } from './src/websearch.ts'
 
-export default function webToolsExtension(pi: ExtensionAPI) {
+function webToolsExtension(pi: ExtensionAPI): void {
   pi.registerTool(webFetchTool)
   if (hasWebSearchCredentials()) {
     pi.registerTool(webSearchTool)
@@ -24,3 +24,5 @@ export default function webToolsExtension(pi: ExtensionAPI) {
     }
   })
 }
+
+export { webToolsExtension as default }

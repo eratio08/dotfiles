@@ -54,7 +54,7 @@ function rewriteRtkCommand(command: string): Effect.Effect<string | null, RtkErr
   })
 }
 
-export default async function rtk(pi: ExtensionAPI) {
+async function rtk(pi: ExtensionAPI): Promise<void> {
   const runtime = ManagedRuntime.make(RtkFromProcess(pi))
   try {
     await runtime.runPromise(Rtk)
@@ -89,3 +89,5 @@ export default async function rtk(pi: ExtensionAPI) {
     }
   })
 }
+
+export { rtk as default }

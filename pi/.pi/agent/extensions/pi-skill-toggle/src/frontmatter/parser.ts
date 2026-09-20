@@ -1,10 +1,10 @@
 import type { FrontmatterDocument } from '../types.ts'
 
-export interface FrontmatterCodec {
+interface FrontmatterCodec {
   parse(raw: string): FrontmatterDocument
 }
 
-export class SimpleFrontmatterCodec implements FrontmatterCodec {
+class SimpleFrontmatterCodec implements FrontmatterCodec {
   parse(raw: string): FrontmatterDocument {
     const lineEnding: '\n' | '\r\n' = raw.includes('\r\n') ? '\r\n' : '\n'
     const opening = raw.match(/^---[ \t]*(\r?\n)/)
@@ -81,3 +81,5 @@ function parseScalar(raw: string): unknown {
   }
   return value
 }
+
+export { type FrontmatterCodec, SimpleFrontmatterCodec }

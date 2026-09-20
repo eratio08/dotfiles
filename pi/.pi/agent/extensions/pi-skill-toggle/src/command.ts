@@ -27,7 +27,7 @@ function notify(host: PiHost['Service'], message: string, type: 'info' | 'warnin
   return host.notify(message, type).pipe(Effect.catch(() => Effect.void))
 }
 
-export function runToggleSkillsCommand(
+function runToggleSkillsCommand(
   ctx: ExtensionCommandContext,
   runtime: ManagedRuntime.ManagedRuntime<SkillInventory | SkillTogglePlanner | SkillChangeWriter, never>,
 ): Promise<void> {
@@ -110,3 +110,5 @@ function formatApplyResult(result: ApplyResult): string {
   }
   return lines.join('\n')
 }
+
+export { runToggleSkillsCommand }

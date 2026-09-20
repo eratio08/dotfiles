@@ -8,6 +8,9 @@ Read the relevant Pi documentation before you write code, especially `docs/exten
 Use Pi APIs and components when they provide the required behavior.
 Write all extension code in TypeScript.
 Export the default factory function that receives `ExtensionAPI`.
+Use one final explicit export list in every TypeScript file.
+Declare exported values and types without inline `export` keywords, then include them in one `export { ... }` clause at the end of the file, using `type` for type-only exports, such as `export { type Config, connect }`.
+Use `export { name as default }` in the same clause when the module has a default export.
 Keep the implementation minimal.
 Do not add code comments unless they explain a non-obvious constraint.
 Do not hard-code Pi defaults that users can configure.

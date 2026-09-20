@@ -510,7 +510,7 @@ class QuestionComponent implements Component, Focusable {
 	}
 }
 
-export default function (pi: ExtensionAPI) {
+function questionExtension(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "question",
 		label: "Question",
@@ -588,3 +588,5 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 }
+
+export { questionExtension as default }

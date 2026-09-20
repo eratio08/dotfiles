@@ -5,13 +5,13 @@ import { showSkillToggleUi } from '../ui/overlay.ts'
 
 type NotificationType = 'info' | 'warning' | 'error'
 
-export class PiHostError extends Schema.TaggedError<PiHostError>()('PiHostError', {
+class PiHostError extends Schema.TaggedError<PiHostError>()('PiHostError', {
   operation: Schema.String,
   message: Schema.String,
   cause: Schema.Unknown,
 }) {}
 
-export class PiHost extends Context.Service<
+class PiHost extends Context.Service<
   PiHost,
   {
     readonly notify: (message: string, type?: NotificationType) => Effect.Effect<void, PiHostError>
@@ -28,7 +28,7 @@ function toPiHostError(operation: string, cause: unknown): PiHostError {
   })
 }
 
-export function PiHostLive(ctx: ExtensionCommandContext): Layer.Layer<PiHost> {
+function PiHostLive(ctx: ExtensionCommandContext): Layer.Layer<PiHost> {
   return Layer.succeed(
     PiHost,
     PiHost.of({
@@ -54,3 +54,5 @@ export function PiHostLive(ctx: ExtensionCommandContext): Layer.Layer<PiHost> {
     }),
   )
 }
+
+export { PiHost, PiHostError, PiHostLive }

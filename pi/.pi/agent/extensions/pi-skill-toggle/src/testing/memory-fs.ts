@@ -3,7 +3,7 @@ import { type DirectoryEntry, FileSystem, FileSystemError } from '../ports/fs.ts
 
 const DEFAULT_CONTENT = '---\nname: test\ndescription: Test skill.\n---\n'
 
-export class MemoryFileSystem {
+class MemoryFileSystem {
   private readonly files = new Map<string, string>()
   private readonly dirs = new Set<string>(['/'])
   private readonly canonicalPaths: ReadonlyMap<string, string>
@@ -86,3 +86,5 @@ export class MemoryFileSystem {
     return new FileSystemError({ operation, path, message, cause: undefined })
   }
 }
+
+export { MemoryFileSystem }

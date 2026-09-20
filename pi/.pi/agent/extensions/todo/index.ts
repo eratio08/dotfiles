@@ -20,7 +20,6 @@ import {
   decodeStoredTodos,
   decodeTodoList,
   getTodoCounts,
-  getWaitingTodos,
   isOpenTodo,
   TODO_OPERATIONS,
   type Todo,
@@ -97,9 +96,8 @@ class TodoViewer {
     if (this.todos.length === 0) {
       lines.push(truncateToWidth(`  ${this.theme.fg('dim', 'No todos')}`, width))
     } else {
-      const waitingIds = new Set(getWaitingTodos(this.todos).map((todo) => todo.id))
       for (const todo of this.todos) {
-        lines.push(truncateToWidth(`  ${renderTodoLine(todo, this.theme, waitingIds.has(todo.id))}`, width))
+        lines.push(truncateToWidth(`  ${renderTodoLine(todo, this.theme)}`, width))
       }
     }
 
@@ -153,9 +151,9 @@ function renderContent(todo: Todo, theme: Theme): string {
   return theme.fg('muted', todo.content)
 }
 
-function renderTodoLine(todo: Todo, theme: Theme, waiting = false): string {
-  const state = waiting ? ` ${theme.fg('warning', '(waiting)')}` : ''
-  return `${renderMarker(todo.status, theme)} ${renderContent(todo, theme)}${state}`
+function renderTodoLine(todo: Todo, theme: Theme): string {
+  const status = theme.fg('dim', `(${todo.status.replace('_', ' ')})`)
+  return `${renderMarker(todo.status, theme)} ${renderContent(todo, theme)} ${status}`
 }
 
 function renderDescriptionLines(todo: Todo, theme: Theme): string[] {
@@ -178,14 +176,13 @@ function updateUi(ctx: ExtensionContext, todos: readonly Todo[], suspended = fal
     return
   }
 
-  const waitingIds = new Set(getWaitingTodos(todos).map((todo) => todo.id))
   ctx.ui.setWidget('todo', (_tui, theme) => ({
     render(width: number) {
       const visible = unfinished.slice(0, 8)
       const expanded = ctx.ui.getToolsExpanded()
       const lines: string[] = []
       for (const todo of visible) {
-        lines.push(truncateToWidth(`  ${renderTodoLine(todo, theme, waitingIds.has(todo.id))}`, width))
+        lines.push(truncateToWidth(`  ${renderTodoLine(todo, theme)}`, width))
         if (expanded) {
           for (const line of todoDescriptionLines(todo)) {
             for (const wrapped of wrapTextWithAnsi(line, Math.max(1, width - 4))) {
@@ -345,10 +342,9 @@ function todoExtension(pi: ExtensionAPI): void {
             const unfinished = list.filter(isOpenTodo)
             return (unfinished.length > 0 ? unfinished : list).slice(0, 4)
           })()
-      const waitingIds = new Set(getWaitingTodos(list).map((todo) => todo.id))
       const lines = [theme.fg('muted', formatCounts(counts))]
       for (const todo of visible) {
-        lines.push(renderTodoLine(todo, theme, waitingIds.has(todo.id)))
+        lines.push(renderTodoLine(todo, theme))
         if (expanded) {
           lines.push(...renderDescriptionLines(todo, theme))
         }

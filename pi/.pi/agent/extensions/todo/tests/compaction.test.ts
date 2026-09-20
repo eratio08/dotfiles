@@ -736,6 +736,62 @@ test('renders collapsed todo results with open items', () => {
   assert.doesNotMatch(text, /active details/)
 })
 
+test('renders stored todo statuses instead of waiting labels', () => {
+  //given
+  const value = harness()
+  const renderResult = value.registeredTool?.renderResult
+  assert.ok(renderResult)
+  const result = {
+    content: [],
+    details: {
+      todos: [
+        {
+          id: 'pending-id',
+          content: 'pending task',
+          status: 'pending',
+          dependsOn: ['blocked-id'],
+        },
+        {
+          id: 'active-id',
+          content: 'active task',
+          status: 'in_progress',
+          dependsOn: [],
+        },
+        {
+          id: 'blocked-id',
+          content: 'blocked task',
+          status: 'blocked',
+          dependsOn: [],
+        },
+        {
+          id: 'completed-id',
+          content: 'completed task',
+          status: 'completed',
+          dependsOn: [],
+        },
+        {
+          id: 'omitted-id',
+          content: 'omitted task',
+          status: 'omitted',
+          dependsOn: [],
+        },
+      ],
+    },
+  }
+
+  //when
+  const rendered = renderResult(result, { expanded: true }, value.theme)
+
+  //then
+  const text = rendered.render(120).join('\n')
+  assert.match(text, /pending task \(pending\)/)
+  assert.match(text, /active task \(in progress\)/)
+  assert.match(text, /blocked task \(blocked\)/)
+  assert.match(text, /completed task \(completed\)/)
+  assert.match(text, /omitted task \(omitted\)/)
+  assert.doesNotMatch(text, /waiting/)
+})
+
 test('renders expanded todo results with descriptions', () => {
   //given
   const value = harness()

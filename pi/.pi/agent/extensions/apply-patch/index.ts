@@ -12,7 +12,7 @@ interface ApplyPatchDetails {
   files: AppliedFile[]
 }
 
-export default function (pi: ExtensionAPI) {
+function applyPatchExtension(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'apply_patch',
     label: 'apply_patch',
@@ -81,3 +81,5 @@ function operationCode(file: AppliedFile): string {
 function displayPath(file: AppliedFile): string {
   return file.destination ? `${file.path} -> ${file.destination}` : file.path
 }
+
+export { applyPatchExtension as default }

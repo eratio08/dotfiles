@@ -20,9 +20,9 @@ const LEVEL_ICONS: Record<Exclude<CavemanMode, 'off'>, string> = {
   'wenyan-ultra': '🔥',
 }
 
-export class CavemanContext extends Context.Service<CavemanContext, ExtensionContext>()('caveman/ExtensionContext') {}
+class CavemanContext extends Context.Service<CavemanContext, ExtensionContext>()('caveman/ExtensionContext') {}
 
-export class CavemanHostError extends Schema.TaggedError<CavemanHostError>()('CavemanHostError', {
+class CavemanHostError extends Schema.TaggedError<CavemanHostError>()('CavemanHostError', {
   operation: Schema.String,
   message: Schema.String,
 }) {}
@@ -69,7 +69,7 @@ const notify = Effect.fnUntraced(function* (
   })
 })
 
-export class Caveman extends Context.Service<
+class Caveman extends Context.Service<
   Caveman,
   {
     readonly mode: Effect.Effect<CavemanMode>
@@ -89,7 +89,7 @@ export class Caveman extends Context.Service<
   }
 >()('caveman/Caveman') {}
 
-export function CavemanLayer(pi: ExtensionAPI): Layer.Layer<Caveman, never, never> {
+function CavemanLayer(pi: ExtensionAPI): Layer.Layer<Caveman, never, never> {
   return Layer.effect(
     Caveman,
     Effect.gen(function* () {
@@ -189,3 +189,5 @@ export function CavemanLayer(pi: ExtensionAPI): Layer.Layer<Caveman, never, neve
     }),
   )
 }
+
+export { Caveman, CavemanContext, CavemanHostError, CavemanLayer }

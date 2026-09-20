@@ -3,11 +3,11 @@ import type { FrontmatterDocument, FrontmatterPatch, SkillInvocationMode } from 
 const DISABLE_KEY = 'disable-model-invocation'
 const DISABLE_KEY_RE = /^\s*disable-model-invocation\s*:/
 
-export interface FrontmatterPatcher {
+interface FrontmatterPatcher {
   patchInvocationMode(doc: FrontmatterDocument, desiredMode: SkillInvocationMode): FrontmatterPatch
 }
 
-export class MinimalFrontmatterPatcher implements FrontmatterPatcher {
+class MinimalFrontmatterPatcher implements FrontmatterPatcher {
   patchInvocationMode(doc: FrontmatterDocument, desiredMode: SkillInvocationMode): FrontmatterPatch {
     if (!doc.hasFrontmatter) {
       const newFrontmatter = desiredMode === 'manual-only' ? `${DISABLE_KEY}: true${doc.lineEnding}` : ''
@@ -77,3 +77,5 @@ function stripEol(line: string): string {
 function endsWithEol(line: string): boolean {
   return line.endsWith('\n')
 }
+
+export { type FrontmatterPatcher, MinimalFrontmatterPatcher }

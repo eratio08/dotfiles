@@ -1,15 +1,15 @@
 import { formatSourceKind, sourceBadge } from '../inventory/classifier.ts'
 import type { SkillInvocationMode, SkillRecord } from '../types.ts'
 
-export function modeLabel(mode: SkillInvocationMode): string {
+function modeLabel(mode: SkillInvocationMode): string {
   return mode === 'manual-only' ? 'Manual-only' : 'Agent-invocable'
 }
 
-export function toggleMode(mode: SkillInvocationMode): SkillInvocationMode {
+function toggleMode(mode: SkillInvocationMode): SkillInvocationMode {
   return mode === 'manual-only' ? 'agent-invocable' : 'manual-only'
 }
 
-export function skillSearchText(skill: SkillRecord): string {
+function skillSearchText(skill: SkillRecord): string {
   return [
     skill.name,
     skill.description,
@@ -23,7 +23,7 @@ export function skillSearchText(skill: SkillRecord): string {
     .toLowerCase()
 }
 
-export function filterSkills(skills: SkillRecord[], query: string): SkillRecord[] {
+function filterSkills(skills: SkillRecord[], query: string): SkillRecord[] {
   const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
   if (tokens.length === 0) return skills
   return skills.filter((skill) => {
@@ -31,3 +31,5 @@ export function filterSkills(skills: SkillRecord[], query: string): SkillRecord[
     return tokens.every((token) => haystack.includes(token))
   })
 }
+
+export { filterSkills, modeLabel, skillSearchText, toggleMode }

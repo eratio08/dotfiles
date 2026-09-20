@@ -1,6 +1,12 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 import { Effect, Layer, ManagedRuntime } from 'effect'
 import {
+  GPT5_HIGH_CONTEXT_WINDOW,
+  type GptContextMode,
+  parseGptContextCommand,
+  restoreGptContextMode,
+} from './src/core.ts'
+import {
   GptContextModeContext,
   GptContextModeLayer,
   GptContextModePi,
@@ -8,14 +14,7 @@ import {
   GptContextModeState,
 } from './src/effects.ts'
 
-export {
-  GPT5_HIGH_CONTEXT_WINDOW,
-  type GptContextMode,
-  parseGptContextCommand,
-  restoreGptContextMode,
-} from './src/core.ts'
-
-export default function gptContextModeExtension(pi: ExtensionAPI): void {
+function gptContextModeExtension(pi: ExtensionAPI): void {
   const runtime = ManagedRuntime.make(
     Layer.mergeAll(GptContextModeLayer, GptContextModeState.layer, Layer.succeed(GptContextModePi, pi)),
   )
@@ -59,4 +58,12 @@ export default function gptContextModeExtension(pi: ExtensionAPI): void {
       await runtime.dispose()
     }
   })
+}
+
+export {
+  GPT5_HIGH_CONTEXT_WINDOW,
+  type GptContextMode,
+  gptContextModeExtension as default,
+  parseGptContextCommand,
+  restoreGptContextMode,
 }

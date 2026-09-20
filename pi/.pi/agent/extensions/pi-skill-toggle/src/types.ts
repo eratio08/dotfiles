@@ -1,26 +1,26 @@
-export type SkillInvocationMode = 'agent-invocable' | 'manual-only'
+type SkillInvocationMode = 'agent-invocable' | 'manual-only'
 
-export type SkillSource =
+type SkillSource =
   | { kind: 'global'; root: string }
   | { kind: 'user'; root: string }
   | { kind: 'project'; root: string }
   | { kind: 'project-legacy'; root: string }
   | { kind: 'unknown'; root: string }
 
-export interface LocatedSkillFile {
+interface LocatedSkillFile {
   filePath: string
   source: SkillSource
   editable: boolean
 }
 
-export type SkillDiagnosticSeverity = 'info' | 'warning' | 'error'
+type SkillDiagnosticSeverity = 'info' | 'warning' | 'error'
 
-export interface SkillDiagnostic {
+interface SkillDiagnostic {
   severity: SkillDiagnosticSeverity
   message: string
 }
 
-export interface SkillRecord {
+interface SkillRecord {
   id: string
   name: string
   description: string
@@ -32,12 +32,12 @@ export interface SkillRecord {
   diagnostics: SkillDiagnostic[]
 }
 
-export interface SkillDraft {
+interface SkillDraft {
   skill: SkillRecord
   desiredMode: SkillInvocationMode
 }
 
-export interface FrontmatterDocument {
+interface FrontmatterDocument {
   raw: string
   hasFrontmatter: boolean
   frontmatterStart: number
@@ -49,12 +49,12 @@ export interface FrontmatterDocument {
   lineEnding: '\n' | '\r\n'
 }
 
-export interface FrontmatterPatch {
+interface FrontmatterPatch {
   oldText: string
   newText: string
 }
 
-export interface SkillChange {
+interface SkillChange {
   skill: SkillRecord
   filePath: string
   from: SkillInvocationMode
@@ -62,13 +62,28 @@ export interface SkillChange {
   patch: FrontmatterPatch
 }
 
-export interface ApplyResult {
+interface ApplyResult {
   applied: SkillChange[]
   skipped: Array<{ skill: SkillRecord; reason: string }>
   errors: Array<{ skill?: SkillRecord; message: string }>
 }
 
-export interface SkillToggleUiResult {
+interface SkillToggleUiResult {
   action: 'apply' | 'cancel'
   drafts: SkillDraft[]
+}
+
+export type {
+  ApplyResult,
+  FrontmatterDocument,
+  FrontmatterPatch,
+  LocatedSkillFile,
+  SkillChange,
+  SkillDiagnostic,
+  SkillDiagnosticSeverity,
+  SkillDraft,
+  SkillInvocationMode,
+  SkillRecord,
+  SkillSource,
+  SkillToggleUiResult,
 }

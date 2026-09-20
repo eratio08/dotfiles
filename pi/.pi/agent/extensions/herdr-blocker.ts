@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-export default function herdrBlockerExtension(pi: ExtensionAPI) {
+function herdrBlockerExtension(pi: ExtensionAPI): void {
 	let blockedAfterCompaction = false;
 	let compactionPending = false;
 
@@ -38,3 +38,5 @@ export default function herdrBlockerExtension(pi: ExtensionAPI) {
 	pi.on("agent_start", clearCompactionBlock);
 	pi.on("session_shutdown", clearCompactionBlock);
 }
+
+export { herdrBlockerExtension as default }

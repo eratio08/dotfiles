@@ -8,14 +8,11 @@ import { type PdfReaderDetails, pagesToMarkdown, readPdf } from './src/effects.t
 import { FileSystemLive } from './src/services/fs.ts'
 import { PdfExtractorLive } from './src/services/pdf.ts'
 
-export type { PdfReaderDetails }
-export { pagesToMarkdown, readPdf }
-
 const parameters = Type.Object({
   path: Type.String({ description: 'Path to a PDF file, relative to the current working directory' }),
 })
 
-export default function (pi: ExtensionAPI) {
+function readPdfExtension(pi: ExtensionAPI): void {
   const runtime = ManagedRuntime.make(Layer.mergeAll(FileSystemLive, PdfExtractorLive))
   let shuttingDown = false
 
@@ -71,3 +68,5 @@ export default function (pi: ExtensionAPI) {
     },
   })
 }
+
+export { type PdfReaderDetails, pagesToMarkdown, readPdf, readPdfExtension as default }

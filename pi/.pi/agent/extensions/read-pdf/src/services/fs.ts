@@ -5,13 +5,13 @@ import { join } from 'node:path'
 
 import { Context, Effect, Layer, Schema } from 'effect'
 
-export class FileSystemError extends Schema.TaggedError<FileSystemError>()('FileSystemError', {
+class FileSystemError extends Schema.TaggedError<FileSystemError>()('FileSystemError', {
   operation: Schema.String,
   path: Schema.String,
   cause: Schema.Unknown,
 }) {}
 
-export class FileSystem extends Context.Service<
+class FileSystem extends Context.Service<
   FileSystem,
   {
     readonly readFile: (path: string) => Effect.Effect<Uint8Array, FileSystemError>
@@ -48,7 +48,9 @@ const writeTemporaryMarkdown = Effect.fn('FileSystem.writeTemporaryMarkdown')(fu
   return path
 })
 
-export const FileSystemLive: Layer.Layer<FileSystem> = Layer.succeed(
+const FileSystemLive: Layer.Layer<FileSystem> = Layer.succeed(
   FileSystem,
   FileSystem.of({ readFile, writeTemporaryMarkdown }),
 )
+
+export { FileSystem, FileSystemError, FileSystemLive }

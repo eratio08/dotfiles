@@ -21,7 +21,7 @@ function textContent(content: unknown): string {
     .join('\n\n')
 }
 
-export default function saveMarkdownExtension(pi: ExtensionAPI) {
+function saveMarkdownExtension(pi: ExtensionAPI): void {
   pi.registerCommand('save-md', {
     description: 'Save the latest assistant response as Markdown (usage: /save-md name)',
     handler: async (args, ctx) => {
@@ -78,3 +78,5 @@ export default function saveMarkdownExtension(pi: ExtensionAPI) {
     },
   })
 }
+
+export { saveMarkdownExtension as default }

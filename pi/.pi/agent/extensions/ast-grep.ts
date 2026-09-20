@@ -30,7 +30,7 @@ function runAstGrep(args: string[], signal?: AbortSignal): Promise<{ exitCode: n
 	});
 }
 
-export default function (pi: ExtensionAPI) {
+function astGrepExtension(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "ast_grep_search",
 		label: "AST Grep Search",
@@ -150,3 +150,5 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 }
+
+export { astGrepExtension as default }

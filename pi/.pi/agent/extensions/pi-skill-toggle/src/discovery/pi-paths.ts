@@ -2,7 +2,7 @@ import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { SkillSource } from '../types.ts'
 
-export interface SkillRoot {
+interface SkillRoot {
   path: string
   source: SkillSource
   includeRootMarkdownFiles: boolean
@@ -12,17 +12,17 @@ function homeDirectory(): string {
   return process.env.HOME?.trim() || homedir()
 }
 
-export function getAgentDir(): string {
+function getAgentDir(): string {
   const configured = process.env.PI_CODING_AGENT_DIR?.trim()
   if (configured) return expandHome(configured)
   return join(homeDirectory(), '.pi', 'agent')
 }
 
-export function getGlobalAgentsSkillDir(): string {
+function getGlobalAgentsSkillDir(): string {
   return join(homeDirectory(), '.agents', 'skills')
 }
 
-export function getSkillRoots(cwd: string): SkillRoot[] {
+function getSkillRoots(cwd: string): SkillRoot[] {
   const resolvedCwd = resolve(cwd)
   const userSkillRoot = join(getAgentDir(), 'skills')
   const globalSkillRoot = getGlobalAgentsSkillDir()
@@ -67,3 +67,5 @@ function expandHome(input: string): string {
   if (input.startsWith('~/')) return join(homeDirectory(), input.slice(2))
   return input
 }
+
+export { getAgentDir, getGlobalAgentsSkillDir, getSkillRoots, type SkillRoot }

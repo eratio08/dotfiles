@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-a
 import { Effect, ManagedRuntime } from 'effect'
 import { Caveman, CavemanContext, CavemanLayer } from './src/effects.ts'
 
-export default function cavemanExtension(pi: ExtensionAPI): void {
+function cavemanExtension(pi: ExtensionAPI): void {
   const runtime = ManagedRuntime.make(CavemanLayer(pi))
   let shuttingDown = false
 
@@ -132,3 +132,5 @@ export default function cavemanExtension(pi: ExtensionAPI): void {
     }
   })
 }
+
+export { cavemanExtension as default }

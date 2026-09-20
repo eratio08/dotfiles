@@ -15,13 +15,13 @@ import {
 
 const STATUS_KEY = 'gpt-context-mode'
 
-export class GptContextModeContext extends Context.Service<GptContextModeContext, ExtensionContext>()(
+class GptContextModeContext extends Context.Service<GptContextModeContext, ExtensionContext>()(
   'gpt-context-mode/ExtensionContext',
 ) {}
 
-export class GptContextModePi extends Context.Service<GptContextModePi, ExtensionAPI>()('gpt-context-mode/Pi') {}
+class GptContextModePi extends Context.Service<GptContextModePi, ExtensionAPI>()('gpt-context-mode/Pi') {}
 
-export class GptContextModeState extends Context.Service<
+class GptContextModeState extends Context.Service<
   GptContextModeState,
   {
     readonly mode: Ref.Ref<GptContextMode>
@@ -38,12 +38,12 @@ export class GptContextModeState extends Context.Service<
   )
 }
 
-export class GptContextModeHostError extends Schema.TaggedError<GptContextModeHostError>()('GptContextModeHostError', {
+class GptContextModeHostError extends Schema.TaggedError<GptContextModeHostError>()('GptContextModeHostError', {
   operation: Schema.String,
   message: Schema.String,
 }) {}
 
-export class GptContextModeService extends Context.Service<
+class GptContextModeService extends Context.Service<
   GptContextModeService,
   {
     readonly handleCommand: (
@@ -203,7 +203,7 @@ const shutdown = Effect.fnUntraced(function* (): Effect.fn.Return<
   })
 })
 
-export const GptContextModeLayer: Layer.Layer<GptContextModeService, never, never> = Layer.succeed(
+const GptContextModeLayer: Layer.Layer<GptContextModeService, never, never> = Layer.succeed(
   GptContextModeService,
   GptContextModeService.of({
     handleCommand,
@@ -212,3 +212,12 @@ export const GptContextModeLayer: Layer.Layer<GptContextModeService, never, neve
     shutdown,
   }),
 )
+
+export {
+  GptContextModeContext,
+  GptContextModeHostError,
+  GptContextModeLayer,
+  GptContextModePi,
+  GptContextModeService,
+  GptContextModeState,
+}

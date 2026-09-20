@@ -2,18 +2,18 @@ import { randomUUID } from 'node:crypto'
 import { lstat, mkdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 
-export type PatchOperation =
+type PatchOperation =
   | { type: 'add'; path: string; content: string; diff: string }
   | { type: 'update'; path: string; chunks: PatchChunk[]; moveTo?: string; diff: string }
   | { type: 'delete'; path: string; diff: string }
 
-export interface PatchChunk {
+interface PatchChunk {
   lines: string[]
 }
 
-export type FileLock = <T>(path: string, action: () => Promise<T>) => Promise<T>
+type FileLock = <T>(path: string, action: () => Promise<T>) => Promise<T>
 
-export interface AppliedFile {
+interface AppliedFile {
   type: PatchOperation['type'] | 'move'
   path: string
   destination?: string
@@ -37,7 +37,7 @@ const updatePrefix = '*** Update File: '
 const deletePrefix = '*** Delete File: '
 const movePrefix = '*** Move to: '
 
-export function parsePatch(patchText: string): PatchOperation[] {
+function parsePatch(patchText: string): PatchOperation[] {
   const lines = patchText.replace(/\r\n?/g, '\n').split('\n')
   if (lines.at(-1) === '') lines.pop()
   if (lines[0] !== begin || lines.at(-1) !== end)
@@ -101,7 +101,7 @@ export function parsePatch(patchText: string): PatchOperation[] {
   return operations
 }
 
-export async function applyPatch(
+async function applyPatch(
   cwd: string,
   operations: PatchOperation[],
   lock: FileLock = async (_path, action) => action(),
@@ -350,3 +350,5 @@ function addDiff(path: string, content: string[]): string {
 function updateDiff(path: string, moveTo: string | undefined, chunks: PatchChunk[]): string {
   return [`--- ${path}`, `+++ ${moveTo ?? path}`, ...chunks.flatMap((chunk) => ['@@', ...chunk.lines])].join('\n')
 }
+
+export { type AppliedFile, applyPatch, type FileLock, type PatchChunk, type PatchOperation, parsePatch }

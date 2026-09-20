@@ -43,7 +43,7 @@ function pushBreak(chunks: string[]) {
   if (!last.endsWith('\n')) chunks.push('\n')
 }
 
-export function extractTextFromHTML(html: string): string {
+function extractTextFromHTML(html: string): string {
   const chunks: string[] = []
   let skipDepth = 0
   const parser = new Parser({
@@ -76,7 +76,7 @@ export function extractTextFromHTML(html: string): string {
     .trim()
 }
 
-export function convertHTMLToMarkdown(html: string): string {
+function convertHTMLToMarkdown(html: string): string {
   const turndown = new TurndownService({
     headingStyle: 'atx',
     hr: '---',
@@ -87,3 +87,5 @@ export function convertHTMLToMarkdown(html: string): string {
   turndown.remove(['script', 'style', 'meta', 'link'])
   return turndown.turndown(html)
 }
+
+export { convertHTMLToMarkdown, extractTextFromHTML }

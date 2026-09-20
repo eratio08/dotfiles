@@ -6,7 +6,7 @@ import { classifyInvocationMode } from '../inventory/classifier.ts'
 import { FileSystem, type FileSystemError } from '../ports/fs.ts'
 import type { SkillChange, SkillDraft, SkillRecord } from '../types.ts'
 
-export class SkillTogglePlanner extends Context.Service<
+class SkillTogglePlanner extends Context.Service<
   SkillTogglePlanner,
   {
     readonly plan: (records: SkillRecord[], drafts: SkillDraft[]) => Effect.Effect<SkillChange[], FileSystemError>
@@ -50,7 +50,7 @@ const plan = Effect.fn('SkillTogglePlanner.plan')(function* (
   return changes
 })
 
-export function SkillTogglePlannerLive(
+function SkillTogglePlannerLive(
   codec: FrontmatterCodec,
   patcher: FrontmatterPatcher,
 ): Layer.Layer<SkillTogglePlanner, never, FileSystem> {
@@ -62,3 +62,5 @@ export function SkillTogglePlannerLive(
     }),
   )
 }
+
+export { SkillTogglePlanner, SkillTogglePlannerLive }

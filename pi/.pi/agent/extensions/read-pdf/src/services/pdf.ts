@@ -1,16 +1,16 @@
 import { Context, Effect, Layer, Schema } from 'effect'
 import { extractText } from 'unpdf'
 
-export interface PdfExtraction {
+interface PdfExtraction {
   readonly pages: readonly string[]
   readonly totalPages: number
 }
 
-export class PdfExtractionError extends Schema.TaggedError<PdfExtractionError>()('PdfExtractionError', {
+class PdfExtractionError extends Schema.TaggedError<PdfExtractionError>()('PdfExtractionError', {
   cause: Schema.Unknown,
 }) {}
 
-export class PdfExtractor extends Context.Service<
+class PdfExtractor extends Context.Service<
   PdfExtractor,
   {
     readonly extract: (data: Uint8Array) => Effect.Effect<PdfExtraction, PdfExtractionError>
@@ -31,4 +31,6 @@ const extract = Effect.fn('PdfExtractor.extract')(function* (
   })
 })
 
-export const PdfExtractorLive: Layer.Layer<PdfExtractor> = Layer.succeed(PdfExtractor, PdfExtractor.of({ extract }))
+const PdfExtractorLive: Layer.Layer<PdfExtractor> = Layer.succeed(PdfExtractor, PdfExtractor.of({ extract }))
+
+export { type PdfExtraction, PdfExtractionError, PdfExtractor, PdfExtractorLive }

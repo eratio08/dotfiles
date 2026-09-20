@@ -1,26 +1,26 @@
 import { Result, Schema } from 'effect'
 
-export const VALID_MODES = ['off', 'lite', 'full', 'ultra', 'wenyan-lite', 'wenyan-full', 'wenyan-ultra'] as const
+const VALID_MODES = ['off', 'lite', 'full', 'ultra', 'wenyan-lite', 'wenyan-full', 'wenyan-ultra'] as const
 
-export type CavemanMode = (typeof VALID_MODES)[number]
-export const CavemanModeSchema = Schema.Literals(VALID_MODES)
-export const CavemanModeEntrySchema = Schema.Struct({
+type CavemanMode = (typeof VALID_MODES)[number]
+const CavemanModeSchema = Schema.Literals(VALID_MODES)
+const CavemanModeEntrySchema = Schema.Struct({
   type: Schema.Literal('custom'),
   customType: Schema.Literal('caveman-mode'),
   data: Schema.Struct({ mode: CavemanModeSchema }),
 })
 
-export const DEFAULT_MODE: CavemanMode = 'full'
+const DEFAULT_MODE: CavemanMode = 'full'
 const MODE_SET = new Set<string>(VALID_MODES)
 
-export function normalizeMode(value: unknown, fallback: CavemanMode | null = null): CavemanMode | null {
+function normalizeMode(value: unknown, fallback: CavemanMode | null = null): CavemanMode | null {
   if (typeof value !== 'string') return fallback
   const mode = value.trim().toLowerCase()
   if (mode === 'wenyan') return 'wenyan-full'
   return MODE_SET.has(mode) ? (mode as CavemanMode) : fallback
 }
 
-export function resolveSessionMode(entries: unknown, fallbackMode: CavemanMode = DEFAULT_MODE): CavemanMode {
+function resolveSessionMode(entries: unknown, fallbackMode: CavemanMode = DEFAULT_MODE): CavemanMode {
   const fallback = normalizeMode(fallbackMode, DEFAULT_MODE) ?? DEFAULT_MODE
   const decodedEntries = Schema.decodeUnknownResult(Schema.Array(Schema.Unknown))(entries)
   if (Result.isFailure(decodedEntries)) return fallback
@@ -33,7 +33,7 @@ export function resolveSessionMode(entries: unknown, fallbackMode: CavemanMode =
   return fallback
 }
 
-export function parseCavemanCommand(
+function parseCavemanCommand(
   text: string,
   defaultMode: CavemanMode = DEFAULT_MODE,
 ): { type: 'set-mode'; mode: CavemanMode } | { type: 'invalid'; reason: 'invalid-mode'; mode: string } {
@@ -53,7 +53,7 @@ export function parseCavemanCommand(
   return { type: 'invalid', reason: 'invalid-mode', mode: primary }
 }
 
-export function parseModeChange(text: string, defaultMode: CavemanMode = DEFAULT_MODE): CavemanMode | null {
+function parseModeChange(text: string, defaultMode: CavemanMode = DEFAULT_MODE): CavemanMode | null {
   const fallback = normalizeMode(defaultMode, DEFAULT_MODE) ?? DEFAULT_MODE
   const normalizedText = String(text || '')
     .trim()
@@ -85,7 +85,7 @@ export function parseModeChange(text: string, defaultMode: CavemanMode = DEFAULT
   return null
 }
 
-export function getModeInstructions(mode: CavemanMode): string {
+function getModeInstructions(mode: CavemanMode): string {
   const activeMode = normalizeMode(mode, DEFAULT_MODE) ?? DEFAULT_MODE
   if (activeMode === 'off') return ''
 
@@ -115,4 +115,17 @@ export function getModeInstructions(mode: CavemanMode): string {
   }
 
   return [...common, ...perMode[activeMode as Exclude<CavemanMode, 'off'>]].join('\n')
+}
+
+export {
+  type CavemanMode,
+  CavemanModeEntrySchema,
+  CavemanModeSchema,
+  DEFAULT_MODE,
+  getModeInstructions,
+  normalizeMode,
+  parseCavemanCommand,
+  parseModeChange,
+  resolveSessionMode,
+  VALID_MODES,
 }

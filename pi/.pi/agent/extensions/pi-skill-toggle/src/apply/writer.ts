@@ -2,7 +2,7 @@ import { Context, Effect, Layer } from 'effect'
 import { FileSystem } from '../ports/fs.ts'
 import type { ApplyResult, SkillChange } from '../types.ts'
 
-export class SkillChangeWriter extends Context.Service<
+class SkillChangeWriter extends Context.Service<
   SkillChangeWriter,
   {
     readonly apply: (changes: SkillChange[]) => Effect.Effect<ApplyResult>
@@ -57,10 +57,12 @@ const apply = Effect.fn('SkillChangeWriter.apply')(function* (
   return result
 })
 
-export const SkillChangeWriterLive: Layer.Layer<SkillChangeWriter, never, FileSystem> = Layer.effect(
+const SkillChangeWriterLive: Layer.Layer<SkillChangeWriter, never, FileSystem> = Layer.effect(
   SkillChangeWriter,
   Effect.gen(function* () {
     const fs = yield* FileSystem
     return SkillChangeWriter.of({ apply: (changes) => apply(fs, changes) })
   }),
 )
+
+export { SkillChangeWriter, SkillChangeWriterLive }

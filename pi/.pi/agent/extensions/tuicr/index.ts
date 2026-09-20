@@ -66,7 +66,7 @@ async function resolveRepositoryRoot(pi: ExtensionAPI, cwd: string, signal?: Abo
   return cwd
 }
 
-export default function tuicrExtension(pi: ExtensionAPI): void {
+function tuicrExtension(pi: ExtensionAPI): void {
   const runtime = ManagedRuntime.make(
     TuicrLayer.pipe(Layer.provide(Layer.succeed(TuicrPi, pi)), Layer.provide(Layer.succeed(TuicrConfig, {}))),
   )
@@ -139,3 +139,5 @@ export default function tuicrExtension(pi: ExtensionAPI): void {
     }
   })
 }
+
+export { tuicrExtension as default }
