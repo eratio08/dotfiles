@@ -557,8 +557,12 @@ test('preserves open task states when tree navigation carries a branch summary',
   const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
   assert.ok(widgetFactory)
   const lines = widgetFactory(undefined, value.theme).render(120)
-  assert.match(lines.find((line) => line.includes('active task')) ?? '', /\[•\] active task/)
-  assert.match(lines.find((line) => line.includes('blocked task')) ?? '', /\[!\] blocked task/)
+  const activeTask = lines.find((line) => line.includes('active task'))
+  const blockedTask = lines.find((line) => line.includes('blocked task'))
+  assert.match(activeTask ?? '', /\[•\] active task/)
+  assert.match(blockedTask ?? '', /\[!\] blocked task/)
+  assert.doesNotMatch(activeTask ?? '', /\(in progress\)/)
+  assert.doesNotMatch(blockedTask ?? '', /\(blocked\)/)
 })
 
 test('preserves newly added tasks when tree navigation carries an older snapshot', async () => {
@@ -869,8 +873,12 @@ test('renders dependency indentation in /todos', async () => {
   const viewer = value.customView()
   assert.ok(viewer)
   const lines = viewer.render(120)
+  const firstTask = lines.find((line) => line.includes('first task'))
   const secondTask = lines.find((line) => line.includes('second task'))
+  assert.match(firstTask ?? '', /\[ \] first task/)
+  assert.doesNotMatch(firstTask ?? '', /\(pending\)/)
   assert.match(secondTask ?? '', /^ {4}↳ \[!\] second task/)
+  assert.doesNotMatch(secondTask ?? '', /\(blocked\)/)
 })
 
 test('indents expanded todo details with dependency depth', async () => {

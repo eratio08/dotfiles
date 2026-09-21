@@ -165,9 +165,8 @@ function getTodoDepths(todos: readonly Todo[]): ReadonlyMap<string, number> {
 }
 
 function renderTodoLine(todo: Todo, theme: Theme, depth = 0): string {
-  const status = theme.fg('dim', `(${todo.status.replace('_', ' ')})`)
   const prefix = depth > 0 ? `${'  '.repeat(depth)}↳ ` : ''
-  return `${prefix}${renderMarker(todo.status, theme)} ${renderContent(todo, theme)} ${status}`
+  return `${prefix}${renderMarker(todo.status, theme)} ${renderContent(todo, theme)}`
 }
 
 function updateUi(ctx: ExtensionContext, todos: readonly Todo[], suspended = false): void {
