@@ -90,3 +90,14 @@ Test custom rendering in both collapsed and expanded states when applicable.
 Run the relevant tests and type checks with Bun before you finish.
 Use BDD style tests using `//given //when //then` structuring; each section must only be used once in a single test.
 The `//when` section must only contain a single invocation.
+
+## EffectJS
+
+Apply the following rules when EffectJS is used:
+
+Any operation that can fail has to be modeled as an effect.
+Any operation that has a side effect must be modeled as an effect.
+Dependencies must never be injected via arguments to an effect or a layer, use requirements to express this.
+Always differentiate the effect layer from the core pure logic layer.
+No effect or layer type is permitted to express an error type as a generic `unknown` or `Error` but must use a well defined error type.
+Effects are never run in the logic, they are run at the outer layer at a single point.

@@ -17,11 +17,6 @@
 			"type": "local",
 			"command": ["uvx", "code-index-mcp@2.17.1"]
 		},
-		"opensrc": {
-			"enabled": true,
-			"type": "local",
-			"command": ["npx", "-y", "opensrc-mcp@0.3.0"]
-		},
 		"aws-mcp": {
 			"enabled": true,
 			"type": "local",

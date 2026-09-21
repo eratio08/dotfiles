@@ -1,0 +1,32 @@
+{
+  "name": "opensrc",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "bun test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "biome check ."
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.12",
+    "@types/bun": "^1.4.2",
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@ast-grep/napi": "latest",
+    "effect": "4.0.0-rc.112",
+    "glob": "latest",
+    "jiti": "2.7.0",
+    "opensrc": "0.7.3"
+  }
+}
