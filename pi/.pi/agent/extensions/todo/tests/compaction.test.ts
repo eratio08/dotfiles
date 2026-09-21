@@ -28,7 +28,24 @@ type RegisteredTool = {
   renderResult?: (...args: unknown[]) => Renderable
 }
 type RegisteredCommand = { handler: (...args: unknown[]) => Promise<void> }
-type HarnessOptions = { customError?: unknown; phase?: 'idle' | 'planning' | 'executing'; toolsExpanded?: boolean }
+type Phase = 'idle' | 'planning' | 'executing'
+type FailureOperation =
+  | 'appendEntry'
+  | 'sendMessage'
+  | 'getActiveTools'
+  | 'setActiveTools'
+  | 'getBranch'
+  | 'notify'
+  | 'isIdle'
+  | 'emit'
+type HarnessOptions = {
+  customError?: unknown
+  phase?: Phase
+  phaseResponses?: Array<{ phase: Phase; delayMs?: number }>
+  failure?: { operation: FailureOperation; error: Error }
+  onSetActiveTools?: () => void
+  toolsExpanded?: boolean
+}
 
 function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = {}) {
   const events = new Map<string, EventHandler>()
@@ -43,6 +60,10 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
   let registeredTool: RegisteredTool | undefined
   let registeredCommand: RegisteredCommand | undefined
   let phase = options.phase
+  const phaseResponses = [...(options.phaseResponses ?? [])]
+  const fail = (operation: FailureOperation): void => {
+    if (options.failure?.operation === operation) throw options.failure.error
+  }
   const theme: Theme = {
     fg: (_color, text) => text,
     bold: (text) => text,
@@ -57,6 +78,7 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
       registeredTool = tool
     },
     appendEntry(customType: string, data: unknown) {
+      fail('appendEntry')
       const entry = {
         type: 'custom',
         id: `custom-${appendedEntries.length + 1}`,
@@ -72,19 +94,28 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
       registeredCommand = command
     },
     sendMessage(message: SentMessage['message'], options: SentMessage['options']) {
+      fail('sendMessage')
       sentMessages.push({ message, options })
     },
     getActiveTools() {
+      fail('getActiveTools')
       return [...activeTools]
     },
     setActiveTools(next: string[]) {
+      fail('setActiveTools')
       activeTools.splice(0, activeTools.length, ...next)
+      options.onSetActiveTools?.()
     },
     events: {
       emit(channel: string, request: { respond: (response: unknown) => void }) {
-        if (channel === 'plannotator:request' && phase) {
-          request.respond({ status: 'handled', result: { phase } })
-        }
+        fail('emit')
+        if (channel !== 'plannotator:request') return
+        const response = phaseResponses.shift()
+        const responsePhase = response?.phase ?? phase
+        if (!responsePhase) return
+        const respond = () => request.respond({ status: 'handled', result: { phase: responsePhase } })
+        if (response?.delayMs === undefined) respond()
+        else setTimeout(respond, response.delayMs)
       },
     },
   }
@@ -98,6 +129,7 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
         widgets.set(key, content)
       },
       notify(message: string) {
+        fail('notify')
         notifications.push(message)
       },
       getToolsExpanded() {
@@ -109,8 +141,16 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
         return undefined
       },
     },
-    isIdle: () => idle,
-    sessionManager: { getBranch: () => sessionEntries },
+    isIdle: () => {
+      fail('isIdle')
+      return idle
+    },
+    sessionManager: {
+      getBranch: () => {
+        fail('getBranch')
+        return sessionEntries
+      },
+    },
     signal: undefined,
   } as unknown as ExtensionContext
 
@@ -650,6 +690,170 @@ test('restores the tool when Plannotator returns to idle', async () => {
   assert.notEqual(value.widgets.get('todo'), undefined)
 })
 
+test('waits for asynchronous Plannotator status responses', async () => {
+  //given
+  const value = harness(branchWithTodos, true, {
+    phaseResponses: [
+      { phase: 'executing', delayMs: 10 },
+      { phase: 'idle', delayMs: 10 },
+    ],
+  })
+  await restoreTodos(value)
+  const input = value.events.get('input')
+  assert.ok(input)
+  assert.equal(value.activeTools.includes('todo'), false)
+
+  //when
+  await input({ type: 'input' }, value.ctx)
+
+  //then
+  assert.equal(value.activeTools.includes('todo'), true)
+  assert.notEqual(value.widgets.get('todo'), undefined)
+})
+
+test('ignores a Plannotator response after the bounded wait expires', async () => {
+  //given
+  const value = harness(branchWithTodos, true, { phaseResponses: [{ phase: 'executing', delayMs: 300 }] })
+  const input = value.events.get('input')
+  assert.ok(input)
+
+  //when
+  await input({ type: 'input' }, value.ctx)
+  await new Promise((resolve) => setTimeout(resolve, 350))
+
+  //then
+  assert.equal(value.activeTools.includes('todo'), true)
+})
+
+test('serializes concurrent phase transitions before updating the widget', async () => {
+  //given
+  let value!: ReturnType<typeof harness>
+  let input: EventHandler | undefined
+  let concurrentInput: Promise<unknown> | undefined
+  let triggered = false
+  value = harness(branchWithTodos, true, {
+    phase: 'executing',
+    onSetActiveTools: () => {
+      if (triggered) return
+      triggered = true
+      value.setPhase('idle')
+      if (input) concurrentInput = Promise.resolve(input({ type: 'input' }, value.ctx))
+    },
+  })
+  input = value.events.get('input')
+  assert.ok(input)
+
+  //when
+  await restoreTodos(value)
+  await concurrentInput
+
+  //then
+  assert.equal(value.activeTools.includes('todo'), true)
+  assert.notEqual(value.widgets.get('todo'), undefined)
+})
+
+test('returns typed errors when the host cannot append a snapshot', async () => {
+  //given
+  const cause = new Error('append failed')
+  const value = harness([], true, { failure: { operation: 'appendEntry', error: cause } })
+  const tool = value.registeredTool
+  assert.ok(tool)
+
+  //when
+  const execution = tool.execute(
+    'todo-call',
+    todoCode("await todo.add({ content: 'not persisted' }); return 'done'"),
+    undefined,
+    undefined,
+    value.ctx,
+  )
+
+  //then
+  await assert.rejects(execution, (error: unknown) => {
+    assert.ok(error instanceof TodoUiError)
+    assert.equal(error.operation, 'append-entry')
+    assert.equal(error.cause, cause)
+    return true
+  })
+  const readOnly = await tool.execute(
+    'todo-call',
+    todoCode('return await todo.show()'),
+    undefined,
+    undefined,
+    value.ctx,
+  )
+  assert.equal((readOnly as TodoToolResult).details.todos.length, 0)
+})
+
+test('rolls back suspension when the active-tool host callback fails', async () => {
+  //given
+  const cause = new Error('tool update failed')
+  const value = harness(branchWithTodos, true, {
+    phase: 'executing',
+    failure: { operation: 'setActiveTools', error: cause },
+  })
+  const sessionStart = value.events.get('session_start')
+  assert.ok(sessionStart)
+
+  //when
+  const execution = Promise.resolve(sessionStart({ type: 'session_start' }, value.ctx))
+
+  //then
+  await assert.rejects(execution, (error: unknown) => {
+    assert.ok(error instanceof TodoUiError)
+    assert.equal(error.operation, 'set-active-tools')
+    assert.equal(error.cause, cause)
+    return true
+  })
+  assert.equal(value.activeTools.includes('todo'), true)
+})
+
+test('returns typed errors when a host callback fails during compaction', async () => {
+  //given
+  const cause = new Error('message failed')
+  const value = harness(branchWithTodos, true, { failure: { operation: 'sendMessage', error: cause } })
+  await restoreTodos(value)
+  const compact = value.events.get('session_compact')
+  assert.ok(compact)
+
+  //when
+  const execution = Promise.resolve(compact({ type: 'session_compact', willRetry: false }, value.ctx))
+
+  //then
+  await assert.rejects(execution, (error: unknown) => {
+    assert.ok(error instanceof TodoUiError)
+    assert.equal(error.operation, 'send-message')
+    assert.equal(error.cause, cause)
+    return true
+  })
+})
+
+test('preserves the original program error through the transaction and tool layers', async () => {
+  //given
+  const value = harness()
+  const tool = value.registeredTool
+  assert.ok(tool)
+  const cause = new Error('program failed')
+
+  //when
+  const execution = tool.execute(
+    'todo-call',
+    todoCode("throw new Error('program failed')"),
+    undefined,
+    undefined,
+    value.ctx,
+  )
+
+  //then
+  await assert.rejects(execution, (error: unknown) => {
+    assert.ok(error instanceof TodoUiError)
+    assert.equal(error.operation, 'execute')
+    assert.notEqual(error.cause, undefined)
+    assert.equal((error.cause as { message: string }).message, cause.message)
+    return true
+  })
+})
+
 test('renders operation summary on the collapsed todo call line without code line count', () => {
   //given
   const value = harness()
@@ -921,7 +1125,8 @@ test('indents expanded todo details with dependency depth', async () => {
 
 test('reports typed UI errors from /todos', async () => {
   //given
-  const value = harness(branchWithTodos, true, { customError: new Error('viewer failed') })
+  const cause = new Error('viewer failed')
+  const value = harness(branchWithTodos, true, { customError: cause })
   await restoreTodos(value)
   const command = value.registeredCommand?.handler
   assert.ok(command)
@@ -934,6 +1139,7 @@ test('reports typed UI errors from /todos', async () => {
     assert.ok(error instanceof TodoUiError)
     assert.equal(error.operation, 'show')
     assert.equal(error.message, 'Error: viewer failed')
+    assert.equal(error.cause, cause)
     return true
   })
 })

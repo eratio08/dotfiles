@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { Effect } from 'effect'
 import type { TodoApi } from '../src/api.ts'
 import { evaluateTodoCode, formatTodoCodeOutput } from '../src/evaluator.ts'
 
@@ -39,7 +40,7 @@ export default async (todo: TodoApi) => {
 `
 
   //when
-  const value = await evaluateTodoCode(code, api, '/tmp')
+  const value = await Effect.runPromise(evaluateTodoCode(code, api, '/tmp'))
 
   //then
   assert.deepEqual(JSON.parse(JSON.stringify(value)), {
@@ -54,7 +55,7 @@ test('rejects code without a default function', async () => {
   const code = 'export const value = 1'
 
   //when
-  const execution = evaluateTodoCode(code, api, '/tmp')
+  const execution = Effect.runPromise(evaluateTodoCode(code, api, '/tmp'))
 
   //then
   await assert.rejects(execution, /default function/)
@@ -65,7 +66,7 @@ test('propagates a program error without committing anything itself', async () =
   const code = "export default async () => { throw new Error('program failed') }"
 
   //when
-  const execution = evaluateTodoCode(code, api, '/tmp')
+  const execution = Effect.runPromise(evaluateTodoCode(code, api, '/tmp'))
 
   //then
   await assert.rejects(execution, /program failed/)
@@ -86,7 +87,7 @@ export default async () => ({
 `
 
   //when
-  const value = await evaluateTodoCode(code, api, '/tmp')
+  const value = await Effect.runPromise(evaluateTodoCode(code, api, '/tmp'))
 
   //then
   assert.deepEqual(JSON.parse(JSON.stringify(value)), {
@@ -98,18 +99,19 @@ export default async () => ({
     Bun: 'undefined',
     Deno: 'undefined',
   })
-  await assert.rejects(evaluateTodoCode('import fs from "node:fs"\nexport default () => fs', api, '/tmp'))
+  await assert.rejects(
+    Effect.runPromise(evaluateTodoCode('import fs from "node:fs"\nexport default () => fs', api, '/tmp')),
+  )
 })
 
 test('stops a pending program on timeout and abort', async () => {
   //given
   const controller = new AbortController()
-  const pending = evaluateTodoCode('export default async () => await new Promise(() => {})', api, '/tmp', undefined, 1)
-  const aborted = evaluateTodoCode(
-    'export default async () => await new Promise(() => {})',
-    api,
-    '/tmp',
-    controller.signal,
+  const pending = Effect.runPromise(
+    evaluateTodoCode('export default async () => await new Promise(() => {})', api, '/tmp', undefined, 1),
+  )
+  const aborted = Effect.runPromise(
+    evaluateTodoCode('export default async () => await new Promise(() => {})', api, '/tmp', controller.signal),
   )
   const pendingResult = assert.rejects(pending, /timed out after 1ms/)
   const abortedResult = assert.rejects(aborted, /aborted/)

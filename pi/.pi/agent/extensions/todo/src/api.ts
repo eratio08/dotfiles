@@ -11,13 +11,8 @@ import {
   type TodoShowOptions,
   TodoShowOptionsSchema,
 } from './model.ts'
-import {
-  cloneTodos,
-  getNextTodo,
-  reevaluateTodoStates,
-  validateTodoContent,
-  validateTodoGraph,
-} from './state-engine.ts'
+import { cloneTodos, TodoUpdateError } from './state.ts'
+import { getNextTodo, reevaluateTodoStates, validateTodoContent, validateTodoGraph } from './state-engine.ts'
 import type { TodoTransactionDraft } from './store.ts'
 
 interface TodoApi {
@@ -32,6 +27,7 @@ interface TodoApi {
 }
 
 type TodoMutation = 'added' | 'updated' | 'started' | 'completed' | 'omitted' | 'restored' | 'cleared'
+type TodoResult<A> = Result.Result<A, TodoUpdateError>
 
 interface TodoApiOptions {
   readonly draft: TodoTransactionDraft
@@ -39,35 +35,57 @@ interface TodoApiOptions {
   readonly onMutation?: (operation: TodoMutation, count?: number) => void
 }
 
-function invalidInput(name: string): Error {
-  return new Error(`Invalid ${name}.`)
+function todoUpdateError(message: string, cause?: unknown): TodoUpdateError {
+  return new TodoUpdateError({ message, cause })
 }
 
-function decodeInput(input: unknown): TodoInput {
-  const result = Schema.decodeUnknownResult(TodoInputSchema)(input)
-  if (Result.isFailure(result)) throw invalidInput('todo input')
-  return result.success
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }
 
-function decodePatch(patch: unknown): TodoPatch {
-  const result = Schema.decodeUnknownResult(TodoPatchSchema)(patch)
-  if (Result.isFailure(result)) throw invalidInput('todo patch')
-  return result.success
+function tryTodoApi<A>(run: () => A): TodoResult<A> {
+  try {
+    return Result.succeed(run())
+  } catch (cause) {
+    return Result.fail(todoUpdateError(errorMessage(cause), cause))
+  }
 }
 
-function decodeShowOptions(options: unknown): TodoShowOptions {
-  const result = Schema.decodeUnknownResult(TodoShowOptionsSchema)(options ?? {})
-  if (Result.isFailure(result)) throw invalidInput('todo show options')
-  return result.success
+function promiseResult<A>(result: Result.Failure<A, TodoUpdateError>): Promise<never>
+function promiseResult<A>(result: TodoResult<A>): Promise<A>
+function promiseResult<A>(result: TodoResult<A>): Promise<A> {
+  return Result.isFailure(result) ? Promise.reject(result.failure) : Promise.resolve(result.success)
 }
 
-function assertTodoId(id: unknown): asserts id is TodoId {
-  const result = Schema.decodeUnknownResult(TodoIdSchema)(id)
-  if (Result.isFailure(result)) throw new Error(`Invalid todo ID: ${String(id)}.`)
+function decodeTodoValue<A>(decode: () => Result.Result<A, unknown>, invalidMessage: string): TodoResult<A> {
+  const decoded = tryTodoApi(decode)
+  if (Result.isFailure(decoded)) return Result.fail(decoded.failure)
+  return Result.isFailure(decoded.success)
+    ? Result.fail(todoUpdateError(invalidMessage, decoded.success.failure))
+    : Result.succeed(decoded.success.success)
 }
 
-function assertNotAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) throw new Error('Todo transaction was aborted.')
+function decodeInput(input: unknown): TodoResult<TodoInput> {
+  return decodeTodoValue(() => Schema.decodeUnknownResult(TodoInputSchema)(input), 'Invalid todo input.')
+}
+
+function decodePatch(patch: unknown): TodoResult<TodoPatch> {
+  return decodeTodoValue(() => Schema.decodeUnknownResult(TodoPatchSchema)(patch), 'Invalid todo patch.')
+}
+
+function decodeShowOptions(options: unknown): TodoResult<TodoShowOptions> {
+  return decodeTodoValue(
+    () => Schema.decodeUnknownResult(TodoShowOptionsSchema)(options ?? {}),
+    'Invalid todo show options.',
+  )
+}
+
+function assertTodoId(id: unknown): TodoResult<TodoId> {
+  return decodeTodoValue(() => Schema.decodeUnknownResult(TodoIdSchema)(id), `Invalid todo ID: ${String(id)}.`)
+}
+
+function assertNotAborted(signal: AbortSignal | undefined): TodoResult<void> {
+  return signal?.aborted ? Result.fail(todoUpdateError('Todo transaction was aborted.')) : Result.succeed(undefined)
 }
 
 function withDetails(todo: Todo, details: string | undefined): Todo {
@@ -77,63 +95,103 @@ function withDetails(todo: Todo, details: string | undefined): Todo {
     : { ...withoutDetails, dependsOn: [...todo.dependsOn], details }
 }
 
-function commitDraft(draft: TodoTransactionDraft, todos: readonly Todo[]): Todo[] {
-  const error = validateTodoGraph(todos)
-  if (error) throw new Error(error)
-  const next = reevaluateTodoStates(todos)
-  draft.replace(next)
-  return cloneTodos(next)
+function commitDraft(draft: TodoTransactionDraft, todos: readonly Todo[]): TodoResult<Todo[]> {
+  const validation = tryTodoApi(() => validateTodoGraph(todos))
+  if (Result.isFailure(validation)) return Result.fail(validation.failure)
+  if (validation.success) return Result.fail(todoUpdateError(validation.success))
+
+  return tryTodoApi(() => {
+    const next = reevaluateTodoStates(todos)
+    draft.replace(next)
+    return cloneTodos(next)
+  })
 }
 
-function findTodo(todos: readonly Todo[], id: TodoId): Todo {
+function findTodo(todos: readonly Todo[], id: TodoId): TodoResult<Todo> {
   const todo = todos.find((candidate) => candidate.id === id)
-  if (!todo) throw new Error(`Unknown todo ID: ${id}.`)
-  return todo
+  return todo ? Result.succeed(todo) : Result.fail(todoUpdateError(`Unknown todo ID: ${id}.`))
+}
+
+function generateTodoId(existingIds: ReadonlySet<string>): TodoResult<TodoId> {
+  let idResult = tryTodoApi(randomUUIDv7)
+  if (Result.isFailure(idResult)) return idResult
+  let id = idResult.success
+  for (let attempt = 0; attempt < 100 && existingIds.has(id); attempt += 1) {
+    idResult = tryTodoApi(randomUUIDv7)
+    if (Result.isFailure(idResult)) return idResult
+    id = idResult.success
+  }
+  return existingIds.has(id)
+    ? Result.fail(todoUpdateError('Cannot add todo: failed to generate a unique UUID.'))
+    : Result.succeed(id)
+}
+
+function recordMutation(
+  onMutation: TodoApiOptions['onMutation'],
+  operation: TodoMutation,
+  count?: number,
+): TodoResult<void> {
+  return onMutation ? tryTodoApi(() => onMutation(operation, count)) : Result.succeed(undefined)
 }
 
 function createTodoApi({ draft, signal, onMutation }: TodoApiOptions): TodoApi {
-  const add = async (input: TodoInput): Promise<Todo> => {
-    assertNotAborted(signal)
-    const value = decodeInput(input)
+  const add = (input: unknown): Promise<Todo> => {
+    const aborted = assertNotAborted(signal)
+    if (Result.isFailure(aborted)) return promiseResult(aborted)
+    const valueResult = decodeInput(input)
+    if (Result.isFailure(valueResult)) return promiseResult(valueResult)
+    const value = valueResult.success
     const content = value.content.trim()
     const contentError = validateTodoContent(content)
-    if (contentError) throw new Error(contentError)
+    if (contentError) return promiseResult(Result.fail(todoUpdateError(contentError)))
 
-    const current = draft.snapshot()
+    const currentResult = tryTodoApi(() => draft.snapshot())
+    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
+    const current = currentResult.success
     const dependencies = [...(value.dependsOn ?? [])]
     const existingIds = new Set(current.map((todo) => todo.id))
     for (const dependency of dependencies) {
       if (!existingIds.has(dependency)) {
-        throw new Error(`Cannot add todo: unknown dependency ID ${dependency}.`)
+        return promiseResult(Result.fail(todoUpdateError(`Cannot add todo: unknown dependency ID ${dependency}.`)))
       }
     }
 
-    let id = randomUUIDv7()
-    for (let attempt = 0; attempt < 100 && existingIds.has(id); attempt += 1) {
-      id = randomUUIDv7()
-    }
-    if (existingIds.has(id)) throw new Error('Cannot add todo: failed to generate a unique UUID.')
-
+    const idResult = generateTodoId(existingIds)
+    if (Result.isFailure(idResult)) return promiseResult(idResult)
     const todo: Todo = {
-      id,
+      id: idResult.success,
       content,
       status: 'pending',
       dependsOn: dependencies,
       ...(value.details === undefined ? {} : { details: value.details }),
     }
-    const next = commitDraft(draft, [...current, todo])
-    onMutation?.('added')
-    return cloneTodos([findTodo(next, id)])[0] as Todo
+    const nextResult = commitDraft(draft, [...current, todo])
+    if (Result.isFailure(nextResult)) return promiseResult(nextResult)
+    const mutation = recordMutation(onMutation, 'added')
+    if (Result.isFailure(mutation)) return promiseResult(mutation)
+    const created = findTodo(nextResult.success, idResult.success)
+    if (Result.isFailure(created)) return promiseResult(created)
+    return promiseResult(tryTodoApi(() => cloneTodos([created.success])[0] as Todo))
   }
 
-  const update = async (id: TodoId, patch: TodoPatch): Promise<Todo> => {
-    assertNotAborted(signal)
-    assertTodoId(id)
-    const value = decodePatch(patch)
-    const current = draft.snapshot()
-    const existing = findTodo(current, id)
+  const update = (id: unknown, patch: unknown): Promise<Todo> => {
+    const aborted = assertNotAborted(signal)
+    if (Result.isFailure(aborted)) return promiseResult(aborted)
+    const todoIdResult = assertTodoId(id)
+    if (Result.isFailure(todoIdResult)) return promiseResult(todoIdResult)
+    const valueResult = decodePatch(patch)
+    if (Result.isFailure(valueResult)) return promiseResult(valueResult)
+    const currentResult = tryTodoApi(() => draft.snapshot())
+    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
+    const current = currentResult.success
+    const existingResult = findTodo(current, todoIdResult.success)
+    if (Result.isFailure(existingResult)) return promiseResult(existingResult)
+    const existing = existingResult.success
+    const value = valueResult.success
     if (existing.status === 'completed' && Object.hasOwn(value, 'dependsOn')) {
-      throw new Error(`Cannot change dependencies for completed todo ${id}.`)
+      return promiseResult(
+        Result.fail(todoUpdateError(`Cannot change dependencies for completed todo ${todoIdResult.success}.`)),
+      )
     }
 
     let content = existing.content
@@ -142,107 +200,171 @@ function createTodoApi({ draft, signal, onMutation }: TodoApiOptions): TodoApi {
     if (Object.hasOwn(value, 'content')) {
       content = value.content?.trim() ?? ''
       const contentError = validateTodoContent(content)
-      if (contentError) throw new Error(`Cannot update todo ${id}: ${contentError}`)
+      if (contentError) {
+        return promiseResult(
+          Result.fail(todoUpdateError(`Cannot update todo ${todoIdResult.success}: ${contentError}`)),
+        )
+      }
     }
-    if (Object.hasOwn(value, 'details')) {
-      details = value.details === null ? undefined : value.details
-    }
-    if (Object.hasOwn(value, 'dependsOn')) {
-      dependsOn = [...(value.dependsOn ?? [])]
-    }
+    if (Object.hasOwn(value, 'details')) details = value.details === null ? undefined : value.details
+    if (Object.hasOwn(value, 'dependsOn')) dependsOn = [...(value.dependsOn ?? [])]
 
     const nextTodo = withDetails({ ...existing, content, dependsOn }, details)
-    const next = commitDraft(
+    const nextResult = commitDraft(
       draft,
-      current.map((todo) => (todo.id === id ? nextTodo : todo)),
+      current.map((todo) => (todo.id === todoIdResult.success ? nextTodo : todo)),
     )
-    onMutation?.('updated')
-    return cloneTodos([findTodo(next, id)])[0] as Todo
+    if (Result.isFailure(nextResult)) return promiseResult(nextResult)
+    const mutation = recordMutation(onMutation, 'updated')
+    if (Result.isFailure(mutation)) return promiseResult(mutation)
+    const updated = findTodo(nextResult.success, todoIdResult.success)
+    if (Result.isFailure(updated)) return promiseResult(updated)
+    return promiseResult(tryTodoApi(() => cloneTodos([updated.success])[0] as Todo))
   }
 
-  const show = async (options?: TodoShowOptions): Promise<readonly Todo[]> => {
-    assertNotAborted(signal)
-    const value = decodeShowOptions(options)
-    const current = draft.snapshot()
+  const show = (options: unknown): Promise<readonly Todo[]> => {
+    const aborted = assertNotAborted(signal)
+    if (Result.isFailure(aborted)) return promiseResult(aborted)
+    const valueResult = decodeShowOptions(options)
+    if (Result.isFailure(valueResult)) return promiseResult(valueResult)
+    const currentResult = tryTodoApi(() => draft.snapshot())
+    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
+    const current = currentResult.success
+    const value = valueResult.success
     if (!value.ids || value.ids.length === 0) {
-      return cloneTodos(current).map((todo) => (value.includeDetails ? todo : withDetails(todo, undefined)))
+      return promiseResult(
+        tryTodoApi(() =>
+          cloneTodos(current).map((todo) => (value.includeDetails ? todo : withDetails(todo, undefined))),
+        ),
+      )
     }
 
-    const selected = value.ids.map((id) => findTodo(current, id))
-    return cloneTodos(selected).map((todo) => (value.includeDetails ? todo : withDetails(todo, undefined)))
+    const selected: Todo[] = []
+    for (const id of value.ids) {
+      const todo = findTodo(current, id)
+      if (Result.isFailure(todo)) return promiseResult(todo)
+      selected.push(todo.success)
+    }
+    return promiseResult(
+      tryTodoApi(() =>
+        selected.map((todo) => (value.includeDetails ? cloneTodos([todo])[0] : withDetails(todo, undefined))),
+      ),
+    )
   }
 
-  const next = async (): Promise<Todo> => {
-    assertNotAborted(signal)
-    const current = draft.snapshot()
+  const next = (): Promise<Todo> => {
+    const aborted = assertNotAborted(signal)
+    if (Result.isFailure(aborted)) return promiseResult(aborted)
+    const currentResult = tryTodoApi(() => draft.snapshot())
+    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
+    const current = currentResult.success
     const active = current.find((todo) => todo.status === 'in_progress')
-    if (active) throw new Error(`Cannot start next todo: "${active.content}" (${active.id}) is already active.`)
-
+    if (active) {
+      return promiseResult(
+        Result.fail(todoUpdateError(`Cannot start next todo: "${active.content}" (${active.id}) is already active.`)),
+      )
+    }
     const ready = getNextTodo(current)
-    if (!ready) throw new Error('No todo is ready.')
-
-    const next = commitDraft(
+    if (!ready) return promiseResult(Result.fail(todoUpdateError('No todo is ready.')))
+    const nextResult = commitDraft(
       draft,
       current.map((todo) => (todo.id === ready.id ? { ...todo, status: 'in_progress' as const } : todo)),
     )
-    onMutation?.('started')
-    return cloneTodos([findTodo(next, ready.id)])[0] as Todo
+    if (Result.isFailure(nextResult)) return promiseResult(nextResult)
+    const mutation = recordMutation(onMutation, 'started')
+    if (Result.isFailure(mutation)) return promiseResult(mutation)
+    const started = findTodo(nextResult.success, ready.id)
+    if (Result.isFailure(started)) return promiseResult(started)
+    return promiseResult(tryTodoApi(() => cloneTodos([started.success])[0] as Todo))
   }
 
-  const complete = async (): Promise<Todo> => {
-    assertNotAborted(signal)
-    const current = draft.snapshot()
+  const complete = (): Promise<Todo> => {
+    const aborted = assertNotAborted(signal)
+    if (Result.isFailure(aborted)) return promiseResult(aborted)
+    const currentResult = tryTodoApi(() => draft.snapshot())
+    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
+    const current = currentResult.success
     const active = current.find((todo) => todo.status === 'in_progress')
-    if (!active) throw new Error('No active todo is available to complete.')
-
-    const next = commitDraft(
+    if (!active) return promiseResult(Result.fail(todoUpdateError('No active todo is available to complete.')))
+    const nextResult = commitDraft(
       draft,
       current.map((todo) => (todo.id === active.id ? { ...todo, status: 'completed' as const } : todo)),
     )
-    onMutation?.('completed')
-    return cloneTodos([findTodo(next, active.id)])[0] as Todo
+    if (Result.isFailure(nextResult)) return promiseResult(nextResult)
+    const mutation = recordMutation(onMutation, 'completed')
+    if (Result.isFailure(mutation)) return promiseResult(mutation)
+    const completed = findTodo(nextResult.success, active.id)
+    if (Result.isFailure(completed)) return promiseResult(completed)
+    return promiseResult(tryTodoApi(() => cloneTodos([completed.success])[0] as Todo))
   }
 
-  const omit = async (id: TodoId): Promise<Todo> => {
-    assertNotAborted(signal)
-    assertTodoId(id)
-    const current = draft.snapshot()
-    const existing = findTodo(current, id)
+  const omit = (id: unknown): Promise<Todo> => {
+    const aborted = assertNotAborted(signal)
+    if (Result.isFailure(aborted)) return promiseResult(aborted)
+    const todoIdResult = assertTodoId(id)
+    if (Result.isFailure(todoIdResult)) return promiseResult(todoIdResult)
+    const currentResult = tryTodoApi(() => draft.snapshot())
+    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
+    const current = currentResult.success
+    const existingResult = findTodo(current, todoIdResult.success)
+    if (Result.isFailure(existingResult)) return promiseResult(existingResult)
+    const existing = existingResult.success
     if (existing.status === 'completed' || existing.status === 'omitted') {
-      throw new Error(`Cannot omit todo ${id} with status ${existing.status}.`)
+      return promiseResult(
+        Result.fail(todoUpdateError(`Cannot omit todo ${todoIdResult.success} with status ${existing.status}.`)),
+      )
     }
-
-    const next = commitDraft(
+    const nextResult = commitDraft(
       draft,
-      current.map((todo) => (todo.id === id ? { ...todo, status: 'omitted' as const } : todo)),
+      current.map((todo) => (todo.id === todoIdResult.success ? { ...todo, status: 'omitted' as const } : todo)),
     )
-    onMutation?.('omitted')
-    return cloneTodos([findTodo(next, id)])[0] as Todo
+    if (Result.isFailure(nextResult)) return promiseResult(nextResult)
+    const mutation = recordMutation(onMutation, 'omitted')
+    if (Result.isFailure(mutation)) return promiseResult(mutation)
+    const omitted = findTodo(nextResult.success, todoIdResult.success)
+    if (Result.isFailure(omitted)) return promiseResult(omitted)
+    return promiseResult(tryTodoApi(() => cloneTodos([omitted.success])[0] as Todo))
   }
 
-  const restore = async (id: TodoId): Promise<Todo> => {
-    assertNotAborted(signal)
-    assertTodoId(id)
-    const current = draft.snapshot()
-    const existing = findTodo(current, id)
+  const restore = (id: unknown): Promise<Todo> => {
+    const aborted = assertNotAborted(signal)
+    if (Result.isFailure(aborted)) return promiseResult(aborted)
+    const todoIdResult = assertTodoId(id)
+    if (Result.isFailure(todoIdResult)) return promiseResult(todoIdResult)
+    const currentResult = tryTodoApi(() => draft.snapshot())
+    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
+    const current = currentResult.success
+    const existingResult = findTodo(current, todoIdResult.success)
+    if (Result.isFailure(existingResult)) return promiseResult(existingResult)
+    const existing = existingResult.success
     if (existing.status !== 'omitted') {
-      throw new Error(`Cannot restore todo ${id} with status ${existing.status}.`)
+      return promiseResult(
+        Result.fail(todoUpdateError(`Cannot restore todo ${todoIdResult.success} with status ${existing.status}.`)),
+      )
     }
-
-    const next = commitDraft(
+    const nextResult = commitDraft(
       draft,
-      current.map((todo) => (todo.id === id ? { ...todo, status: 'pending' as const } : todo)),
+      current.map((todo) => (todo.id === todoIdResult.success ? { ...todo, status: 'pending' as const } : todo)),
     )
-    onMutation?.('restored')
-    return cloneTodos([findTodo(next, id)])[0] as Todo
+    if (Result.isFailure(nextResult)) return promiseResult(nextResult)
+    const mutation = recordMutation(onMutation, 'restored')
+    if (Result.isFailure(mutation)) return promiseResult(mutation)
+    const restored = findTodo(nextResult.success, todoIdResult.success)
+    if (Result.isFailure(restored)) return promiseResult(restored)
+    return promiseResult(tryTodoApi(() => cloneTodos([restored.success])[0] as Todo))
   }
 
-  const clear = async (): Promise<{ readonly cleared: number }> => {
-    assertNotAborted(signal)
-    const cleared = draft.snapshot().length
-    draft.replace([])
-    onMutation?.('cleared', cleared)
-    return { cleared }
+  const clear = (): Promise<{ readonly cleared: number }> => {
+    const aborted = assertNotAborted(signal)
+    if (Result.isFailure(aborted)) return promiseResult(aborted)
+    const currentResult = tryTodoApi(() => draft.snapshot())
+    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
+    const cleared = currentResult.success.length
+    const replaced = tryTodoApi(() => draft.replace([]))
+    if (Result.isFailure(replaced)) return promiseResult(replaced)
+    const mutation = recordMutation(onMutation, 'cleared', cleared)
+    if (Result.isFailure(mutation)) return promiseResult(mutation)
+    return Promise.resolve({ cleared })
   }
 
   return { add, update, show, next, complete, omit, restore, clear }

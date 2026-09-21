@@ -176,6 +176,7 @@ function extractLatestTodoSnapshot(entries: readonly unknown[]): Todo[] {
 
 class TodoUpdateError extends Schema.TaggedError<TodoUpdateError>()('TodoUpdateError', {
   message: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
 }) {}
 
 export {

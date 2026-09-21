@@ -36,7 +36,7 @@ class TodoStore extends Context.Service<
     readonly restore: (entries: readonly unknown[]) => Effect.Effect<readonly Todo[]>
     readonly replace: (next: readonly Todo[]) => Effect.Effect<readonly Todo[], TodoUpdateError>
     readonly transact: <A>(
-      run: (draft: TodoTransactionDraft) => Promise<A>,
+      run: (draft: TodoTransactionDraft, signal: AbortSignal) => Effect.Effect<A, TodoUpdateError>,
       signal?: AbortSignal,
     ) => Effect.Effect<TodoTransactionResult<A>, TodoUpdateError>
     readonly isSuspended: Effect.Effect<boolean>
@@ -77,7 +77,10 @@ class TodoStore extends Context.Service<
           }),
         )
 
-      const transact = <A>(run: (draft: TodoTransactionDraft) => Promise<A>, signal?: AbortSignal) =>
+      const transact = <A>(
+        run: (draft: TodoTransactionDraft, signal: AbortSignal) => Effect.Effect<A, TodoUpdateError>,
+        signal?: AbortSignal,
+      ) =>
         withLock(
           Effect.gen(function* () {
             if (signal?.aborted) {
@@ -92,13 +95,30 @@ class TodoStore extends Context.Service<
                 draftTodos = cloneTodos(todos)
               },
             }
-            const value = yield* Effect.tryPromise({
-              try: () => run(draft),
+            const controller = new AbortController()
+            const abort = (cause: unknown): void => {
+              if (!controller.signal.aborted) controller.abort(cause)
+            }
+            const abortFromCaller = (): void => abort(signal?.reason)
+            const cleanup = (): void => signal?.removeEventListener('abort', abortFromCaller)
+            signal?.addEventListener('abort', abortFromCaller, { once: true })
+            if (signal?.aborted) abortFromCaller()
+            const transactionSignal = controller.signal
+            const transaction = Effect.try({
+              try: () => run(draft, transactionSignal),
               catch: (cause) =>
-                new TodoUpdateError({ message: cause instanceof Error ? cause.message : String(cause) }),
-            })
+                new TodoUpdateError({
+                  message: cause instanceof Error ? cause.message : String(cause),
+                  cause,
+                }),
+            }).pipe(
+              Effect.flatten,
+              Effect.onInterrupt(() => Effect.sync(() => abort(undefined))),
+              Effect.ensuring(Effect.sync(cleanup)),
+            )
+            const value = yield* transaction
 
-            if (signal?.aborted) {
+            if (signal?.aborted || transactionSignal.aborted) {
               return yield* Effect.fail(new TodoUpdateError({ message: 'Todo transaction was aborted.' }))
             }
             const error = validateTodoGraph(draftTodos)

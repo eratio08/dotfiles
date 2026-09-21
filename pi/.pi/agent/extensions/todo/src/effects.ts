@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
-import { Context, Effect, Layer, Result, Schema } from 'effect'
+import { Context, Effect, Layer, Result, Schema, Semaphore } from 'effect'
 import { createTodoApi } from './api.ts'
 import { evaluateTodoCode, formatTodoCodeOutput, type TodoCodeDetails } from './evaluator.ts'
-import { cloneTodos, formatTodoContext, TODO_STATE_ENTRY, type Todo } from './state.ts'
+import { cloneTodos, formatTodoContext, TODO_STATE_ENTRY, type Todo, TodoUpdateError } from './state.ts'
 import { TodoStore } from './store.ts'
 
 const TODO_TOOL_NAME = 'todo'
 const PLANNOTATOR_REQUEST_CHANNEL = 'plannotator:request'
+const PLANNOTATOR_REQUEST_TIMEOUT_MS = 250
 const SUSPENDED_TODO_ERROR = 'Todo tracking is disabled while Plannotator executes the approved plan.'
 
 const PlannotatorPhaseSchema = Schema.Literals(['idle', 'planning', 'executing'])
@@ -27,11 +28,12 @@ const PlannotatorStatusResponseSchema = Schema.Union([
 ])
 
 type PlannotatorPhase = (typeof PlannotatorPhaseSchema)['Type']
+type PlannotatorStatusResponse = (typeof PlannotatorStatusResponseSchema)['Type']
 type PlannotatorStatusRequest = {
   requestId: string
   action: 'plan-mode'
   payload: { mode: 'status' }
-  respond: (response: unknown) => void
+  respond: (response: PlannotatorStatusResponse) => void
 }
 
 type TodoCompactionEvent = {
@@ -91,14 +93,33 @@ class TodoContext extends Context.Service<TodoContext, ExtensionContext>()('todo
 
 class TodoPi extends Context.Service<TodoPi, ExtensionAPI>()('todo/Pi') {}
 
-class TodoStatusRequestVersion extends Context.Service<TodoStatusRequestVersion, { value: number }>()(
-  'todo/StatusRequestVersion',
-) {}
+class TodoStatusRequestVersion extends Context.Service<
+  TodoStatusRequestVersion,
+  { value: number; phaseLock: Semaphore.Semaphore }
+>()('todo/StatusRequestVersion') {}
 
 class TodoUiError extends Schema.TaggedError<TodoUiError>()('TodoUiError', {
   operation: Schema.String,
   message: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
 }) {}
+
+function todoHostError(operation: string, cause: unknown): TodoUiError {
+  const message =
+    cause instanceof Error
+      ? cause.message
+      : typeof cause === 'object' && cause !== null && 'message' in cause && typeof cause.message === 'string'
+        ? cause.message
+        : String(cause)
+  return new TodoUiError({ operation, message, cause })
+}
+
+function tryTodoHost<A>(operation: string, run: () => A): Effect.Effect<A, TodoUiError> {
+  return Effect.try({
+    try: run,
+    catch: (cause) => todoHostError(operation, cause),
+  })
+}
 
 class TodoUi extends Context.Service<
   TodoUi,
@@ -112,11 +133,23 @@ const suspendTracking = Effect.fnUntraced(function* (): Effect.fn.Return<void, T
   const pi = yield* TodoPi
   const store = yield* TodoStore
   const ui = yield* TodoUi
-  const activeTools = yield* Effect.sync(() => pi.getActiveTools())
+  const activeTools = yield* tryTodoHost('get-active-tools', () => pi.getActiveTools())
   const wasActiveBeforeSuspend = activeTools.includes(TODO_TOOL_NAME)
   const changed = yield* store.suspend(wasActiveBeforeSuspend)
   if (changed && wasActiveBeforeSuspend) {
-    yield* Effect.sync(() => pi.setActiveTools(activeTools.filter((toolName) => toolName !== TODO_TOOL_NAME)))
+    const updated = yield* Effect.match(
+      tryTodoHost('set-active-tools', () =>
+        pi.setActiveTools(activeTools.filter((toolName) => toolName !== TODO_TOOL_NAME)),
+      ),
+      {
+        onFailure: (error) => ({ error }),
+        onSuccess: () => ({ success: true as const }),
+      },
+    )
+    if ('error' in updated) {
+      yield* store.resume
+      return yield* Effect.fail(updated.error)
+    }
   }
   yield* ui.update([], true)
 })
@@ -129,9 +162,19 @@ const resumeTracking = Effect.fnUntraced(function* (): Effect.fn.Return<void, To
   if (!result.resumed) return
 
   if (result.wasActiveBeforeSuspend) {
-    const activeTools = yield* Effect.sync(() => pi.getActiveTools())
+    const activeTools = yield* tryTodoHost('get-active-tools', () => pi.getActiveTools())
     if (!activeTools.includes(TODO_TOOL_NAME)) {
-      yield* Effect.sync(() => pi.setActiveTools([...activeTools, TODO_TOOL_NAME]))
+      const updated = yield* Effect.match(
+        tryTodoHost('set-active-tools', () => pi.setActiveTools([...activeTools, TODO_TOOL_NAME])),
+        {
+          onFailure: (error) => ({ error }),
+          onSuccess: () => ({ success: true as const }),
+        },
+      )
+      if ('error' in updated) {
+        yield* store.suspend(result.wasActiveBeforeSuspend)
+        return yield* Effect.fail(updated.error)
+      }
     }
   }
   yield* ui.update(result.todos)
@@ -139,20 +182,28 @@ const resumeTracking = Effect.fnUntraced(function* (): Effect.fn.Return<void, To
 
 const reconcilePhase = Effect.fnUntraced(function* (
   phase: PlannotatorPhase,
+  version: number,
 ): Effect.fn.Return<void, TodoUiError, TodoEffectsRequirements> {
-  if (phase === 'executing') {
-    yield* suspendTracking()
-    return
-  }
-  yield* resumeTracking()
+  const statusRequestVersion = yield* TodoStatusRequestVersion
+  yield* Semaphore.withPermit(statusRequestVersion.phaseLock)(
+    Effect.gen(function* () {
+      if (version !== statusRequestVersion.value) return
+      if (phase === 'executing') {
+        yield* suspendTracking()
+        return
+      }
+      yield* resumeTracking()
+    }),
+  )
 })
 
 const handleResponse = Effect.fnUntraced(function* (
   response: unknown,
+  version: number,
 ): Effect.fn.Return<void, TodoUiError, TodoEffectsRequirements> {
   const result = Schema.decodeUnknownResult(PlannotatorStatusResponseSchema)(response)
   if (Result.isFailure(result) || result.success.status !== 'handled') return
-  yield* reconcilePhase(result.success.result.phase)
+  yield* reconcilePhase(result.success.result.phase, version)
 })
 
 const requestPlannotatorPhase = Effect.fnUntraced(function* (): Effect.fn.Return<
@@ -165,18 +216,22 @@ const requestPlannotatorPhase = Effect.fnUntraced(function* (): Effect.fn.Return
   return yield* Effect.callback<void, TodoUiError, TodoEffectsRequirements>((resume, signal) => {
     const version = ++statusRequestVersion.value
     let settled = false
-    const abort = () => {
-      settled = true
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    const cleanup = (): void => {
+      if (timeout !== undefined) clearTimeout(timeout)
       signal.removeEventListener('abort', abort)
     }
-    signal.addEventListener('abort', abort, { once: true })
-
+    const abort = (): void => {
+      settled = true
+      cleanup()
+    }
     const finish = (effect: Effect.Effect<void, TodoUiError, TodoEffectsRequirements> = Effect.void): void => {
       if (settled) return
       settled = true
-      signal.removeEventListener('abort', abort)
+      cleanup()
       resume(effect)
     }
+    signal.addEventListener('abort', abort, { once: true })
 
     const request: PlannotatorStatusRequest = {
       requestId: randomUUID(),
@@ -187,17 +242,21 @@ const requestPlannotatorPhase = Effect.fnUntraced(function* (): Effect.fn.Return
           finish()
           return
         }
-        finish(handleResponse(response))
+        finish(handleResponse(response, version))
       },
     }
     if (!signal.aborted) {
-      pi.events.emit(PLANNOTATOR_REQUEST_CHANNEL, request)
-      queueMicrotask(() => finish())
+      timeout = setTimeout(() => finish(), PLANNOTATOR_REQUEST_TIMEOUT_MS)
+      try {
+        pi.events.emit(PLANNOTATOR_REQUEST_CHANNEL, request)
+      } catch (cause) {
+        finish(Effect.fail(todoHostError('emit-plannotator-request', cause)))
+      }
     }
 
     return Effect.sync(() => {
       settled = true
-      signal.removeEventListener('abort', abort)
+      cleanup()
     })
   })
 })
@@ -228,7 +287,7 @@ const syncFromSession = Effect.fnUntraced(function* (
   const store = yield* TodoStore
   const ui = yield* TodoUi
   const previous = preserveOpenTasks ? yield* store.snapshot : []
-  const entries = yield* Effect.sync(() => ctx.sessionManager.getBranch())
+  const entries = yield* tryTodoHost('get-session-branch', () => ctx.sessionManager.getBranch())
   const restored = yield* store.restore(entries)
   const hasSnapshot = entries.some(
     (entry) =>
@@ -247,7 +306,9 @@ const syncFromSession = Effect.fnUntraced(function* (
       onSuccess: (value) => ({ value }),
     })
     if ('error' in replacement) {
-      return yield* Effect.fail(new TodoUiError({ operation: 'restore', message: replacement.error.message }))
+      return yield* Effect.fail(
+        new TodoUiError({ operation: 'restore', message: replacement.error.message, cause: replacement.error }),
+      )
     }
     todos = replacement.value
   }
@@ -258,10 +319,26 @@ const syncFromSession = Effect.fnUntraced(function* (
       display: false,
       details: { todos: cloneTodos(carried) },
     }
-    yield* Effect.sync(() => {
-      pi.appendEntry(TODO_STATE_ENTRY, { todos: cloneTodos(carried) })
-      pi.sendMessage(message, { triggerTurn: false })
-    })
+    const persisted = yield* Effect.match(
+      tryTodoHost('append-entry', () => pi.appendEntry(TODO_STATE_ENTRY, { todos: cloneTodos(carried) })),
+      {
+        onFailure: (error) => ({ error }),
+        onSuccess: () => ({ success: true as const }),
+      },
+    )
+    if ('error' in persisted) {
+      const rollback = yield* Effect.match(store.replace(restored), {
+        onFailure: (error) => ({ error }),
+        onSuccess: () => ({ success: true as const }),
+      })
+      if ('error' in rollback) {
+        return yield* Effect.fail(
+          new TodoUiError({ operation: 'restore-rollback', message: rollback.error.message, cause: rollback.error }),
+        )
+      }
+      return yield* Effect.fail(persisted.error)
+    }
+    yield* tryTodoHost('send-message', () => pi.sendMessage(message, { triggerTurn: false }))
   }
   const suspended = yield* store.isSuspended
   yield* ui.update(todos, suspended)
@@ -270,7 +347,6 @@ const syncFromSession = Effect.fnUntraced(function* (
 
 const executeTodo = Effect.fnUntraced(function* (
   params: TodoProgramParams,
-  signal?: AbortSignal,
 ): Effect.fn.Return<TodoToolResult, TodoUiError, TodoEffectsRequirements> {
   const ctx = yield* TodoContext
   const pi = yield* TodoPi
@@ -280,25 +356,52 @@ const executeTodo = Effect.fnUntraced(function* (
     return yield* Effect.fail(new TodoUiError({ operation: 'execute', message: SUSPENDED_TODO_ERROR }))
   }
 
+  const before = yield* store.snapshot
   const collector = createTodoOperationSummary()
   const outcome = yield* Effect.match(
-    store.transact(async (draft) => {
+    store.transact((draft, signal) => {
       const api = createTodoApi({ draft, signal, onMutation: collector.record })
-      const value = await evaluateTodoCode(params.code, api, ctx.cwd, signal)
-      return formatTodoCodeOutput(value)
-    }, signal),
+      return evaluateTodoCode(params.code, api, ctx.cwd, signal).pipe(
+        Effect.map(formatTodoCodeOutput),
+        Effect.mapError((error) => new TodoUpdateError({ message: error.message, cause: error })),
+      )
+    }),
     {
-      onFailure: (error) => ({ error: error.message }),
+      onFailure: (error) => ({ error }),
       onSuccess: (result) => ({ result }),
     },
   )
   if ('error' in outcome) {
-    return yield* Effect.fail(new TodoUiError({ operation: 'execute', message: outcome.error }))
+    return yield* Effect.fail(
+      new TodoUiError({
+        operation: 'execute',
+        message: outcome.error.message,
+        cause: outcome.error.cause ?? outcome.error,
+      }),
+    )
   }
 
   const submittedCode = formatTodoCodeOutput(params.code, 'Code')
   if (outcome.result.changed) {
-    yield* Effect.sync(() => pi.appendEntry(TODO_STATE_ENTRY, { todos: cloneTodos(outcome.result.todos) }))
+    const persisted = yield* Effect.match(
+      tryTodoHost('append-entry', () => pi.appendEntry(TODO_STATE_ENTRY, { todos: cloneTodos(outcome.result.todos) })),
+      {
+        onFailure: (error) => ({ error }),
+        onSuccess: () => ({ success: true as const }),
+      },
+    )
+    if ('error' in persisted) {
+      const rollback = yield* Effect.match(store.replace(before), {
+        onFailure: (error) => ({ error }),
+        onSuccess: () => ({ success: true as const }),
+      })
+      if ('error' in rollback) {
+        return yield* Effect.fail(
+          new TodoUiError({ operation: 'execute-rollback', message: rollback.error.message, cause: rollback.error }),
+        )
+      }
+      return yield* Effect.fail(persisted.error)
+    }
     yield* ui.update(outcome.result.todos)
   }
   return {
@@ -335,22 +438,20 @@ const handleCompaction = Effect.fnUntraced(function* (
   const todos = yield* store.snapshot
   if (todos.length === 0) return
 
-  yield* Effect.sync(() => pi.appendEntry(TODO_STATE_ENTRY, { todos: cloneTodos(todos) }))
+  yield* tryTodoHost('append-entry', () => pi.appendEntry(TODO_STATE_ENTRY, { todos: cloneTodos(todos) }))
   const message = {
     customType: 'todo',
     content: formatTodoContext(todos),
     display: false,
     details: { todos: cloneTodos(todos) },
   }
-  yield* Effect.sync(() => {
-    if (event.willRetry) {
-      pi.sendMessage(message, { deliverAs: 'steer' })
-    } else if (ctx.isIdle()) {
-      pi.sendMessage(message, { triggerTurn: false })
-    } else {
-      pi.sendMessage(message, { deliverAs: 'nextTurn' })
-    }
-  })
+  if (event.willRetry) {
+    yield* tryTodoHost('send-message', () => pi.sendMessage(message, { deliverAs: 'steer' }))
+  } else if (yield* tryTodoHost('is-idle', () => ctx.isIdle())) {
+    yield* tryTodoHost('send-message', () => pi.sendMessage(message, { triggerTurn: false }))
+  } else {
+    yield* tryTodoHost('send-message', () => pi.sendMessage(message, { deliverAs: 'nextTurn' }))
+  }
 })
 
 const showTodos = Effect.fnUntraced(function* (): Effect.fn.Return<void, TodoUiError, TodoEffectsRequirements> {
@@ -359,7 +460,7 @@ const showTodos = Effect.fnUntraced(function* (): Effect.fn.Return<void, TodoUiE
   const ui = yield* TodoUi
   yield* requestPlannotatorPhase()
   if (yield* store.isSuspended) {
-    yield* Effect.sync(() => ctx.ui.notify(SUSPENDED_TODO_ERROR, 'info'))
+    yield* tryTodoHost('notify', () => ctx.ui.notify(SUSPENDED_TODO_ERROR, 'info'))
     return
   }
 
@@ -379,7 +480,6 @@ class TodoEffects extends Context.Service<
     readonly requestPlannotatorPhase: () => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
     readonly executeTodo: (
       params: TodoProgramParams,
-      signal?: AbortSignal,
     ) => Effect.Effect<TodoToolResult, TodoUiError, TodoEffectsRequirements>
     readonly handleAgentEnd: () => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
     readonly handleCompaction: (event: TodoCompactionEvent) => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>

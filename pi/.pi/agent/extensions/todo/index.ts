@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext, Theme, ToolResultEvent } from '@earendil-works/pi-coding-agent'
 import { keyHint } from '@earendil-works/pi-coding-agent'
 import { Container, matchesKey, Text, truncateToWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui'
-import { Effect, Layer, ManagedRuntime } from 'effect'
+import { Effect, Layer, ManagedRuntime, Semaphore } from 'effect'
 import { type Static, Type } from 'typebox'
 import {
   TodoContext,
@@ -207,7 +207,7 @@ function updateUi(ctx: ExtensionContext, todos: readonly Todo[], suspended = fal
 }
 
 function toTodoUiError(operation: string, cause: unknown): TodoUiError {
-  return new TodoUiError({ operation, message: String(cause) })
+  return new TodoUiError({ operation, message: String(cause), cause })
 }
 
 const todoUiLayer: Layer.Layer<TodoUi, never, TodoContext> = Layer.effect(
@@ -232,7 +232,7 @@ const todoUiLayer: Layer.Layer<TodoUi, never, TodoContext> = Layer.effect(
 
 function todoExtension(pi: ExtensionAPI): void {
   const runtime = ManagedRuntime.make(TodoStore.layer)
-  const statusRequestVersion = { value: 0 }
+  const statusRequestVersion = { value: 0, phaseLock: Effect.runSync(Semaphore.make(1)) }
   let shuttingDown = false
 
   const run = <A, E>(
@@ -302,7 +302,7 @@ function todoExtension(pi: ExtensionAPI): void {
     parameters: Params,
     executionMode: 'sequential',
     async execute(_toolCallId, params: TodoToolParams, signal, _onUpdate, ctx) {
-      return run((effects) => effects.executeTodo(params as TodoProgramParams, signal), ctx, signal)
+      return run((effects) => effects.executeTodo(params as TodoProgramParams), ctx, signal)
     },
     renderCall(_args, theme, context) {
       const state = (context.state ?? {}) as TodoRendererState

@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.85.1",
+  "lastChangelogVersion": "0.87.0",
   "theme": "rose-pine-moon",
   "defaultProvider": "github-copilot",
   "defaultModel": "gpt-5.6-luna",

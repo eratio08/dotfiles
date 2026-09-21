@@ -1,6 +1,7 @@
 import { resolve } from 'node:path'
 import { type Context, createContext, Script } from 'node:vm'
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, truncateHead } from '@earendil-works/pi-coding-agent'
+import { Effect, Schema } from 'effect'
 import { createJiti } from 'jiti'
 import type { TodoApi } from './api.ts'
 
@@ -66,6 +67,39 @@ interface TodoCodeDetails {
   truncated: boolean
 }
 
+class TodoEvaluationError extends Schema.TaggedError<TodoEvaluationError>()('TodoEvaluationError', {
+  operation: Schema.String,
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+}) {}
+
+function evaluationError(operation: string, cause: unknown): TodoEvaluationError {
+  const message =
+    cause instanceof Error
+      ? cause.message
+      : typeof cause === 'object' && cause !== null && 'message' in cause && typeof cause.message === 'string'
+        ? cause.message
+        : String(cause)
+  return new TodoEvaluationError({ operation, message, cause })
+}
+
+function evaluationFailure(operation: string, message: string, cause?: unknown): TodoEvaluationError {
+  return new TodoEvaluationError({ operation, message, cause })
+}
+
+function tryEvaluation<A>(operation: string, run: () => A): Effect.Effect<A, TodoEvaluationError> {
+  return Effect.try({
+    try: run,
+    catch: (cause) => evaluationError(operation, cause),
+  })
+}
+
+function checkEvaluationAbort(signal: AbortSignal | undefined): Effect.Effect<void, TodoEvaluationError> {
+  return signal?.aborted
+    ? Effect.fail(evaluationFailure('abort', 'todo execution was aborted', signal.reason))
+    : Effect.void
+}
+
 function createTodoCodeSource(code: string): string {
   return `${TODO_CODE_TYPES}\n${code}`
 }
@@ -90,27 +124,50 @@ function createTodoCodeContext(api: TodoApi, module: { exports: TodoCodeModule }
   )
 }
 
-async function waitForTodoCodeResult(
+function waitForTodoCodeResult(
   value: unknown,
   signal: AbortSignal | undefined,
   timeoutMs: number,
-): Promise<unknown> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
-  let abortHandler: (() => void) | undefined
-  try {
-    return await Promise.race([
-      Promise.resolve(value),
-      new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error(`todo execution timed out after ${timeoutMs}ms`)), timeoutMs)
-        abortHandler = () => reject(new Error('todo execution was aborted'))
-        signal?.addEventListener('abort', abortHandler, { once: true })
-        if (signal?.aborted) abortHandler()
+): Effect.Effect<unknown, TodoEvaluationError> {
+  return Effect.tryPromise({
+    try: (effectSignal) =>
+      new Promise<unknown>((resolveValue, reject) => {
+        let settled = false
+        let timeoutId: ReturnType<typeof setTimeout> | undefined
+        const signals: AbortSignal[] = []
+        for (const candidate of [signal, effectSignal]) {
+          if (candidate && !signals.includes(candidate)) signals.push(candidate)
+        }
+        const cleanup = (): void => {
+          if (timeoutId !== undefined) clearTimeout(timeoutId)
+          for (const candidate of signals) candidate.removeEventListener('abort', abort)
+        }
+        const finish = (complete: () => void): void => {
+          if (settled) return
+          settled = true
+          cleanup()
+          complete()
+        }
+        const abort = (): void => {
+          const cause = signal?.reason ?? effectSignal.reason
+          finish(() => reject(evaluationFailure('abort', 'todo execution was aborted', cause)))
+        }
+        timeoutId = setTimeout(
+          () => finish(() => reject(evaluationFailure('timeout', `todo execution timed out after ${timeoutMs}ms`))),
+          timeoutMs,
+        )
+        for (const candidate of signals) candidate.addEventListener('abort', abort, { once: true })
+        if (signals.some((candidate) => candidate.aborted)) {
+          abort()
+          return
+        }
+        Promise.resolve(value).then(
+          (result) => finish(() => resolveValue(result)),
+          (cause) => finish(() => reject(cause)),
+        )
       }),
-    ])
-  } finally {
-    if (timeoutId !== undefined) clearTimeout(timeoutId)
-    if (abortHandler) signal?.removeEventListener('abort', abortHandler)
-  }
+    catch: (cause) => (cause instanceof TodoEvaluationError ? cause : evaluationError('execute', cause)),
+  })
 }
 
 function stringifyTodoCodeValue(value: unknown): string {
@@ -143,33 +200,47 @@ function formatTodoCodeOutput(value: unknown, label = 'Output'): TodoCodeDetails
   return { output: result.content, truncated: result.truncated }
 }
 
-async function evaluateTodoCode(
+const evaluateTodoCode = Effect.fnUntraced(function* (
   code: string,
   api: TodoApi,
   cwd: string,
   signal?: AbortSignal,
   timeoutMs = TODO_CODE_TIMEOUT_MS,
-): Promise<unknown> {
-  todoCodeEvaluationNumber += 1
-  const filename = resolve(cwd, `.pi/todo-${todoCodeEvaluationNumber}.ts`)
-  const transformedCode = todoCodeJiti.transform({
-    source: createTodoCodeSource(code),
-    filename,
-    ts: true,
-    async: true,
-  })
+): Effect.fn.Return<unknown, TodoEvaluationError> {
+  yield* checkEvaluationAbort(signal)
+
+  const filename = yield* tryEvaluation('resolve', () => resolve(cwd, `.pi/todo-${++todoCodeEvaluationNumber}.ts`))
+  const transformedCode = yield* tryEvaluation('transform', () =>
+    todoCodeJiti.transform({
+      source: createTodoCodeSource(code),
+      filename,
+      ts: true,
+      async: true,
+    }),
+  )
   const module = { exports: {} as TodoCodeModule }
-  const context = createTodoCodeContext(api, module)
-  new Script(transformedCode, { filename }).runInContext(context, { timeout: timeoutMs })
+  const context = yield* tryEvaluation('context', () => createTodoCodeContext(api, module))
+  yield* tryEvaluation('compile', () =>
+    new Script(transformedCode, { filename }).runInContext(context, { timeout: timeoutMs }),
+  )
 
   if (typeof module.exports.default !== 'function') {
-    throw new Error('code must export a default function')
+    return yield* Effect.fail(evaluationFailure('validate', 'code must export a default function'))
   }
 
-  const value = new Script('module.exports.default(api)', { filename: `${filename}:invoke` }).runInContext(context, {
-    timeout: timeoutMs,
-  })
-  return waitForTodoCodeResult(value, signal, timeoutMs)
-}
+  const value = yield* tryEvaluation('invoke', () =>
+    new Script('module.exports.default(api)', { filename: `${filename}:invoke` }).runInContext(context, {
+      timeout: timeoutMs,
+    }),
+  )
+  return yield* waitForTodoCodeResult(value, signal, timeoutMs)
+})
 
-export { evaluateTodoCode, formatTodoCodeOutput, TODO_CODE_EXAMPLE, TODO_CODE_TYPES, type TodoCodeDetails }
+export {
+  evaluateTodoCode,
+  formatTodoCodeOutput,
+  TODO_CODE_EXAMPLE,
+  TODO_CODE_TYPES,
+  type TodoCodeDetails,
+  TodoEvaluationError,
+}
