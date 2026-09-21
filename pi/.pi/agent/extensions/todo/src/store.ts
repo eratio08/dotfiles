@@ -1,19 +1,22 @@
-import { Context, Effect, Layer, Ref, Result } from 'effect'
-import {
-  applyTodoOperation,
-  cloneTodos,
-  extractLatestTodoSnapshot,
-  type Todo,
-  type TodoTaskOperation,
-  type TodoTransitionResult,
-  TodoUpdateError,
-  validateTodoUpdate,
-} from './state.ts'
+import { Context, Effect, Layer, Ref, Semaphore } from 'effect'
+import { cloneTodos, extractLatestTodoSnapshot, type Todo, TodoUpdateError } from './state.ts'
+import { validateTodoGraph } from './state-engine.ts'
 
 interface TodoStoreState {
   readonly todos: readonly Todo[]
   readonly suspended: boolean
   readonly wasActiveBeforeSuspend: boolean
+}
+
+interface TodoTransactionDraft {
+  readonly snapshot: () => readonly Todo[]
+  readonly replace: (todos: readonly Todo[]) => void
+}
+
+interface TodoTransactionResult<A> {
+  readonly value: A
+  readonly todos: readonly Todo[]
+  readonly changed: boolean
 }
 
 interface TodoResumeResult {
@@ -22,13 +25,20 @@ interface TodoResumeResult {
   todos: readonly Todo[]
 }
 
+function snapshotKey(todos: readonly Todo[]): string {
+  return JSON.stringify(todos)
+}
+
 class TodoStore extends Context.Service<
   TodoStore,
   {
     readonly snapshot: Effect.Effect<readonly Todo[]>
     readonly restore: (entries: readonly unknown[]) => Effect.Effect<readonly Todo[]>
     readonly replace: (next: readonly Todo[]) => Effect.Effect<readonly Todo[], TodoUpdateError>
-    readonly transition: (operation: TodoTaskOperation) => Effect.Effect<TodoTransitionResult, TodoUpdateError>
+    readonly transact: <A>(
+      run: (draft: TodoTransactionDraft) => Promise<A>,
+      signal?: AbortSignal,
+    ) => Effect.Effect<TodoTransactionResult<A>, TodoUpdateError>
     readonly isSuspended: Effect.Effect<boolean>
     readonly suspend: (wasActiveBeforeSuspend: boolean) => Effect.Effect<boolean>
     readonly resume: Effect.Effect<TodoResumeResult>
@@ -42,81 +52,77 @@ class TodoStore extends Context.Service<
         suspended: false,
         wasActiveBeforeSuspend: false,
       })
+      const lock = yield* Semaphore.make(1)
+      const withLock = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> => Semaphore.withPermit(lock)(effect)
 
-      const snapshot = Ref.get(state).pipe(Effect.map((value) => cloneTodos(value.todos)))
+      const snapshot = withLock(Ref.get(state).pipe(Effect.map((value) => cloneTodos(value.todos))))
 
-      const restore = Effect.fnUntraced(function* (entries: readonly unknown[]) {
-        const todos = extractLatestTodoSnapshot(entries)
-        yield* Ref.update(state, (value) => ({ ...value, todos: cloneTodos(todos) }))
-        return cloneTodos(todos)
-      })
+      const restore = (entries: readonly unknown[]) =>
+        withLock(
+          Effect.gen(function* () {
+            const todos = extractLatestTodoSnapshot(entries)
+            yield* Ref.update(state, (value) => ({ ...value, todos: cloneTodos(todos) }))
+            return cloneTodos(todos)
+          }),
+        )
 
-      const replace = Effect.fnUntraced(function* (next: readonly Todo[]) {
-        const result = yield* Ref.modify(
-          state,
-          (value): readonly [Result.Result<readonly Todo[], TodoUpdateError>, TodoStoreState] => {
-            const error = validateTodoUpdate(value.todos, next)
-            if (error) {
-              return [
-                Result.fail(new TodoUpdateError({ message: error })) as Result.Result<readonly Todo[], TodoUpdateError>,
-                value,
-              ]
-            }
-
+      const replace = (next: readonly Todo[]) =>
+        withLock(
+          Effect.gen(function* () {
+            const error = validateTodoGraph(next)
+            if (error) return yield* Effect.fail(new TodoUpdateError({ message: error }))
             const todos = cloneTodos(next)
-            return [Result.succeed(todos) as Result.Result<readonly Todo[], TodoUpdateError>, { ...value, todos }]
-          },
+            yield* Ref.update(state, (value) => ({ ...value, todos }))
+            return cloneTodos(todos)
+          }),
         )
 
-        if (Result.isFailure(result)) {
-          return yield* Effect.fail(result.failure)
-        }
-        return cloneTodos(result.success)
-      })
-
-      const transition = Effect.fnUntraced(function* (operation: TodoTaskOperation) {
-        const result = yield* Ref.modify(
-          state,
-          (value): readonly [Result.Result<TodoTransitionResult, TodoUpdateError>, TodoStoreState] => {
-            const transitionResult = applyTodoOperation(value.todos, operation)
-            if (transitionResult.error) {
-              return [
-                Result.fail(new TodoUpdateError({ message: transitionResult.error })) as Result.Result<
-                  TodoTransitionResult,
-                  TodoUpdateError
-                >,
-                value,
-              ]
+      const transact = <A>(run: (draft: TodoTransactionDraft) => Promise<A>, signal?: AbortSignal) =>
+        withLock(
+          Effect.gen(function* () {
+            if (signal?.aborted) {
+              return yield* Effect.fail(new TodoUpdateError({ message: 'Todo transaction was aborted.' }))
             }
 
-            const todos = cloneTodos(transitionResult.todos)
-            return [
-              Result.succeed({ todos, changed: transitionResult.changed }) as Result.Result<
-                TodoTransitionResult,
-                TodoUpdateError
-              >,
-              { ...value, todos },
-            ]
-          },
+            const before = yield* Ref.get(state).pipe(Effect.map((value) => cloneTodos(value.todos)))
+            let draftTodos = cloneTodos(before)
+            const draft: TodoTransactionDraft = {
+              snapshot: () => cloneTodos(draftTodos),
+              replace: (todos) => {
+                draftTodos = cloneTodos(todos)
+              },
+            }
+            const value = yield* Effect.tryPromise({
+              try: () => run(draft),
+              catch: (cause) =>
+                new TodoUpdateError({ message: cause instanceof Error ? cause.message : String(cause) }),
+            })
+
+            if (signal?.aborted) {
+              return yield* Effect.fail(new TodoUpdateError({ message: 'Todo transaction was aborted.' }))
+            }
+            const error = validateTodoGraph(draftTodos)
+            if (error) return yield* Effect.fail(new TodoUpdateError({ message: error }))
+
+            const changed = snapshotKey(before) !== snapshotKey(draftTodos)
+            if (changed) {
+              yield* Ref.update(state, (current) => ({ ...current, todos: cloneTodos(draftTodos) }))
+            }
+            return { value, todos: cloneTodos(draftTodos), changed }
+          }),
         )
 
-        if (Result.isFailure(result)) {
-          return yield* Effect.fail(result.failure)
-        }
-        return { todos: cloneTodos(result.success.todos), changed: result.success.changed }
-      })
+      const isSuspended = withLock(Ref.get(state).pipe(Effect.map((value) => value.suspended)))
 
-      const isSuspended = Ref.get(state).pipe(Effect.map((value) => value.suspended))
-
-      const suspend = Effect.fnUntraced(function* (wasActiveBeforeSuspend: boolean) {
-        return yield* Ref.modify(state, (value) =>
-          value.suspended ? [false, value] : [true, { ...value, suspended: true, wasActiveBeforeSuspend }],
+      const suspend = (wasActiveBeforeSuspend: boolean) =>
+        withLock(
+          Ref.modify(state, (value) =>
+            value.suspended ? [false, value] : [true, { ...value, suspended: true, wasActiveBeforeSuspend }],
+          ),
         )
-      })
 
-      const resume: Effect.Effect<TodoResumeResult> = Ref.modify(
-        state,
-        (value): readonly [TodoResumeResult, TodoStoreState] => {
+      const resume = withLock(
+        Ref.modify(state, (value): readonly [TodoResumeResult, TodoStoreState] => {
           if (!value.suspended) {
             return [{ resumed: false, wasActiveBeforeSuspend: false, todos: cloneTodos(value.todos) }, value]
           }
@@ -129,12 +135,12 @@ class TodoStore extends Context.Service<
             },
             { ...value, suspended: false, wasActiveBeforeSuspend: false },
           ]
-        },
+        }),
       )
 
-      return TodoStore.of({ snapshot, restore, replace, transition, isSuspended, suspend, resume })
+      return TodoStore.of({ snapshot, restore, replace, transact, isSuspended, suspend, resume })
     }),
   )
 }
 
-export { type TodoResumeResult, TodoStore }
+export { type TodoResumeResult, TodoStore, type TodoTransactionDraft, type TodoTransactionResult }

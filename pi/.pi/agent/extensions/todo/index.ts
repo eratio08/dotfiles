@@ -1,34 +1,32 @@
-import { StringEnum } from '@earendil-works/pi-ai'
 import type { ExtensionAPI, ExtensionContext, Theme, ToolResultEvent } from '@earendil-works/pi-coding-agent'
 import { keyHint } from '@earendil-works/pi-coding-agent'
-import { matchesKey, Text, truncateToWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui'
+import { Container, matchesKey, Text, truncateToWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui'
 import { Effect, Layer, ManagedRuntime } from 'effect'
-import { Type } from 'typebox'
+import { type Static, Type } from 'typebox'
 import {
   TodoContext,
   TodoEffects,
   TodoEffectsLayer,
   type TodoEffectsRequirements,
-  type TodoNextToolDetails,
   TodoPi,
+  type TodoProgramParams,
   TodoStatusRequestVersion,
   type TodoToolDetails,
   TodoUi,
   TodoUiError,
 } from './src/effects.ts'
-import {
-  decodeStoredTodos,
-  decodeTodoList,
-  getTodoCounts,
-  isOpenTodo,
-  TODO_OPERATIONS,
-  type Todo,
-  type TodoStatus,
-  todoDescriptionLines,
-} from './src/state.ts'
+import { TODO_CODE_EXAMPLE, TODO_CODE_TYPES } from './src/evaluator.ts'
+import { getTodoCounts, isOpenTodo, type Todo, type TodoStatus, todoDescriptionLines } from './src/state.ts'
 import { TodoStore } from './src/store.ts'
 
 const PLAN_SUBMIT_TOOL_NAME = 'plannotator_submit_plan'
+const Params = Type.Object({
+  code: Type.String({
+    description: 'TypeScript module that exports a default async function receiving TodoApi.',
+    minLength: 1,
+  }),
+})
+type TodoToolParams = Static<typeof Params>
 
 function toolExpandHint(): string {
   try {
@@ -38,29 +36,30 @@ function toolExpandHint(): string {
   }
 }
 
+type TodoOperationSummary = NonNullable<TodoToolDetails['summary']>
+type TodoRendererState = { call?: Text; callText?: string; hasResult?: boolean; summary?: string }
+
+function formatTodoOperationSummary(summary: TodoOperationSummary): string {
+  const counters: Array<[keyof TodoOperationSummary, string]> = [
+    ['added', 'added'],
+    ['updated', 'updated'],
+    ['started', 'started'],
+    ['completed', 'completed'],
+    ['omitted', 'omitted'],
+    ['restored', 'restored'],
+    ['cleared', 'cleared'],
+  ]
+  const parts = counters
+    .filter(([operation]) => summary[operation] > 0)
+    .map(([operation, label]) => `${label} ${summary[operation]}`)
+  return parts.join(' · ') || 'no changes'
+}
+
 function isApprovedPlanSubmission(event: ToolResultEvent): boolean {
-  if (event.toolName !== PLAN_SUBMIT_TOOL_NAME || event.isError) {
-    return false
-  }
+  if (event.toolName !== PLAN_SUBMIT_TOOL_NAME || event.isError) return false
   const details = event.details
   return !!details && typeof details === 'object' && (details as { approved?: unknown }).approved === true
 }
-
-const TodoSchema = Type.Object({
-  content: Type.String({ description: 'Short task title' }),
-  dependsOn: Type.Array(Type.String(), { description: 'Task titles that must complete first' }),
-  description: Type.Optional(
-    Type.String({
-      description:
-        'Optional longer details, for example file paths, acceptance criteria, and decisions. Reminders and compaction snapshots include this text.',
-    }),
-  ),
-})
-
-const Params = Type.Object({
-  operation: StringEnum(TODO_OPERATIONS),
-  todos: Type.Optional(Type.Array(TodoSchema, { description: 'Task definitions for the replace operation' })),
-})
 
 class TodoViewer {
   private cachedWidth?: number
@@ -76,35 +75,27 @@ class TodoViewer {
   }
 
   handleInput(data: string): void {
-    if (matchesKey(data, 'escape') || matchesKey(data, 'ctrl+c')) {
-      this.onClose()
-    }
+    if (matchesKey(data, 'escape') || matchesKey(data, 'ctrl+c')) this.onClose()
   }
 
   render(width: number): string[] {
-    if (this.cachedLines && this.cachedWidth === width) {
-      return this.cachedLines
-    }
+    if (this.cachedLines && this.cachedWidth === width) return this.cachedLines
 
     const counts = getTodoCounts(this.todos)
     const lines: string[] = []
     const header = `${this.theme.fg('accent', ' Todos ')}${this.theme.fg('dim', ` ${formatCounts(counts)}`)}`
-    lines.push('')
-    lines.push(truncateToWidth(header, width))
-    lines.push('')
+    lines.push('', truncateToWidth(header, width), '')
 
     if (this.todos.length === 0) {
       lines.push(truncateToWidth(`  ${this.theme.fg('dim', 'No todos')}`, width))
     } else {
+      const depths = getTodoDepths(this.todos)
       for (const todo of this.todos) {
-        lines.push(truncateToWidth(`  ${renderTodoLine(todo, this.theme)}`, width))
+        lines.push(truncateToWidth(`  ${renderTodoLine(todo, this.theme, depths.get(todo.id) ?? 0)}`, width))
       }
     }
 
-    lines.push('')
-    lines.push(truncateToWidth(`  ${this.theme.fg('dim', 'Press Escape to close')}`, width))
-    lines.push('')
-
+    lines.push('', truncateToWidth(`  ${this.theme.fg('dim', 'Press Escape to close')}`, width), '')
     this.cachedWidth = width
     this.cachedLines = lines
     return lines
@@ -145,26 +136,42 @@ function renderContent(todo: Todo, theme: Theme): string {
   if (todo.status === 'completed' || todo.status === 'omitted') {
     return theme.fg('muted', theme.strikethrough(todo.content))
   }
-  if (todo.status === 'in_progress') {
-    return theme.fg('text', todo.content)
-  }
+  if (todo.status === 'in_progress') return theme.fg('text', todo.content)
   return theme.fg('muted', todo.content)
 }
 
-function renderTodoLine(todo: Todo, theme: Theme): string {
-  const status = theme.fg('dim', `(${todo.status.replace('_', ' ')})`)
-  return `${renderMarker(todo.status, theme)} ${renderContent(todo, theme)} ${status}`
+function getTodoDepths(todos: readonly Todo[]): ReadonlyMap<string, number> {
+  const byId = new Map(todos.map((todo) => [todo.id, todo]))
+  const depths = new Map<string, number>()
+  const visiting = new Set<string>()
+
+  const getDepth = (todo: Todo): number => {
+    const cached = depths.get(todo.id)
+    if (cached !== undefined) return cached
+    if (visiting.has(todo.id)) return 0
+
+    visiting.add(todo.id)
+    const depth = todo.dependsOn.reduce((maximum, dependencyId) => {
+      const dependency = byId.get(dependencyId)
+      return dependency ? Math.max(maximum, getDepth(dependency) + 1) : maximum
+    }, 0)
+    visiting.delete(todo.id)
+    depths.set(todo.id, depth)
+    return depth
+  }
+
+  for (const todo of todos) getDepth(todo)
+  return depths
 }
 
-function renderDescriptionLines(todo: Todo, theme: Theme): string[] {
-  return todoDescriptionLines(todo).map((line) => `    ${theme.fg('dim', line)}`)
+function renderTodoLine(todo: Todo, theme: Theme, depth = 0): string {
+  const status = theme.fg('dim', `(${todo.status.replace('_', ' ')})`)
+  const prefix = depth > 0 ? `${'  '.repeat(depth)}↳ ` : ''
+  return `${prefix}${renderMarker(todo.status, theme)} ${renderContent(todo, theme)} ${status}`
 }
 
 function updateUi(ctx: ExtensionContext, todos: readonly Todo[], suspended = false): void {
-  if (!ctx.hasUI) {
-    return
-  }
-
+  if (!ctx.hasUI) return
   if (suspended || todos.length === 0) {
     ctx.ui.setWidget('todo', undefined)
     return
@@ -179,21 +186,21 @@ function updateUi(ctx: ExtensionContext, todos: readonly Todo[], suspended = fal
   ctx.ui.setWidget('todo', (_tui, theme) => ({
     render(width: number) {
       const visible = unfinished.slice(0, 8)
+      const depths = getTodoDepths(todos)
       const expanded = ctx.ui.getToolsExpanded()
       const lines: string[] = []
       for (const todo of visible) {
-        lines.push(truncateToWidth(`  ${renderTodoLine(todo, theme)}`, width))
+        lines.push(truncateToWidth(`  ${renderTodoLine(todo, theme, depths.get(todo.id) ?? 0)}`, width))
         if (expanded) {
+          const detailsIndent = '  '.repeat((depths.get(todo.id) ?? 0) + 2)
           for (const line of todoDescriptionLines(todo)) {
-            for (const wrapped of wrapTextWithAnsi(line, Math.max(1, width - 4))) {
-              lines.push(`    ${theme.fg('dim', wrapped)}`)
+            for (const wrapped of wrapTextWithAnsi(line, Math.max(1, width - detailsIndent.length))) {
+              lines.push(`${detailsIndent}${theme.fg('dim', wrapped)}`)
             }
           }
         }
       }
-      if (unfinished.length > 8) {
-        lines.push(theme.fg('dim', `… ${unfinished.length - 8} more`))
-      }
+      if (unfinished.length > 8) lines.push(theme.fg('dim', `… ${unfinished.length - 8} more`))
       return lines
     },
     invalidate() {},
@@ -252,8 +259,8 @@ function todoExtension(pi: ExtensionAPI): void {
   pi.on('session_start', async (_event, ctx) => {
     await run((effects) => effects.syncFromSession(), ctx)
   })
-  pi.on('session_tree', async (_event, ctx) => {
-    await run((effects) => effects.syncFromSession(), ctx)
+  pi.on('session_tree', async (event, ctx) => {
+    await run((effects) => effects.syncFromSession(event.summaryEntry !== undefined), ctx)
   })
   pi.on('before_agent_start', async (_event, ctx) => {
     await run((effects) => effects.syncFromSession(), ctx)
@@ -263,9 +270,7 @@ function todoExtension(pi: ExtensionAPI): void {
     return { action: 'continue' }
   })
   pi.on('tool_result', async (event, ctx) => {
-    if (isApprovedPlanSubmission(event)) {
-      await run((effects) => effects.requestPlannotatorPhase(), ctx)
-    }
+    if (isApprovedPlanSubmission(event)) await run((effects) => effects.requestPlannotatorPhase(), ctx)
   })
   pi.on('agent_end', async (_event, ctx) => {
     await run((effects) => effects.handleAgentEnd(), ctx)
@@ -274,9 +279,7 @@ function todoExtension(pi: ExtensionAPI): void {
     await run((effects) => effects.handleCompaction(event), ctx)
   })
   pi.on('session_shutdown', async (_event, ctx) => {
-    if (shuttingDown) {
-      return
-    }
+    if (shuttingDown) return
     shuttingDown = true
     try {
       await run((effects) => effects.clearTodoWidget(), ctx)
@@ -286,112 +289,52 @@ function todoExtension(pi: ExtensionAPI): void {
   })
 
   pi.registerTool({
-    name: 'todowrite',
+    name: 'todo',
     label: 'Todo',
-    description: 'Create or update the todo plan, or apply a task operation to the active task.',
-    promptSnippet: 'Use todowrite to create a plan or apply a task operation',
+    description: 'Run TypeScript code that reads and updates the current todo plan as one transaction.',
+    promptSnippet: 'Use todo for work with three or more distinct steps',
     promptGuidelines: [
-      'Use todowrite for work with 3+ distinct steps; skip trivial work.',
-      'Use operation replace to create or revise the task plan.',
-      'Keep content a short title. Put details that you need later in the optional description field.',
-      'Use operation complete_task only after the active task is complete and verified.',
-      'Use todonext to return the current active task or start the next ready task.',
-      'On Error, no changes were applied; use the accepted state shown in the error and retry the operation.',
-      'Continue until no open task remains or the user explicitly omits it.',
+      'Use todo for work with three or more distinct steps; skip trivial work.',
+      `todo receives these TypeScript declarations:\n${TODO_CODE_TYPES}\ntodo example:\n${TODO_CODE_EXAMPLE}`,
+      'Export a default async function that receives TodoApi.',
+      'Create a dependency before the task that depends on it, and await mutation calls in order.',
+      'Call next() once to start work; call show() to inspect an active task and complete() before starting another.',
     ],
     parameters: Params,
-    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-      return run((effects) => effects.executeTodo(params), ctx, signal)
+    executionMode: 'sequential',
+    async execute(_toolCallId, params: TodoToolParams, signal, _onUpdate, ctx) {
+      return run((effects) => effects.executeTodo(params as TodoProgramParams, signal), ctx, signal)
     },
-    renderCall(args, theme, context) {
-      const next = context?.argsComplete && args.operation === 'replace' ? decodeTodoList(args.todos) : undefined
-      const label = theme.fg('toolTitle', theme.bold('todowrite'))
-      if (!next) {
-        return new Text(label, 0, 0)
-      }
-
-      const counts = getTodoCounts(next)
-      return new Text(
-        label +
-          ' ' +
-          theme.fg('muted', `${counts.total} item${counts.total === 1 ? '' : 's'}`) +
-          (counts.inProgress > 0 ? ` ${theme.fg('accent', `${counts.inProgress} active`)}` : ''),
-        0,
-        0,
-      )
+    renderCall(_args, theme, context) {
+      const state = (context.state ?? {}) as TodoRendererState
+      const text = (context.lastComponent as Text | undefined) ?? new Text('', 0, 0)
+      state.call = text
+      state.callText = theme.fg('toolTitle', theme.bold('todo'))
+      const summary = !context.expanded && state.hasResult && state.summary ? ` · ${state.summary}` : ''
+      const hint = !context.expanded && state.hasResult ? ` ${theme.fg('muted', `(${toolExpandHint()})`)}` : ''
+      text.setText(`${state.callText}${summary}${hint}`)
+      return text
     },
-    renderResult(result, { expanded }, theme) {
+    renderResult(result, { expanded }, theme, context) {
+      const state = (context.state ?? {}) as TodoRendererState
       const details = result.details as TodoToolDetails | undefined
-      if (!details) {
-        const text = result.content[0]
-        return new Text(text?.type === 'text' ? text.text : '', 0, 0)
+      const output = details?.output ?? result.content.find((item) => item.type === 'text')?.text ?? ''
+      const summary = details?.summary ? formatTodoOperationSummary(details.summary) : undefined
+      state.hasResult = true
+      state.summary = summary
+      if (context.isError) return new Text(theme.fg('error', output), 0, 0)
+      if (expanded) {
+        const expandedSummary = summary ?? 'no changes'
+        const code = details?.code ?? '[Submitted code unavailable]'
+        const codeHeading = details?.codeTruncated ? 'Code (truncated)' : 'Code'
+        const expandedOutput = ['Summary', expandedSummary, '', codeHeading, code, '', 'Result', output].join('\n')
+        return new Text(theme.fg('toolOutput', expandedOutput), 0, 0)
       }
-      if (details.error) {
-        return new Text(theme.fg('error', `Error: ${details.error}`), 0, 0)
+      if (state.call && state.callText) {
+        const collapsedSummary = summary ? ` · ${summary}` : ''
+        state.call.setText(`${state.callText}${collapsedSummary} ${theme.fg('muted', `(${toolExpandHint()})`)}`)
       }
-
-      const list = decodeStoredTodos(details.todos) ?? []
-      if (list.length === 0) {
-        return new Text(theme.fg('dim', 'Todo list cleared'), 0, 0)
-      }
-
-      const counts = getTodoCounts(list)
-      const visible = expanded
-        ? list
-        : (() => {
-            const unfinished = list.filter(isOpenTodo)
-            return (unfinished.length > 0 ? unfinished : list).slice(0, 4)
-          })()
-      const lines = [theme.fg('muted', formatCounts(counts))]
-      for (const todo of visible) {
-        lines.push(renderTodoLine(todo, theme))
-        if (expanded) {
-          lines.push(...renderDescriptionLines(todo, theme))
-        }
-      }
-      if (!expanded && visible.length < list.length) {
-        lines.push(theme.fg('dim', `… ${list.length - visible.length} more`))
-      }
-      return new Text(lines.join('\n'), 0, 0)
-    },
-  })
-
-  pi.registerTool({
-    name: 'todonext',
-    label: 'Todo Next',
-    description: 'Return the current active task or start the next ready task.',
-    promptSnippet: 'Use todonext to return the current task or start the next ready task',
-    promptGuidelines: ['Use todonext when you need the current task or when no task is active.'],
-    parameters: Type.Object({}),
-    async execute(_toolCallId, _params, signal, _onUpdate, ctx) {
-      return run((effects) => effects.executeTodoNext(), ctx, signal)
-    },
-    renderCall(_args, theme) {
-      return new Text(theme.fg('toolTitle', theme.bold('todonext')), 0, 0)
-    },
-    renderResult(result, { expanded }, theme) {
-      const details = result.details as TodoNextToolDetails | undefined
-      if (!details) {
-        const text = result.content[0]
-        return new Text(text?.type === 'text' ? text.text : '', 0, 0)
-      }
-
-      const lines =
-        details.status !== 'none' && details.todo
-          ? [`${theme.fg('accent', details.status === 'started' ? 'Started' : 'Current')}: ${details.todo.content}`]
-          : [theme.fg('warning', 'No ready task')]
-      if (expanded || details.status === 'none') {
-        if (details.waiting.length > 0) {
-          lines.push(`Waiting: ${details.waiting.map((todo) => todo.content).join(', ')}`)
-        }
-        if (details.blocked.length > 0) {
-          lines.push(`Blocked: ${details.blocked.map((todo) => todo.content).join(', ')}`)
-        }
-      }
-      if (!expanded) {
-        lines.push(theme.fg('dim', toolExpandHint()))
-      }
-      return new Text(lines.join('\n'), 0, 0)
+      return new Container()
     },
   })
 
@@ -399,18 +342,13 @@ function todoExtension(pi: ExtensionAPI): void {
     description: 'Show todos on the current branch',
     handler: async (_args, ctx) => {
       if (ctx.mode !== 'tui') {
-        if (ctx.hasUI) {
-          ctx.ui.notify('/todos requires interactive mode', 'error')
-        }
+        if (ctx.hasUI) ctx.ui.notify('/todos requires interactive mode', 'error')
         return
       }
-      if (!ctx.hasUI) {
-        return
-      }
-
+      if (!ctx.hasUI) return
       await run((effects) => effects.showTodos(), ctx)
     },
   })
 }
 
-export { todoExtension as default }
+export { formatTodoOperationSummary, todoExtension as default }
