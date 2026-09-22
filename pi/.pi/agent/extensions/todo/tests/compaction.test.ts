@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
+import { visibleWidth } from '@earendil-works/pi-tui'
+import { PiToolError } from '@eratio08/pi-effect'
 import todoExtension, { formatTodoOperationSummary } from '../index.ts'
 import { type TodoToolResult, TodoUiError } from '../src/effects.ts'
-import type { Todo } from '../src/model.ts'
 import { extractLatestTodoSnapshot, TODO_STATE_ENTRY } from '../src/state.ts'
 
-type EventHandler = (event: unknown, ctx: ExtensionContext) => Promise<unknown> | unknown
+type EventHandler = (event: unknown, ctx: unknown) => Promise<unknown> | unknown
 type Renderable = { render: (width: number) => string[] }
 type Theme = {
   fg: (color: string, text: string) => string
@@ -14,11 +14,12 @@ type Theme = {
   strikethrough: (text: string) => string
 }
 type SentMessage = {
-  message: { customType: string; content: string; display: boolean; details?: { todos: unknown[] } }
+  message: { customType: string; content: string; display: boolean }
   options?: { triggerTurn?: boolean; deliverAs?: 'steer' | 'nextTurn' }
 }
 type RegisteredTool = {
   name?: string
+  description?: string
   executionMode?: string
   promptSnippet?: string
   promptGuidelines?: string[]
@@ -146,15 +147,27 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
       return idle
     },
     sessionManager: {
+      getCwd: () => '/tmp',
+      getSessionId: () => 'test-session',
+      getSessionFile: () => undefined,
+      getSessionDir: () => '/tmp',
+      getLeafId: () => null,
+      getLeafEntry: () => undefined,
+      getEntries: () => sessionEntries,
+      getTree: () => [],
+      getEntry: () => undefined,
       getBranch: () => {
         fail('getBranch')
         return sessionEntries
       },
+      buildContextEntries: () => [],
+      getLabel: () => undefined,
+      getSessionName: () => undefined,
     },
     signal: undefined,
-  } as unknown as ExtensionContext
+  }
 
-  todoExtension(pi as unknown as ExtensionAPI)
+  todoExtension(pi as never)
 
   return {
     ctx,
@@ -172,6 +185,9 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
     },
     get registeredCommand() {
       return registeredCommand
+    },
+    setToolsExpanded(expanded: boolean): void {
+      options.toolsExpanded = expanded
     },
     setPhase(next: 'idle' | 'planning' | 'executing' | undefined) {
       phase = next
@@ -218,9 +234,14 @@ test('registers one todo tool and commits one snapshot after a successful progra
   const tool = value.registeredTool
   assert.ok(tool)
   assert.equal(tool.name, 'todo')
+  assert.equal(
+    tool.description,
+    'Run TypeScript code that reads and updates the current todo plan for non-trivial work with three or more tasks.',
+  )
   assert.deepEqual(value.registeredToolNames, ['todo'])
   assert.equal(tool.executionMode, 'sequential')
-  assert.match(tool.promptSnippet ?? '', /three or more/)
+  assert.match(tool.promptSnippet ?? '', /non-trivial work with three or more tasks/)
+  assert.match(tool.promptGuidelines?.join('\n') ?? '', /Use todo only for non-trivial work with three or more tasks/)
   assert.match(tool.promptGuidelines?.join('\n') ?? '', /TodoApi/)
   assert.ok(tool.parameters?.properties?.code)
   const renderedCall = tool.renderCall?.({}, value.theme, { argsComplete: false })
@@ -236,7 +257,7 @@ test('registers one todo tool and commits one snapshot after a successful progra
   assert.equal(details.output, 'new task')
   assert.equal(details.code, code)
   assert.equal(details.codeTruncated, false)
-  assert.equal(details.todos.length, 1)
+  assert.equal(Object.hasOwn(details, 'todos'), false)
   assert.equal(value.appendedEntries.length, 1)
   assert.equal((value.appendedEntries[0] as { customType: string }).customType, TODO_STATE_ENTRY)
 })
@@ -316,7 +337,6 @@ test('defines the complete todo result detail contract', () => {
       },
       code: 'submitted code',
       codeTruncated: false,
-      todos: [],
     },
   } satisfies TodoToolResult
 
@@ -345,9 +365,9 @@ test('commits multiple program mutations in one session snapshot', async () => {
   )
 
   //then
-  const details = (result as { details: { todos: Todo[] } }).details
-  assert.equal(details.todos.length, 2)
-  assert.equal(value.appendedEntries.length, 1)
+  const details = (result as TodoToolResult).details
+  assert.equal(Object.hasOwn(details, 'todos'), false)
+  assert.equal(extractLatestTodoSnapshot(value.appendedEntries).length, 2)
 })
 
 test('reports every successful mutation count in tool details', async () => {
@@ -501,10 +521,14 @@ test('restores the durable snapshot and sends it during compaction', async () =>
   assert.deepEqual(extractLatestTodoSnapshot(value.appendedEntries), branchWithTodos[0]?.data.todos)
   assert.equal(value.sentMessages.length, 1)
   assert.equal(value.sentMessages[0]?.options?.triggerTurn, false)
-  assert.match(value.sentMessages[0]?.message.content ?? '', /first task/)
+  const message = value.sentMessages[0]?.message
+  assert.ok(message)
+  assert.match(message.content, /first task/)
+  assert.doesNotMatch(message.content, /second task/)
+  assert.equal(Object.hasOwn(message, 'details'), false)
 })
 
-test('keeps completed task states in the authoritative compaction snapshot', async () => {
+test('keeps completed task states in the durable compaction snapshot', async () => {
   //given
   const value = harness(
     [
@@ -529,10 +553,18 @@ test('keeps completed task states in the authoritative compaction snapshot', asy
   await compact({ type: 'session_compact', willRetry: false }, value.ctx)
 
   //then
-  const content = value.sentMessages[0]?.message.content ?? ''
-  assert.match(content, /finished task/)
-  assert.match(content, /status=completed/)
-  assert.match(content, /current task/)
+  const snapshot = extractLatestTodoSnapshot(value.appendedEntries)
+  assert.deepEqual(
+    snapshot.map((todo) => todo.content),
+    ['finished task', 'current task'],
+  )
+  const message = value.sentMessages[0]?.message
+  assert.ok(message)
+  assert.match(message.content, /current task/)
+  assert.doesNotMatch(message.content, /finished task/)
+  assert.match(message.content, /Tasks: 1 remaining, 0 blocked, 1 complete, 0 omitted\./)
+  assert.doesNotMatch(message.content, /status=/)
+  assert.equal(Object.hasOwn(message, 'details'), false)
 })
 
 test('restores state when the session branch changes', async () => {
@@ -603,6 +635,16 @@ test('preserves open task states when tree navigation carries a branch summary',
   assert.match(blockedTask ?? '', /\[!\] blocked task/)
   assert.doesNotMatch(activeTask ?? '', /\(in progress\)/)
   assert.doesNotMatch(blockedTask ?? '', /\(blocked\)/)
+  assert.equal(value.sentMessages.length, 1)
+  const message = value.sentMessages[0]?.message
+  assert.ok(message)
+  assert.match(message.content, /active task/)
+  assert.doesNotMatch(message.content, /blocked task/)
+  assert.equal(Object.hasOwn(message, 'details'), false)
+  assert.deepEqual(
+    extractLatestTodoSnapshot(value.appendedEntries).map((todo) => todo.content),
+    ['active task', 'blocked task'],
+  )
 })
 
 test('preserves newly added tasks when tree navigation carries an older snapshot', async () => {
@@ -770,9 +812,10 @@ test('returns typed errors when the host cannot append a snapshot', async () => 
 
   //then
   await assert.rejects(execution, (error: unknown) => {
-    assert.ok(error instanceof TodoUiError)
-    assert.equal(error.operation, 'append-entry')
-    assert.equal(error.cause, cause)
+    const typed = error instanceof PiToolError ? error.cause : error
+    assert.ok(typed instanceof TodoUiError)
+    assert.equal(typed.operation, 'append-entry')
+    assert.equal(typed.cause, cause)
     return true
   })
   const readOnly = await tool.execute(
@@ -782,7 +825,7 @@ test('returns typed errors when the host cannot append a snapshot', async () => 
     undefined,
     value.ctx,
   )
-  assert.equal((readOnly as TodoToolResult).details.todos.length, 0)
+  assert.equal(Object.hasOwn((readOnly as TodoToolResult).details, 'todos'), false)
 })
 
 test('rolls back suspension when the active-tool host callback fails', async () => {
@@ -846,10 +889,11 @@ test('preserves the original program error through the transaction and tool laye
 
   //then
   await assert.rejects(execution, (error: unknown) => {
-    assert.ok(error instanceof TodoUiError)
-    assert.equal(error.operation, 'execute')
-    assert.notEqual(error.cause, undefined)
-    assert.equal((error.cause as { message: string }).message, cause.message)
+    const typed = error instanceof PiToolError ? error.cause : error
+    assert.ok(typed instanceof TodoUiError)
+    assert.equal(typed.operation, 'execute')
+    assert.notEqual(typed.cause, undefined)
+    assert.equal((typed.cause as { message: string }).message, cause.message)
     return true
   })
 })
@@ -1121,6 +1165,65 @@ test('indents expanded todo details with dependency depth', async () => {
     lines.find((line) => line.includes('second details')),
     '      second details',
   )
+})
+
+test('renders todo details when tool output expands after widget creation', async () => {
+  //given
+  const value = harness(
+    [
+      {
+        type: 'custom',
+        customType: TODO_STATE_ENTRY,
+        data: {
+          todos: [
+            { id: firstId, content: 'first task', status: 'in_progress', dependsOn: [], details: 'first details' },
+          ],
+        },
+      },
+    ],
+    true,
+    { toolsExpanded: false },
+  )
+  await restoreTodos(value)
+  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
+  assert.ok(widgetFactory)
+  const widget = widgetFactory(undefined, value.theme)
+  assert.doesNotMatch(widget.render(120).join('\n'), /first details/)
+  value.setToolsExpanded(true)
+
+  //when
+  const lines = widget.render(120)
+
+  //then
+  assert.match(lines.join('\n'), /first details/)
+})
+
+test('keeps expanded todo details within a narrow widget width', async () => {
+  //given
+  const value = harness(
+    [
+      {
+        type: 'custom',
+        customType: TODO_STATE_ENTRY,
+        data: {
+          todos: [
+            { id: firstId, content: 'first task', status: 'in_progress', dependsOn: [], details: 'first details' },
+          ],
+        },
+      },
+    ],
+    true,
+    { toolsExpanded: true },
+  )
+  await restoreTodos(value)
+  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
+  assert.ok(widgetFactory)
+
+  //when
+  const lines = widgetFactory(undefined, value.theme).render(3)
+
+  //then
+  assert.ok(lines.every((line) => visibleWidth(line) <= 3))
 })
 
 test('reports typed UI errors from /todos', async () => {

@@ -134,7 +134,7 @@ test('updates details and replaces dependencies atomically', async () => {
   assert.equal(snapshot().find((todo) => todo.id === task.id)?.details, undefined)
 })
 
-test('returns selected snapshots and hides details by default', async () => {
+test('returns one selected snapshot and hides details by default', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
@@ -142,16 +142,130 @@ test('returns selected snapshots and hides details by default', async () => {
   const second = await api.add({ content: 'second', details: 'second details' })
 
   //when
-  const hidden = await api.show({ ids: [second.id, first.id] })
-  const visible = await api.show({ ids: [second.id, first.id], includeDetails: true })
+  const hidden = await api.show({ ids: [second.id] })
+  const visible = await api.show({ ids: [second.id], includeDetails: true })
 
   //then
   assert.deepEqual(
     hidden.map((todo) => todo.id),
-    [second.id, first.id],
+    [second.id],
   )
   assert.equal(hidden[0]?.details, undefined)
   assert.equal(visible[0]?.details, 'second details')
+  assert.notEqual(hidden[0], visible[0])
+  assert.ok(first)
+})
+
+test('returns all tasks selected by status', async () => {
+  //given
+  const { draft } = createDraft()
+  const api = createTodoApi({ draft })
+  const first = await api.add({ content: 'first', details: 'first details' })
+  const second = await api.add({ content: 'second', details: 'second details' })
+
+  //when
+  const hidden = await api.show({ status: 'pending' })
+  const visible = await api.show({ status: 'pending', includeDetails: true })
+  const limited = await api.show({ status: 'pending', limit: 1 })
+
+  //then
+  assert.deepEqual(
+    hidden.map((todo) => todo.id),
+    [first.id, second.id],
+  )
+  assert.deepEqual(
+    visible.map((todo) => todo.id),
+    [first.id, second.id],
+  )
+  assert.equal(hidden[0]?.details, undefined)
+  assert.equal(visible[0]?.details, 'first details')
+  assert.deepEqual(
+    limited.map((todo) => todo.id),
+    [first.id],
+  )
+})
+
+test('limits broad show queries and accepts empty or null IDs', async () => {
+  //given
+  const { draft } = createDraft()
+  const api = createTodoApi({ draft })
+  const todos = await Promise.all(Array.from({ length: 6 }, (_, index) => api.add({ content: `task ${index + 1}` })))
+
+  //when
+  const broad = await api.show()
+  const status = await api.show({ status: 'pending' })
+  const emptyIds = await api.show({ ids: [] })
+  const nullIds = await api.show({ ids: null, limit: 1 })
+  const limited = await api.show({ limit: 2 })
+
+  //then
+  assert.deepEqual(
+    broad.map((todo) => todo.id),
+    todos.slice(0, 5).map((todo) => todo.id),
+  )
+  assert.deepEqual(
+    status.map((todo) => todo.id),
+    todos.slice(0, 5).map((todo) => todo.id),
+  )
+  assert.deepEqual(
+    emptyIds.map((todo) => todo.id),
+    todos.slice(0, 5).map((todo) => todo.id),
+  )
+  assert.deepEqual(
+    nullIds.map((todo) => todo.id),
+    [todos[0]?.id],
+  )
+  assert.deepEqual(
+    limited.map((todo) => todo.id),
+    todos.slice(0, 2).map((todo) => todo.id),
+  )
+})
+
+test('returns every explicitly selected ID and rejects mixed selectors', async () => {
+  //given
+  const { draft } = createDraft()
+  const api = createTodoApi({ draft })
+  const first = await api.add({ content: 'first' })
+  const second = await api.add({ content: 'second' })
+
+  //when
+  const selected = await api.show({ ids: [second.id, first.id], limit: 1 })
+  const emptyIdsWithStatus = await api.show({ ids: [], status: 'pending' })
+  const nullIdsWithStatus = await api.show({ ids: null, status: 'pending' })
+  const combined = api.show({ ids: [first.id], status: 'pending' })
+
+  //then
+  assert.deepEqual(
+    selected.map((todo) => todo.id),
+    [second.id, first.id],
+  )
+  assert.deepEqual(
+    emptyIdsWithStatus.map((todo) => todo.id),
+    [first.id, second.id],
+  )
+  assert.deepEqual(
+    nullIdsWithStatus.map((todo) => todo.id),
+    [first.id, second.id],
+  )
+  await assert.rejects(combined, /either ids or status/)
+})
+
+test('rejects invalid show limits and selectors', async () => {
+  //given
+  const { draft } = createDraft()
+  const api = createTodoApi({ draft })
+
+  //when
+  const zeroLimit = api.show({ limit: 0 })
+  const fractionalLimit = api.show({ limit: 1.5 })
+  const invalidId = api.show({ ids: ['not-a-todo-id'] })
+  const invalidStatus = api.show({ status: 'unknown' as 'pending' })
+
+  //then
+  await assert.rejects(zeroLimit, /Invalid todo show options/)
+  await assert.rejects(fractionalLimit, /Invalid todo show options/)
+  await assert.rejects(invalidId, /Invalid todo show options/)
+  await assert.rejects(invalidStatus, /Invalid todo show options/)
 })
 
 test('omits and restores tasks through dependency-derived state', async () => {

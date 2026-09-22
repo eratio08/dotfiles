@@ -24,8 +24,14 @@ const TodoPatchSchema = Schema.Struct({
   details: Schema.optionalKey(Schema.NullOr(Schema.String)),
   dependsOn: Schema.optionalKey(Schema.Array(TodoIdSchema)),
 })
+const TodoShowIdsSchema = Schema.NullOr(Schema.Array(TodoIdSchema))
+const TodoShowLimitSchema = Schema.Int.check(
+  Schema.isGreaterThan(0, { message: 'Todo show limit must be a positive integer.' }),
+)
 const TodoShowOptionsSchema = Schema.Struct({
-  ids: Schema.optionalKey(Schema.Array(TodoIdSchema)),
+  ids: Schema.optionalKey(TodoShowIdsSchema),
+  status: Schema.optionalKey(TodoStatusSchema),
+  limit: Schema.optionalKey(TodoShowLimitSchema),
   includeDetails: Schema.optionalKey(Schema.Boolean),
 })
 const TodoListSchema = Schema.Array(TodoDataSchema)

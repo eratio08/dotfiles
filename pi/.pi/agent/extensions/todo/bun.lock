@@ -5,6 +5,7 @@
     "": {
       "name": "todo",
       "dependencies": {
+        "@eratio08/pi-effect": "^0.1.0",
         "effect": "4.0.0-rc.112",
         "jiti": "2.7.0",
       },
@@ -102,6 +103,8 @@
     "@earendil-works/pi-telemetry": ["@earendil-works/pi-telemetry@0.85.1", "", {}, "sha512-Bg/YN6kA7Swja/NQxka8xFdecb4E/auIEGF2G5A25EaQXhRnPj300/7/KpgsDDMYUzHTDAv4RyUxaQPJKW81Rw=="],
 
     "@earendil-works/pi-tui": ["@earendil-works/pi-tui@0.85.1", "", { "dependencies": { "get-east-asian-width": "1.6.0", "marked": "18.0.5" } }, "sha512-OIzw9efInmO4WOBnD4TxcTdBjmzvYJpzslkgoUro946nEGoYWg5rwv1p4fDt3/JvMx9QybryUCUwlm7j8Dreig=="],
+
+    "@eratio08/pi-effect": ["@eratio08/pi-effect@0.1.0", "", { "peerDependencies": { "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*", "effect": "^4.0.0-0", "typebox": "*" } }, "sha512-w5L0MfTuT4ztNaJTgTUHdimTlWSOhwsP4qUJCHiHGiw6GPupMUYyzjWoHoZgqpJVI7PZMTeEjWt2mDRTKRF0lg=="],
 
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.28.1", "", { "os": "aix", "cpu": "ppc64" }, "sha512-Svl7tq8k/08+p6CXPpRjQ1fKX+1odH/BQbb48fV6fj3CWHhsoIOoY87w1oHXm0qEpkIK3ZfVgp0hed3XBXzXMQ=="],
 

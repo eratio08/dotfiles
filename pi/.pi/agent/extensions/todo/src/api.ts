@@ -1,4 +1,4 @@
-import { randomUUIDv7 } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { Result, Schema } from 'effect'
 import {
   type Todo,
@@ -76,7 +76,7 @@ function decodePatch(patch: unknown): TodoResult<TodoPatch> {
 function decodeShowOptions(options: unknown): TodoResult<TodoShowOptions> {
   return decodeTodoValue(
     () => Schema.decodeUnknownResult(TodoShowOptionsSchema)(options ?? {}),
-    'Invalid todo show options.',
+    'Invalid todo show options: provide task IDs, a status, and a positive integer limit.',
   )
 }
 
@@ -113,11 +113,11 @@ function findTodo(todos: readonly Todo[], id: TodoId): TodoResult<Todo> {
 }
 
 function generateTodoId(existingIds: ReadonlySet<string>): TodoResult<TodoId> {
-  let idResult = tryTodoApi(randomUUIDv7)
+  let idResult = tryTodoApi(randomUUID)
   if (Result.isFailure(idResult)) return idResult
   let id = idResult.success
   for (let attempt = 0; attempt < 100 && existingIds.has(id); attempt += 1) {
-    idResult = tryTodoApi(randomUUIDv7)
+    idResult = tryTodoApi(randomUUID)
     if (Result.isFailure(idResult)) return idResult
     id = idResult.success
   }
@@ -231,23 +231,31 @@ function createTodoApi({ draft, signal, onMutation }: TodoApiOptions): TodoApi {
     if (Result.isFailure(currentResult)) return promiseResult(currentResult)
     const current = currentResult.success
     const value = valueResult.success
-    if (!value.ids || value.ids.length === 0) {
+    const ids = value.ids
+    if (value.status && ids && ids.length > 0) {
       return promiseResult(
-        tryTodoApi(() =>
-          cloneTodos(current).map((todo) => (value.includeDetails ? todo : withDetails(todo, undefined))),
-        ),
+        Result.fail(todoUpdateError('Invalid todo show options: choose either ids or status, not both.')),
       )
     }
 
-    const selected: Todo[] = []
-    for (const id of value.ids) {
-      const todo = findTodo(current, id)
-      if (Result.isFailure(todo)) return promiseResult(todo)
-      selected.push(todo.success)
+    let selected: readonly Todo[]
+    if (ids && ids.length > 0) {
+      const selectedTodos: Todo[] = []
+      for (const id of ids) {
+        const selectedTodo = findTodo(current, id)
+        if (Result.isFailure(selectedTodo)) return promiseResult(selectedTodo)
+        selectedTodos.push(selectedTodo.success)
+      }
+      selected = selectedTodos
+    } else if (value.status) {
+      selected = current.filter((todo) => todo.status === value.status).slice(0, value.limit ?? 5)
+    } else {
+      selected = current.slice(0, value.limit ?? 5)
     }
+
     return promiseResult(
       tryTodoApi(() =>
-        selected.map((todo) => (value.includeDetails ? cloneTodos([todo])[0] : withDetails(todo, undefined))),
+        value.includeDetails ? cloneTodos(selected) : selected.map((todo) => withDetails(todo, undefined)),
       ),
     )
   }

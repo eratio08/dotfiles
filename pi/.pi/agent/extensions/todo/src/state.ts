@@ -48,27 +48,17 @@ function getTodoHandoffSnapshot(todos: readonly Todo[]): Todo[] {
 }
 
 function formatTodoContext(todos: readonly Todo[]): string {
-  const snapshot = todos
-    .map(
-      (todo) =>
-        `- content=${JSON.stringify(todo.content)} status=${todo.status}${todo.details ? ` details=${JSON.stringify(todo.details)}` : ''}`,
-    )
-    .join('\n')
-  const openTodos = todos.filter(isOpenTodo)
-  const first = openTodos[0]
-  if (!first)
-    return [
-      'TODO STATUS: authoritative accepted snapshot.',
-      snapshot,
-      'All tracked todos are completed or omitted.',
-    ].join('\n')
-
-  const remaining = openTodos.length - 1
-  const continuation =
-    remaining === 0
-      ? 'No open tasks remain after this one.'
-      : `${remaining} more open task${remaining === 1 ? '' : 's'} remain after this one. Call todo to start the next task after completing this task.`
-  return ['TODO STATUS: authoritative accepted snapshot.', snapshot, continuation].join('\n')
+  const next = getNextTodo(todos)
+  const counts = getTodoCounts(todos)
+  const taskLines = next
+    ? [`Current task: "${next.content}"`, ...(next.details ? [`Details: "${next.details}"`] : [])]
+    : ['Current task: none']
+  return [
+    'TODO STATUS',
+    '',
+    ...taskLines,
+    `Tasks: ${counts.open} remaining, ${counts.blocked} blocked, ${counts.completed} complete, ${counts.omitted} omitted.`,
+  ].join('\n')
 }
 
 function formatTodoReminder(todos: readonly Todo[]): string {
@@ -85,7 +75,7 @@ function formatTodoReminder(todos: readonly Todo[]): string {
 
   const blocked = todos.filter((todo) => todo.status === 'blocked')
   if (blocked.length > 0) {
-    const blockedText = ` Blocked: ${blocked.map((todo) => todo.content).join(', ')}.`
+    const blockedText = ` Blocked: ${blocked.length} task${blocked.length === 1 ? '' : 's'}.`
     return `TODO STATUS: no task is ready.${blockedText} Use todo to update the task graph.`
   }
 

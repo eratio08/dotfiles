@@ -19,6 +19,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@eratio08/pi-effect": "^0.1.0",
     "effect": "4.0.0-rc.112",
     "jiti": "2.7.0"
   }

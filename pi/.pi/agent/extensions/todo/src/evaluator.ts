@@ -31,7 +31,9 @@ interface TodoPatch {
 }
 
 interface TodoShowOptions {
-  readonly ids?: readonly TodoId[];
+  readonly ids?: readonly TodoId[] | null;
+  readonly status?: TodoStatus;
+  readonly limit?: number;
   readonly includeDetails?: boolean;
 }
 

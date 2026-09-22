@@ -17,6 +17,7 @@ import { TodoStore } from '../src/store.ts'
 const firstId = '018f0000-0000-7000-8000-000000000001'
 const secondId = '018f0000-0001-7000-8000-000000000002'
 const thirdId = '018f0000-0002-7000-8000-000000000003'
+const fourthId = '018f0000-0003-7000-8000-000000000004'
 
 function todo(
   id: string,
@@ -71,16 +72,23 @@ test('formats task details and lifecycle counts', () => {
   //given
   const todos = [
     todo(firstId, 'active', 'in_progress', [], ' line one\n\n line two '),
-    todo(secondId, 'blocked', 'blocked', [firstId]),
-    todo(thirdId, 'done', 'completed'),
+    todo(secondId, 'blocked', 'blocked', [firstId], 'blocked details'),
+    todo(thirdId, 'done', 'completed', [], 'done details'),
   ]
 
   //when
   const lines = todoDescriptionLines(todos[0] as Todo)
+  const context = formatTodoContext(todos)
 
   //then
   assert.deepEqual(lines, ['line one', 'line two'])
-  assert.match(formatTodoContext(todos), /details=/)
+  assert.match(context, /Current task: "active"/)
+  assert.match(context, /Details: " line one\n\n line two "/)
+  assert.doesNotMatch(context, /content=|details=|authoritative/)
+  assert.doesNotMatch(context, /blocked details/)
+  assert.doesNotMatch(context, /done details/)
+  assert.doesNotMatch(context, /status=/)
+  assert.match(context, /Tasks: 2 remaining, 1 blocked, 1 complete, 0 omitted\./)
   assert.match(formatTodoReminder(todos), /Current item: active/)
   assert.deepEqual(getTodoCounts(todos), {
     total: 3,
@@ -93,6 +101,63 @@ test('formats task details and lifecycle counts', () => {
     closed: 1,
   })
   assert.match(summarizeTodos(todos), /1 in progress/)
+})
+
+test('reports blocked task counts without task names', () => {
+  //given
+  const todos = [todo(firstId, 'blocked one', 'blocked'), todo(secondId, 'blocked two', 'blocked')]
+
+  //when
+  const reminder = formatTodoReminder(todos)
+
+  //then
+  assert.match(reminder, /Blocked: 2 tasks\./)
+  assert.doesNotMatch(reminder, /blocked one/)
+  assert.doesNotMatch(reminder, /blocked two/)
+})
+
+test('projects one task from multiple independent todo trees', () => {
+  //given
+  const todos = [
+    todo(firstId, 'tree one active', 'in_progress', [], 'active details'),
+    todo(secondId, 'tree one blocked', 'blocked', [firstId], 'blocked details'),
+    todo(thirdId, 'tree two ready', 'pending', [], 'ready details'),
+    todo(fourthId, 'tree two blocked', 'blocked', [thirdId], 'other details'),
+  ]
+
+  //when
+  const context = formatTodoContext(todos)
+
+  //then
+  assert.match(context, /Current task: "tree one active"/)
+  assert.match(context, /Details: "active details"/)
+  assert.doesNotMatch(context, /tree one blocked/)
+  assert.doesNotMatch(context, /tree two ready/)
+  assert.doesNotMatch(context, /tree two blocked/)
+  assert.doesNotMatch(context, /blocked details|ready details|other details/)
+  assert.match(context, /Tasks: 4 remaining, 2 blocked, 0 complete, 0 omitted\./)
+})
+
+test('restores the latest todo tree from multiple snapshots', () => {
+  //given
+  const firstTree = sessionEntry([
+    todo(firstId, 'first tree root'),
+    todo(secondId, 'first tree child', 'blocked', [firstId]),
+  ])
+  const secondTree = sessionEntry([
+    todo(thirdId, 'second tree root'),
+    todo(fourthId, 'second tree child', 'blocked', [thirdId]),
+  ])
+
+  //when
+  const todos = extractLatestTodoSnapshot([firstTree, secondTree])
+
+  //then
+  assert.deepEqual(
+    todos.map((item) => item.content),
+    ['second tree root', 'second tree child'],
+  )
+  assert.deepEqual(todos[1]?.dependsOn, [thirdId])
 })
 
 test('handoff keeps open tasks and trims closed dependencies', () => {
