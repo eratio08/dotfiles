@@ -1,5 +1,5 @@
 import type { Api, Model } from '@earendil-works/pi-ai'
-import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
+import { Pi, PiContext, type PiExtensionError, PiSession, PiUi } from '@eratio08/pi-effect'
 import { Context, Effect, Layer, Ref, Schema } from 'effect'
 import {
   contextModeEmoji,
@@ -15,11 +15,7 @@ import {
 
 const STATUS_KEY = 'gpt-context-mode'
 
-class GptContextModeContext extends Context.Service<GptContextModeContext, ExtensionContext>()(
-  'gpt-context-mode/ExtensionContext',
-) {}
-
-class GptContextModePi extends Context.Service<GptContextModePi, ExtensionAPI>()('gpt-context-mode/Pi') {}
+type GptContextModeError = GptContextModeHostError | PiExtensionError
 
 class GptContextModeState extends Context.Service<
   GptContextModeState,
@@ -48,72 +44,56 @@ class GptContextModeService extends Context.Service<
   {
     readonly handleCommand: (
       args: string,
-    ) => Effect.Effect<void, GptContextModeHostError, GptContextModeContext | GptContextModePi | GptContextModeState>
+    ) => Effect.Effect<void, GptContextModeError, GptContextModeState | Pi | PiContext | PiSession | PiUi>
     readonly restore: () => Effect.Effect<
       GptContextMode,
-      GptContextModeHostError,
-      GptContextModeContext | GptContextModePi | GptContextModeState
+      GptContextModeError,
+      GptContextModeState | Pi | PiContext | PiSession | PiUi
     >
     readonly applyModel: (
       model: Model<Api> | undefined,
-    ) => Effect.Effect<boolean, GptContextModeHostError, GptContextModeContext | GptContextModePi | GptContextModeState>
-    readonly shutdown: () => Effect.Effect<void, GptContextModeHostError, GptContextModeContext>
+    ) => Effect.Effect<boolean, GptContextModeError, GptContextModeState | Pi | PiContext | PiUi>
+    readonly shutdown: () => Effect.Effect<void, GptContextModeError, PiContext | PiUi>
   }
 >()('gpt-context-mode/GptContextModeService') {}
 
-function hostMessage(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause)
-}
-
 function toHostError(operation: string, cause: unknown): GptContextModeHostError {
-  return new GptContextModeHostError({ operation, message: hostMessage(cause) })
+  return new GptContextModeHostError({ operation, message: cause instanceof Error ? cause.message : String(cause) })
 }
 
-function tryHost<A>(operation: string, evaluate: () => A): Effect.Effect<A, GptContextModeHostError> {
-  return Effect.try({
-    try: evaluate,
-    catch: (cause) => toHostError(operation, cause),
-  })
+function mapPi<A, E>(operation: string, effect: Effect.Effect<A, E>): Effect.Effect<A, GptContextModeError> {
+  return effect.pipe(Effect.mapError((cause) => toHostError(operation, cause)))
 }
 
 const notify = Effect.fnUntraced(function* (
   message: string,
   type: 'info' | 'warning' | 'error',
-): Effect.fn.Return<void, GptContextModeHostError, GptContextModeContext> {
-  const ctx = yield* GptContextModeContext
-  yield* tryHost('notify', () => {
-    if (ctx.mode === 'tui' && ctx.hasUI) {
-      ctx.ui.notify(message, type)
-    }
-  })
+): Effect.fn.Return<void, GptContextModeError, PiUi> {
+  const ui = yield* PiUi
+  yield* mapPi('notify', ui.notify(message, type))
 })
 
 const updateStatus = Effect.fnUntraced(function* (
   mode: GptContextMode,
   model: Model<Api> | undefined,
-): Effect.fn.Return<void, GptContextModeHostError, GptContextModeContext> {
-  const ctx = yield* GptContextModeContext
-  yield* tryHost('setStatus', () => {
-    if (ctx.mode !== 'tui' || !ctx.hasUI) return
-    const label = ctx.ui.theme?.fg ? ctx.ui.theme.fg('muted', 'context: ') : 'context: '
-    const active = isGpt5Model(model)
-    ctx.ui.setStatus(STATUS_KEY, `${label}${contextModeEmoji(mode)}${active ? '' : ' (inactive)'}`)
-  })
+): Effect.fn.Return<void, GptContextModeError, PiContext | PiUi> {
+  const context = yield* PiContext
+  if (context.mode !== 'tui' || !context.hasUI) return
+  const ui = yield* PiUi
+  const theme = yield* mapPi('theme', ui.theme())
+  const label = theme?.fg ? theme.fg('muted', 'context: ') : 'context: '
+  const active = isGpt5Model(model)
+  yield* mapPi('setStatus', ui.setStatus(STATUS_KEY, `${label}${contextModeEmoji(mode)}${active ? '' : ' (inactive)'}`))
 })
 
-const setModel = Effect.fnUntraced(function* (
-  model: Model<Api>,
-): Effect.fn.Return<void, GptContextModeHostError, GptContextModePi> {
-  const pi = yield* GptContextModePi
-  yield* Effect.tryPromise({
-    try: () => pi.setModel(model),
-    catch: (cause) => toHostError('setModel', cause),
-  })
+const setModel = Effect.fnUntraced(function* (model: Model<Api>): Effect.fn.Return<void, GptContextModeError, Pi> {
+  const pi = yield* Pi
+  yield* mapPi('setModel', pi.model.set(model))
 })
 
 const applyModel = Effect.fnUntraced(function* (
   model: Model<Api> | undefined,
-): Effect.fn.Return<boolean, GptContextModeHostError, GptContextModeContext | GptContextModePi | GptContextModeState> {
+): Effect.fn.Return<boolean, GptContextModeError, GptContextModeState | Pi | PiContext | PiUi> {
   const state = yield* GptContextModeState
   const mode = yield* Ref.get(state.mode)
   if (!isGpt5Model(model)) {
@@ -147,9 +127,9 @@ const applyModel = Effect.fnUntraced(function* (
 
 const handleCommand = Effect.fnUntraced(function* (
   args: string,
-): Effect.fn.Return<void, GptContextModeHostError, GptContextModeContext | GptContextModePi | GptContextModeState> {
-  const ctx = yield* GptContextModeContext
-  const pi = yield* GptContextModePi
+): Effect.fn.Return<void, GptContextModeError, GptContextModeState | Pi | PiContext | PiSession | PiUi> {
+  const context = yield* PiContext
+  const session = yield* PiSession
   const state = yield* GptContextModeState
   const mode = yield* Ref.get(state.mode)
   const nextMode = parseGptContextCommand(args, mode)
@@ -159,48 +139,39 @@ const handleCommand = Effect.fnUntraced(function* (
   }
 
   yield* Ref.set(state.mode, nextMode)
-  yield* tryHost('appendEntry', () => pi.appendEntry(GPT_CONTEXT_MODE_ENTRY, { mode: nextMode }))
-  const model = yield* tryHost('model', () => ctx.model)
+  yield* mapPi('appendEntry', session.appendEntry(GPT_CONTEXT_MODE_ENTRY, { mode: nextMode }))
+  const model = context.model
   const applied = yield* applyModel(model)
   if (!isGpt5Model(model)) {
     yield* notify('GPT-5.6 context mode only applies to GPT-5.6 models', 'warning')
     return
   }
   if (applied) {
-    const label = yield* tryHost('statusLabel', () => {
-      if (ctx.mode !== 'tui' || !ctx.hasUI) return 'context: '
-      return ctx.ui.theme?.fg ? ctx.ui.theme.fg('muted', 'context: ') : 'context: '
-    })
+    const ui = yield* PiUi
+    const theme = yield* mapPi('theme', ui.theme())
+    const label = theme?.fg ? theme.fg('muted', 'context: ') : 'context: '
     yield* notify(`${label}${contextModeEmoji(nextMode)}`, 'info')
   }
 })
 
 const restore = Effect.fnUntraced(function* (): Effect.fn.Return<
   GptContextMode,
-  GptContextModeHostError,
-  GptContextModeContext | GptContextModePi | GptContextModeState
+  GptContextModeError,
+  GptContextModeState | Pi | PiContext | PiSession | PiUi
 > {
-  const ctx = yield* GptContextModeContext
+  const context = yield* PiContext
+  const session = yield* PiSession
   const state = yield* GptContextModeState
-  const entries = yield* tryHost('getEntries', () => ctx.sessionManager.getEntries())
+  const entries = yield* mapPi('getEntries', session.entries())
   const mode = restoreGptContextMode(entries)
   yield* Ref.set(state.mode, mode)
-  const model = yield* tryHost('model', () => ctx.model)
-  yield* applyModel(model)
+  yield* applyModel(context.model)
   return mode
 })
 
-const shutdown = Effect.fnUntraced(function* (): Effect.fn.Return<
-  void,
-  GptContextModeHostError,
-  GptContextModeContext
-> {
-  const ctx = yield* GptContextModeContext
-  yield* tryHost('clearStatus', () => {
-    if (ctx.mode === 'tui' && ctx.hasUI) {
-      ctx.ui.setStatus(STATUS_KEY, undefined)
-    }
-  })
+const shutdown = Effect.fnUntraced(function* (): Effect.fn.Return<void, GptContextModeError, PiContext | PiUi> {
+  const ui = yield* PiUi
+  yield* mapPi('clearStatus', ui.setStatus(STATUS_KEY, undefined))
 })
 
 const GptContextModeLayer: Layer.Layer<GptContextModeService, never, never> = Layer.succeed(
@@ -214,10 +185,9 @@ const GptContextModeLayer: Layer.Layer<GptContextModeService, never, never> = La
 )
 
 export {
-  GptContextModeContext,
+  type GptContextModeError,
   GptContextModeHostError,
   GptContextModeLayer,
-  GptContextModePi,
   GptContextModeService,
   GptContextModeState,
 }

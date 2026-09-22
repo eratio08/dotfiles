@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import webToolsExtension from '../index.ts'
 
 interface RegisteredTool {
@@ -55,7 +54,7 @@ test('extension registers the same tools under the same credential gate', async 
       const api = createTestExtensionApi()
 
       //when
-      webToolsExtension(api as unknown as ExtensionAPI)
+      await webToolsExtension(api as never)
 
       //then
       assert.deepEqual(
@@ -70,7 +69,7 @@ test('extension registers the same tools under the same credential gate', async 
     { EXA_API_KEY: 'exa-key', PARALLEL_API_KEY: undefined, PI_WEBSEARCH_PROVIDER: undefined },
     async () => {
       const api = createTestExtensionApi()
-      webToolsExtension(api as unknown as ExtensionAPI)
+      await webToolsExtension(api as never)
       assert.deepEqual(
         api.tools.map((tool) => tool.name),
         ['webfetch', 'websearch'],
@@ -86,7 +85,7 @@ test('extension keeps the webfetch tool-call URL messages', async () => {
     { EXA_API_KEY: undefined, PARALLEL_API_KEY: undefined, PI_WEBSEARCH_PROVIDER: undefined },
     async () => {
       const api = createTestExtensionApi()
-      webToolsExtension(api as unknown as ExtensionAPI)
+      await webToolsExtension(api as never)
       const toolCall = api.handlers.get('tool_call')?.[0]
       assert.ok(toolCall)
 

@@ -167,7 +167,9 @@ type WebFetchEffectRunner = (effect: ReturnType<typeof runWebFetch>, signal?: Ab
 export {
   runWebFetch,
   type WebFetchEffectRunner,
+  type WebFetchError,
   WebFetchResponseTooLargeError,
+  type WebFetchResult,
   WebFetchStatusError,
   WebFetchUnsupportedContentError,
   WebFetchValidationError,

@@ -1,14 +1,17 @@
-import type { ExtensionContext, Theme } from '@earendil-works/pi-coding-agent'
-import { Key, matchesKey, type TUI } from '@earendil-works/pi-tui'
+import { Key, matchesKey } from '@earendil-works/pi-tui'
+import type { PiTheme, PiTui, PiUiService } from '@eratio08/pi-effect'
+import { Effect, Option } from 'effect'
 import { formatSourceKind } from '../inventory/classifier.ts'
 import type { SkillDraft, SkillInvocationMode, SkillRecord, SkillToggleUiResult } from '../types.ts'
 import { bottomBorder, combineColumns, divider, fit, frameLine, topBorder } from './render.ts'
 import { filterSkills, modeLabel, toggleMode } from './view-model.ts'
 
-async function showSkillToggleUi(ctx: ExtensionContext, skills: SkillRecord[]): Promise<SkillToggleUiResult> {
-  return ctx.ui.custom<SkillToggleUiResult>(
-    (tui, theme, _keybindings, done) => new SkillToggleOverlay(tui, theme, skills, done),
-    {
+type SkillToggleTui = PiTui
+type SkillToggleTheme = PiTheme
+
+function showSkillToggleUi(ui: PiUiService, skills: SkillRecord[]) {
+  return ui
+    .custom<SkillToggleUiResult>((tui, theme, _keybindings, done) => new SkillToggleOverlay(tui, theme, skills, done), {
       overlay: true,
       overlayOptions: {
         anchor: 'center',
@@ -16,8 +19,8 @@ async function showSkillToggleUi(ctx: ExtensionContext, skills: SkillRecord[]): 
         maxHeight: '88%',
         minWidth: 86,
       },
-    },
-  )
+    })
+    .pipe(Effect.map((result) => Option.getOrElse(result, () => ({ action: 'cancel' as const, drafts: [] }))))
 }
 
 class SkillToggleOverlay {
@@ -26,8 +29,8 @@ class SkillToggleOverlay {
   private selectedIndex = 0
 
   constructor(
-    private readonly tui: TUI,
-    private readonly theme: Theme,
+    private readonly tui: SkillToggleTui,
+    private readonly theme: SkillToggleTheme,
     private readonly skills: SkillRecord[],
     private readonly done: (result: SkillToggleUiResult) => void,
   ) {

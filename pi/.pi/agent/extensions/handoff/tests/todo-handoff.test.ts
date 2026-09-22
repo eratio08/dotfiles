@@ -32,15 +32,39 @@ const branch = [
           content: 'active work',
           status: 'in_progress',
           dependsOn: [],
+          details: 'active details',
         },
-        { id: '018f00000002-7000-8000-0000-000000000003', content: 'later work', status: 'pending', dependsOn: [] },
+        {
+          id: '018f00000002-7000-8000-0000-000000000003',
+          content: 'later work',
+          status: 'pending',
+          dependsOn: [],
+          details: 'later details',
+        },
       ],
     },
   },
 ]
 
 const handoffTodos = todoState.getTodoHandoffSnapshot(todoState.extractLatestTodoSnapshot(branch))
+const handoffContext = todoState.formatTodoContext(handoffTodos)
 assert.deepEqual(handoffTodos, [
-  { id: '018f00000001-7000-8000-0000-000000000002', content: 'active work', status: 'in_progress', dependsOn: [] },
-  { id: '018f00000002-7000-8000-0000-000000000003', content: 'later work', status: 'pending', dependsOn: [] },
+  {
+    id: '018f00000001-7000-8000-0000-000000000002',
+    content: 'active work',
+    status: 'in_progress',
+    dependsOn: [],
+    details: 'active details',
+  },
+  {
+    id: '018f00000002-7000-8000-0000-000000000003',
+    content: 'later work',
+    status: 'pending',
+    dependsOn: [],
+    details: 'later details',
+  },
 ])
+assert.match(handoffContext, /content="active work"/)
+assert.match(handoffContext, /details="active details"/)
+assert.doesNotMatch(handoffContext, /later work/)
+assert.doesNotMatch(handoffContext, /later details/)

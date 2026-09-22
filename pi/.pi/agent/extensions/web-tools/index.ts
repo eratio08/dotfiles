@@ -1,14 +1,8 @@
 import { StringEnum } from '@earendil-works/pi-ai'
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
-import {
-  DEFAULT_MAX_BYTES,
-  DEFAULT_MAX_LINES,
-  defineTool,
-  formatSize,
-  getMarkdownTheme,
-} from '@earendil-works/pi-coding-agent'
+import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, getMarkdownTheme } from '@earendil-works/pi-coding-agent'
 import { Container, Markdown, Spacer, Text } from '@earendil-works/pi-tui'
-import { Layer, ManagedRuntime, Predicate } from 'effect'
+import { type EffectToolDefinition, PiExtension, PiToolContext } from '@eratio08/pi-effect'
+import { Effect, Layer, Predicate } from 'effect'
 import { Type } from 'typebox'
 import {
   assertSafePublicHttpUrl,
@@ -17,7 +11,6 @@ import {
   MAX_TIMEOUT_SECONDS,
   WEBFETCH_NAME,
   type WebFetchDetails,
-  type WebFetchInput,
 } from './src/core/webfetch.ts'
 import {
   hasWebSearchCredentials,
@@ -28,13 +21,22 @@ import {
   truncateInline,
   WEBSEARCH_NAME,
   type WebSearchDetails,
-  type WebSearchInput,
 } from './src/core/websearch.ts'
-import { WebToolsHttpLive } from './src/effects/services/http.ts'
-import { WebToolsTemporaryOutputLive } from './src/effects/services/temporary-output.ts'
-import { WebSearchConfigLive } from './src/effects/services/websearch-config.ts'
-import { runWebFetch, type WebFetchEffectRunner } from './src/effects/webfetch.ts'
-import { runWebSearch, type WebSearchEffectRunner } from './src/effects/websearch.ts'
+import { type WebToolsHttp, WebToolsHttpLive } from './src/effects/services/http.ts'
+import { type WebToolsTemporaryOutput, WebToolsTemporaryOutputLive } from './src/effects/services/temporary-output.ts'
+import { type WebSearchConfig, WebSearchConfigLive } from './src/effects/services/websearch-config.ts'
+import {
+  runWebFetch,
+  type WebFetchEffectRunner,
+  type WebFetchError,
+  type WebFetchResult,
+} from './src/effects/webfetch.ts'
+import {
+  runWebSearch,
+  type WebSearchEffectRunner,
+  type WebSearchError,
+  type WebSearchResult,
+} from './src/effects/websearch.ts'
 
 const webFetchParameters = Type.Object({
   url: Type.String({ description: 'The HTTP or HTTPS URL to fetch content from' }),
@@ -44,15 +46,22 @@ const webFetchParameters = Type.Object({
   ),
 })
 
-function createWebFetchTool(run: WebFetchEffectRunner): ReturnType<typeof defineTool> {
-  return defineTool({
+function createWebFetchTool(
+  _run?: WebFetchEffectRunner,
+): EffectToolDefinition<
+  typeof webFetchParameters,
+  WebToolsHttp | WebToolsTemporaryOutput,
+  WebFetchError,
+  WebFetchDetails
+> {
+  return {
     name: WEBFETCH_NAME,
     label: 'webfetch',
     description: `Fetch content from an HTTP or HTTPS URL and return it as text, markdown, or HTML. Markdown is the default. Output is truncated to ${DEFAULT_MAX_LINES} lines or ${formatSize(DEFAULT_MAX_BYTES)}.`,
     promptSnippet: 'Fetch text or HTML content from a public web URL',
     promptGuidelines: [
       'Use webfetch when the user wants a specific public web page or document fetched.',
-      'Use webfetch instead of bash curl for normal public HTTP or HTTPS page retrieval.',
+      'Use webfetch instead of bash curl for normal public HTTP or HTTPS retrieval.',
     ],
     parameters: webFetchParameters,
     renderCall(args, theme) {
@@ -92,10 +101,8 @@ function createWebFetchTool(run: WebFetchEffectRunner): ReturnType<typeof define
       container.addChild(new Text(theme.fg('dim', `Full output: ${details.fullOutputPath}`), 0, 0))
       return container
     },
-    async execute(_toolCallId, params, signal) {
-      return run(runWebFetch(params as WebFetchInput), signal)
-    },
-  })
+    execute: (params) => runWebFetch(params),
+  }
 }
 
 const webSearchParameters = Type.Object({
@@ -110,12 +117,19 @@ const webSearchParameters = Type.Object({
   ),
 })
 
-function createWebSearchTool(run: WebSearchEffectRunner): ReturnType<typeof defineTool> {
-  return defineTool({
+function createWebSearchTool(
+  _run?: WebSearchEffectRunner,
+): EffectToolDefinition<
+  typeof webSearchParameters,
+  WebToolsHttp | WebToolsTemporaryOutput | WebSearchConfig,
+  WebSearchError,
+  WebSearchDetails
+> {
+  return {
     name: WEBSEARCH_NAME,
     label: 'websearch',
     description: `Search the public web for current information using Exa or Parallel. Output is truncated to ${DEFAULT_MAX_LINES} lines or ${formatSize(DEFAULT_MAX_BYTES)}.`,
-    promptSnippet: 'Search the public web for current information',
+    promptSnippet: 'Search the public web for current public information',
     promptGuidelines: [
       'Use websearch when the user needs current public web information beyond the model cutoff.',
       'Use websearch before webfetch when the user needs discovery rather than one exact URL.',
@@ -147,45 +161,50 @@ function createWebSearchTool(run: WebSearchEffectRunner): ReturnType<typeof defi
       container.addChild(new Text(theme.fg('dim', `Full output: ${details.fullOutputPath}`), 0, 0))
       return container
     },
-    async execute(toolCallId, params, signal, _onUpdate, ctx) {
-      const sessionFile = ctx.sessionManager.getSessionFile() ?? null
-      return run(runWebSearch(params as WebSearchInput, toolCallId, sessionFile), signal)
-    },
-  })
-}
-
-function webToolsExtension(pi: ExtensionAPI): void {
-  const runtime = ManagedRuntime.make(
-    Layer.mergeAll(WebToolsHttpLive, WebToolsTemporaryOutputLive, WebSearchConfigLive()),
-  )
-  let shuttingDown = false
-
-  pi.on('session_shutdown', async () => {
-    if (shuttingDown) return
-    shuttingDown = true
-    await runtime.dispose()
-  })
-
-  pi.registerTool(createWebFetchTool((effect, signal) => runtime.runPromise(effect, { signal })))
-  if (hasWebSearchCredentials()) {
-    pi.registerTool(createWebSearchTool((effect, signal) => runtime.runPromise(effect, { signal })))
+    execute: (params) =>
+      Effect.gen(function* () {
+        const context = yield* PiToolContext
+        return yield* runWebSearch(params, context.toolCallId, context.session.file ?? null)
+      }),
   }
-
-  pi.on('tool_call', async (event) => {
-    if (event.toolName !== WEBFETCH_NAME) return
-    const input = event.input
-    if (!Predicate.isObject(input) || !Predicate.isString(input.url)) {
-      return { block: true, reason: 'webfetch requires a string url' }
-    }
-    try {
-      assertSafePublicHttpUrl(input.url)
-    } catch (error) {
-      return {
-        block: true,
-        reason: Predicate.isError(error) ? error.message : 'Blocked URL',
-      }
-    }
-  })
 }
 
-export { createWebFetchTool, createWebSearchTool, webToolsExtension as default }
+type WebToolsServices = WebToolsHttp | WebToolsTemporaryOutput | WebSearchConfig
+
+type WebToolsFailure = WebFetchError | WebSearchError
+
+const webToolsPlugin = PiExtension.define<WebToolsServices, WebToolsFailure>({
+  id: 'web-tools',
+  layer: Layer.mergeAll(WebToolsHttpLive, WebToolsTemporaryOutputLive, WebSearchConfigLive()),
+  effect: (registrations) =>
+    Effect.gen(function* () {
+      yield* registrations.tools.register(createWebFetchTool())
+      if (hasWebSearchCredentials()) yield* registrations.tools.register(createWebSearchTool())
+      yield* registrations.events.on('tool_call', (event) => {
+        if (event.toolName !== WEBFETCH_NAME) return Effect.succeed(undefined)
+        const input = event.input
+        const url = Predicate.isObject(input) ? input.url : undefined
+        if (!Predicate.isString(url)) {
+          return Effect.succeed({ block: true, reason: 'webfetch requires a string url' })
+        }
+        return Effect.sync(() => {
+          try {
+            assertSafePublicHttpUrl(url)
+            return undefined
+          } catch (cause) {
+            return { block: true, reason: Predicate.isError(cause) ? cause.message : 'Blocked URL' }
+          }
+        })
+      })
+    }),
+})
+
+const webToolsExtension = PiExtension.install(webToolsPlugin)
+
+export {
+  createWebFetchTool,
+  createWebSearchTool,
+  type WebFetchResult,
+  type WebSearchResult,
+  webToolsExtension as default,
+}

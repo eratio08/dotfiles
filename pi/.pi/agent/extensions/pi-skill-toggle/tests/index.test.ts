@@ -5,10 +5,10 @@ import piSkillToggle from '../index.ts'
 type CommandHandler = (args: string, ctx: unknown) => Promise<void>
 type EventHandler = (event: unknown, ctx: unknown) => Promise<void>
 
-function createHarness(): {
+async function createHarness(): Promise<{
   shutdown: () => Promise<void>
   notifications: string[]
-} {
+}> {
   const commands = new Map<string, { handler: CommandHandler }>()
   const events = new Map<string, EventHandler>()
   const notifications: string[] = []
@@ -22,12 +22,27 @@ function createHarness(): {
       custom: async () => ({ action: 'cancel' as const, drafts: [] }),
     },
     reload: async () => {},
+    sessionManager: {
+      getCwd: () => '/tmp',
+      getSessionId: () => 'test',
+      getSessionFile: () => undefined,
+      getSessionDir: () => '/tmp',
+      getLeafId: () => null,
+      getLeafEntry: () => undefined,
+      getEntries: () => [],
+      getTree: () => [],
+      getEntry: () => undefined,
+      getBranch: () => [],
+      buildContextEntries: () => [],
+      getLabel: () => undefined,
+      getSessionName: () => undefined,
+    },
   }
   const pi = {
     registerCommand: (name: string, spec: { handler: CommandHandler }) => commands.set(name, spec),
     on: (event: string, handler: EventHandler) => events.set(event, handler),
   }
-  piSkillToggle(pi as never)
+  await piSkillToggle(pi as never)
   return {
     shutdown: async () => {
       const handler = events.get('session_shutdown')
@@ -44,7 +59,7 @@ function createHarness(): {
 describe('piSkillToggle', () => {
   test('disposes once and ignores commands after shutdown', async () => {
     //given
-    const harness = createHarness()
+    const harness = await createHarness()
 
     //when
     await harness.shutdown()

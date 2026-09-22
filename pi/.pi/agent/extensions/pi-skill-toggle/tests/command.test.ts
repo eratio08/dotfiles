@@ -1,7 +1,7 @@
 import { describe, test } from 'bun:test'
 import { strict as assert } from 'node:assert'
-import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent'
-import { Effect, Layer, ManagedRuntime } from 'effect'
+import { PiCommandContext, PiContext, PiUi } from '@eratio08/pi-effect'
+import { Effect, Layer, ManagedRuntime, Option } from 'effect'
 import { SkillTogglePlanner } from '../src/apply/planner.ts'
 import { SkillChangeWriter } from '../src/apply/writer.ts'
 import { runToggleSkillsCommand } from '../src/command.ts'
@@ -53,21 +53,25 @@ type State = {
 
 async function runScenario(scenario: Scenario): Promise<State> {
   const state: State = { notifications: [], customCalls: 0, reloads: 0, inventoryCalls: 0, planned: 0, written: 0 }
-  const ctx = {
+  const context = {
     mode: scenario.mode ?? 'tui',
     hasUI: scenario.hasUI ?? true,
     cwd: '/cwd',
-    signal: undefined,
-    ui: {
-      notify: (message: string) => state.notifications.push(message),
-      custom: async () => {
+    model: undefined,
+  }
+  const ui = {
+    notify: (message: string) => Effect.sync(() => state.notifications.push(message)),
+    custom: () =>
+      Effect.sync(() => {
         state.customCalls += 1
-        return scenario.uiResult ?? { action: 'cancel' as const, drafts: [{ skill, desiredMode: skill.mode }] }
-      },
-    },
-    reload: async () => {
-      state.reloads += 1
-    },
+        return Option.some(
+          scenario.uiResult ?? { action: 'cancel' as const, drafts: [{ skill, desiredMode: skill.mode }] },
+        )
+      }),
+  }
+  const command = {
+    ...context,
+    reload: () => Effect.sync(() => state.reloads++),
   }
   const inventoryLayer = Layer.succeed(
     SkillInventory,
@@ -114,9 +118,18 @@ async function runScenario(scenario: Scenario): Promise<State> {
       },
     }),
   )
-  const runtime = ManagedRuntime.make(Layer.mergeAll(inventoryLayer, plannerLayer, writerLayer))
+  const runtime = ManagedRuntime.make(
+    Layer.mergeAll(
+      inventoryLayer,
+      plannerLayer,
+      writerLayer,
+      Layer.succeed(PiContext, context as never),
+      Layer.succeed(PiCommandContext, command as never),
+      Layer.succeed(PiUi, ui as never),
+    ),
+  )
   try {
-    await runToggleSkillsCommand(ctx as unknown as ExtensionCommandContext, runtime)
+    await runtime.runPromise(runToggleSkillsCommand() as never)
   } finally {
     await runtime.dispose()
   }

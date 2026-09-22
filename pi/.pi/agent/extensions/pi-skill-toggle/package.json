@@ -24,6 +24,7 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "@eratio08/pi-effect": "file:../lib/pi-effect",
     "effect": "4.0.0-rc.112"
   }
 }

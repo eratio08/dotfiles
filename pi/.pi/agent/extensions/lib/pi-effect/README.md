@@ -309,28 +309,3 @@ await extension.invokeEvent('session_shutdown', {
 The fake extension exposes recorded events, commands, shortcuts, flags, tools, and renderers.
 Use `createFakeExtensionContext` when a test needs a custom working directory or host context.
 Use `invokeEvent`, `invokeCommand`, `invokeCommandCompletions`, and `invokeTool` to exercise the installed adapter.
-
-## Package exports
-
-The package exposes two public entrypoints:
-
-```text
-@eratio08/pi-effect
-@eratio08/pi-effect/testing
-```
-
-The main entrypoint exports the production SDK.
-The testing entrypoint exports fake host helpers and does not expose the internal adapter implementation.
-
-## Development
-
-Run the package gates from the package root:
-
-```bash
-bun run typecheck
-bun test tests/*.test.ts
-bun run check
-```
-
-The package uses explicit public exports from `src/index.ts` and `src/testing.ts`.
-Internal source files are not package entrypoints.

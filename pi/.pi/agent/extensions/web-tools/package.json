@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "test": "bun test tests/*.test.ts",
     "check": "biome check ."
   },
@@ -13,11 +14,14 @@
     "typebox": "*"
   },
   "dependencies": {
+    "@eratio08/pi-effect": "file:../lib/pi-effect",
     "effect": "4.0.0-rc.112",
     "htmlparser2": "^12.0.0",
     "turndown": "^7.2.4"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.12"
+    "@biomejs/biome": "2.5.12",
+    "@types/turndown": "^5.0.6",
+    "typescript": "^5.9.3"
   }
 }

@@ -158,4 +158,11 @@ const runWebSearch = Effect.fn('runWebSearch')(function* (
 
 type WebSearchEffectRunner = (effect: ReturnType<typeof runWebSearch>, signal?: AbortSignal) => Promise<WebSearchResult>
 
-export { runWebSearch, type WebSearchEffectRunner, WebSearchParseError, WebSearchResponseError }
+export {
+  runWebSearch,
+  type WebSearchEffectRunner,
+  type WebSearchError,
+  WebSearchParseError,
+  WebSearchResponseError,
+  type WebSearchResult,
+}
