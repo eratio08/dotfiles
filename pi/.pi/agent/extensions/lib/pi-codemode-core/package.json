@@ -1,0 +1,29 @@
+{
+  "name": "@eratio/pi-codemode-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "bun": ">=1.4.0",
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "test": "bun test tests",
+    "typecheck": "tsc --noEmit",
+    "check": "biome check ."
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./output": "./src/code-mode-output.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.12",
+    "@types/bun": "^1.4.2",
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "effect": "4.0.0-rc.112",
+    "jiti": "2.7.0"
+  }
+}
