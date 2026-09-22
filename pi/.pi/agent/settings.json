@@ -1,8 +1,8 @@
 {
-  "lastChangelogVersion": "0.87.0",
+  "lastChangelogVersion": "0.87.1",
   "theme": "rose-pine-moon",
   "defaultProvider": "github-copilot",
-  "defaultModel": "gpt-5.6-luna",
+  "defaultModel": "gpt-6-luna",
   "defaultThinkingLevel": "max",
   "packages": [
     {
@@ -15,6 +15,14 @@
       "source": "git:github.com/DietrichGebert/ponytail",
       "extensions": [
         "-pi-extension/index.js"
+      ],
+      "skills": [
+        "-skills/ponytail/SKILL.md",
+        "-skills/ponytail-audit/SKILL.md",
+        "-skills/ponytail-debt/SKILL.md",
+        "-skills/ponytail-gain/SKILL.md",
+        "-skills/ponytail-help/SKILL.md",
+        "-skills/ponytail-review/SKILL.md"
       ]
     },
     "git:github.com/eratio08/pi-mcp",
@@ -25,8 +33,8 @@
   "enableInstallTelemetry": false,
   "hideThinkingBlock": true,
   "enabledModels": [
-    "github-copilot/gpt-5.6-luna",
-    "github-copilot/kimi-k3"
+    "github-copilot/kimi-k3",
+    "github-copilot/gpt-6-luna"
   ],
   "skills": [
     "~/.local/state/sparness/opencode/skills",

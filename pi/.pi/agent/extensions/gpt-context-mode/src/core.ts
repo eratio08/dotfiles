@@ -1,9 +1,20 @@
 const GPT5_HIGH_CONTEXT_WINDOW = 1_050_000
+const GPT6_HIGH_CONTEXT_WINDOW = 1_000_000
 
-const GPT5_6_LOW_CONTEXT_WINDOWS: ReadonlyMap<string, number> = new Map([
+const GPT_CONTEXT_LOW_WINDOWS: ReadonlyMap<string, number> = new Map([
   ['gpt-5.6-luna', 200_000],
   ['gpt-5.6-sol', 272_000],
   ['gpt-5.6-terra', 272_000],
+  ['gpt-6-luna', 272_000],
+  ['gpt-6-sol', 272_000],
+])
+
+const GPT_CONTEXT_HIGH_WINDOWS: ReadonlyMap<string, number> = new Map([
+  ['gpt-5.6-luna', GPT5_HIGH_CONTEXT_WINDOW],
+  ['gpt-5.6-sol', GPT5_HIGH_CONTEXT_WINDOW],
+  ['gpt-5.6-terra', GPT5_HIGH_CONTEXT_WINDOW],
+  ['gpt-6-luna', GPT6_HIGH_CONTEXT_WINDOW],
+  ['gpt-6-sol', GPT6_HIGH_CONTEXT_WINDOW],
 ])
 
 const GPT_CONTEXT_MODE_ENTRY = 'gpt-context-mode'
@@ -54,29 +65,35 @@ function restoreGptContextMode(branch: readonly unknown[], fallback: GptContextM
   return mode
 }
 
-function isGpt5Model<T extends GptContextModeModel>(model: T | undefined): model is T {
-  return model?.api === 'openai-responses' && GPT5_6_LOW_CONTEXT_WINDOWS.has(model.id)
+function isGptContextModel<T extends GptContextModeModel>(model: T | undefined): model is T {
+  return model?.api === 'openai-responses' && GPT_CONTEXT_LOW_WINDOWS.has(model.id)
 }
 
 function modelKey(model: GptContextModeModel): string {
   return `${model.provider}/${model.id}`
 }
 
-function contextModel<T extends GptContextModeModel>(model: T, mode: GptContextMode, lowContextWindow: number): T {
-  const contextWindow = mode === 'high' ? GPT5_HIGH_CONTEXT_WINDOW : lowContextWindow
+function contextModel<T extends GptContextModeModel>(
+  model: T,
+  mode: GptContextMode,
+  lowContextWindow: number,
+  highContextWindow = GPT5_HIGH_CONTEXT_WINDOW,
+): T {
+  const contextWindow = mode === 'high' ? highContextWindow : lowContextWindow
   return model.contextWindow === contextWindow ? model : { ...model, contextWindow }
 }
 
 export {
   contextModeEmoji,
   contextModel,
+  GPT_CONTEXT_HIGH_WINDOWS,
+  GPT_CONTEXT_LOW_WINDOWS,
   GPT_CONTEXT_MODE_ENTRY,
-  GPT5_6_LOW_CONTEXT_WINDOWS,
   GPT5_HIGH_CONTEXT_WINDOW,
   type GptContextMode,
   type GptContextModeModel,
-  isGpt5Model,
   isGptContextMode,
+  isGptContextModel,
   modelKey,
   parseGptContextCommand,
   restoreGptContextMode,

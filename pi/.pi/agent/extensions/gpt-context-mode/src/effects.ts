@@ -4,10 +4,11 @@ import { Context, Effect, Layer, Ref, Schema } from 'effect'
 import {
   contextModeEmoji,
   contextModel,
+  GPT_CONTEXT_HIGH_WINDOWS,
+  GPT_CONTEXT_LOW_WINDOWS,
   GPT_CONTEXT_MODE_ENTRY,
-  GPT5_6_LOW_CONTEXT_WINDOWS,
   type GptContextMode,
-  isGpt5Model,
+  isGptContextModel,
   modelKey,
   parseGptContextCommand,
   restoreGptContextMode,
@@ -82,7 +83,7 @@ const updateStatus = Effect.fnUntraced(function* (
   const ui = yield* PiUi
   const theme = yield* mapPi('theme', ui.theme())
   const label = theme?.fg ? theme.fg('muted', 'context: ') : 'context: '
-  const active = isGpt5Model(model)
+  const active = isGptContextModel(model)
   yield* mapPi('setStatus', ui.setStatus(STATUS_KEY, `${label}${contextModeEmoji(mode)}${active ? '' : ' (inactive)'}`))
 })
 
@@ -96,23 +97,24 @@ const applyModel = Effect.fnUntraced(function* (
 ): Effect.fn.Return<boolean, GptContextModeError, GptContextModeState | Pi | PiContext | PiUi> {
   const state = yield* GptContextModeState
   const mode = yield* Ref.get(state.mode)
-  if (!isGpt5Model(model)) {
+  if (!isGptContextModel(model)) {
     yield* updateStatus(mode, model)
     return false
   }
 
   const key = modelKey(model)
   const cachedWindows = yield* Ref.get(state.lowContextWindows)
-  const lowContextWindow = cachedWindows.get(key) ?? GPT5_6_LOW_CONTEXT_WINDOWS.get(model.id) ?? model.contextWindow
+  const lowContextWindow = cachedWindows.get(key) ?? GPT_CONTEXT_LOW_WINDOWS.get(model.id) ?? model.contextWindow
+  const highContextWindow = GPT_CONTEXT_HIGH_WINDOWS.get(model.id) ?? model.contextWindow
   yield* Ref.set(state.lowContextWindows, new Map(cachedWindows).set(key, lowContextWindow))
 
-  const nextModel = contextModel(model, mode, lowContextWindow)
+  const nextModel = contextModel(model, mode, lowContextWindow, highContextWindow)
   if (nextModel !== model) {
     const applied = yield* setModel(nextModel).pipe(
       Effect.as(true),
       Effect.catchTag('GptContextModeHostError', (error) =>
         Effect.gen(function* () {
-          yield* notify(`Unable to set GPT-5.6 context mode: ${error.message}`, 'error')
+          yield* notify(`Unable to set GPT context mode: ${error.message}`, 'error')
           yield* updateStatus(mode, model)
           return false
         }),
@@ -142,8 +144,8 @@ const handleCommand = Effect.fnUntraced(function* (
   yield* mapPi('appendEntry', session.appendEntry(GPT_CONTEXT_MODE_ENTRY, { mode: nextMode }))
   const model = context.model
   const applied = yield* applyModel(model)
-  if (!isGpt5Model(model)) {
-    yield* notify('GPT-5.6 context mode only applies to GPT-5.6 models', 'warning')
+  if (!isGptContextModel(model)) {
+    yield* notify('GPT context mode only applies to supported GPT models', 'warning')
     return
   }
   if (applied) {

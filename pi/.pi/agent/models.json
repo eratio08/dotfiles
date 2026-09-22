@@ -126,9 +126,9 @@
           }
         },
         {
-          "id": "gemini-3.6-flash",
-          "name": "Gemini 3.6 Flash",
-          "api": "openai-completions",
+          "id": "gpt-6-luna",
+          "name": "GPT-6 Luna (default context)",
+          "api": "openai-responses",
           "provider": "github-copilot",
           "baseUrl": "https://api.enterprise.githubcopilot.com",
           "reasoning": true,
@@ -137,23 +137,110 @@
             "image"
           ],
           "cost": {
-            "input": 1.5,
-            "output": 7.5,
-            "cacheRead": 0.15,
-            "cacheWrite": 0
+            "input": 0.1,
+            "output": 0.5,
+            "cacheRead": 0.01,
+            "cacheWrite": 0.125,
+            "tiers": [
+              {
+                "inputTokensAbove": 272000,
+                "input": 0.2,
+                "output": 0.75,
+                "cacheRead": 0.02,
+                "cacheWrite": 0.25
+              }
+            ]
           },
-          "contextWindow": 200000,
-          "maxTokens": 64000,
+          "contextWindow": 272000,
+          "maxTokens": 128000,
           "headers": {
             "User-Agent": "GitHubCopilotChat/0.35.0",
             "Editor-Version": "vscode/1.107.0",
             "Editor-Plugin-Version": "copilot-chat/0.35.0",
             "Copilot-Integration-Id": "vscode-chat"
           },
+          "thinkingLevelMap": {
+            "off": "none",
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
           "compat": {
-            "supportsStore": false,
-            "supportsDeveloperRole": false,
-            "supportsReasoningEffort": false
+            "supportsOpenAIGrammarTools": true,
+            "supportsMidConvoSystemMessages": true,
+            "supportsAdditionalTools": true
+          },
+          "inputLimits": {
+            "images": {
+              "resize": {
+                "maxWidth": 2000,
+                "maxHeight": 2000,
+                "maxBytes": 4718592,
+                "jpegQuality": 80
+              }
+            }
+          }
+        },
+        {
+          "id": "gpt-6-sol",
+          "name": "GPT-6 Sol (default context)",
+          "api": "openai-responses",
+          "provider": "github-copilot",
+          "baseUrl": "https://api.enterprise.githubcopilot.com",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "cost": {
+            "input": 2,
+            "output": 10,
+            "cacheRead": 0.2,
+            "cacheWrite": 2.5,
+            "tiers": [
+              {
+                "inputTokensAbove": 272000,
+                "input": 4,
+                "output": 15,
+                "cacheRead": 0.4,
+                "cacheWrite": 5
+              }
+            ]
+          },
+          "contextWindow": 272000,
+          "maxTokens": 128000,
+          "headers": {
+            "User-Agent": "GitHubCopilotChat/0.35.0",
+            "Editor-Version": "vscode/1.107.0",
+            "Editor-Plugin-Version": "copilot-chat/0.35.0",
+            "Copilot-Integration-Id": "vscode-chat"
+          },
+          "thinkingLevelMap": {
+            "off": "none",
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "supportsOpenAIGrammarTools": true,
+            "supportsMidConvoSystemMessages": true,
+            "supportsAdditionalTools": true
+          },
+          "inputLimits": {
+            "images": {
+              "resize": {
+                "maxWidth": 2000,
+                "maxHeight": 2000,
+                "maxBytes": 4718592,
+                "jpegQuality": 80
+              }
+            }
           }
         }
       ]

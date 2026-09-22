@@ -11,10 +11,10 @@ import gptContextModeExtension, {
 import {
   contextModeEmoji,
   contextModel,
-  GPT5_6_LOW_CONTEXT_WINDOWS,
+  GPT_CONTEXT_LOW_WINDOWS,
   GPT5_HIGH_CONTEXT_WINDOW,
   type GptContextMode,
-  isGpt5Model,
+  isGptContextModel,
   modelKey,
   parseGptContextCommand,
   restoreGptContextMode,
@@ -292,10 +292,17 @@ test('detects configured models and builds stable keys', () => {
   const unsupported = { ...supported, id: 'gpt-5.5' }
 
   //when
-  const result = [isGpt5Model(supported), isGpt5Model(unsupported), modelKey(supported), contextModeEmoji('high')]
+  const gpt6 = { ...supported, id: 'gpt-6-luna', contextWindow: 1_000_000 }
+  const result = [
+    isGptContextModel(supported),
+    isGptContextModel(gpt6),
+    isGptContextModel(unsupported),
+    modelKey(supported),
+    contextModeEmoji('high'),
+  ]
 
   //then
-  assert.deepEqual(result, [true, false, 'github-copilot/gpt-5.6-sol', '🚀'])
+  assert.deepEqual(result, [true, true, false, 'github-copilot/gpt-5.6-sol', '🚀'])
 })
 
 test('applies high mode, persists it, and updates status through shared services', async () => {
@@ -325,7 +332,21 @@ test('uses the model-specific low window after a high transition', async () => {
   })
 
   //then
-  assert.equal(outcome.modelChanges.at(-1)?.contextWindow, GPT5_6_LOW_CONTEXT_WINDOWS.get(source.id))
+  assert.equal(outcome.modelChanges.at(-1)?.contextWindow, GPT_CONTEXT_LOW_WINDOWS.get(source.id))
+})
+
+test('uses the default context window for GPT-6 models', async () => {
+  //given
+  const source = model(1_000_000, 'gpt-6-luna')
+
+  //when
+  const outcome = await withLayerHarness(async (harness) => {
+    await harness.run((service) => service.applyModel(source))
+    return harness.snapshot()
+  })
+
+  //then
+  assert.equal(outcome.modelChanges.at(-1)?.contextWindow, 272000)
 })
 
 test('restores saved mode from the shared session service', async () => {
@@ -412,7 +433,7 @@ test('reapplies saved mode after session start and model selection', async () =>
   assert.equal(harness.modelChanges.length, 2)
 })
 
-test('warns when the selected model is not GPT-5.6', async () => {
+test('warns when the selected model is not a supported GPT model', async () => {
   //given
   const harness = await createExtensionHarness({ initialModel: { ...model(), id: 'gpt-5.5' } })
   const command = harness.commands.get('gpt-context-mode')

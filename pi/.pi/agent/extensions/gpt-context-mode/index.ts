@@ -20,7 +20,7 @@ const gptContextModePlugin = PiExtension.define<GptContextModeService | GptConte
     Effect.gen(function* () {
       const service = yield* GptContextModeService
       yield* registrations.commands.register('gpt-context-mode', {
-        description: 'Switch GPT-5.6 between default and long context windows',
+        description: 'Switch supported GPT models between default and long context windows',
         handler: (args) => service.handleCommand(args),
       })
       yield* registrations.events.on('session_start', () => service.restore().pipe(Effect.as(undefined)))
