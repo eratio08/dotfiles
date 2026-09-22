@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { createWebSearchTool } from '../index.ts'
 import {
   hasWebSearchCredentials,
   parseSearchResponse,
   selectProvider,
   previewLines as webSearchPreviewLines,
-} from '../src/websearch.ts'
+} from '../src/core/websearch.ts'
 
 test('websearch registration gate checks credentials', () => {
   assert.equal(hasWebSearchCredentials({} as NodeJS.ProcessEnv), false)
@@ -35,4 +36,37 @@ test('websearch parses direct json and sse responses', () => {
 test('websearch preview lines trim blanks and truncate long lines', () => {
   assert.deepEqual(webSearchPreviewLines('\n alpha \n\nbeta\ngamma\ndelta', 2, 20), ['alpha', 'beta'])
   assert.deepEqual(webSearchPreviewLines('abcdefghijklmnopqrstuvwxyz', 3, 8), ['abcdefg…'])
+})
+
+test('websearch preserves selected-provider fallback and tool schema', () => {
+  //given
+  const webSearchTool = createWebSearchTool(async () => {
+    throw new Error('test runner must not execute the websearch workflow')
+  })
+  const parameters = webSearchTool.parameters as {
+    required: string[]
+    properties: Record<string, { enum?: string[]; description?: string }>
+  }
+
+  //when
+  const schema = {
+    name: webSearchTool.name,
+    required: parameters.required,
+    livecrawl: parameters.properties.livecrawl.enum,
+    type: parameters.properties.type.enum,
+    contextDescription: parameters.properties.contextMaxCharacters.description,
+  }
+
+  //then
+  assert.deepEqual(schema, {
+    name: 'websearch',
+    required: ['query'],
+    livecrawl: ['fallback', 'preferred'],
+    type: ['auto', 'fast', 'deep'],
+    contextDescription: 'Maximum model context characters. Default 10000, max 50000',
+  })
+  assert.equal(selectProvider({ PI_WEBSEARCH_PROVIDER: 'parallel' } as NodeJS.ProcessEnv), 'parallel')
+  assert.equal(selectProvider({ PI_WEBSEARCH_PROVIDER: 'exa' } as NodeJS.ProcessEnv), 'exa')
+  assert.equal(selectProvider({ PI_WEBSEARCH_PROVIDER: 'parallel', EXA_API_KEY: 'x' } as NodeJS.ProcessEnv), 'parallel')
+  assert.equal(selectProvider({ PI_WEBSEARCH_PROVIDER: 'exa', PARALLEL_API_KEY: 'x' } as NodeJS.ProcessEnv), 'exa')
 })

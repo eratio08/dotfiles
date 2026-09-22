@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { convertHTMLToMarkdown, extractTextFromHTML } from '../src/html.ts'
+import { createWebFetchTool } from '../index.ts'
 import {
   acceptHeaderForFormat,
   assertSafePublicHttpUrl,
   previewLines as webFetchPreviewLines,
-} from '../src/webfetch.ts'
+} from '../src/core/webfetch.ts'
+import { convertHTMLToMarkdown, extractTextFromHTML } from '../src/html.ts'
 
 test('webfetch blocks localhost and private IPv4', () => {
   assert.throws(() => assertSafePublicHttpUrl('http://localhost'))
@@ -36,4 +37,34 @@ test('webfetch preview lines trim blanks and truncate long lines', () => {
     'third line',
   ])
   assert.deepEqual(webFetchPreviewLines('abcdefghijklmnopqrstuvwxyz', 3, 8), ['abcdefg…'])
+})
+
+test('webfetch preserves URL policy and tool schema', () => {
+  //given
+  const webFetchTool = createWebFetchTool(async () => {
+    throw new Error('test runner must not execute the webfetch workflow')
+  })
+  const parameters = webFetchTool.parameters as {
+    required: string[]
+    properties: Record<string, { enum?: string[]; description?: string }>
+  }
+
+  //when
+  const schema = {
+    name: webFetchTool.name,
+    required: parameters.required,
+    formats: parameters.properties.format.enum,
+    timeoutDescription: parameters.properties.timeout.description,
+  }
+
+  //then
+  assert.deepEqual(schema, {
+    name: 'webfetch',
+    required: ['url'],
+    formats: ['text', 'markdown', 'html'],
+    timeoutDescription: 'Timeout in seconds. Default 30, max 120',
+  })
+  assert.throws(() => assertSafePublicHttpUrl('ftp://example.com'), /URL must use http:\/\/ or https:\/\//)
+  assert.throws(() => assertSafePublicHttpUrl('https://api.localhost'), /Blocked private or localhost target/)
+  assert.doesNotThrow(() => assertSafePublicHttpUrl('http://169.254.169.254'))
 })
