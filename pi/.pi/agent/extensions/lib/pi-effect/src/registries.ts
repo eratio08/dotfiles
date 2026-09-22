@@ -204,8 +204,11 @@ function defaultPiFailurePolicy(name: PiEventName): PiFailurePolicy {
   }
 }
 
-function registerEffect(registration: string, register: () => void): Effect.Effect<void, PiRegistrationError> {
-  return Effect.try({
+const registerEffect = Effect.fnUntraced(function* (
+  registration: string,
+  register: () => void,
+): Effect.fn.Return<void, PiRegistrationError> {
+  return yield* Effect.try({
     try: register,
     catch: (cause) =>
       new PiRegistrationError({
@@ -214,7 +217,7 @@ function registerEffect(registration: string, register: () => void): Effect.Effe
         cause,
       }),
   })
-}
+})
 
 function createPiRegistries<Services, Failure = PiExtensionError>(ports: {
   readonly events: PiEventRegistrationPort<Services, Failure>

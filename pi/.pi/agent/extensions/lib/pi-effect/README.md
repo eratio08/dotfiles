@@ -69,6 +69,10 @@ The adapter runs the setup program once and provides the Pi services to every re
 - `layer` supplies custom Effect services to the plugin.
 - `effect` registers events, commands, shortcuts, flags, tools, and renderers.
 
+The setup registration context is passed as an argument by design.
+It is a composition-root port, not a runtime service.
+Registered callbacks use Effect service requirements for their dependencies.
+
 A Layer supplies services to an Effect program.
 A plugin layer can require `PiHost` or stable host services such as `PiMessages`, `PiTools`, `PiFlags`, and `PiProcess` while the layer is built.
 A plugin layer must not require `Pi`, `PiContext`, `PiSessionContext`, `PiCommandContext`, `PiToolContext`, `PiSession`, or `PiUi` because those services are invocation-scoped.
@@ -173,7 +177,11 @@ The main service tags are:
 - `PiProcess` runs a process through the Pi host.
 
 The `Pi` facade also provides `model.set` and the low-level Pi event bus.
+Event emission and subscription return Effects that fail with `PiHostError` when the host rejects the operation.
 The event bus uses raw channel data and is intended for coordination with other Pi extensions.
+`events.on` returns an unsubscribe Effect that callers can run when the subscription ends.
+`events.onScoped` registers a subscription in the current Effect scope and removes it when the scope closes.
+Use `events.onScoped` with `Effect.scoped` when the subscription lifetime must follow a scope.
 
 All host operations return Effects when they can fail or require an abort signal.
 The adapter maps host failures to typed errors.

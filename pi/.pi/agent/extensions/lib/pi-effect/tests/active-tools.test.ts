@@ -42,8 +42,9 @@ test('releases a semaphore permit when a waiting tool operation is interrupted',
     registerProvider: () => Effect.succeed(undefined),
     unregisterProvider: () => Effect.succeed(undefined),
     events: {
-      emit: () => undefined,
-      on: () => () => undefined,
+      emit: () => Effect.succeed(undefined),
+      on: () => Effect.succeed(Effect.succeed(undefined)),
+      onScoped: () => Effect.succeed(undefined),
     },
   }
   const tools = createPiToolsService(host)

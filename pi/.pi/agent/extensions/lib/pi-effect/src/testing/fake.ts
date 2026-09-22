@@ -108,6 +108,7 @@ function createFakeExtensionContext(cwd = process.cwd()): ExtensionContext {
 
 function createFakeExtensionApi(): FakeExtension {
   const events = new Map<string, FakeCallback[]>()
+  const eventBus = new Map<string, Array<(data: unknown) => void>>()
   const commands = new Map<string, FakeCommand>()
   const shortcuts = new Map<string, (context: ExtensionContext) => Promise<void> | void>()
   const flags = new Map<string, { value: boolean | string | undefined }>()
@@ -157,7 +158,24 @@ function createFakeExtensionApi(): FakeExtension {
     setThinkingLevel: (): void => undefined,
     registerProvider: (): void => undefined,
     unregisterProvider: (): void => undefined,
-    events: { emit: (): void => undefined, on: (): (() => void) => () => undefined },
+    events: {
+      emit: (channel: string, data: unknown): void => {
+        for (const handler of eventBus.get(channel) ?? []) handler(data)
+      },
+      on: (channel: string, handler: (data: unknown) => void): (() => void) => {
+        const handlers = eventBus.get(channel) ?? []
+        handlers.push(handler)
+        eventBus.set(channel, handlers)
+        return () => {
+          const current = eventBus.get(channel)
+          if (!current) return
+          const index = current.indexOf(handler)
+          if (index < 0) return
+          current.splice(index, 1)
+          if (current.length === 0) eventBus.delete(channel)
+        }
+      },
+    },
   }
   const extension: FakeExtension = {
     api: api as unknown as ExtensionAPI,

@@ -2,13 +2,9 @@ import { Effect, Semaphore } from 'effect'
 import { PiHostError, piCauseMessage } from '../errors.ts'
 import type { PiHostValue, PiToolsService } from '../services.ts'
 
-const services = new WeakMap<object, PiToolsService>()
-
-function createPiToolsService(host: PiHostValue): PiToolsService {
-  const existing = services.get(host)
-  if (existing) return existing
+const createPiToolsService = (host: PiHostValue): PiToolsService => {
   const semaphore = Semaphore.makeUnsafe(1)
-  const service: PiToolsService = {
+  return {
     active: host.getActiveTools,
     all: host.getAllTools,
     replaceActive: (toolNames) =>
@@ -22,8 +18,6 @@ function createPiToolsService(host: PiHostValue): PiToolsService {
           ),
         ),
   }
-  services.set(host, service)
-  return service
 }
 
 export { createPiToolsService }

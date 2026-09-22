@@ -20,7 +20,7 @@ import type {
   OverlayOptions,
   TUI,
 } from '@earendil-works/pi-tui'
-import { Context, type Effect, type Option } from 'effect'
+import { Context, type Effect, type Option, type Scope } from 'effect'
 import type { PiExtensionError, PiHostError, PiToolError, PiUiUnavailableError } from './errors.ts'
 
 type PiMode = 'tui' | 'rpc' | 'json' | 'print'
@@ -143,8 +143,15 @@ type PiToolContextValue = PiContextValue & {
 }
 
 type PiHostEventBus = {
-  readonly emit: (channel: string, data: unknown) => void
-  readonly on: (channel: string, handler: (data: unknown) => void) => () => void
+  readonly emit: (channel: string, data: unknown) => Effect.Effect<void, PiHostError>
+  readonly on: (
+    channel: string,
+    handler: (data: unknown) => void,
+  ) => Effect.Effect<Effect.Effect<void, PiHostError>, PiHostError>
+  readonly onScoped: (
+    channel: string,
+    handler: (data: unknown) => void,
+  ) => Effect.Effect<void, PiHostError, Scope.Scope>
 }
 
 type PiHostValue = {

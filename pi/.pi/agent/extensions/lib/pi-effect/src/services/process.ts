@@ -1,7 +1,5 @@
 import type { PiHostValue, PiProcessService } from '../services.ts'
 
-function createPiProcessService(host: PiHostValue): PiProcessService {
-  return { exec: host.exec }
-}
+const createPiProcessService = (host: PiHostValue): PiProcessService => ({ exec: host.exec })
 
 export { createPiProcessService }

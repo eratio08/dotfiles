@@ -1,12 +1,14 @@
 import { expect, test } from 'bun:test'
-import type { ExtensionContext } from '@earendil-works/pi-coding-agent'
+import type { ExtensionContext, ProjectTrustContext } from '@earendil-works/pi-coding-agent'
 import { Context, Effect, Layer, Schema } from 'effect'
 import { Type } from 'typebox'
 import {
+  Pi,
   PiCommandContext,
   PiContext,
   PiExtension,
   PiHost,
+  type PiHostError,
   PiMessages,
   PiRegistrationError,
   PiToolContext,
@@ -55,6 +57,7 @@ test('preserves event results and provides the current invocation context', asyn
 test('keeps stable host services across invocation contexts', async () => {
   //given
   let setupMessages: unknown
+  const facadeMessages: unknown[] = []
   const eventMessages: unknown[] = []
   const plugin = PiExtension.define({
     id: 'tests/stable-services',
@@ -63,6 +66,7 @@ test('keeps stable host services across invocation contexts', async () => {
         setupMessages = yield* PiMessages
         yield* events.on('session_start', () =>
           Effect.gen(function* () {
+            facadeMessages.push((yield* Pi).messages)
             eventMessages.push(yield* PiMessages)
           }).pipe(Effect.as(undefined)),
         )
@@ -79,6 +83,135 @@ test('keeps stable host services across invocation contexts', async () => {
   expect(eventMessages).toHaveLength(2)
   expect(eventMessages[0]).toBe(setupMessages)
   expect(eventMessages[1]).toBe(setupMessages)
+  expect(facadeMessages[0]).toBe(setupMessages)
+  expect(facadeMessages[1]).toBe(setupMessages)
+})
+
+test('models the Pi event bus with Effect operations', async () => {
+  //given
+  const received: unknown[] = []
+  const plugin = PiExtension.define({
+    id: 'tests/effect-event-bus',
+    effect: ({ events }) =>
+      Effect.gen(function* () {
+        yield* events.on('session_start', () =>
+          Effect.gen(function* () {
+            const pi = yield* Pi
+            const unsubscribe = yield* pi.events.on('custom', (data) => received.push(data))
+            yield* pi.events.emit('custom', { value: 1 })
+            yield* unsubscribe
+            yield* pi.events.emit('custom', { value: 2 })
+          }).pipe(Effect.as(undefined)),
+        )
+      }),
+  })
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+
+  //when
+  await fake.invokeEvent('session_start', { type: 'session_start' })
+  await shutdown(fake)
+
+  //then
+  expect(received).toEqual([{ value: 1 }])
+})
+
+test('cleans up scoped Pi event bus subscriptions', async () => {
+  //given
+  const received: unknown[] = []
+  const plugin = PiExtension.define({
+    id: 'tests/scoped-event-bus',
+    effect: ({ events }) =>
+      events.on('session_start', () =>
+        Effect.gen(function* () {
+          const pi = yield* Pi
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              yield* pi.events.onScoped('custom', (data) => received.push(data))
+              yield* pi.events.emit('custom', { value: 1 })
+            }),
+          )
+          yield* pi.events.emit('custom', { value: 2 })
+        }).pipe(Effect.as(undefined)),
+      ),
+  })
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+
+  //when
+  await fake.invokeEvent('session_start', { type: 'session_start' })
+  await shutdown(fake)
+
+  //then
+  expect(received).toEqual([{ value: 1 }])
+})
+
+test('maps Pi event bus failures to PiHostError', async () => {
+  //given
+  const plugin = PiExtension.define({
+    id: 'tests/effect-event-bus-failure',
+    effect: ({ events }) =>
+      events.on(
+        'session_start',
+        () =>
+          Effect.gen(function* () {
+            const pi = yield* Pi
+            yield* pi.events.emit('custom', {})
+          }).pipe(Effect.as(undefined)),
+        { failure: 'propagate' },
+      ),
+  })
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+  fake.api.events.emit = () => {
+    throw new Error('event bus failed')
+  }
+
+  //when
+  const execution = fake.invokeEvent('session_start', { type: 'session_start' })
+
+  //then
+  await expect(execution).rejects.toMatchObject({
+    _tag: 'PiHostError',
+    operation: 'events.emit',
+  } satisfies Partial<PiHostError>)
+  await shutdown(fake)
+})
+
+test('returns a typed error for unsupported custom UI operations', async () => {
+  //given
+  const plugin = PiExtension.define({
+    id: 'tests/trust-ui-custom',
+    effect: ({ events }) =>
+      events.on(
+        'project_trust',
+        () =>
+          Effect.gen(function* () {
+            const ui = yield* PiUi
+            yield* ui.custom(() => undefined as never)
+          }).pipe(Effect.as(undefined)),
+        { failure: 'propagate' },
+      ),
+  })
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+  const trustContext = {
+    mode: 'tui',
+    hasUI: true,
+    cwd: '/workspace',
+    ui: {
+      select: async () => undefined,
+      confirm: async () => false,
+      input: async () => undefined,
+    },
+  } as unknown as ProjectTrustContext
+
+  //when
+  const execution = fake.invokeEvent(
+    'project_trust',
+    { type: 'project_trust' },
+    trustContext as unknown as ExtensionContext,
+  )
+
+  //then
+  await expect(execution).rejects.toBeInstanceOf(PiUiUnavailableError)
+  await shutdown(fake)
 })
 
 test('applies neutral and fail-closed event policies', async () => {
