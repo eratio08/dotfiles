@@ -1,0 +1,33 @@
+{
+  "name": "@eratio08/pi-effect",
+  "version": "0.1.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests/*.test.ts",
+    "check": "biome check ."
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "effect": "^4.0.0-0",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.12",
+    "@earendil-works/pi-coding-agent": "^0.83.0",
+    "@earendil-works/pi-tui": "^0.83.0",
+    "@types/bun": "^1.4.2",
+    "@types/node": "^24.10.1",
+    "effect": "4.0.0-rc.112",
+    "typebox": "1.3.7",
+    "typescript": "^5.9.3"
+  }
+}
