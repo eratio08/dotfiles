@@ -1,6 +1,7 @@
 import { extname } from 'node:path'
 import { Worker } from 'node:worker_threads'
 import { Cause, Context, Effect, Exit, Layer, Option, Schema, type Scope } from 'effect'
+import { OPENSRC_API_HELP } from '../core/code-mode.ts'
 import { planClean } from '../core/command-plan.ts'
 import type {
   FetchedSource,
@@ -212,6 +213,7 @@ function createOpensrcApi(
         return yield* fileSystem.read(root, validPath, callSignal)
       })
     const api: OpensrcApi = {
+      help: () => OPENSRC_API_HELP,
       list: () => {
         recordOperation('list')
         return sourceStore.current()

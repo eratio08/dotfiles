@@ -243,6 +243,8 @@ test('registers one todo tool and commits one snapshot after a successful progra
   assert.match(tool.promptSnippet ?? '', /non-trivial work with three or more tasks/)
   assert.match(tool.promptGuidelines?.join('\n') ?? '', /Use todo only for non-trivial work with three or more tasks/)
   assert.match(tool.promptGuidelines?.join('\n') ?? '', /TodoApi/)
+  assert.match(tool.promptGuidelines?.join('\n') ?? '', /todo\.help\(\)/)
+  assert.doesNotMatch(tool.promptGuidelines?.join('\n') ?? '', /interface TodoId/)
   assert.ok(tool.parameters?.properties?.code)
   const renderedCall = tool.renderCall?.({}, value.theme, { argsComplete: false })
   assert.ok(renderedCall)

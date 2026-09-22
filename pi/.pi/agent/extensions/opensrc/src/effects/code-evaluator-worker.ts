@@ -1,6 +1,6 @@
 import { createContext, Script } from 'node:vm'
 import { isMainThread, type MessagePort, parentPort, receiveMessageOnPort } from 'node:worker_threads'
-import { isOpensrcProgram } from '../core/code-mode.ts'
+import { isOpensrcProgram, OPENSRC_API_HELP } from '../core/code-mode.ts'
 import {
   type AstGrepMatch,
   createOpensrcFailure,
@@ -103,6 +103,7 @@ function createWorkerApi(workerPort: MessagePort, syncPort: MessagePort, syncSta
   }
 
   return {
+    help: () => OPENSRC_API_HELP,
     list: () => callSync('list', []) as readonly Source[],
     has: (name, version) => callSync('has', [name, version]) as boolean,
     get: (name) => callSync('get', [name]) as Source | undefined,

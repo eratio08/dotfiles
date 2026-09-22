@@ -107,6 +107,7 @@ interface AstGrepOptions {
 }
 
 interface OpensrcApi {
+  readonly help: () => string
   readonly list: () => readonly Source[]
   readonly has: (name: string, version?: string) => boolean
   readonly get: (name: string) => Source | undefined

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { type ExtensionAPI, type ExtensionContext, initTheme } from '@earendil-works/pi-coding-agent'
 import { Effect, Exit } from 'effect'
 import opensrcExtension from '../index.ts'
+import { OPENSRC_API_HELP } from '../src/core/code-mode.ts'
 import type { OpensrcApi } from '../src/core/model.ts'
 import { createCodeEvaluator } from '../src/effects/code-evaluator.ts'
 
@@ -16,6 +17,7 @@ interface RegisteredTestTool {
 }
 
 const api: OpensrcApi = {
+  help: () => OPENSRC_API_HELP,
   list: () => [{ type: 'npm', name: 'zod', version: '3.0.0', path: 'zod', fetchedAt: '2026-01-01' }],
   has: (name) => name === 'zod',
   get: (name) => (name === 'zod' ? api.list()[0] : undefined),
@@ -42,6 +44,18 @@ describe('opensrc code mode', () => {
 
     //then
     expect(result).toEqual(['zod'])
+  })
+
+  test('exposes the API reference on demand', async () => {
+    //given
+    const evaluator = createCodeEvaluator()
+    const code = 'export default (opensrc: OpensrcApi) => opensrc.help()'
+
+    //when
+    const result = await Effect.runPromise(evaluator.evaluate(code, api))
+
+    //then
+    expect(result).toBe(OPENSRC_API_HELP)
   })
 
   test('rejects a module without a callable default export', async () => {
@@ -163,14 +177,12 @@ describe('opensrc code mode', () => {
       description: "Give coding agents access to any package's source code.",
       executionMode: 'sequential',
       promptSnippet: expect.any(String),
-      promptGuidelines: [
-        expect.any(String),
-        expect.any(String),
-        expect.any(String),
-        expect.stringContaining('interface OpensrcApi'),
-      ],
+      promptGuidelines: [expect.stringContaining('api.help()')],
       parameters: expect.any(Object),
     })
+    const promptGuidelines =
+      (registrations[0] as { promptGuidelines?: readonly string[] }).promptGuidelines?.join('\n') ?? ''
+    expect(promptGuidelines).not.toContain('interface OpensrcApi')
   })
 
   test('renders the collapsed result as one summary line', () => {

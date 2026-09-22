@@ -217,52 +217,62 @@ const requestPlannotatorPhase = Effect.fnUntraced(function* (): Effect.fn.Return
 > {
   const pi = yield* Pi
   const statusRequestVersion = yield* TodoStatusRequestVersion
-  return yield* Effect.callback<void, TodoUiError, TodoEffectsRequirements>((resume, signal) => {
-    const version = ++statusRequestVersion.value
-    let settled = false
-    let timeout: ReturnType<typeof setTimeout> | undefined
-    const cleanup = (): void => {
-      if (timeout !== undefined) clearTimeout(timeout)
-      signal.removeEventListener('abort', abort)
-    }
-    const abort = (): void => {
-      settled = true
-      cleanup()
-    }
-    const finish = (effect: Effect.Effect<void, TodoUiError, TodoEffectsRequirements> = Effect.void): void => {
-      if (settled) return
-      settled = true
-      cleanup()
-      resume(effect)
-    }
-    signal.addEventListener('abort', abort, { once: true })
-
-    const request: PlannotatorStatusRequest = {
-      requestId: randomUUID(),
-      action: 'plan-mode',
-      payload: { mode: 'status' },
-      respond: (response) => {
-        if (settled || version !== statusRequestVersion.value) {
-          finish()
-          return
-        }
-        finish(handleResponse(response, version))
-      },
-    }
-    if (!signal.aborted) {
-      timeout = setTimeout(() => finish(), PLANNOTATOR_REQUEST_TIMEOUT_MS)
-      try {
-        pi.events.emit(PLANNOTATOR_REQUEST_CHANNEL, request)
-      } catch (cause) {
-        finish(Effect.fail(todoHostError('emit-plannotator-request', cause)))
+  const version = ++statusRequestVersion.value
+  let active = true
+  let stale = false
+  let earlyResponse: unknown
+  let hasEarlyResponse = false
+  let responseResolver: ((response: unknown | undefined) => void) | undefined
+  const request: PlannotatorStatusRequest = {
+    requestId: randomUUID(),
+    action: 'plan-mode',
+    payload: { mode: 'status' },
+    respond: (response) => {
+      if (!active) return
+      if (version !== statusRequestVersion.value) {
+        stale = true
+        responseResolver?.(undefined)
+        return
       }
-    }
-
-    return Effect.sync(() => {
-      settled = true
-      cleanup()
-    })
+      if (responseResolver === undefined) {
+        earlyResponse = response
+        hasEarlyResponse = true
+        return
+      }
+      responseResolver(response)
+    },
+  }
+  const responseEffect = Effect.tryPromise<unknown | undefined, TodoUiError>({
+    try: (signal) =>
+      new Promise<unknown | undefined>((resolve) => {
+        let settled = false
+        let timeout: ReturnType<typeof setTimeout> | undefined
+        const cleanup = (): void => {
+          if (timeout !== undefined) clearTimeout(timeout)
+          signal.removeEventListener('abort', abort)
+          responseResolver = undefined
+        }
+        const finish = (response: unknown | undefined): void => {
+          if (settled) return
+          settled = true
+          active = false
+          cleanup()
+          resolve(response)
+        }
+        const abort = (): void => finish(undefined)
+        responseResolver = finish
+        signal.addEventListener('abort', abort, { once: true })
+        if (stale) finish(undefined)
+        else if (hasEarlyResponse) finish(earlyResponse)
+        else timeout = setTimeout(() => finish(undefined), PLANNOTATOR_REQUEST_TIMEOUT_MS)
+      }),
+    catch: (cause) => todoHostError('await-plannotator-response', cause),
   })
+  const response = yield* pi.events.emit(PLANNOTATOR_REQUEST_CHANNEL, request).pipe(
+    Effect.mapError((cause) => todoHostError('emit-plannotator-request', cause)),
+    Effect.flatMap(() => responseEffect),
+  )
+  if (response !== undefined) yield* handleResponse(response, version)
 })
 
 const scheduleSessionPhaseSync = Effect.fnUntraced(function* (): Effect.fn.Return<

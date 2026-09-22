@@ -41,12 +41,7 @@ function opensrcExtension(pi: ExtensionAPI): void {
     label: 'OpenSrc',
     description: "Give coding agents access to any package's source code.",
     promptSnippet: 'Compose dependency source queries and fetches in one TypeScript program',
-    promptGuidelines: [
-      'Use opensrc to batch related source reads, searches, fetches, and cache mutations in one program.',
-      'Use source.name after fetch because the cache can normalize repository names.',
-      'The opensrc API can fetch source code and mutate the shared local cache.',
-      `opensrc TypeScript types and examples:\n${OPENSRC_PROMPT}`,
-    ],
+    promptGuidelines: [OPENSRC_PROMPT],
     parameters: OpensrcParameters,
     executionMode: 'sequential',
     execute(_toolCallId, params: OpensrcInput, signal, _onUpdate, context) {

@@ -11,6 +11,7 @@ import {
 } from '@eratio08/pi-effect'
 import { Effect, Layer, Semaphore } from 'effect'
 import { type Static, Type } from 'typebox'
+import { TODO_PROMPT } from './src/code-mode.ts'
 import {
   TodoEffects,
   TodoEffectsLayer,
@@ -21,7 +22,6 @@ import {
   type TodoUiError,
   todoHostError,
 } from './src/effects.ts'
-import { TODO_CODE_EXAMPLE, TODO_CODE_TYPES } from './src/evaluator.ts'
 import { getTodoCounts, isOpenTodo, type Todo, type TodoStatus, todoDescriptionLines } from './src/state.ts'
 import { TodoStore } from './src/store.ts'
 
@@ -258,13 +258,7 @@ const todoTool: EffectToolDefinition<typeof Params, TodoRequirements, TodoUiErro
   description:
     'Run TypeScript code that reads and updates the current todo plan for non-trivial work with three or more tasks.',
   promptSnippet: 'Use todo only for non-trivial work with three or more tasks',
-  promptGuidelines: [
-    'Use todo only for non-trivial work with three or more tasks; skip trivial work.',
-    `todo receives these TypeScript declarations:\n${TODO_CODE_TYPES}\ntodo example:\n${TODO_CODE_EXAMPLE}`,
-    'Export a default async function that receives TodoApi.',
-    'Create a dependency before the task that depends on it, and await mutation calls in order.',
-    "Use show() to inspect up to five tasks, use show({ ids: [id] }) to select tasks by ID, and use show({ status: 'pending' }) to select tasks by status. Set limit to change the cap for broad and status queries. An explicit ID list returns every requested task.",
-  ],
+  promptGuidelines: [TODO_PROMPT],
   parameters: Params,
   executionMode: 'sequential',
   execute: (params: TodoToolParams) =>

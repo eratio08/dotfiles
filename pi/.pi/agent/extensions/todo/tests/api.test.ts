@@ -16,6 +16,19 @@ function createDraft(initial: readonly Todo[] = []): { draft: TodoTransactionDra
   return { draft, snapshot: () => cloneTodos(todos) }
 }
 
+test('returns the todo API reference on demand', () => {
+  //given
+  const { draft } = createDraft()
+  const api = createTodoApi({ draft })
+
+  //when
+  const help = api.help()
+
+  //then
+  assert.match(help, /interface TodoApi/)
+  assert.match(help, /todo\.add/)
+})
+
 test('adds tasks with generated IDs and dependency-derived statuses', async () => {
   //given
   const { draft } = createDraft()

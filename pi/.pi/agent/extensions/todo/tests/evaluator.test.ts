@@ -5,6 +5,7 @@ import type { TodoApi } from '../src/api.ts'
 import { evaluateTodoCode, formatTodoCodeOutput } from '../src/evaluator.ts'
 
 const api: TodoApi = {
+  help: () => 'todo help',
   add: async (input) => ({
     id: '018f0000-0000-7000-8000-000000000001',
     content: input.content,

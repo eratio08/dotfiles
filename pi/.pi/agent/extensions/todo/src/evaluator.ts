@@ -4,59 +4,7 @@ import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, truncateHead } from '
 import { Effect, Schema } from 'effect'
 import { createJiti } from 'jiti'
 import type { TodoApi } from './api.ts'
-
-const TODO_CODE_TYPES = `
-type TodoId = string;
-
-type TodoStatus = "pending" | "in_progress" | "completed" | "omitted" | "blocked";
-
-interface Todo {
-  readonly id: TodoId;
-  readonly content: string;
-  readonly details?: string;
-  readonly status: TodoStatus;
-  readonly dependsOn: readonly TodoId[];
-}
-
-interface TodoInput {
-  readonly content: string;
-  readonly details?: string;
-  readonly dependsOn?: readonly TodoId[];
-}
-
-interface TodoPatch {
-  readonly content?: string;
-  readonly details?: string | null;
-  readonly dependsOn?: readonly TodoId[];
-}
-
-interface TodoShowOptions {
-  readonly ids?: readonly TodoId[] | null;
-  readonly status?: TodoStatus;
-  readonly limit?: number;
-  readonly includeDetails?: boolean;
-}
-
-interface TodoApi {
-  add(input: TodoInput): Promise<Todo>;
-  update(id: TodoId, patch: TodoPatch): Promise<Todo>;
-  show(options?: TodoShowOptions): Promise<readonly Todo[]>;
-  next(): Promise<Todo>;
-  complete(): Promise<Todo>;
-  omit(id: TodoId): Promise<Todo>;
-  restore(id: TodoId): Promise<Todo>;
-  clear(): Promise<{ readonly cleared: number }>;
-}
-
-type TodoProgram = (todo: TodoApi) => unknown | Promise<unknown>;
-`
-
-const TODO_CODE_EXAMPLE = `
-export default async (todo: TodoApi) => {
-  const task = await todo.add({ content: 'Design the API' });
-  return task;
-}
-`
+import { TODO_CODE_EXAMPLE, TODO_CODE_TYPES } from './code-mode.ts'
 
 const TODO_CODE_TIMEOUT_MS = 30_000
 const todoCodeJiti = createJiti(import.meta.url, { moduleCache: false })
