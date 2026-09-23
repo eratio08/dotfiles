@@ -57,17 +57,22 @@ class TodoStore extends Context.Service<
 
       const snapshot = withLock(Ref.get(state).pipe(Effect.map((value) => cloneTodos(value.todos))))
 
-      const restore = (entries: readonly unknown[]) =>
-        withLock(
+      const restore = Effect.fnUntraced(function* (
+        entries: readonly unknown[],
+      ): Effect.fn.Return<readonly Todo[], never> {
+        return yield* withLock(
           Effect.gen(function* () {
             const todos = extractLatestTodoSnapshot(entries)
             yield* Ref.update(state, (value) => ({ ...value, todos: cloneTodos(todos) }))
             return cloneTodos(todos)
           }),
         )
+      })
 
-      const replace = (next: readonly Todo[]) =>
-        withLock(
+      const replace = Effect.fnUntraced(function* (
+        next: readonly Todo[],
+      ): Effect.fn.Return<readonly Todo[], TodoUpdateError> {
+        return yield* withLock(
           Effect.gen(function* () {
             const error = validateTodoGraph(next)
             if (error) return yield* Effect.fail(new TodoUpdateError({ message: error }))
@@ -76,12 +81,13 @@ class TodoStore extends Context.Service<
             return cloneTodos(todos)
           }),
         )
+      })
 
-      const transact = <A>(
+      const transact = Effect.fnUntraced(function* <A>(
         run: (draft: TodoTransactionDraft, signal: AbortSignal) => Effect.Effect<A, TodoUpdateError>,
         signal?: AbortSignal,
-      ) =>
-        withLock(
+      ): Effect.fn.Return<TodoTransactionResult<A>, TodoUpdateError> {
+        return yield* withLock(
           Effect.gen(function* () {
             if (signal?.aborted) {
               return yield* Effect.fail(new TodoUpdateError({ message: 'Todo transaction was aborted.' }))
@@ -131,6 +137,7 @@ class TodoStore extends Context.Service<
             return { value, todos: cloneTodos(draftTodos), changed }
           }),
         )
+      })
 
       const isSuspended = withLock(Ref.get(state).pipe(Effect.map((value) => value.suspended)))
 

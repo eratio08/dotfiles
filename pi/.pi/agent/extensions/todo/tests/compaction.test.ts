@@ -36,6 +36,7 @@ type FailureOperation =
   | 'getActiveTools'
   | 'setActiveTools'
   | 'getBranch'
+  | 'getToolsExpanded'
   | 'notify'
   | 'isIdle'
   | 'emit'
@@ -134,6 +135,7 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
         notifications.push(message)
       },
       getToolsExpanded() {
+        fail('getToolsExpanded')
         return options.toolsExpanded ?? false
       },
       async custom(factory: (tui: unknown, theme: Theme, keybindings: unknown, done: () => void) => unknown) {
@@ -229,6 +231,88 @@ async function restoreTodos(value: ReturnType<typeof harness>): Promise<void> {
 function todoCode(body: string): { code: string } {
   return { code: `export default async (todo: TodoApi) => { ${body} }` }
 }
+
+test('suspends todo tracking after an approved plan submission', async () => {
+  //given
+  const value = harness([], true, { phase: 'executing' })
+  await value.ready
+  const handler = value.events.get('tool_result')
+  assert.ok(handler)
+
+  //when
+  await handler({ toolName: 'plannotator_submit_plan', details: { approved: true, plan: 'accepted' } }, value.ctx)
+
+  //then
+  assert.equal(value.activeTools.includes('todo'), false)
+})
+
+const rejectedPlanResults = [
+  {
+    name: 'approval is false',
+    event: { toolName: 'plannotator_submit_plan', details: { approved: false } },
+  },
+  {
+    name: 'approval is missing',
+    event: { toolName: 'plannotator_submit_plan', details: {} },
+  },
+  {
+    name: 'details are null',
+    event: { toolName: 'plannotator_submit_plan', details: null },
+  },
+  {
+    name: 'approval has the wrong type',
+    event: { toolName: 'plannotator_submit_plan', details: { approved: 'true' } },
+  },
+  {
+    name: 'the tool name does not match',
+    event: { toolName: 'other', details: { approved: true } },
+  },
+  {
+    name: 'the result is an error',
+    event: { toolName: 'plannotator_submit_plan', isError: true, details: { approved: true } },
+  },
+]
+
+for (const { name, event } of rejectedPlanResults) {
+  test(`keeps todo tracking active when ${name}`, async () => {
+    //given
+    const value = harness([], true, { phase: 'executing' })
+    await value.ready
+    const handler = value.events.get('tool_result')
+    assert.ok(handler)
+
+    //when
+    await handler(event, value.ctx)
+
+    //then
+    assert.equal(value.activeTools.includes('todo'), true)
+  })
+}
+
+test('does not carry open tasks when a marked snapshot is malformed', async () => {
+  //given
+  const value = harness(branchWithTodos, true)
+  await restoreTodos(value)
+  value.replaceBranch([
+    {
+      type: 'custom',
+      customType: TODO_STATE_ENTRY,
+      data: { todos: 'malformed' },
+    },
+  ])
+  const branchChange = value.events.get('session_tree')
+  assert.ok(branchChange)
+
+  //when
+  await branchChange(
+    { type: 'session_tree', summaryEntry: { type: 'branch_summary', summary: 'summary of the branch' } },
+    value.ctx,
+  )
+
+  //then
+  assert.equal(value.widgets.get('todo'), undefined)
+  assert.equal(value.sentMessages.length, 0)
+})
 
 test('registers one todo tool and commits one snapshot after a successful program', async () => {
   //given
@@ -779,6 +863,50 @@ test('ignores a Plannotator response after the bounded wait expires', async () =
   assert.equal(value.activeTools.includes('todo'), true)
 })
 
+test('ignores stale Plannotator responses from overlapping requests', async () => {
+  //given
+  const value = harness([], true, {
+    phaseResponses: [{ phase: 'executing', delayMs: 25 }, { phase: 'idle' }],
+  })
+  await value.ready
+  const input = value.events.get('input')
+  assert.ok(input)
+
+  //when
+  await Promise.all([input({ type: 'input' }, value.ctx), input({ type: 'input' }, value.ctx)])
+
+  //then
+  assert.equal(value.activeTools.includes('todo'), true)
+})
+
+test('cleans up an aborted Plannotator status request', async () => {
+  //given
+  const controller = new AbortController()
+  const value = harness([], true, {
+    phaseResponses: [{ phase: 'executing', delayMs: 300 }],
+  })
+  await value.ready
+  const input = value.events.get('input')
+  assert.ok(input)
+  const context = { ...value.ctx, signal: controller.signal }
+  const abortTimer = setTimeout(() => controller.abort(), 50)
+
+  //when
+  const outcome = await Promise.race([
+    Promise.resolve(input({ type: 'input' }, context)).then(
+      () => 'settled',
+      () => 'settled',
+    ),
+    new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 150)),
+  ])
+
+  //then
+  clearTimeout(abortTimer)
+  assert.equal(outcome, 'settled')
+  await new Promise((resolve) => setTimeout(resolve, 350))
+  assert.equal(value.activeTools.includes('todo'), true)
+})
+
 test('serializes concurrent phase transitions before updating the widget', async () => {
   //given
   let value!: ReturnType<typeof harness>
@@ -1220,6 +1348,36 @@ test('renders todo details when tool output expands after widget creation', asyn
   assert.match(lines.join('\n'), /first details/)
 })
 
+test('hides todo details when tool output collapses after widget creation', async () => {
+  //given
+  const value = harness(
+    [
+      {
+        type: 'custom',
+        customType: TODO_STATE_ENTRY,
+        data: {
+          todos: [
+            { id: firstId, content: 'first task', status: 'in_progress', dependsOn: [], details: 'first details' },
+          ],
+        },
+      },
+    ],
+    true,
+    { toolsExpanded: true },
+  )
+  await restoreTodos(value)
+  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
+  assert.ok(widgetFactory)
+  const widget = widgetFactory(undefined, value.theme)
+  value.setToolsExpanded(false)
+
+  //when
+  const lines = widget.render(120)
+
+  //then
+  assert.doesNotMatch(lines.join('\n'), /first details/)
+})
+
 test('keeps expanded todo details within a narrow widget width', async () => {
   //given
   const value = harness(
@@ -1264,6 +1422,26 @@ test('reports typed UI errors from /todos', async () => {
     assert.ok(error instanceof TodoUiError)
     assert.equal(error.operation, 'show')
     assert.equal(error.message, 'Error: viewer failed')
+    assert.equal(error.cause, cause)
+    return true
+  })
+})
+
+test('reports typed UI errors when reading tool output expansion state', async () => {
+  //given
+  const cause = new Error('tool expansion state failed')
+  const value = harness(branchWithTodos, true, {
+    failure: { operation: 'getToolsExpanded', error: cause },
+  })
+
+  //when
+  const execution = restoreTodos(value)
+
+  //then
+  await assert.rejects(execution, (error: unknown) => {
+    assert.ok(error instanceof TodoUiError)
+    assert.equal(error.operation, 'update')
+    assert.equal(error.message, 'Error: tool expansion state failed')
     assert.equal(error.cause, cause)
     return true
   })

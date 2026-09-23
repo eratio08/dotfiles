@@ -1,10 +1,16 @@
 import { randomUUID } from 'node:crypto'
 import { Pi, PiContext, type PiServices, PiSession, PiToolContext, PiTools, PiUi } from '@eratio08/pi-effect'
-import { Context, Effect, Layer, Result, Schema, Semaphore } from 'effect'
+import { Context, Effect, Layer, Ref, Result, Schema, Semaphore } from 'effect'
 import { createTodoApi } from './api.ts'
 import { evaluateTodoCode, formatTodoCodeOutput, type TodoCodeDetails } from './evaluator.ts'
 import { cloneTodos, formatTodoContext, TODO_STATE_ENTRY, type Todo, TodoUpdateError } from './state.ts'
 import { TodoStore } from './store.ts'
+
+const decodeTodoSnapshotMarker = Schema.decodeUnknownResult(
+  Schema.Struct({
+    customType: Schema.Literal(TODO_STATE_ENTRY),
+  }),
+)
 
 const TODO_TOOL_NAME = 'todo'
 const PLANNOTATOR_REQUEST_CHANNEL = 'plannotator:request'
@@ -90,7 +96,7 @@ type TodoEffectsRequirements = PiServices | TodoStatusRequestVersion | TodoStore
 
 class TodoStatusRequestVersion extends Context.Service<
   TodoStatusRequestVersion,
-  { value: number; phaseLock: Semaphore.Semaphore }
+  { value: Ref.Ref<number>; phaseLock: Semaphore.Semaphore }
 >()('todo/StatusRequestVersion') {}
 
 class TodoUiError extends Schema.TaggedError<TodoUiError>()('TodoUiError', {
@@ -191,7 +197,7 @@ const reconcilePhase = Effect.fnUntraced(function* (
   const statusRequestVersion = yield* TodoStatusRequestVersion
   yield* Semaphore.withPermit(statusRequestVersion.phaseLock)(
     Effect.gen(function* () {
-      if (version !== statusRequestVersion.value) return
+      if (version !== (yield* Ref.get(statusRequestVersion.value))) return
       if (phase === 'executing') {
         yield* suspendTracking()
         return
@@ -210,16 +216,15 @@ const handleResponse = Effect.fnUntraced(function* (
   yield* reconcilePhase(result.success.result.phase, version)
 })
 
-const requestPlannotatorPhase = Effect.fnUntraced(function* (): Effect.fn.Return<
+const requestPlannotatorPhase = Effect.fn('requestPlannotatorPhase')(function* (): Effect.fn.Return<
   void,
   TodoUiError,
   TodoEffectsRequirements
 > {
   const pi = yield* Pi
   const statusRequestVersion = yield* TodoStatusRequestVersion
-  const version = ++statusRequestVersion.value
+  const version = yield* Ref.updateAndGet(statusRequestVersion.value, (current) => current + 1)
   let active = true
-  let stale = false
   let earlyResponse: unknown
   let hasEarlyResponse = false
   let responseResolver: ((response: unknown | undefined) => void) | undefined
@@ -229,11 +234,6 @@ const requestPlannotatorPhase = Effect.fnUntraced(function* (): Effect.fn.Return
     payload: { mode: 'status' },
     respond: (response) => {
       if (!active) return
-      if (version !== statusRequestVersion.value) {
-        stale = true
-        responseResolver?.(undefined)
-        return
-      }
       if (responseResolver === undefined) {
         earlyResponse = response
         hasEarlyResponse = true
@@ -262,8 +262,7 @@ const requestPlannotatorPhase = Effect.fnUntraced(function* (): Effect.fn.Return
         const abort = (): void => finish(undefined)
         responseResolver = finish
         signal.addEventListener('abort', abort, { once: true })
-        if (stale) finish(undefined)
-        else if (hasEarlyResponse) finish(earlyResponse)
+        if (hasEarlyResponse) finish(earlyResponse)
         else timeout = setTimeout(() => finish(undefined), PLANNOTATOR_REQUEST_TIMEOUT_MS)
       }),
     catch: (cause) => todoHostError('await-plannotator-response', cause),
@@ -293,7 +292,7 @@ const scheduleSessionPhaseSync = Effect.fnUntraced(function* (): Effect.fn.Retur
   })
 })
 
-const syncFromSession = Effect.fnUntraced(function* (
+const syncFromSession = Effect.fn('syncFromSession')(function* (
   preserveOpenTasks = false,
 ): Effect.fn.Return<void, TodoUiError, TodoEffectsRequirements> {
   const session = yield* PiSession
@@ -303,12 +302,7 @@ const syncFromSession = Effect.fnUntraced(function* (
   const previous = preserveOpenTasks ? yield* store.snapshot : []
   const entries = yield* mapTodoEffect('get-session-branch', session.branch())
   const restored = yield* store.restore(entries)
-  const hasSnapshot = entries.some(
-    (entry) =>
-      typeof entry === 'object' &&
-      entry !== null &&
-      (entry as { customType?: unknown }).customType === TODO_STATE_ENTRY,
-  )
+  const hasSnapshot = entries.some((entry) => Result.isSuccess(decodeTodoSnapshotMarker(entry)))
   const restoredPlanIsSubset =
     !hasSnapshot ||
     (restored.length > 0 && restored.every((todo) => previous.some((candidate) => candidate.id === todo.id)))
@@ -358,7 +352,7 @@ const syncFromSession = Effect.fnUntraced(function* (
   yield* scheduleSessionPhaseSync()
 })
 
-const executeTodo = Effect.fnUntraced(function* (
+const executeTodo = Effect.fn('executeTodo')(function* (
   params: TodoProgramParams,
 ): Effect.fn.Return<TodoToolResult, TodoUiError, TodoEffectsRequirements> {
   const context = yield* PiContext

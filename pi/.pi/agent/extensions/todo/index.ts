@@ -9,7 +9,7 @@ import {
   type PiTui,
   PiUi,
 } from '@eratio08/pi-effect'
-import { Effect, Layer, Semaphore } from 'effect'
+import { Effect, Layer, Ref, Result, Schema, Semaphore } from 'effect'
 import { type Static, Type } from 'typebox'
 import { TODO_PROMPT } from './src/code-mode.ts'
 import {
@@ -26,6 +26,9 @@ import { getTodoCounts, isOpenTodo, type Todo, type TodoStatus, todoDescriptionL
 import { TodoStore } from './src/store.ts'
 
 const PLAN_SUBMIT_TOOL_NAME = 'plannotator_submit_plan'
+const decodeApprovedPlanSubmissionDetails = Schema.decodeUnknownResult(
+  Schema.Struct({ approved: Schema.Literal(true) }),
+)
 const Params = Type.Object({
   code: Type.String({
     description: 'TypeScript module that exports a default async function receiving TodoApi.',
@@ -73,8 +76,7 @@ function isApprovedPlanSubmission(event: {
   readonly details?: unknown
 }): boolean {
   if (event.toolName !== PLAN_SUBMIT_TOOL_NAME || event.isError) return false
-  const details = event.details
-  return !!details && typeof details === 'object' && (details as { approved?: unknown }).approved === true
+  return Result.isSuccess(decodeApprovedPlanSubmissionDetails(event.details))
 }
 
 class TodoViewer {
@@ -185,47 +187,50 @@ function renderTodoLine(todo: Todo, theme: PiTheme, depth = 0): string {
   return `${prefix}${renderMarker(todo.status, theme)} ${renderContent(todo, theme)}`
 }
 
-function updateUi(todos: readonly Todo[], suspended = false): Effect.Effect<void, TodoUiError, PiContext | PiUi> {
-  return Effect.gen(function* () {
-    const context = yield* PiContext
-    const hostUi = yield* PiUi
-    if (!context.hasUI) return
-    if (suspended || todos.length === 0) {
-      yield* hostUi.setWidget('todo', undefined).pipe(Effect.mapError((cause) => todoHostError('update', cause)))
-      return
-    }
+const updateUi = Effect.fnUntraced(function* (
+  todos: readonly Todo[],
+  suspended = false,
+): Effect.fn.Return<void, TodoUiError, PiContext | PiUi> {
+  const context = yield* PiContext
+  const hostUi = yield* PiUi
+  if (!context.hasUI) return
+  if (suspended || todos.length === 0) {
+    yield* hostUi.setWidget('todo', undefined).pipe(Effect.mapError((cause) => todoHostError('update', cause)))
+    return
+  }
 
-    const unfinished = todos.filter(isOpenTodo)
-    if (unfinished.length === 0) {
-      yield* hostUi.setWidget('todo', undefined).pipe(Effect.mapError((cause) => todoHostError('update', cause)))
-      return
-    }
+  const unfinished = todos.filter(isOpenTodo)
+  if (unfinished.length === 0) {
+    yield* hostUi.setWidget('todo', undefined).pipe(Effect.mapError((cause) => todoHostError('update', cause)))
+    return
+  }
 
-    yield* hostUi
-      .setWidget('todo', (_tui: PiTui, theme: PiTheme) => ({
-        render(width: number) {
-          const visible = unfinished.slice(0, 8)
-          const depths = getTodoDepths(todos)
-          const lines: string[] = []
-          for (const todo of visible) {
-            lines.push(truncateToWidth(`  ${renderTodoLine(todo, theme, depths.get(todo.id) ?? 0)}`, width))
-            if (Effect.runSync(hostUi.getToolsExpanded())) {
-              const detailsIndent = '  '.repeat((depths.get(todo.id) ?? 0) + 2)
-              for (const line of todoDescriptionLines(todo)) {
-                for (const wrapped of wrapTextWithAnsi(line, Math.max(1, width - detailsIndent.length))) {
-                  lines.push(truncateToWidth(`${detailsIndent}${theme.fg('dim', wrapped)}`, width))
-                }
+  let toolsExpanded = yield* hostUi.getToolsExpanded().pipe(Effect.mapError((cause) => todoHostError('update', cause)))
+  yield* hostUi
+    .setWidget('todo', (_tui: PiTui, theme: PiTheme) => ({
+      render(width: number) {
+        toolsExpanded = hostUi.getToolsExpandedValue()
+        const visible = unfinished.slice(0, 8)
+        const depths = getTodoDepths(todos)
+        const lines: string[] = []
+        for (const todo of visible) {
+          lines.push(truncateToWidth(`  ${renderTodoLine(todo, theme, depths.get(todo.id) ?? 0)}`, width))
+          if (toolsExpanded) {
+            const detailsIndent = '  '.repeat((depths.get(todo.id) ?? 0) + 2)
+            for (const line of todoDescriptionLines(todo)) {
+              for (const wrapped of wrapTextWithAnsi(line, Math.max(1, width - detailsIndent.length))) {
+                lines.push(truncateToWidth(`${detailsIndent}${theme.fg('dim', wrapped)}`, width))
               }
             }
           }
-          if (unfinished.length > 8) lines.push(theme.fg('dim', `… ${unfinished.length - 8} more`))
-          return lines
-        },
-        invalidate() {},
-      }))
-      .pipe(Effect.mapError((cause) => todoHostError('update', cause)))
-  })
-}
+        }
+        if (unfinished.length > 8) lines.push(theme.fg('dim', `… ${unfinished.length - 8} more`))
+        return lines
+      },
+      invalidate() {},
+    }))
+    .pipe(Effect.mapError((cause) => todoHostError('update', cause)))
+})
 
 const todoUiLayer: Layer.Layer<TodoUi, never, never> = Layer.succeed(
   TodoUi,
@@ -247,7 +252,7 @@ const todoUiLayer: Layer.Layer<TodoUi, never, never> = Layer.succeed(
 const statusRequestLayer = Layer.effect(
   TodoStatusRequestVersion,
   Effect.gen(function* () {
-    return { value: 0, phaseLock: yield* Semaphore.make(1) }
+    return { value: yield* Ref.make(0), phaseLock: yield* Semaphore.make(1) }
   }),
 )
 
