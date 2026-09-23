@@ -167,9 +167,10 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
     signal: undefined,
   }
 
-  todoExtension(pi as never)
+  const ready = Promise.resolve(todoExtension(pi as never))
 
   return {
+    ready,
     ctx,
     events,
     sentMessages,
@@ -218,6 +219,7 @@ async function waitForTimers(): Promise<void> {
 }
 
 async function restoreTodos(value: ReturnType<typeof harness>): Promise<void> {
+  await value.ready
   const handler = value.events.get('session_start')
   assert.ok(handler)
   await handler({ type: 'session_start' }, value.ctx)
@@ -231,6 +233,7 @@ function todoCode(body: string): { code: string } {
 test('registers one todo tool and commits one snapshot after a successful program', async () => {
   //given
   const value = harness()
+  await value.ready
   const tool = value.registeredTool
   assert.ok(tool)
   assert.equal(tool.name, 'todo')
@@ -267,6 +270,7 @@ test('registers one todo tool and commits one snapshot after a successful progra
 test('truncates unusually large submitted code in tool details', async () => {
   //given
   const value = harness()
+  await value.ready
   const tool = value.registeredTool
   assert.ok(tool)
   const code = todoCode(`\n${Array.from({ length: 2100 }, () => '').join('\n')}\nreturn 'done'`)
@@ -318,9 +322,10 @@ test('formats an empty todo operation summary as no changes', () => {
   assert.equal(formatted, 'no changes')
 })
 
-test('defines the complete todo result detail contract', () => {
+test('defines the complete todo result detail contract', async () => {
   //given
   const value = harness()
+  await value.ready
   const renderResult = value.registeredTool?.renderResult
   assert.ok(renderResult)
   const result = {
@@ -352,6 +357,7 @@ test('defines the complete todo result detail contract', () => {
 test('commits multiple program mutations in one session snapshot', async () => {
   //given
   const value = harness()
+  await value.ready
   const tool = value.registeredTool
   assert.ok(tool)
 
@@ -375,6 +381,7 @@ test('commits multiple program mutations in one session snapshot', async () => {
 test('reports every successful mutation count in tool details', async () => {
   //given
   const value = harness()
+  await value.ready
   const tool = value.registeredTool
   assert.ok(tool)
 
@@ -427,6 +434,7 @@ test('renders no changes on the collapsed todo call line', async () => {
 test('rolls back all mutations when the program throws', async () => {
   //given
   const value = harness()
+  await value.ready
   const tool = value.registeredTool
   assert.ok(tool)
 
@@ -463,6 +471,7 @@ test('rolls back all mutations when the program throws', async () => {
 test('commits mutations that remain after a caught API error', async () => {
   //given
   const value = harness()
+  await value.ready
   const tool = value.registeredTool
   assert.ok(tool)
 
@@ -758,6 +767,7 @@ test('waits for asynchronous Plannotator status responses', async () => {
 test('ignores a Plannotator response after the bounded wait expires', async () => {
   //given
   const value = harness(branchWithTodos, true, { phaseResponses: [{ phase: 'executing', delayMs: 300 }] })
+  await value.ready
   const input = value.events.get('input')
   assert.ok(input)
 
@@ -784,6 +794,7 @@ test('serializes concurrent phase transitions before updating the widget', async
       if (input) concurrentInput = Promise.resolve(input({ type: 'input' }, value.ctx))
     },
   })
+  await value.ready
   input = value.events.get('input')
   assert.ok(input)
 
@@ -800,6 +811,7 @@ test('returns typed errors when the host cannot append a snapshot', async () => 
   //given
   const cause = new Error('append failed')
   const value = harness([], true, { failure: { operation: 'appendEntry', error: cause } })
+  await value.ready
   const tool = value.registeredTool
   assert.ok(tool)
 
@@ -837,6 +849,7 @@ test('rolls back suspension when the active-tool host callback fails', async () 
     phase: 'executing',
     failure: { operation: 'setActiveTools', error: cause },
   })
+  await value.ready
   const sessionStart = value.events.get('session_start')
   assert.ok(sessionStart)
 
@@ -876,6 +889,7 @@ test('returns typed errors when a host callback fails during compaction', async 
 test('preserves the original program error through the transaction and tool layers', async () => {
   //given
   const value = harness()
+  await value.ready
   const tool = value.registeredTool
   assert.ok(tool)
   const cause = new Error('program failed')
@@ -900,9 +914,10 @@ test('preserves the original program error through the transaction and tool laye
   })
 })
 
-test('renders operation summary on the collapsed todo call line without code line count', () => {
+test('renders operation summary on the collapsed todo call line without code line count', async () => {
   //given
   const value = harness()
+  await value.ready
   const renderCall = value.registeredTool?.renderCall
   const renderResult = value.registeredTool?.renderResult
   assert.ok(renderCall)
@@ -941,9 +956,10 @@ test('renders operation summary on the collapsed todo call line without code lin
   assert.deepEqual(collapsed.render(120), [])
 })
 
-test('renders summary code and result in expanded todo output', () => {
+test('renders summary code and result in expanded todo output', async () => {
   //given
   const value = harness()
+  await value.ready
   const renderResult = value.registeredTool?.renderResult
   assert.ok(renderResult)
   const result = {
@@ -982,9 +998,10 @@ test('renders summary code and result in expanded todo output', () => {
   assert.match(text, /program output/)
 })
 
-test('renders an empty summary in expanded todo output', () => {
+test('renders an empty summary in expanded todo output', async () => {
   //given
   const value = harness()
+  await value.ready
   const renderResult = value.registeredTool?.renderResult
   assert.ok(renderResult)
   const result = {
@@ -1014,9 +1031,10 @@ test('renders an empty summary in expanded todo output', () => {
   assert.match(expanded.render(120).join('\n'), /Summary[\s\S]*no changes/)
 })
 
-test('renders a code truncation notice in expanded todo output', () => {
+test('renders a code truncation notice in expanded todo output', async () => {
   //given
   const value = harness()
+  await value.ready
   const renderResult = value.registeredTool?.renderResult
   assert.ok(renderResult)
   const result = {
@@ -1048,9 +1066,10 @@ test('renders a code truncation notice in expanded todo output', () => {
   assert.match(text, /partial code/)
 })
 
-test('renders errors through the tool error channel', () => {
+test('renders errors through the tool error channel', async () => {
   //given
   const value = harness()
+  await value.ready
   const renderResult = value.registeredTool?.renderResult
   assert.ok(renderResult)
 
@@ -1066,9 +1085,10 @@ test('renders errors through the tool error channel', () => {
   assert.match(rendered.render(120).join('\n'), /program failed/)
 })
 
-test('renders collapsed and expanded program output', () => {
+test('renders collapsed and expanded program output', async () => {
   //given
   const value = harness()
+  await value.ready
   const renderCall = value.registeredTool?.renderCall
   const renderResult = value.registeredTool?.renderResult
   assert.ok(renderCall)
