@@ -59,10 +59,10 @@ type PiSessionContextValue = {
   readonly leaf: SessionEntry | undefined
   readonly entries: readonly SessionEntry[]
   readonly tree: readonly SessionTreeNode[]
-  readonly entry: (id: string) => SessionEntry | undefined
-  readonly branch: (fromId?: string) => readonly SessionEntry[]
-  readonly contextEntries: () => readonly SessionEntry[]
-  readonly label: (entryId: string) => string | undefined
+  readonly entry: (id: string) => Effect.Effect<SessionEntry | undefined, PiHostError>
+  readonly branch: (fromId?: string) => Effect.Effect<readonly SessionEntry[], PiHostError>
+  readonly contextEntries: () => Effect.Effect<readonly SessionEntry[], PiHostError>
+  readonly label: (entryId: string) => Effect.Effect<string | undefined, PiHostError>
   readonly name: string | undefined
 }
 
@@ -73,10 +73,10 @@ type PiContextValue = {
   readonly signal: AbortSignal | undefined
   readonly model: Model<Api> | undefined
   readonly thinkingLevel: PiThinkingLevel | undefined
-  readonly isIdle: () => boolean
-  readonly isProjectTrusted: () => boolean
-  readonly hasPendingMessages: () => boolean
-  readonly contextUsage: () => PiContextUsage | undefined
+  readonly isIdle: () => Effect.Effect<boolean, PiHostError>
+  readonly isProjectTrusted: () => Effect.Effect<boolean, PiHostError>
+  readonly hasPendingMessages: () => Effect.Effect<boolean, PiHostError>
+  readonly contextUsage: () => Effect.Effect<PiContextUsage | undefined, PiHostError>
   readonly abort: () => Effect.Effect<void, PiHostError>
   readonly shutdown: () => Effect.Effect<void, PiHostError>
   readonly compact: (options?: PiCompactOptions) => Effect.Effect<void, PiHostError>
@@ -105,7 +105,7 @@ type PiSessionChangeOptions = {
 
 type PiCommandContextValue = PiContextValue & {
   readonly session: PiSessionContextValue
-  readonly systemPromptOptions: () => BuildSystemPromptOptions
+  readonly systemPromptOptions: () => Effect.Effect<BuildSystemPromptOptions, PiHostError>
   readonly waitForIdle: () => Effect.Effect<void, PiHostError>
   readonly newSession: (options?: PiSessionChangeOptions) => Effect.Effect<PiSessionChangeResult, PiHostError>
   readonly fork: (
@@ -291,6 +291,7 @@ type PiUiService = {
   readonly setTheme: (
     theme: string | Theme,
   ) => Effect.Effect<{ readonly success: boolean; readonly error?: string }, PiHostError>
+  readonly getToolsExpandedValue: () => boolean
   readonly getToolsExpanded: () => Effect.Effect<boolean, PiHostError>
   readonly setToolsExpanded: (expanded: boolean) => Effect.Effect<void, PiHostError>
 }

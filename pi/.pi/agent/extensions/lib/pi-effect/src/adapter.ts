@@ -10,9 +10,10 @@ import type {
 } from '@earendil-works/pi-coding-agent'
 import { Effect, Layer, Option } from 'effect'
 import type { Static, TSchema } from 'typebox'
+import { combinePiAbortSignals } from './context.ts'
 import {
   PiHostError,
-  type PiRegistrationError,
+  PiRegistrationError,
   PiRuntimeDisposedError,
   PiToolError,
   PiUiUnavailableError,
@@ -114,17 +115,23 @@ const hostTry = Effect.fnUntraced(function* <A>(
 
 const hostTryPromise = Effect.fnUntraced(function* <A>(
   operation: string,
-  evaluate: () => Promise<A>,
+  evaluate: (signal: AbortSignal) => Promise<A>,
 ): Effect.fn.Return<A, PiHostError> {
   return yield* Effect.tryPromise({
-    try: evaluate,
+    try: (signal) => evaluate(signal),
     catch: (cause) => new PiHostError({ operation, message: piCauseMessage(cause), cause }),
   })
 })
 
 function createPiHostValue(api: ExtensionAPI): PiHostValue {
   return {
-    exec: (command, args, options) => hostTryPromise('exec', () => api.exec(command, [...args], options)),
+    exec: (command, args, options) =>
+      hostTryPromise('exec', (signal) =>
+        api.exec(command, [...args], {
+          ...options,
+          signal: combinePiAbortSignals(options?.signal, signal),
+        }),
+      ),
     sendMessage: (message, options) =>
       hostTry('sendMessage', () =>
         api.sendMessage(
@@ -170,17 +177,6 @@ function createPiHostValue(api: ExtensionAPI): PiHostValue {
           (unsubscribe) => Effect.ignore(hostTry('events.unsubscribe', unsubscribe)),
         ).pipe(Effect.asVoid),
     },
-  }
-}
-
-function createStableFacade(host: PiHostValue): PiStableFacade {
-  return {
-    messages: createPiMessagesService(host),
-    tools: createPiToolsService(host),
-    flags: createPiFlagsService(host),
-    process: createPiProcessService(host),
-    events: host.events,
-    model: { set: host.setModel },
   }
 }
 
@@ -269,33 +265,14 @@ function baseContext(raw: ExtensionContext): PiContextValue {
     signal: raw.signal,
     model: raw.model,
     thinkingLevel: raw.thinkingLevel,
-    isIdle: () => raw.isIdle(),
-    isProjectTrusted: () => raw.isProjectTrusted(),
-    hasPendingMessages: () => raw.hasPendingMessages(),
-    contextUsage: () => raw.getContextUsage(),
+    isIdle: () => hostTry('isIdle', () => raw.isIdle()),
+    isProjectTrusted: () => hostTry('isProjectTrusted', () => raw.isProjectTrusted()),
+    hasPendingMessages: () => hostTry('hasPendingMessages', () => raw.hasPendingMessages()),
+    contextUsage: () => hostTry('contextUsage', () => raw.getContextUsage()),
     abort: () => hostTry('abort', () => raw.abort()),
     shutdown: () => hostTry('shutdown', () => raw.shutdown()),
     compact: (options) => hostTry('compact', () => raw.compact(options)),
     systemPrompt: () => hostTry('systemPrompt', () => raw.getSystemPrompt()),
-  }
-}
-
-function sessionContext(raw: ExtensionContext): PiSessionContextValue {
-  const manager = raw.sessionManager
-  return {
-    cwd: manager.getCwd(),
-    id: manager.getSessionId(),
-    file: manager.getSessionFile(),
-    directory: manager.getSessionDir(),
-    leafId: manager.getLeafId(),
-    leaf: manager.getLeafEntry(),
-    entries: manager.getEntries(),
-    tree: manager.getTree(),
-    entry: (id) => manager.getEntry(id),
-    branch: (fromId) => manager.getBranch(fromId),
-    contextEntries: () => manager.buildContextEntries(),
-    label: (entryId) => manager.getLabel(entryId),
-    name: manager.getSessionName(),
   }
 }
 
@@ -314,28 +291,33 @@ function createPiUiService(context: PiContextValue, ui: PiUiPort): PiUiService {
   ): Effect.Effect<A, PiUiUnavailableError | E> =>
     context.mode === 'tui' && context.hasUI ? effect : unavailable(operation)
   const sync = <A>(operation: string, evaluate: () => A): Effect.Effect<A, PiHostError> => hostTry(operation, evaluate)
-  const promise = <A>(operation: string, evaluate: () => Promise<A>): Effect.Effect<A, PiHostError> =>
-    hostTryPromise(operation, evaluate)
-  const dialogOptions = (dialog?: Parameters<PiUiPort['select']>[2]): Parameters<PiUiPort['select']>[2] => ({
+  const promise = <A>(
+    operation: string,
+    evaluate: (signal: AbortSignal) => Promise<A>,
+  ): Effect.Effect<A, PiHostError> => hostTryPromise(operation, evaluate)
+  const dialogOptions = (
+    dialog: Parameters<PiUiPort['select']>[2],
+    signal: AbortSignal,
+  ): Parameters<PiUiPort['select']>[2] => ({
     ...dialog,
-    signal: dialog?.signal ?? context.signal,
+    signal: combinePiAbortSignals(dialog?.signal, context.signal, signal),
   })
 
   return {
     select: (title, options, dialog) =>
       requireUI(
         'select',
-        promise('select', () => ui.select(title, options, dialogOptions(dialog))),
+        promise('select', (signal) => ui.select(title, options, dialogOptions(dialog, signal))),
       ),
     confirm: (title, message, dialog) =>
       requireUI(
         'confirm',
-        promise('confirm', () => ui.confirm(title, message, dialogOptions(dialog))),
+        promise('confirm', (signal) => ui.confirm(title, message, dialogOptions(dialog, signal))),
       ),
     input: (title, placeholder, dialog) =>
       requireUI(
         'input',
-        promise('input', () => ui.input(title, placeholder, dialogOptions(dialog))),
+        promise('input', (signal) => ui.input(title, placeholder, dialogOptions(dialog, signal))),
       ),
     notify: (message, type) =>
       context.hasUI ? sync('notify', () => ui.notify(message, type)) : Effect.succeed(undefined),
@@ -384,6 +366,7 @@ function createPiUiService(context: PiContextValue, ui: PiUiPort): PiUiService {
     getAllThemes: () => sync('getAllThemes', () => ui.getAllThemes()),
     getTheme: (name) => sync('getTheme', () => ui.getTheme(name)),
     setTheme: (theme) => sync('setTheme', () => ui.setTheme(theme)),
+    getToolsExpandedValue: () => ui.getToolsExpanded(),
     getToolsExpanded: () => sync('getToolsExpanded', () => ui.getToolsExpanded()),
     setToolsExpanded: (expanded) => sync('setToolsExpanded', () => ui.setToolsExpanded(expanded)),
   }
@@ -416,7 +399,7 @@ function unavailableCommandContext(context: PiContextValue, session: PiSessionCo
   return {
     ...context,
     session,
-    systemPromptOptions: () => ({ cwd: context.cwd }),
+    systemPromptOptions: () => Effect.succeed({ cwd: context.cwd }),
     waitForIdle: () => fail(),
     newSession: () => fail(),
     fork: () => fail(),
@@ -446,9 +429,12 @@ type Invocation = {
   readonly pi: ReturnType<typeof createFacade>
 }
 
+type InvocationRequirements = PiHost | PiStableServices
+type InvocationEffect = Effect.Effect<Invocation, PiHostError, InvocationRequirements>
+
 type Invoke<Services> = <A, E>(
-  program: Effect.Effect<A, E, Services>,
-  invocation: Invocation,
+  program: Effect.Effect<A, E, Services | PiServices>,
+  invocation: InvocationEffect,
   signals?: readonly (AbortSignal | undefined)[],
 ) => Promise<A>
 
@@ -464,10 +450,27 @@ function provideInvocation<A, E, Requirements>(program: Effect.Effect<A, E, Requ
   )
 }
 
-function createInvocation<Services>(
+const getRuntimeServices = Effect.fnUntraced(function* (): Effect.fn.Return<
+  { readonly host: PiHostValue; readonly stable: PiStableFacade },
+  never,
+  InvocationRequirements
+> {
+  const host = yield* PiHost
+  return {
+    host,
+    stable: {
+      messages: yield* PiMessages,
+      tools: yield* PiTools,
+      flags: yield* PiFlags,
+      process: yield* PiProcess,
+      events: host.events,
+      model: { set: host.setModel },
+    },
+  }
+})
+
+const createInvocation = Effect.fnUntraced(function* <Services>(
   raw: ExtensionContext,
-  host: PiHostValue,
-  stable: PiStableFacade,
   command?: ExtensionCommandContext,
   tool?: {
     toolCallId: string
@@ -477,117 +480,107 @@ function createInvocation<Services>(
     executionMode?: 'sequential' | 'parallel'
   },
   invoke?: Invoke<Services>,
-): Invocation {
-  const context = baseContext(raw)
-  const session = sessionContext(raw)
-  const runNested: Invoke<Services> =
-    invoke ??
-    (async () =>
-      Promise.reject(new PiRuntimeDisposedError({ operation: 'nested', message: 'Nested invocation is unavailable.' })))
-  const commandValue = command
-    ? commandContext(host, stable, command, runNested)
-    : unavailableCommandContext(context, session)
-  const toolValue = tool ? toolContext(context, session, tool) : unavailableToolContext(context, session)
-  return {
-    context,
-    session,
-    command: commandValue,
-    tool: toolValue,
-    pi: createFacade(stable, host, context, session, commandValue, toolValue, createUiPort(raw.ui)),
-  }
-}
+): Effect.fn.Return<Invocation, PiHostError, InvocationRequirements> {
+  const { host, stable } = yield* getRuntimeServices()
+  const context = yield* hostTry('context', () => baseContext(raw))
+  const manager = yield* hostTry('sessionManager', () => raw.sessionManager)
+  const session = yield* sessionContextFromManager(manager)
+  return yield* hostTry('invocation', () => {
+    const runNested: Invoke<Services> =
+      invoke ??
+      (async () =>
+        Promise.reject(
+          new PiRuntimeDisposedError({ operation: 'nested', message: 'Nested invocation is unavailable.' }),
+        ))
+    const commandValue = command
+      ? commandContext(command, { context, session }, runNested)
+      : unavailableCommandContext(context, session)
+    const toolValue = tool ? toolContext(context, session, tool) : unavailableToolContext(context, session)
+    return {
+      context,
+      session,
+      command: commandValue,
+      tool: toolValue,
+      pi: createFacade(stable, host, context, session, commandValue, toolValue, createUiPort(raw.ui)),
+    }
+  })
+})
 
 function commandContext<Services>(
-  host: PiHostValue,
-  stable: PiStableFacade,
   raw: ExtensionCommandContext,
+  invocation: Pick<Invocation, 'context' | 'session'>,
   invoke: Invoke<Services>,
 ): PiCommandContextValue {
-  const context = baseContext(raw)
-  const session = sessionContext(raw)
+  const { context, session } = invocation
   return {
     ...context,
     session,
-    systemPromptOptions: () => raw.getSystemPromptOptions(),
-    waitForIdle: () =>
-      Effect.tryPromise({
-        try: () => raw.waitForIdle(),
-        catch: (cause) => new PiHostError({ operation: 'waitForIdle', message: piCauseMessage(cause), cause }),
-      }),
+    systemPromptOptions: () => hostTry('systemPromptOptions', () => raw.getSystemPromptOptions()),
+    waitForIdle: () => hostTryPromise('waitForIdle', () => raw.waitForIdle()),
     newSession: (options) => {
       const setup = options?.setup
-      return Effect.tryPromise({
-        try: () =>
-          raw.newSession({
-            parentSession: options?.parentSession,
-            setup: setup
-              ? async (manager) =>
-                  invoke(
-                    setup(sessionContextFromManager(manager)),
-                    createInvocation(raw, host, stable, raw, undefined, invoke),
-                    [raw.signal],
-                  )
-              : undefined,
-          }),
-        catch: (cause) => new PiHostError({ operation: 'newSession', message: piCauseMessage(cause), cause }),
-      })
+      return hostTryPromise('newSession', () =>
+        raw.newSession({
+          parentSession: options?.parentSession,
+          setup: setup
+            ? async (manager) =>
+                invoke(
+                  Effect.flatMap(sessionContextFromManager(manager), (session) => setup(session)),
+                  createInvocation(raw, raw, undefined, invoke),
+                  [raw.signal],
+                )
+            : undefined,
+        }),
+      )
     },
     fork: (entryId, options) => {
       const withSession = options?.withSession
-      return Effect.tryPromise({
-        try: () =>
-          raw.fork(entryId, {
-            position: options?.position,
-            withSession: withSession
-              ? async (replacement) =>
-                  invoke(
-                    withSession({
-                      context: commandContext(host, stable, replacement, invoke),
-                      session: sessionContext(replacement),
-                    }),
-                    createInvocation(replacement, host, stable, replacement, undefined, invoke),
-                    [replacement.signal],
-                  )
-              : undefined,
-          }),
-        catch: (cause) => new PiHostError({ operation: 'fork', message: piCauseMessage(cause), cause }),
-      })
+      return hostTryPromise('fork', () =>
+        raw.fork(entryId, {
+          position: options?.position,
+          withSession: withSession
+            ? async (replacement) =>
+                invoke(
+                  Effect.gen(function* () {
+                    const context = yield* PiCommandContext
+                    const session = yield* PiSessionContext
+                    return yield* withSession({ context, session })
+                  }),
+                  createInvocation(replacement, replacement, undefined, invoke),
+                  [replacement.signal],
+                )
+            : undefined,
+        }),
+      )
     },
-    navigateTree: (targetId, options) =>
-      Effect.tryPromise({
-        try: () => raw.navigateTree(targetId, options),
-        catch: (cause) => new PiHostError({ operation: 'navigateTree', message: piCauseMessage(cause), cause }),
-      }),
+    navigateTree: (targetId, options) => hostTryPromise('navigateTree', () => raw.navigateTree(targetId, options)),
     switchSession: (sessionPath, options) => {
       const withSession = options?.withSession
-      return Effect.tryPromise({
-        try: () =>
-          raw.switchSession(sessionPath, {
-            withSession: withSession
-              ? async (replacement) =>
-                  invoke(
-                    withSession({
-                      context: commandContext(host, stable, replacement, invoke),
-                      session: sessionContext(replacement),
-                    }),
-                    createInvocation(replacement, host, stable, replacement, undefined, invoke),
-                    [replacement.signal],
-                  )
-              : undefined,
-          }),
-        catch: (cause) => new PiHostError({ operation: 'switchSession', message: piCauseMessage(cause), cause }),
-      })
+      return hostTryPromise('switchSession', () =>
+        raw.switchSession(sessionPath, {
+          withSession: withSession
+            ? async (replacement) =>
+                invoke(
+                  Effect.gen(function* () {
+                    const context = yield* PiCommandContext
+                    const session = yield* PiSessionContext
+                    return yield* withSession({ context, session })
+                  }),
+                  createInvocation(replacement, replacement, undefined, invoke),
+                  [replacement.signal],
+                )
+            : undefined,
+        }),
+      )
     },
-    reload: () =>
-      Effect.tryPromise({
-        try: () => raw.reload(),
-        catch: (cause) => new PiHostError({ operation: 'reload', message: piCauseMessage(cause), cause }),
-      }),
+    reload: () => hostTryPromise('reload', () => raw.reload()),
   }
 }
 
-function sessionContextFromManager(manager: ExtensionCommandContext['sessionManager']): PiSessionContextValue {
-  return {
+const sessionContextFromManager = Effect.fnUntraced(function* (
+  manager: ExtensionCommandContext['sessionManager'],
+): Effect.fn.Return<PiSessionContextValue, PiHostError> {
+  return yield* hostTry('sessionContext', () => ({
     cwd: manager.getCwd(),
     id: manager.getSessionId(),
     file: manager.getSessionFile(),
@@ -596,13 +589,13 @@ function sessionContextFromManager(manager: ExtensionCommandContext['sessionMana
     leaf: manager.getLeafEntry(),
     entries: manager.getEntries(),
     tree: manager.getTree(),
-    entry: (id) => manager.getEntry(id),
-    branch: (fromId) => manager.getBranch(fromId),
-    contextEntries: () => manager.buildContextEntries(),
-    label: (entryId) => manager.getLabel(entryId),
+    entry: (id: string) => hostTry('entry', () => manager.getEntry(id)),
+    branch: (fromId?: string) => hostTry('branch', () => manager.getBranch(fromId)),
+    contextEntries: () => hostTry('contextEntries', () => manager.buildContextEntries()),
+    label: (entryId: string) => hostTry('label', () => manager.getLabel(entryId)),
     name: manager.getSessionName(),
-  }
-}
+  }))
+})
 
 function toolContext(
   context: PiContextValue,
@@ -659,10 +652,10 @@ function trustInvocation(host: PiHostValue, stable: PiStableFacade, raw: Project
     signal: undefined,
     model: undefined,
     thinkingLevel: undefined,
-    isIdle: () => true,
-    isProjectTrusted: () => false,
-    hasPendingMessages: () => false,
-    contextUsage: () => undefined,
+    isIdle: () => Effect.succeed(true),
+    isProjectTrusted: () => Effect.succeed(false),
+    hasPendingMessages: () => Effect.succeed(false),
+    contextUsage: () => Effect.succeed(undefined),
     abort: () => hostTry('abort', () => undefined),
     shutdown: () => hostTry('shutdown', () => undefined),
     compact: () => hostTry('compact', () => undefined),
@@ -682,92 +675,104 @@ function trustInvocation(host: PiHostValue, stable: PiStableFacade, raw: Project
 }
 
 function registerEventHandler<Services, Failure>(
-  _runtime: PiManagedRuntime<Services | PiStableServices, Failure>,
   name: PiEventName,
   handler: PiEventCallback<Services, Failure>,
   policy: PiFailurePolicy,
   rawEvent: unknown,
-  invocation: Invocation,
+  invocation: { effect: InvocationEffect; signal: AbortSignal | undefined },
   invoke: Invoke<Services | PiServices>,
 ): Promise<unknown> {
   const program = Effect.suspend(() => handler(rawEvent))
-  const signal = invocation.context.signal
-  return invoke(program, invocation, [signal]).catch((cause) => {
+  return invoke(program, invocation.effect, [invocation.signal]).catch((cause) => {
     if (policy === 'propagate') throw cause
     if (policy === 'failClosed') return neutralResult(name)
     return neutralResult(name)
   })
 }
 
-function bootstrapInvocation(host: PiHostValue, stable: PiStableFacade): Invocation {
+function bootstrapInvocation(host: PiHostValue, stable: PiStableFacade): InvocationEffect {
   const context = emptyInvocationContext()
   const session = emptySessionContext()
   const command = unavailableCommandContext(context, session)
   const tool = unavailableToolContext(context, session)
-  return {
+  return Effect.succeed({
     context,
     session,
     command,
     tool,
     pi: createFacade(stable, host, context, session, command, tool, emptyUiPort(context.mode)),
-  }
+  })
 }
 
 async function installPiRuntime<Services, Failure>(
   api: ExtensionAPI,
   host: PiHostValue,
   hostLayer: Layer.Layer<PiHost, never, never>,
-  stableLayer: Layer.Layer<PiStableServices, never, never>,
-  stable: PiStableFacade,
+  stableLayer: Layer.Layer<PiStableServices, never, PiHost>,
   plugin: PiPlugin<Services, Failure>,
 ): Promise<void> {
-  const baseLayer = stableLayer.pipe(Layer.provide(hostLayer))
+  const baseLayer = stableLayer.pipe(Layer.provideMerge(hostLayer))
   const installRuntime = async <RegistrationServices>(
-    runtime: PiManagedRuntime<RegistrationServices | PiStableServices, Failure>,
+    runtime: PiManagedRuntime<RegistrationServices | PiStableServices | PiHost, Failure>,
     effect: (
       registrations: PiRegistrationContext<RegistrationServices, Failure>,
     ) => Effect.Effect<void, Failure | PiRegistrationError, RegistrationServices | PiStableServices>,
   ): Promise<void> => {
     const shutdownHandlers: Array<PiEventCallback<RegistrationServices, Failure>> = []
     let shutdownPromise: Promise<void> | undefined
-    let invoke: Invoke<RegistrationServices | PiServices>
-    const run: Invoke<RegistrationServices | PiServices> = async (program, invocation, signals = []) => {
-      const provided = provideInvocation(program, invocation)
-      return runtime.run(provided, signals)
-    }
-    invoke = run
+    const run: Invoke<RegistrationServices | PiServices> = async (program, invocation, signals = []) =>
+      runtime.run(invocation.pipe(Effect.flatMap((current) => provideInvocation(program, current))), signals)
+    const { stable } = await runtime.run(getRuntimeServices())
     type HostEventContext = ExtensionContext | ProjectTrustContext
     type HostOn = {
       (name: 'session_shutdown', callback: (event: unknown, context: ExtensionContext) => Promise<unknown>): void
       (name: PiEventName, callback: (event: unknown, context: HostEventContext | undefined) => Promise<unknown>): void
     }
     const rawOn = api.on as HostOn
-    const eventInvocation = (context: HostEventContext | undefined): Invocation =>
+    const eventInvocation = (
+      context: HostEventContext | undefined,
+    ): { effect: InvocationEffect; signal: AbortSignal | undefined } =>
       context === undefined
-        ? bootstrapInvocation(host, stable)
+        ? { effect: bootstrapInvocation(host, stable), signal: undefined }
         : 'sessionManager' in context
-          ? createInvocation(context, host, stable, undefined, undefined, invoke)
-          : trustInvocation(host, stable, context)
-    rawOn('session_shutdown', async (event, context) => {
-      if (shutdownPromise) return shutdownPromise
-      runtime.beginShutdown()
-      shutdownPromise = (async () => {
-        try {
-          for (const registered of shutdownHandlers) {
-            const invocation = createInvocation(context, host, stable, undefined, undefined, invoke)
-            await runtime.runShutdown(
-              provideInvocation(
-                Effect.suspend(() => registered(event)),
-                invocation,
-              ),
-              [context.signal],
-            )
-          }
-        } finally {
-          await runtime.dispose()
-        }
-      })()
-      return shutdownPromise
+          ? {
+              effect: createInvocation(context, undefined, undefined, run),
+              signal: context.signal,
+            }
+          : { effect: hostTry('projectTrustContext', () => trustInvocation(host, stable, context)), signal: undefined }
+    const registerShutdownHandler: Effect.Effect<void, PiRegistrationError> = Effect.try({
+      try: () =>
+        rawOn('session_shutdown', async (event, context) => {
+          if (shutdownPromise) return shutdownPromise
+          runtime.beginShutdown()
+          shutdownPromise = (async () => {
+            try {
+              for (const registered of shutdownHandlers) {
+                const invocation = createInvocation(context, undefined, undefined, run)
+                await runtime.runShutdown(
+                  invocation.pipe(
+                    Effect.flatMap((current) =>
+                      provideInvocation(
+                        Effect.suspend(() => registered(event)),
+                        current,
+                      ),
+                    ),
+                  ),
+                  [context.signal],
+                )
+              }
+            } finally {
+              await runtime.dispose()
+            }
+          })()
+          return shutdownPromise
+        }),
+      catch: (cause) =>
+        new PiRegistrationError({
+          registration: 'event:session_shutdown',
+          message: piCauseMessage(cause),
+          cause,
+        }),
     })
 
     const registries = createPiRegistries<RegistrationServices, Failure>({
@@ -778,7 +783,7 @@ async function installPiRuntime<Services, Failure>(
             return
           }
           rawOn(name, (event, context) =>
-            registerEventHandler(runtime, name, handler, policy, event, eventInvocation(context), invoke),
+            registerEventHandler(name, handler, policy, event, eventInvocation(context), run),
           )
         },
       },
@@ -801,7 +806,7 @@ async function installPiRuntime<Services, Failure>(
               if (runtime.isClosing()) return Promise.resolve()
               return run(
                 Effect.suspend(() => definition.handler(args)),
-                createInvocation(context, host, stable, context, undefined, invoke),
+                createInvocation(context, context, undefined, run),
                 [context.signal],
               )
             },
@@ -816,7 +821,7 @@ async function installPiRuntime<Services, Failure>(
               if (runtime.isClosing()) return Promise.resolve()
               return run(
                 Effect.suspend(() => definition.handler()),
-                createInvocation(context, host, stable, undefined, undefined, invoke),
+                createInvocation(context, undefined, undefined, run),
                 [context.signal],
               )
             },
@@ -824,7 +829,7 @@ async function installPiRuntime<Services, Failure>(
       },
       flags: { register: (name, definition) => api.registerFlag(name, definition) },
       tools: {
-        register: (definition) => api.registerTool(toPiTool(definition, host, stable, run, invoke)),
+        register: (definition) => api.registerTool(toPiTool(definition, run)),
       },
       renderers: {
         registerMessage: (customType, renderer) => api.registerMessageRenderer(customType, renderer),
@@ -833,7 +838,7 @@ async function installPiRuntime<Services, Failure>(
     })
 
     try {
-      await runtime.run(Effect.suspend(() => effect(registries)))
+      await runtime.run(registerShutdownHandler.pipe(Effect.flatMap(() => Effect.suspend(() => effect(registries)))))
     } catch (cause) {
       await runtime.dispose()
       throw cause
@@ -841,8 +846,7 @@ async function installPiRuntime<Services, Failure>(
   }
 
   if (plugin.layer !== undefined) {
-    const pluginDependencies = Layer.merge(hostLayer, baseLayer)
-    const pluginLayer = plugin.layer.pipe(Layer.provide(pluginDependencies))
+    const pluginLayer = plugin.layer.pipe(Layer.provide(baseLayer))
     const runtime = createPiManagedRuntime(Layer.merge(pluginLayer, baseLayer))
     await installRuntime(runtime, (registrations) => plugin.effect(registrations))
   } else {
@@ -855,23 +859,19 @@ function installPiPlugin<Services, Failure>(plugin: PiPlugin<Services, Failure>)
   return async (api) => {
     const host = createPiHostValue(api)
     const hostLayer = Layer.succeed(PiHost, host)
-    const stable = createStableFacade(host)
-    const stableLayer: Layer.Layer<PiStableServices, never, never> = Layer.mergeAll(
-      Layer.succeed(PiMessages, stable.messages),
-      Layer.succeed(PiTools, stable.tools),
-      Layer.succeed(PiFlags, stable.flags),
-      Layer.succeed(PiProcess, stable.process),
+    const stableLayer: Layer.Layer<PiStableServices, never, PiHost> = Layer.mergeAll(
+      Layer.effect(PiMessages, Effect.map(PiHost, createPiMessagesService)),
+      Layer.effect(PiTools, Effect.map(PiHost, createPiToolsService)),
+      Layer.effect(PiFlags, Effect.map(PiHost, createPiFlagsService)),
+      Layer.effect(PiProcess, Effect.map(PiHost, createPiProcessService)),
     )
-    await installPiRuntime(api, host, hostLayer, stableLayer, stable, plugin)
+    await installPiRuntime(api, host, hostLayer, stableLayer, plugin)
   }
 }
 
 function toPiTool<Params extends TSchema, Services, Failure, Details>(
   definition: EffectToolDefinition<Params, Services | PiServices, Failure, Details>,
-  host: PiHostValue,
-  stable: PiStableFacade,
   run: Invoke<Services | PiServices>,
-  invoke: Invoke<Services | PiServices>,
 ): ToolDefinition<Params, Details> {
   return {
     ...definition,
@@ -885,8 +885,6 @@ function toPiTool<Params extends TSchema, Services, Failure, Details>(
     ) => {
       const invocation = createInvocation(
         context,
-        host,
-        stable,
         undefined,
         {
           toolCallId,
@@ -895,7 +893,7 @@ function toPiTool<Params extends TSchema, Services, Failure, Details>(
           onUpdate,
           executionMode: definition.executionMode,
         },
-        invoke,
+        run,
       )
       try {
         return await run(
@@ -919,10 +917,10 @@ function emptyInvocationContext(): PiContextValue {
     signal: undefined,
     model: undefined,
     thinkingLevel: undefined,
-    isIdle: () => true,
-    isProjectTrusted: () => false,
-    hasPendingMessages: () => false,
-    contextUsage: () => undefined,
+    isIdle: () => Effect.succeed(true),
+    isProjectTrusted: () => Effect.succeed(false),
+    hasPendingMessages: () => Effect.succeed(false),
+    contextUsage: () => Effect.succeed(undefined),
     abort: () => Effect.succeed(undefined),
     shutdown: () => Effect.succeed(undefined),
     compact: () => Effect.succeed(undefined),
@@ -940,12 +938,12 @@ function emptySessionContext(): PiSessionContextValue {
     leaf: undefined,
     entries: [],
     tree: [],
-    entry: () => undefined,
-    branch: () => [],
-    contextEntries: () => [],
-    label: () => undefined,
+    entry: () => Effect.succeed(undefined),
+    branch: () => Effect.succeed([]),
+    contextEntries: () => Effect.succeed([]),
+    label: () => Effect.succeed(undefined),
     name: undefined,
   }
 }
 
-export { createPiUiService, installPiPlugin }
+export { createPiUiService, type InvocationEffect, installPiPlugin }

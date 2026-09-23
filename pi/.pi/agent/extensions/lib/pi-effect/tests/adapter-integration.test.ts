@@ -10,14 +10,16 @@ import {
   PiHost,
   type PiHostError,
   PiMessages,
+  PiProcess,
   PiRegistrationError,
+  PiSessionContext,
   PiToolContext,
   PiToolError,
   type PiToolResult,
   PiUi,
   PiUiUnavailableError,
 } from '../src/index.ts'
-import { createFakeExtensionContext, installFakePlugin } from '../src/testing/fake.ts'
+import { createFakeExtensionApi, createFakeExtensionContext, installFakePlugin } from '../src/testing/fake.ts'
 
 const inputEvent = {
   type: 'input' as const,
@@ -32,12 +34,15 @@ async function shutdown(fake: Awaited<ReturnType<typeof installFakePlugin>>): Pr
 test('preserves event results and provides the current invocation context', async () => {
   //given
   let cwd = ''
+  let systemPromptOptions: unknown
   const plugin = PiExtension.define({
     id: 'tests/event-result',
     effect: (registrations) =>
       registrations.events.on('input', (event) =>
         Effect.gen(function* () {
           cwd = (yield* PiContext).cwd
+          const command = yield* PiCommandContext
+          systemPromptOptions = yield* command.systemPromptOptions()
           return { action: 'transform', text: event.text.toUpperCase() }
         }),
       ),
@@ -52,6 +57,152 @@ test('preserves event results and provides the current invocation context', asyn
   //then
   expect(results).toEqual([{ action: 'transform', text: 'HELLO' }])
   expect(cwd).toBe('/workspace')
+  expect(systemPromptOptions).toEqual({ cwd: '/workspace' })
+})
+
+test('maps invocation context read failures to PiHostError', async () => {
+  //given
+  const plugin = PiExtension.define({
+    id: 'tests/context-read-failure',
+    effect: ({ events }) =>
+      events.on(
+        'session_start',
+        () =>
+          Effect.gen(function* () {
+            const context = yield* PiContext
+            yield* context.isIdle()
+            return undefined
+          }),
+        { failure: 'propagate' },
+      ),
+  })
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+  const context = {
+    ...createFakeExtensionContext(),
+    isIdle: () => {
+      throw new Error('idle check failed')
+    },
+  } as ExtensionContext
+
+  //when
+  const execution = fake.invokeEvent('session_start', { type: 'session_start' }, context)
+
+  //then
+  await expect(execution).rejects.toMatchObject({
+    _tag: 'PiHostError',
+    operation: 'isIdle',
+  } satisfies Partial<PiHostError>)
+  await shutdown(fake)
+})
+
+test('maps command system prompt option failures to PiHostError', async () => {
+  //given
+  const plugin = PiExtension.define({
+    id: 'tests/system-prompt-options-read-failure',
+    effect: (registrations) =>
+      registrations.commands.register('test-command', {
+        handler: () =>
+          Effect.gen(function* () {
+            const command = yield* PiCommandContext
+            yield* command.systemPromptOptions()
+            return undefined
+          }),
+      }),
+  })
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+  const commandContext = {
+    ...createFakeExtensionContext(),
+    getSystemPromptOptions: () => {
+      throw new Error('system prompt options failed')
+    },
+  } as ExtensionContext
+
+  //when
+  const execution = fake.invokeCommand('test-command', '', commandContext)
+
+  //then
+  await expect(execution).rejects.toMatchObject({
+    _tag: 'PiHostError',
+    operation: 'systemPromptOptions',
+  } satisfies Partial<PiHostError>)
+  await shutdown(fake)
+})
+
+test('maps session snapshot failures to PiHostError', async () => {
+  //given
+  const plugin = PiExtension.define({
+    id: 'tests/session-snapshot-failure',
+    effect: ({ events }) =>
+      events.on(
+        'session_start',
+        () =>
+          Effect.gen(function* () {
+            yield* PiSessionContext
+            return undefined
+          }),
+        { failure: 'propagate' },
+      ),
+  })
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+  const hostContext = createFakeExtensionContext()
+  const context = {
+    ...hostContext,
+    sessionManager: {
+      ...hostContext.sessionManager,
+      getCwd: () => {
+        throw new Error('session cwd failed')
+      },
+    },
+  } as ExtensionContext
+
+  //when
+  const execution = fake.invokeEvent('session_start', { type: 'session_start' }, context)
+
+  //then
+  await expect(execution).rejects.toMatchObject({
+    _tag: 'PiHostError',
+    operation: 'sessionContext',
+  } satisfies Partial<PiHostError>)
+  await shutdown(fake)
+})
+
+test('maps session context read failures to PiHostError', async () => {
+  //given
+  const plugin = PiExtension.define({
+    id: 'tests/session-context-read-failure',
+    effect: ({ events }) =>
+      events.on(
+        'session_start',
+        () =>
+          Effect.gen(function* () {
+            const session = yield* PiSessionContext
+            yield* session.entry('entry')
+            return undefined
+          }),
+        { failure: 'propagate' },
+      ),
+  })
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+  const hostContext = createFakeExtensionContext()
+  const context = {
+    ...hostContext,
+    sessionManager: {
+      ...hostContext.sessionManager,
+      getEntry: () => {
+        throw new Error('entry lookup failed')
+      },
+    },
+  } as ExtensionContext
+
+  //when
+  const execution = fake.invokeEvent('session_start', { type: 'session_start' }, context)
+
+  //then
+  await expect(execution).rejects.toMatchObject({
+    _tag: 'PiHostError',
+    operation: 'entry',
+  } satisfies Partial<PiHostError>)
+  await shutdown(fake)
 })
 
 test('keeps stable host services across invocation contexts', async () => {
@@ -380,8 +531,128 @@ test('returns a typed error for unavailable UI capabilities', async () => {
   await shutdown(fake)
 })
 
+test('maps tools-expanded UI read failures to PiHostError', async () => {
+  //given
+  const plugin = PiExtension.define({
+    id: 'tests/ui-tools-expanded-failure',
+    effect: ({ events }) =>
+      events.on(
+        'session_start',
+        () =>
+          Effect.gen(function* () {
+            const ui = yield* PiUi
+            yield* ui.getToolsExpanded()
+          }).pipe(Effect.as(undefined)),
+        { failure: 'propagate' },
+      ),
+  })
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+  const baseContext = createFakeExtensionContext()
+  const context = {
+    ...baseContext,
+    ui: {
+      ...baseContext.ui,
+      getToolsExpanded: () => {
+        throw new Error('tools expanded failed')
+      },
+    },
+  } as ExtensionContext
+
+  //when
+  const execution = fake.invokeEvent('session_start', { type: 'session_start' }, context)
+
+  //then
+  await expect(execution).rejects.toMatchObject({
+    _tag: 'PiHostError',
+    operation: 'getToolsExpanded',
+  } satisfies Partial<PiHostError>)
+  await shutdown(fake)
+})
+
+test('forwards Effect cancellation to host promises with AbortSignal support', async () => {
+  //given
+  const contextController = new AbortController()
+  const callController = new AbortController()
+  let hostSignal: AbortSignal | undefined
+  let hostCancelled = false
+  const plugin = PiExtension.define({
+    id: 'tests/host-promise-cancellation',
+    effect: ({ events }) =>
+      events.on(
+        'session_start',
+        () =>
+          Effect.gen(function* () {
+            const process = yield* PiProcess
+            yield* process.exec('command', [], { signal: callController.signal })
+          }).pipe(Effect.as(undefined)),
+        { failure: 'propagate' },
+      ),
+  })
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+  fake.api.exec = (_command, _args, options) =>
+    new Promise((resolve) => {
+      hostSignal = options?.signal
+      if (hostSignal) {
+        hostSignal.addEventListener(
+          'abort',
+          () => {
+            hostCancelled = true
+            resolve({ stdout: '', stderr: '', code: 0, killed: true })
+          },
+          { once: true },
+        )
+      } else {
+        resolve({ stdout: '', stderr: '', code: 0, killed: true })
+      }
+      contextController.abort()
+    })
+  const context = { ...createFakeExtensionContext(), signal: contextController.signal } as ExtensionContext
+
+  //when
+  const execution = fake.invokeEvent('session_start', { type: 'session_start' }, context)
+
+  //then
+  await expect(execution).rejects.toBeDefined()
+  expect(hostSignal).toBeDefined()
+  expect(hostSignal).not.toBe(callController.signal)
+  expect(hostSignal?.aborted).toBe(true)
+  expect(hostCancelled).toBe(true)
+  await shutdown(fake)
+})
+
 class ScopedProbe extends Context.Service<ScopedProbe, { readonly value: number }>()('tests/ScopedProbe') {}
 class LayerFailure extends Schema.TaggedError<LayerFailure>()('LayerFailure', {}) {}
+
+test('releases the runtime scope when shutdown registration fails', async () => {
+  //given
+  let releases = 0
+  const plugin = PiExtension.define<ScopedProbe>({
+    id: 'tests/shutdown-registration-failure',
+    layer: Layer.effect(
+      ScopedProbe,
+      Effect.acquireRelease(Effect.succeed(ScopedProbe.of({ value: 1 })), () =>
+        Effect.sync(() => {
+          releases += 1
+        }),
+      ),
+    ),
+    effect: () => Effect.succeed(undefined),
+  })
+  const fake = createFakeExtensionApi()
+  fake.api.on = () => {
+    throw new Error('session shutdown registration failed')
+  }
+
+  //when
+  const installation = PiExtension.install(plugin)(fake.api)
+
+  //then
+  await expect(installation).rejects.toMatchObject({
+    _tag: 'PiRegistrationError',
+    registration: 'event:session_shutdown',
+  })
+  expect(releases).toBe(1)
+})
 
 test('preserves plugin layer construction failures', async () => {
   //given
@@ -402,6 +673,7 @@ test('runs command completions and disposes a scoped layer once across repeated 
   //given
   let releases = 0
   let replacementCwd = ''
+  let systemPromptOptions: unknown
   const plugin = PiExtension.define<ScopedProbe>({
     id: 'tests/lifecycle',
     layer: Layer.effect(
@@ -421,6 +693,7 @@ test('runs command completions and disposes a scoped layer once across repeated 
         handler: () =>
           Effect.gen(function* () {
             const command = yield* PiCommandContext
+            systemPromptOptions = yield* command.systemPromptOptions()
             yield* command.newSession({
               setup: (session) =>
                 Effect.sync(() => {
@@ -464,6 +737,7 @@ test('runs command completions and disposes a scoped layer once across repeated 
 
   //then
   expect(completions).toEqual([{ value: 'alpha', label: 'alpha' }])
+  expect(systemPromptOptions).toEqual({})
   expect(replacementCwd).toBe('/replacement')
   expect(releases).toBe(1)
 })

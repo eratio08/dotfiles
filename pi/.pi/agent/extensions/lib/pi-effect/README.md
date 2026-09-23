@@ -165,9 +165,9 @@ const readSession = Effect.gen(function* () {
 The main service tags are:
 
 - `Pi` provides the full facade.
-- `PiContext` provides mode, UI availability, working directory, model state, abort, shutdown, compaction, and prompt operations.
-- `PiSessionContext` provides the current session snapshot.
-- `PiCommandContext` provides command session operations such as fork, tree navigation, session switching, and reload.
+- `PiContext` provides mode, UI availability, working directory, and model state as invocation values, plus Effect operations for idle state, project trust, pending messages, context usage, abort, shutdown, compaction, and prompt reads.
+- `PiSessionContext` provides the current session snapshot, plus Effect operations for entry, branch, context-entry, and label reads.
+- `PiCommandContext` returns system prompt options as an Effect and provides session operations such as fork, tree navigation, session switching, and reload.
 - `PiToolContext` provides the current tool call, validated parameters, tool abort signal, progress updates, and execution mode.
 - `PiSession` provides Effect operations for session entries, branches, labels, names, and context entries.
 - `PiMessages` sends custom messages and user messages.
