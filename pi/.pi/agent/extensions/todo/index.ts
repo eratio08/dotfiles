@@ -346,6 +346,30 @@ const todoPlugin = PiExtension.define<TodoServices, TodoUiError>({
             if (context.hasUI) yield* effects.showTodos()
           }),
       })
+      yield* registrations.commands.register('clear-todos', {
+        description: 'Clear todos on the current branch',
+        handler: () =>
+          Effect.gen(function* () {
+            const context = yield* PiContext
+            const ui = yield* PiUi
+            if (context.mode !== 'tui') {
+              if (context.hasUI) {
+                yield* ui
+                  .notify('/clear-todos requires interactive mode', 'error')
+                  .pipe(Effect.mapError((cause) => todoHostError('notify', cause)))
+              }
+              return
+            }
+            if (!context.hasUI) return
+            const result = yield* effects.executeTodo({
+              code: 'export default async (todo: TodoApi) => { await todo.clear() }',
+            })
+            const cleared = result.details.summary?.cleared ?? 0
+            yield* ui
+              .notify(`Cleared ${cleared} todo${cleared === 1 ? '' : 's'}`, 'info')
+              .pipe(Effect.mapError((cause) => todoHostError('notify', cause)))
+          }),
+      })
     }),
 })
 

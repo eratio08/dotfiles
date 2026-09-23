@@ -60,7 +60,7 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
   const appendedEntries: unknown[] = []
   const registeredToolNames: string[] = []
   let registeredTool: RegisteredTool | undefined
-  let registeredCommand: RegisteredCommand | undefined
+  const registeredCommands = new Map<string, RegisteredCommand>()
   let phase = options.phase
   const phaseResponses = [...(options.phaseResponses ?? [])]
   const fail = (operation: FailureOperation): void => {
@@ -92,8 +92,8 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
       sessionEntries.push(entry)
       appendedEntries.push(entry)
     },
-    registerCommand(_name: string, command: RegisteredCommand) {
-      registeredCommand = command
+    registerCommand(name: string, command: RegisteredCommand) {
+      registeredCommands.set(name, command)
     },
     sendMessage(message: SentMessage['message'], options: SentMessage['options']) {
       fail('sendMessage')
@@ -186,8 +186,8 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
     get registeredTool() {
       return registeredTool
     },
-    get registeredCommand() {
-      return registeredCommand
+    registeredCommand(name: string) {
+      return registeredCommands.get(name)
     },
     setToolsExpanded(expanded: boolean): void {
       options.toolsExpanded = expanded
@@ -1247,7 +1247,7 @@ test('opens /todos while tracking is active', async () => {
   //given
   const value = harness(branchWithTodos, true)
   await restoreTodos(value)
-  const command = value.registeredCommand?.handler
+  const command = value.registeredCommand('todos')?.handler
   assert.ok(command)
 
   //when
@@ -1261,7 +1261,7 @@ test('renders dependency indentation in /todos', async () => {
   //given
   const value = harness(branchWithTodos, true)
   await restoreTodos(value)
-  const command = value.registeredCommand?.handler
+  const command = value.registeredCommand('todos')?.handler
   assert.ok(command)
 
   //when
@@ -1277,6 +1277,36 @@ test('renders dependency indentation in /todos', async () => {
   assert.doesNotMatch(firstTask ?? '', /\(pending\)/)
   assert.match(secondTask ?? '', /^ {4}↳ \[!\] second task/)
   assert.doesNotMatch(secondTask ?? '', /\(blocked\)/)
+})
+
+test('clears todos from the current branch with /clear-todos', async () => {
+  //given
+  const value = harness(branchWithTodos, true)
+  await restoreTodos(value)
+  const command = value.registeredCommand('clear-todos')?.handler
+  assert.ok(command)
+
+  //when
+  await command('', value.ctx)
+
+  //then
+  assert.deepEqual(extractLatestTodoSnapshot(value.appendedEntries), [])
+  assert.match(value.notifications.at(-1) ?? '', /Cleared 2 todos/)
+})
+
+test('reports zero cleared todos when the list is empty', async () => {
+  //given
+  const value = harness()
+  await value.ready
+  const command = value.registeredCommand('clear-todos')?.handler
+  assert.ok(command)
+
+  //when
+  await command('', value.ctx)
+
+  //then
+  assert.equal(value.appendedEntries.length, 0)
+  assert.match(value.notifications.at(-1) ?? '', /Cleared 0 todos/)
 })
 
 test('indents expanded todo details with dependency depth', async () => {
@@ -1411,7 +1441,7 @@ test('reports typed UI errors from /todos', async () => {
   const cause = new Error('viewer failed')
   const value = harness(branchWithTodos, true, { customError: cause })
   await restoreTodos(value)
-  const command = value.registeredCommand?.handler
+  const command = value.registeredCommand('todos')?.handler
   assert.ok(command)
 
   //when
