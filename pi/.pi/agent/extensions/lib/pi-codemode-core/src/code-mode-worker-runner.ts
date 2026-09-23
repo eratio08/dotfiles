@@ -1,6 +1,7 @@
 import { MessageChannel, Worker } from 'node:worker_threads'
 import { Effect, Schema } from 'effect'
-import type { CodeModeDefinition, CodeModeHostErrorCodec } from './code-mode-contract.ts'
+import type { CodeModeDefinition, CodeModeEffectHostRequirement } from './code-mode-contract.ts'
+import { CodeModeEffectHost } from './code-mode-contract.ts'
 import type { CodeModeHostError } from './code-mode-failure.ts'
 import {
   createCodeModeFailure,
@@ -13,9 +14,9 @@ import type {
   CodeModeAsyncResponse,
   CodeModeSyncRequest,
   CodeModeSyncResponse,
-  CodeModeWorkerMessage,
 } from './code-mode-protocol.ts'
-import type { CodeModeRequestQueue } from './code-mode-request-queue.ts'
+import type { CodeModeRequestQueueRequirement } from './code-mode-request-queue.ts'
+import { CodeModeRequestQueueService } from './code-mode-request-queue.ts'
 import {
   CodeModeAsyncRequestSchema,
   CodeModeSyncRequestSchema,
@@ -24,17 +25,30 @@ import {
 } from './code-mode-schema.ts'
 import { type CodeModeSyncInvoker, isCodeModePromiseLike } from './code-mode-vm.ts'
 
-function runCodeModeWorkerEvaluation<E>(
+/** Runs a worker evaluation with host and queue services from the Effect environment. */
+const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
   definition: CodeModeDefinition,
   code: string,
   filename: string,
   timeoutMs: number,
-  startedAt: number,
+  remainingTimeoutMs: () => number,
   signal: AbortSignal,
-  queue: CodeModeRequestQueue,
-  invokeSync: CodeModeSyncInvoker,
-  errorCodec?: CodeModeHostErrorCodec<E>,
-): Effect.Effect<unknown, CodeModeFailureLike | CodeModeHostError<E> | E> {
+): Effect.fn.Return<
+  unknown,
+  CodeModeFailureLike | CodeModeHostError<E> | E,
+  R | CodeModeEffectHostRequirement<R, E> | CodeModeRequestQueueRequirement
+> {
+  const host = yield* CodeModeEffectHost<R, E>()
+  const queue = yield* CodeModeRequestQueueService
+  const invokeSync: CodeModeSyncInvoker =
+    host.invokeSync ??
+    ((method) => {
+      throw createCodeModeFailure({
+        _tag: 'invoke',
+        operation: method,
+        message: `The code mode host does not implement synchronous method ${method}.`,
+      })
+    })
   const acquireWorker: Effect.Effect<Worker, CodeModeFailureLike> = signal.aborted
     ? Effect.fail(createCodeModeCancellationFailure())
     : Effect.try({
@@ -52,10 +66,10 @@ function runCodeModeWorkerEvaluation<E>(
           }),
       })
 
-  return Effect.acquireUseRelease(
+  return yield* Effect.acquireUseRelease(
     acquireWorker,
     (worker) =>
-      Effect.callback((resume, effectSignal) => {
+      Effect.callback<unknown, CodeModeFailureLike | CodeModeHostError<E> | E>((resume, effectSignal) => {
         let channel: MessageChannel
         let syncState: SharedArrayBuffer
         try {
@@ -150,7 +164,7 @@ function runCodeModeWorkerEvaluation<E>(
         const handleSyncRequest = (message: unknown): void => {
           let request: CodeModeSyncRequest
           try {
-            request = Schema.decodeUnknownSync(CodeModeSyncRequestSchema)(message) as CodeModeSyncRequest
+            request = Schema.decodeUnknownSync(CodeModeSyncRequestSchema)(message)
           } catch {
             notifySyncWaiter()
             finishFailure(
@@ -199,7 +213,7 @@ function runCodeModeWorkerEvaluation<E>(
               type: 'sync-result',
               id: request.id,
               ok: false,
-              error: serializeCodeModeError(cause, errorCodec),
+              error: serializeCodeModeError(cause, host.errorCodec),
             }
           }
           postSyncResponse(response)
@@ -240,7 +254,7 @@ function runCodeModeWorkerEvaluation<E>(
         const handleAsyncRequest = (message: unknown): void => {
           let request: CodeModeAsyncRequest
           try {
-            request = Schema.decodeUnknownSync(CodeModeAsyncRequestSchema)(message) as CodeModeAsyncRequest
+            request = Schema.decodeUnknownSync(CodeModeAsyncRequestSchema)(message)
           } catch {
             finishFailure(
               createCodeModeFailure({
@@ -289,7 +303,7 @@ function runCodeModeWorkerEvaluation<E>(
                 type: 'async-result',
                 id: request.id,
                 ok: false,
-                error: serializeCodeModeError(cause, errorCodec),
+                error: serializeCodeModeError(cause, host.errorCodec),
               }),
           )
         }
@@ -302,7 +316,7 @@ function runCodeModeWorkerEvaluation<E>(
 
         const handleWorkerMessage = (message: unknown): void => {
           try {
-            const decoded = Schema.decodeUnknownSync(CodeModeWorkerMessageSchema)(message) as CodeModeWorkerMessage
+            const decoded = Schema.decodeUnknownSync(CodeModeWorkerMessageSchema)(message)
             if (decoded.type === 'async-call') {
               handleAsyncRequest(decoded)
             } else if (decoded.type === 'result') {
@@ -310,7 +324,7 @@ function runCodeModeWorkerEvaluation<E>(
             } else if (decoded.type === 'error') {
               finishFailure(
                 decoded.error.kind === 'host'
-                  ? deserializeCodeModeHostError(decoded.error, errorCodec)
+                  ? deserializeCodeModeHostError(decoded.error, host.errorCodec)
                   : deserializeCodeModeError(decoded.error),
               )
             } else {
@@ -326,7 +340,7 @@ function runCodeModeWorkerEvaluation<E>(
           } catch {
             try {
               const decoded = Schema.decodeUnknownSync(CodeModeWorkerFailureMessageSchema)(message)
-              finishFailure(deserializeCodeModeError(decoded.error, errorCodec))
+              finishFailure(deserializeCodeModeError(decoded.error, host.errorCodec))
               return
             } catch {
               finishFailure(
@@ -365,25 +379,26 @@ function runCodeModeWorkerEvaluation<E>(
           })
           signal.addEventListener('abort', abort, { once: true })
           effectSignal.addEventListener('abort', abort, { once: true })
-          timeoutId = setTimeout(
-            () => finishFailure(createCodeModeTimeoutFailure(timeoutMs)),
-            remainingCodeModeTimeout(startedAt, timeoutMs),
-          )
-          if (signal.aborted || effectSignal.aborted) abort()
-          if (!settled)
-            worker.postMessage(
-              {
-                type: 'start',
-                code,
-                filename,
-                timeoutMs,
-                startedAt,
-                methods: definition.methods,
-                syncState,
-                syncPort: workerSyncPort,
-              },
-              [workerSyncPort],
-            )
+          const remainingMs = remainingTimeoutMs()
+          if (remainingMs === 0) finishFailure(createCodeModeTimeoutFailure(timeoutMs))
+          else {
+            timeoutId = setTimeout(() => finishFailure(createCodeModeTimeoutFailure(timeoutMs)), remainingMs)
+            if (signal.aborted || effectSignal.aborted) abort()
+            if (!settled)
+              worker.postMessage(
+                {
+                  type: 'start',
+                  code,
+                  filename,
+                  timeoutMs,
+                  remainingTimeoutMs: remainingMs,
+                  methods: definition.methods,
+                  syncState,
+                  syncPort: workerSyncPort,
+                },
+                [workerSyncPort],
+              )
+          }
         } catch (cause) {
           finishFailure(
             createCodeModeFailure({
@@ -408,13 +423,9 @@ function runCodeModeWorkerEvaluation<E>(
           }),
       }).pipe(Effect.ignoreCause),
   )
-}
+})
 
 type CodeModeFailureLike = ReturnType<typeof createCodeModeFailure>
-
-function remainingCodeModeTimeout(startedAt: number, timeoutMs: number): number {
-  return Math.max(1, Math.ceil(timeoutMs - (Date.now() - startedAt)))
-}
 
 function createCodeModeCancellationFailure(): CodeModeFailureLike {
   return createCodeModeFailure({

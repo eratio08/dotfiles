@@ -99,12 +99,13 @@ async function runCodeModeVm(
   api: Readonly<Record<string, CodeModeApiFunction>>,
   filename: string,
   timeoutMs: number,
-  startedAt = Date.now(),
+  startedAt = performance.now(),
   signal?: AbortSignal,
+  remainingTimeoutMs: () => number = () => remainingCodeModeTimeout(startedAt, timeoutMs),
 ): Promise<unknown> {
   const module: CodeModeVmModule = { exports: Object.create(null) as { default?: unknown } }
   const context = createCodeModeContext(api, module)
-  const remainingForCompile = remainingCodeModeTimeout(startedAt, timeoutMs)
+  const remainingForCompile = remainingTimeoutMs()
   try {
     new Script(code, { filename }).runInContext(context, { timeout: remainingForCompile })
   } catch (cause) {
@@ -121,7 +122,7 @@ async function runCodeModeVm(
   let result: unknown
   try {
     result = new Script('module.exports.default(api)', { filename: `${filename}:invoke` }).runInContext(context, {
-      timeout: remainingCodeModeTimeout(startedAt, timeoutMs),
+      timeout: remainingTimeoutMs(),
     })
   } catch (cause) {
     if (isCodeModeFailure(cause) || isCodeModeHostError(cause) || isCodeModeEncodedHostError(cause)) throw cause
@@ -129,7 +130,7 @@ async function runCodeModeVm(
   }
 
   try {
-    return await awaitCodeModeResult(result, startedAt, timeoutMs, signal)
+    return await awaitCodeModeResult(result, remainingTimeoutMs, timeoutMs, signal)
   } catch (cause) {
     if (isCodeModeFailure(cause) || isCodeModeHostError(cause) || isCodeModeEncodedHostError(cause)) throw cause
     throw createCodeModeExceptionFailure(cause, 'await', 'The TypeScript program failed after invocation.')
@@ -164,7 +165,7 @@ function createCodeModeContext(api: Readonly<Record<string, CodeModeApiFunction>
 
 async function awaitCodeModeResult(
   result: unknown,
-  startedAt: number,
+  remainingTimeoutMs: () => number,
   timeoutMs: number,
   signal: AbortSignal | undefined,
 ): Promise<unknown> {
@@ -172,18 +173,15 @@ async function awaitCodeModeResult(
   let timeoutId: ReturnType<typeof setTimeout> | undefined
   let removeAbortListener = (): void => undefined
   const timeout = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(
-      () => {
-        reject(
-          createCodeModeFailure({
-            _tag: 'timeout',
-            operation: 'await',
-            message: `The code mode program timed out after ${timeoutMs}ms.`,
-          }),
-        )
-      },
-      remainingCodeModeTimeout(startedAt, timeoutMs),
-    )
+    timeoutId = setTimeout(() => {
+      reject(
+        createCodeModeFailure({
+          _tag: 'timeout',
+          operation: 'await',
+          message: `The code mode program timed out after ${timeoutMs}ms.`,
+        }),
+      )
+    }, remainingTimeoutMs())
   })
   const cancellation =
     signal === undefined
@@ -212,7 +210,7 @@ async function awaitCodeModeResult(
 }
 
 function remainingCodeModeTimeout(startedAt: number, timeoutMs: number): number {
-  return Math.max(1, Math.ceil(timeoutMs - (Date.now() - startedAt)))
+  return Math.max(1, Math.ceil(timeoutMs - (performance.now() - startedAt)))
 }
 
 function createCodeModeExceptionFailure(cause: unknown, operation: string, fallbackMessage: string): CodeModeFailure {

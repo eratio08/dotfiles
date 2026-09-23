@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'bun:test'
-import { Effect, Fiber, Layer, ManagedRuntime } from 'effect'
-import type { CodeModeDefinition, CodeModeEffectHost, CodeModeHostErrorCodec, CodeModeWireValue } from '../src/index.ts'
-import { createCodeModeCore, createCodeModeFailure } from '../src/index.ts'
+import { Clock, Context, Effect, Fiber, Layer, ManagedRuntime, Schema } from 'effect'
+import type {
+  CodeModeCore,
+  CodeModeDefinition,
+  CodeModeFailure,
+  CodeModeHostErrorCodec,
+  CodeModeRunOptions,
+  CodeModeWireValue,
+} from '../src/index.ts'
+import { CodeModeEffectHost, createCodeModeCore, createCodeModeFailure } from '../src/index.ts'
 
 const definition: CodeModeDefinition = {
   apiName: 'ExampleApi',
@@ -20,10 +27,36 @@ const options = {
   timeoutMs: 1000,
 }
 
+const evaluateWithHost = <R, E>(
+  core: CodeModeCore<R, E>,
+  definition: CodeModeDefinition,
+  host: CodeModeEffectHost<R, E>,
+  code: string,
+  runOptions: CodeModeRunOptions,
+): Effect.Effect<unknown, CodeModeFailure | E, R> =>
+  Effect.provideService(core.evaluate(definition, code, runOptions), CodeModeEffectHost<R, E>(), host)
+
+const HostDependency = Context.Service<{ readonly value: string }>('code-mode-core/TestHostDependency')
+type HostDependencyRequirement = Context.Service.Identifier<typeof HostDependency>
+
 type HostFailure = {
   readonly code: string
   readonly message: string
 }
+
+type TaggedHostFailure = {
+  readonly _tag: 'HostMissing'
+  readonly operation: 'fetch'
+  readonly message: string
+  readonly code: number
+}
+
+const taggedHostFailureSchema = Schema.Struct({
+  _tag: Schema.Literal('HostMissing'),
+  operation: Schema.Literal('fetch'),
+  message: Schema.String,
+  code: Schema.Number,
+})
 
 const hostErrorCodec: CodeModeHostErrorCodec<HostFailure> = {
   encode: (failure) => ({ code: failure.code, message: failure.message }),
@@ -48,7 +81,8 @@ describe('code mode core', () => {
 
     //when
     const result = await Effect.runPromise(
-      core.evaluate(
+      evaluateWithHost(
+        core,
         definition,
         host,
         'export default async (api: ExampleApi) => api.add(await api.wait("ok"))',
@@ -58,6 +92,90 @@ describe('code mode core', () => {
 
     //then
     expect(result).toBe(3)
+  })
+
+  test('uses the host provided for each evaluation', async () => {
+    //given
+    const core = createCodeModeCore<never, never>()
+    const firstHost: CodeModeEffectHost<never, never> = {
+      invoke: () => Effect.succeed('unused'),
+      invokeSync: () => 1,
+    }
+    const secondHost: CodeModeEffectHost<never, never> = {
+      invoke: () => Effect.succeed('unused'),
+      invokeSync: () => 2,
+    }
+
+    //when
+    const result = Effect.runPromise(
+      Effect.gen(function* () {
+        const first = yield* evaluateWithHost(
+          core,
+          definition,
+          firstHost,
+          'export default (api: ExampleApi) => api.add(0)',
+          options,
+        )
+        const second = yield* evaluateWithHost(
+          core,
+          definition,
+          secondHost,
+          'export default (api: ExampleApi) => api.add(0)',
+          options,
+        )
+        return [first, second]
+      }),
+    )
+
+    //then
+    await expect(result).resolves.toEqual([1, 2])
+  })
+
+  test('preserves host Effect requirements', async () => {
+    //given
+    const core = createCodeModeCore<HostDependencyRequirement, never>()
+    const host: CodeModeEffectHost<HostDependencyRequirement, never> = {
+      invoke: () => Effect.map(HostDependency, ({ value }) => value),
+      invokeSync: () => 1,
+    }
+
+    //when
+    const result = Effect.runPromise(
+      Effect.provideService(
+        evaluateWithHost(
+          core,
+          definition,
+          host,
+          'export default async (api: ExampleApi) => await api.wait("ok")',
+          options,
+        ),
+        HostDependency,
+        { value: 'provided' },
+      ),
+    )
+
+    //then
+    await expect(result).resolves.toBe('provided')
+  })
+
+  test('maps an invalid definition to a validation failure', async () => {
+    //given
+    const core = createCodeModeCore<never, never>()
+    const invalidDefinition = { ...definition, methods: [] }
+    const host: CodeModeEffectHost<never, never> = {
+      invoke: () => Effect.succeed('ok'),
+      invokeSync: () => 1,
+    }
+
+    //when
+    const result = Effect.runPromise(evaluateWithHost(core, invalidDefinition, host, 'export default () => 1', options))
+
+    //then
+    await expect(result).rejects.toEqual({
+      _tag: 'validation',
+      operation: 'definition',
+      message: 'The code mode must declare at least one method.',
+    })
   })
 
   test('reuses a caller-owned runtime for multiple evaluations', async () => {
@@ -71,8 +189,12 @@ describe('code mode core', () => {
 
     //when
     const results = await Promise.all([
-      runtime.runPromise(core.evaluate(definition, host, 'export default (api: ExampleApi) => api.add(1)', options)),
-      runtime.runPromise(core.evaluate(definition, host, 'export default (api: ExampleApi) => api.add(2)', options)),
+      runtime.runPromise(
+        evaluateWithHost(core, definition, host, 'export default (api: ExampleApi) => api.add(1)', options),
+      ),
+      runtime.runPromise(
+        evaluateWithHost(core, definition, host, 'export default (api: ExampleApi) => api.add(2)', options),
+      ),
     ])
     await runtime.dispose()
 
@@ -90,7 +212,7 @@ describe('code mode core', () => {
 
     //when
     const result = Effect.runPromise(
-      core.evaluate(definition, host, 'import "node:fs"; export default () => 1', options),
+      evaluateWithHost(core, definition, host, 'import "node:fs"; export default () => 1', options),
     )
 
     //then
@@ -107,7 +229,7 @@ describe('code mode core', () => {
 
     //when
     const result = await Effect.runPromise(
-      core.evaluate(definition, host, 'export default (api: ExampleApi) => api.add(2)', {
+      evaluateWithHost(core, definition, host, 'export default (api: ExampleApi) => api.add(2)', {
         ...options,
         execution: 'in-process',
       }),
@@ -129,8 +251,84 @@ describe('code mode core', () => {
 
     //when
     const result = Effect.runPromise(
-      core.evaluate(definition, host, 'export default () => 1', { ...options, signal: controller.signal }),
+      evaluateWithHost(core, definition, host, 'export default () => 1', { ...options, signal: controller.signal }),
     )
+
+    //then
+    await expect(result).rejects.toMatchObject({ _tag: 'cancellation' })
+  })
+
+  test('uses the Effect clock to measure evaluation deadlines', async () => {
+    //given
+    let monotonicTime = 0n
+    const readMonotonicTime = (): bigint => {
+      const current = monotonicTime
+      monotonicTime += 1_000_000n
+      return current
+    }
+    const clock: Clock.Clock = {
+      currentTimeMillisUnsafe: () => 0,
+      currentTimeMillis: Effect.succeed(0),
+      currentTimeNanosUnsafe: () => 0n,
+      currentTimeNanos: Effect.succeed(0n),
+      monotonicTimeNanosUnsafe: readMonotonicTime,
+      monotonicTimeNanos: Effect.sync(readMonotonicTime),
+      sleep: () => Effect.void,
+    }
+    const core = createCodeModeCore<never, never>()
+    const host: CodeModeEffectHost<never, never> = {
+      invoke: () => Effect.succeed('ok'),
+      invokeSync: () => 1,
+    }
+    const evaluation = Effect.provideService(
+      evaluateWithHost(core, definition, host, 'export default () => 1', { ...options, timeoutMs: 1 }),
+      Clock.Clock,
+      clock,
+    )
+
+    //when
+    const result = Effect.runPromise(evaluation)
+
+    //then
+    await expect(result).rejects.toMatchObject({ _tag: 'timeout' })
+  })
+
+  test('keeps an already-aborted caller signal ahead of the clock deadline', async () => {
+    //given
+    let monotonicTime = 0n
+    const readMonotonicTime = (): bigint => {
+      const current = monotonicTime
+      monotonicTime += 1_000_000n
+      return current
+    }
+    const clock: Clock.Clock = {
+      currentTimeMillisUnsafe: () => 0,
+      currentTimeMillis: Effect.succeed(0),
+      currentTimeNanosUnsafe: () => 0n,
+      currentTimeNanos: Effect.succeed(0n),
+      monotonicTimeNanosUnsafe: readMonotonicTime,
+      monotonicTimeNanos: Effect.sync(readMonotonicTime),
+      sleep: () => Effect.void,
+    }
+    const core = createCodeModeCore<never, never>()
+    const controller = new AbortController()
+    controller.abort()
+    const host: CodeModeEffectHost<never, never> = {
+      invoke: () => Effect.succeed('ok'),
+      invokeSync: () => 1,
+    }
+    const evaluation = Effect.provideService(
+      evaluateWithHost(core, definition, host, 'export default () => 1', {
+        ...options,
+        timeoutMs: 1,
+        signal: controller.signal,
+      }),
+      Clock.Clock,
+      clock,
+    )
+
+    //when
+    const result = Effect.runPromise(evaluation)
 
     //then
     await expect(result).rejects.toMatchObject({ _tag: 'cancellation' })
@@ -146,7 +344,10 @@ describe('code mode core', () => {
 
     //when
     const result = Effect.runPromise(
-      core.evaluate(definition, host, 'export default () => { while (true) {} }', { ...options, timeoutMs: 100 }),
+      evaluateWithHost(core, definition, host, 'export default () => { while (true) {} }', {
+        ...options,
+        timeoutMs: 100,
+      }),
     )
 
     //then
@@ -163,7 +364,10 @@ describe('code mode core', () => {
 
     //when
     const result = Effect.runPromise(
-      core.evaluate(definition, host, 'export default () => new Promise(() => {})', { ...options, timeoutMs: 100 }),
+      evaluateWithHost(core, definition, host, 'export default () => new Promise(() => {})', {
+        ...options,
+        timeoutMs: 100,
+      }),
     )
 
     //then
@@ -174,7 +378,8 @@ describe('code mode core', () => {
     //given
     const core = createCodeModeCore<never, never>()
     const fiber = Effect.runFork(
-      core.evaluate(
+      evaluateWithHost(
+        core,
         definition,
         { invoke: () => Effect.succeed('ok'), invokeSync: () => 1 },
         'export default () => new Promise(() => {})',
@@ -202,7 +407,7 @@ describe('code mode core', () => {
 
     //when
     const result = Effect.runPromise(
-      core.evaluate(definition, host, 'export default () => new Promise(() => {})', {
+      evaluateWithHost(core, definition, host, 'export default () => new Promise(() => {})', {
         ...options,
         execution: 'in-process',
         signal: controller.signal,
@@ -226,7 +431,7 @@ describe('code mode core', () => {
 
     //when
     const result = Effect.runPromise(
-      core.evaluate(definition, host, 'export default async (api: ExampleApi) => await api.wait("ok")', {
+      evaluateWithHost(core, definition, host, 'export default async (api: ExampleApi) => await api.wait("ok")', {
         ...options,
         signal: controller.signal,
       }),
@@ -236,6 +441,33 @@ describe('code mode core', () => {
 
     //then
     await expect(result).rejects.toMatchObject({ _tag: 'cancellation' })
+  })
+
+  test('returns an invoke failure when a host throws before returning an Effect', async () => {
+    //given
+    const core = createCodeModeCore<never, never>()
+    const host: CodeModeEffectHost<never, never> = {
+      invoke: () => {
+        throw new Error('Host failed before returning an Effect.')
+      },
+      invokeSync: () => 1,
+    }
+    const evaluation = evaluateWithHost(
+      core,
+      definition,
+      host,
+      'export default async (api: ExampleApi) => await api.wait("ok")',
+      {
+        ...options,
+        timeoutMs: 500,
+      },
+    )
+
+    //when
+    const result = Effect.runPromise(evaluation)
+
+    //then
+    await expect(result).rejects.toMatchObject({ _tag: 'invoke', operation: 'wait' })
   })
 
   test('preserves CodeModeFailure host failures in worker mode', async () => {
@@ -249,7 +481,13 @@ describe('code mode core', () => {
 
     //when
     const result = Effect.runPromise(
-      core.evaluate(definition, host, 'export default async (api: ExampleApi) => await api.wait("ok")', options),
+      evaluateWithHost(
+        core,
+        definition,
+        host,
+        'export default async (api: ExampleApi) => await api.wait("ok")',
+        options,
+      ),
     )
 
     //then
@@ -268,11 +506,101 @@ describe('code mode core', () => {
 
     //when
     const result = Effect.runPromise(
-      core.evaluate(definition, host, 'export default async (api: ExampleApi) => await api.wait("ok")', options),
+      evaluateWithHost(
+        core,
+        definition,
+        host,
+        'export default async (api: ExampleApi) => await api.wait("ok")',
+        options,
+      ),
     )
 
     //then
     await expect(result).rejects.toEqual(failure)
+  })
+
+  test('round trips tagged host failures through their error codec', async () => {
+    //given
+    const failure: TaggedHostFailure = {
+      _tag: 'HostMissing',
+      operation: 'fetch',
+      message: 'not found',
+      code: 42,
+    }
+    const codecCalls = { encode: 0, decode: 0 }
+    const errorCodec: CodeModeHostErrorCodec<TaggedHostFailure> = {
+      encode: (error) => {
+        codecCalls.encode += 1
+        return { ...error }
+      },
+      decode: (value) => {
+        codecCalls.decode += 1
+        return Schema.decodeUnknownSync(taggedHostFailureSchema)(value)
+      },
+    }
+    const core = createCodeModeCore<never, TaggedHostFailure>()
+    const host: CodeModeEffectHost<never, TaggedHostFailure> = {
+      errorCodec,
+      invoke: () => Effect.fail(failure),
+      invokeSync: () => 1,
+    }
+
+    //when
+    const result = Effect.runPromise(
+      evaluateWithHost(
+        core,
+        definition,
+        host,
+        'export default async (api: ExampleApi) => await api.wait("ok")',
+        options,
+      ),
+    )
+
+    //then
+    await expect(result).rejects.toEqual(failure)
+    expect(codecCalls).toEqual({ encode: 1, decode: 1 })
+  })
+
+  test('exposes tagged host failures as encoded data when worker code catches them', async () => {
+    //given
+    const failure: TaggedHostFailure = {
+      _tag: 'HostMissing',
+      operation: 'fetch',
+      message: 'not found',
+      code: 42,
+    }
+    const codecCalls = { encode: 0, decode: 0 }
+    const errorCodec: CodeModeHostErrorCodec<TaggedHostFailure> = {
+      encode: (error) => {
+        codecCalls.encode += 1
+        return { ...error }
+      },
+      decode: (value) => {
+        codecCalls.decode += 1
+        return Schema.decodeUnknownSync(taggedHostFailureSchema)(value)
+      },
+    }
+    const core = createCodeModeCore<never, TaggedHostFailure>()
+    const host: CodeModeEffectHost<never, TaggedHostFailure> = {
+      errorCodec,
+      invoke: () => Effect.fail(failure),
+      invokeSync: () => 1,
+    }
+
+    //when
+    const result = Effect.runPromise(
+      evaluateWithHost(
+        core,
+        definition,
+        host,
+        'export default async (api: ExampleApi) => { try { await api.wait("ok"); return "unexpected" } catch (error) { return error } }',
+        options,
+      ),
+    )
+
+    //then
+    await expect(result).resolves.toEqual({ type: 'code-mode-host-error', value: failure })
+    expect(codecCalls).toEqual({ encode: 1, decode: 0 })
   })
 
   test('exposes the encoded host error when worker code catches it', async () => {
@@ -287,7 +615,8 @@ describe('code mode core', () => {
 
     //when
     const result = await Effect.runPromise(
-      core.evaluate(
+      evaluateWithHost(
+        core,
         definition,
         host,
         'export default async (api: ExampleApi) => { try { await api.wait("ok"); return "unexpected" } catch (error) { return error } }',
@@ -310,7 +639,7 @@ describe('code mode core', () => {
 
     //when
     const result = Effect.runPromise(
-      core.evaluate(definition, host, 'export default async (api: ExampleApi) => await api.wait("ok")', {
+      evaluateWithHost(core, definition, host, 'export default async (api: ExampleApi) => await api.wait("ok")', {
         ...options,
         execution: 'in-process',
       }),
@@ -331,7 +660,13 @@ describe('code mode core', () => {
 
     //when
     const result = Effect.runPromise(
-      core.evaluate(definition, host, 'export default async (api: ExampleApi) => await api.wait("ok")', options),
+      evaluateWithHost(
+        core,
+        definition,
+        host,
+        'export default async (api: ExampleApi) => await api.wait("ok")',
+        options,
+      ),
     )
 
     //then
@@ -355,7 +690,13 @@ describe('code mode core', () => {
 
     //when
     const result = Effect.runPromise(
-      core.evaluate(definition, host, 'export default async (api: ExampleApi) => await api.wait("ok")', options),
+      evaluateWithHost(
+        core,
+        definition,
+        host,
+        'export default async (api: ExampleApi) => await api.wait("ok")',
+        options,
+      ),
     )
 
     //then
@@ -379,7 +720,13 @@ describe('code mode core', () => {
 
     //when
     const result = Effect.runPromise(
-      core.evaluate(definition, host, 'export default async (api: ExampleApi) => await api.wait("ok")', options),
+      evaluateWithHost(
+        core,
+        definition,
+        host,
+        'export default async (api: ExampleApi) => await api.wait("ok")',
+        options,
+      ),
     )
 
     //then
@@ -396,7 +743,7 @@ describe('code mode core', () => {
 
     //when
     const result = Effect.runPromise(
-      core.evaluate(definition, host, 'export default () => { throw "bad value" }', options),
+      evaluateWithHost(core, definition, host, 'export default () => { throw "bad value" }', options),
     )
 
     //then
@@ -413,7 +760,7 @@ describe('code mode core', () => {
 
     //when
     const result = Effect.runPromise(
-      core.evaluate(definition, host, 'export default () => { throw new TypeError("bad value") }', options),
+      evaluateWithHost(core, definition, host, 'export default () => { throw new TypeError("bad value") }', options),
     )
 
     //then
@@ -429,7 +776,7 @@ describe('code mode core', () => {
     }
 
     //when
-    const result = Effect.runPromise(core.evaluate(definition, host, 'export default () => () => 1', options))
+    const result = Effect.runPromise(evaluateWithHost(core, definition, host, 'export default () => () => 1', options))
 
     //then
     await expect(result).rejects.toMatchObject({ _tag: 'serialize' })
@@ -445,7 +792,7 @@ describe('code mode core', () => {
 
     //when
     const result = Effect.runPromise(
-      core.evaluate(definition, host, 'export default (api: ExampleApi) => api.add(() => 1)', options),
+      evaluateWithHost(core, definition, host, 'export default (api: ExampleApi) => api.add(() => 1)', options),
     )
 
     //then

@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
+import { Worker } from 'node:worker_threads'
 import { Effect } from 'effect'
-import type { CodeModeEffectHost } from '../src/code-mode-contract.ts'
-import { createCodeModeRequestQueue } from '../src/code-mode-request-queue.ts'
+import { CodeModeEffectHost } from '../src/code-mode-contract.ts'
+import { CodeModeRequestQueueService, createCodeModeRequestQueue } from '../src/code-mode-request-queue.ts'
 import { createCodeModeFilename, createCodeModeJiti, transformCodeModeProgram } from '../src/code-mode-vm.ts'
 import { runCodeModeWorkerEvaluation } from '../src/code-mode-worker-runner.ts'
 
@@ -33,20 +34,111 @@ describe('code mode worker', () => {
     const result = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const queue = yield* createCodeModeRequestQueue(host)
-          return yield* runCodeModeWorkerEvaluation(
+          const queue = yield* Effect.provideService(
+            createCodeModeRequestQueue<never, never>(),
+            CodeModeEffectHost<never, never>(),
+            host,
+          )
+          return yield* runCodeModeWorkerEvaluation<never, never>(
             definition,
             code,
             filename,
             1000,
-            Date.now(),
+            () => 1000,
             signal,
-            queue,
-            (method, args) => host.invokeSync?.(method, args),
+          ).pipe(
+            Effect.provideService(CodeModeRequestQueueService, queue),
+            Effect.provideService(CodeModeEffectHost<never, never>(), host),
           )
         }),
       ),
     )
+
+    //then
+    expect(result).toBe(3)
+  })
+
+  test('fails a worker sync call when the host has no sync method', async () => {
+    //given
+    const jiti = createCodeModeJiti()
+    const filename = createCodeModeFilename('/tmp', 'worker-missing-sync', 1)
+    const code = transformCodeModeProgram(jiti, definition, 'export default (api: ExampleApi) => api.add(1)', filename)
+    const host: CodeModeEffectHost<never, never> = {
+      invoke: () => Effect.succeed(undefined),
+    }
+    const signal = new AbortController().signal
+
+    //when
+    const result = Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const queue = yield* Effect.provideService(
+            createCodeModeRequestQueue<never, never>(),
+            CodeModeEffectHost<never, never>(),
+            host,
+          )
+          return yield* runCodeModeWorkerEvaluation<never, never>(
+            definition,
+            code,
+            filename,
+            1000,
+            () => 1000,
+            signal,
+          ).pipe(
+            Effect.provideService(CodeModeRequestQueueService, queue),
+            Effect.provideService(CodeModeEffectHost<never, never>(), host),
+          )
+        }),
+      ),
+    )
+
+    //then
+    await expect(result).rejects.toMatchObject({ _tag: 'invoke', operation: 'add' })
+  })
+
+  test('ignores worker termination failures after a successful evaluation', async () => {
+    //given
+    const jiti = createCodeModeJiti()
+    const filename = createCodeModeFilename('/tmp', 'worker-termination', 1)
+    const code = transformCodeModeProgram(jiti, definition, 'export default () => 3', filename)
+    const host: CodeModeEffectHost<never, never> = {
+      invoke: () => Effect.succeed(undefined),
+      invokeSync: () => undefined,
+    }
+    const signal = new AbortController().signal
+    const terminate = Worker.prototype.terminate
+    Worker.prototype.terminate = function (this: Worker): Promise<number> {
+      return terminate.call(this).then(() => Promise.reject(new Error('termination failed')))
+    }
+
+    let result: unknown
+    try {
+      //when
+      result = await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const queue = yield* Effect.provideService(
+              createCodeModeRequestQueue<never, never>(),
+              CodeModeEffectHost<never, never>(),
+              host,
+            )
+            return yield* runCodeModeWorkerEvaluation<never, never>(
+              definition,
+              code,
+              filename,
+              1000,
+              () => 1000,
+              signal,
+            ).pipe(
+              Effect.provideService(CodeModeRequestQueueService, queue),
+              Effect.provideService(CodeModeEffectHost<never, never>(), host),
+            )
+          }),
+        ),
+      )
+    } finally {
+      Worker.prototype.terminate = terminate
+    }
 
     //then
     expect(result).toBe(3)
@@ -68,16 +160,21 @@ describe('code mode worker', () => {
     const result = Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const queue = yield* createCodeModeRequestQueue(host)
-          return yield* runCodeModeWorkerEvaluation(
+          const queue = yield* Effect.provideService(
+            createCodeModeRequestQueue<never, never>(),
+            CodeModeEffectHost<never, never>(),
+            host,
+          )
+          return yield* runCodeModeWorkerEvaluation<never, never>(
             definition,
             code,
             filename,
-            100,
-            Date.now(),
+            1000,
+            () => 100,
             signal,
-            queue,
-            (method, args) => host.invokeSync?.(method, args),
+          ).pipe(
+            Effect.provideService(CodeModeRequestQueueService, queue),
+            Effect.provideService(CodeModeEffectHost<never, never>(), host),
           )
         }),
       ),

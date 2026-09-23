@@ -42,6 +42,7 @@ type CodeModeFailureFields<Tag extends string = string> = CodeModeFailureData<Ta
 
 const codeModeEncodedHostErrorMarker = Symbol('CodeModeEncodedHostError')
 const codeModeHostErrorMarker = Symbol('CodeModeHostError')
+const codeModeFailureMarker = Symbol('CodeModeFailure')
 
 interface CodeModeHostError<E> {
   readonly type: 'code-mode-host-error'
@@ -56,10 +57,18 @@ interface CodeModeEncodedHostError {
 }
 
 function createCodeModeFailure<const Tag extends string>(fields: CodeModeFailureFields<Tag>): CodeModeFailure<Tag> {
-  return { ...fields } as CodeModeFailure<Tag>
+  const failure = { ...fields } as CodeModeFailure<Tag>
+  Object.defineProperty(failure, codeModeFailureMarker, { value: true })
+  return failure
 }
 
 function isCodeModeFailure(value: unknown): value is CodeModeFailure {
+  if (value === null || typeof value !== 'object') return false
+  try {
+    if (Reflect.get(value, codeModeFailureMarker) !== true) return false
+  } catch {
+    return false
+  }
   try {
     Schema.decodeUnknownSync(CodeModeFailureSchema)(value)
     return true

@@ -1,13 +1,17 @@
 import type {
   CodeModeCore,
   CodeModeDefinition,
-  CodeModeEffectHost,
   CodeModeHostErrorCodec,
   CodeModeMethod,
   CodeModeRunOptions,
   CodeModeWireValue,
 } from './code-mode-contract.ts'
-import { findCodeModeMethod, validateCodeModeDefinition, validateCodeModeRunOptions } from './code-mode-contract.ts'
+import {
+  CodeModeEffectHost,
+  findCodeModeMethod,
+  validateCodeModeDefinition,
+  validateCodeModeRunOptions,
+} from './code-mode-contract.ts'
 import { createCodeModeCore } from './code-mode-core.ts'
 import type {
   CodeModeFailure,
@@ -25,7 +29,7 @@ import {
 export {
   type CodeModeCore,
   type CodeModeDefinition,
-  type CodeModeEffectHost,
+  CodeModeEffectHost,
   type CodeModeFailure,
   type CodeModeFailureFields,
   type CodeModeFailureTag,

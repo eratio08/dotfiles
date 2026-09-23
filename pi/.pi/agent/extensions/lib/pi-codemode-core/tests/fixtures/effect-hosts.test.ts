@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
 import type { CodeModeFailure } from '../../src/index.ts'
-import { createCodeModeCore } from '../../src/index.ts'
+import { CodeModeEffectHost, createCodeModeCore } from '../../src/index.ts'
 import { createCodeModeFixture, createOpenSrcFixture, createTodoFixture } from './effect-hosts.ts'
 
 const options = {
@@ -17,7 +17,13 @@ describe('Effect host fixtures', () => {
     const core = createCodeModeCore<never, CodeModeFailure>()
 
     //when
-    const result = await Effect.runPromise(core.evaluate(fixture.definition, fixture.host, fixture.source, options))
+    const result = await Effect.runPromise(
+      Effect.provideService(
+        core.evaluate(fixture.definition, fixture.source, options),
+        CodeModeEffectHost<never, CodeModeFailure>(),
+        fixture.host,
+      ),
+    )
 
     //then
     expect(result).toBe('final:executed:status')
@@ -30,7 +36,13 @@ describe('Effect host fixtures', () => {
     const core = createCodeModeCore<never, CodeModeFailure>()
 
     //when
-    const result = await Effect.runPromise(core.evaluate(fixture.definition, fixture.host, fixture.source, options))
+    const result = await Effect.runPromise(
+      Effect.provideService(
+        core.evaluate(fixture.definition, fixture.source, options),
+        CodeModeEffectHost<never, CodeModeFailure>(),
+        fixture.host,
+      ),
+    )
 
     //then
     expect(result).toBe('2:13:1')
@@ -43,7 +55,13 @@ describe('Effect host fixtures', () => {
     const core = createCodeModeCore<never, CodeModeFailure>()
 
     //when
-    const result = await Effect.runPromise(core.evaluate(fixture.definition, fixture.host, fixture.source, options))
+    const result = await Effect.runPromise(
+      Effect.provideService(
+        core.evaluate(fixture.definition, fixture.source, options),
+        CodeModeEffectHost<never, CodeModeFailure>(),
+        fixture.host,
+      ),
+    )
 
     //then
     expect(result).toBe(1)

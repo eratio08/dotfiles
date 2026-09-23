@@ -26,7 +26,7 @@ interface CodeModeWorkerStart {
   readonly code: string
   readonly filename: string
   readonly timeoutMs: number
-  readonly startedAt: number
+  readonly remainingTimeoutMs: number
   readonly methods: readonly CodeModeMethod[]
   readonly syncState: SharedArrayBuffer
   readonly syncPort: MessagePort
@@ -46,21 +46,37 @@ interface CodeModeAsyncRequest {
   readonly args: readonly unknown[]
 }
 
-interface CodeModeSyncResponse {
+interface CodeModeSyncSuccessResponse {
   readonly type: 'sync-result'
   readonly id: number
-  readonly ok: boolean
-  readonly value?: unknown
-  readonly error?: CodeModeWorkerError
+  readonly ok: true
+  readonly value: unknown
 }
 
-interface CodeModeAsyncResponse {
+interface CodeModeSyncFailureResponse {
+  readonly type: 'sync-result'
+  readonly id: number
+  readonly ok: false
+  readonly error: CodeModeWorkerError
+}
+
+type CodeModeSyncResponse = CodeModeSyncSuccessResponse | CodeModeSyncFailureResponse
+
+interface CodeModeAsyncSuccessResponse {
   readonly type: 'async-result'
   readonly id: number
-  readonly ok: boolean
-  readonly value?: unknown
-  readonly error?: CodeModeWorkerError
+  readonly ok: true
+  readonly value: unknown
 }
+
+interface CodeModeAsyncFailureResponse {
+  readonly type: 'async-result'
+  readonly id: number
+  readonly ok: false
+  readonly error: CodeModeWorkerError
+}
+
+type CodeModeAsyncResponse = CodeModeAsyncSuccessResponse | CodeModeAsyncFailureResponse
 
 interface CodeModeWorkerResult {
   readonly type: 'result'

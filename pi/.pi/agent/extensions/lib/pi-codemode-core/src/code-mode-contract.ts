@@ -1,4 +1,4 @@
-import { type Effect, Schema } from 'effect'
+import { Context, type Effect, Schema } from 'effect'
 import { type CodeModeFailure, createCodeModeFailure } from './code-mode-failure.ts'
 import {
   CodeModeDefinitionSchema,
@@ -34,11 +34,22 @@ interface CodeModeDefinition {
   readonly examples: readonly string[]
 }
 
+declare const codeModeEffectHostTag: unique symbol
+
+interface CodeModeEffectHostRequirement<R, E> {
+  readonly [codeModeEffectHostTag]: readonly [R, E]
+}
+
 interface CodeModeEffectHost<R, E> {
   readonly invoke: (method: string, args: readonly unknown[], signal: AbortSignal) => Effect.Effect<unknown, E, R>
   readonly invokeSync?: (method: string, args: readonly unknown[]) => unknown
   readonly errorCodec?: CodeModeHostErrorCodec<E>
 }
+
+const CodeModeEffectHost = <R, E>(): Context.Service<CodeModeEffectHostRequirement<R, E>, CodeModeEffectHost<R, E>> =>
+  Context.Service<CodeModeEffectHostRequirement<R, E>, CodeModeEffectHost<R, E>>(
+    '@eratio/pi-codemode-core/CodeModeEffectHost',
+  )
 
 interface CodeModeRunOptions {
   readonly cwd: string
@@ -51,10 +62,9 @@ interface CodeModeRunOptions {
 interface CodeModeCore<R, E> {
   readonly evaluate: (
     definition: CodeModeDefinition,
-    host: CodeModeEffectHost<R, E>,
     code: string,
     options: CodeModeRunOptions,
-  ) => Effect.Effect<unknown, CodeModeFailure | E, R>
+  ) => Effect.Effect<unknown, CodeModeFailure | E, R | CodeModeEffectHostRequirement<R, E>>
 }
 
 function validateCodeModeDefinition(value: unknown): CodeModeFailure | undefined {
@@ -90,7 +100,8 @@ function findCodeModeMethod(definition: CodeModeDefinition, method: string): Cod
 export {
   type CodeModeCore,
   type CodeModeDefinition,
-  type CodeModeEffectHost,
+  CodeModeEffectHost,
+  type CodeModeEffectHostRequirement,
   type CodeModeHostErrorCodec,
   type CodeModeMethod,
   type CodeModeRunOptions,

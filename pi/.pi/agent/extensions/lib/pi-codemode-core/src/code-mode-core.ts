@@ -1,15 +1,25 @@
-import { Cause, Effect, Schema } from 'effect'
+import { Cause, Clock, Effect, Schema } from 'effect'
 import type { Scope } from 'effect/Scope'
-import type { CodeModeCore, CodeModeDefinition, CodeModeEffectHost, CodeModeRunOptions } from './code-mode-contract.ts'
-import { findCodeModeMethod, validateCodeModeDefinition, validateCodeModeRunOptions } from './code-mode-contract.ts'
+import type {
+  CodeModeCore,
+  CodeModeDefinition,
+  CodeModeEffectHostRequirement,
+  CodeModeRunOptions,
+} from './code-mode-contract.ts'
+import { CodeModeEffectHost, findCodeModeMethod } from './code-mode-contract.ts'
 import {
   type CodeModeFailure,
   createCodeModeFailure,
   isCodeModeFailure,
   isCodeModeHostError,
 } from './code-mode-failure.ts'
-import { createCodeModeRequestQueue } from './code-mode-request-queue.ts'
-import { CodeModeSourceSchema, getCodeModeSchemaFailureMessage } from './code-mode-schema.ts'
+import { CodeModeRequestQueueService, createCodeModeRequestQueue } from './code-mode-request-queue.ts'
+import {
+  CodeModeDefinitionSchema,
+  CodeModeRunOptionsSchema,
+  CodeModeSourceSchema,
+  getCodeModeSchemaFailureMessage,
+} from './code-mode-schema.ts'
 import {
   createCodeModeApi,
   createCodeModeFilename,
@@ -21,7 +31,7 @@ import {
 import { runCodeModeWorkerEvaluation } from './code-mode-worker-runner.ts'
 
 interface CodeModeDeadline {
-  readonly startedAt: number
+  readonly remainingTimeoutMs: () => number
   readonly signal: AbortSignal
   readonly isTimedOut: () => boolean
   readonly dispose: () => void
@@ -29,33 +39,44 @@ interface CodeModeDeadline {
 
 function createCodeModeCore<R, E>(): CodeModeCore<R, E> {
   const jiti = createCodeModeJiti()
+  const hostService = CodeModeEffectHost<R, E>()
   let evaluationNumber = 0
 
   const evaluate = Effect.fnUntraced(
     function* (
-      definition: CodeModeDefinition,
-      host: CodeModeEffectHost<R, E>,
-      code: string,
-      options: CodeModeRunOptions,
-    ): Effect.fn.Return<unknown, CodeModeFailure | E, R | Scope> {
-      const definitionError = validateCodeModeDefinition(definition)
-      if (definitionError !== undefined) return yield* Effect.fail(definitionError)
-      const optionsError = validateCodeModeRunOptions(options)
-      if (optionsError !== undefined) return yield* Effect.fail(optionsError)
-      try {
-        Schema.decodeUnknownSync(CodeModeSourceSchema)(code)
-      } catch (cause) {
-        return yield* Effect.fail(
+      definitionInput: CodeModeDefinition,
+      codeInput: string,
+      optionsInput: CodeModeRunOptions,
+    ): Effect.fn.Return<unknown, CodeModeFailure | E, R | CodeModeEffectHostRequirement<R, E> | Scope> {
+      const definition = yield* Schema.decodeUnknownEffect(CodeModeDefinitionSchema)(definitionInput).pipe(
+        Effect.mapError((cause) =>
+          createCodeModeFailure({
+            _tag: 'validation',
+            operation: 'definition',
+            message: getCodeModeSchemaFailureMessage(cause, 'The code mode definition is invalid.'),
+          }),
+        ),
+      )
+      const options = yield* Schema.decodeUnknownEffect(CodeModeRunOptionsSchema)(optionsInput).pipe(
+        Effect.mapError((cause) =>
+          createCodeModeFailure({
+            _tag: 'validation',
+            operation: 'options',
+            message: getCodeModeSchemaFailureMessage(cause, 'The code mode run options are invalid.'),
+          }),
+        ),
+      )
+      const code = yield* Schema.decodeUnknownEffect(CodeModeSourceSchema)(codeInput).pipe(
+        Effect.mapError((cause) =>
           createCodeModeFailure({
             _tag: 'validation',
             operation: 'source',
             message: getCodeModeSchemaFailureMessage(cause, 'The code mode source is invalid.'),
           }),
-        )
-      }
+        ),
+      )
 
-      const effectSignal = yield* Effect.abortSignal
-      const deadline = yield* createCodeModeDeadline(effectSignal, options.signal, options.timeoutMs)
+      const deadline = yield* createCodeModeDeadline(options.signal, options.timeoutMs)
       const deadlineFailure = getCodeModeDeadlineFailure(deadline, options.timeoutMs)
       if (deadlineFailure !== undefined) return yield* Effect.fail(deadlineFailure)
 
@@ -74,7 +95,8 @@ function createCodeModeCore<R, E>(): CodeModeCore<R, E> {
       })
       if (deadline.isTimedOut()) return yield* Effect.fail(createCodeModeTimeoutFailure(options.timeoutMs))
 
-      const queue = yield* createCodeModeRequestQueue(host)
+      const host = yield* hostService
+      const queue = yield* createCodeModeRequestQueue<R, E>()
       const invokeSync = (method: string, args: readonly unknown[]): unknown => {
         const methodDefinition = findCodeModeMethod(definition, method)
         if (methodDefinition === undefined || methodDefinition.kind !== 'sync')
@@ -116,23 +138,32 @@ function createCodeModeCore<R, E>(): CodeModeCore<R, E> {
 
       function runInProcess(): Effect.Effect<unknown, CodeModeFailure | E, R> {
         return Effect.tryPromise({
-          try: () => runCodeModeVm(transformed, api, filename, options.timeoutMs, deadline.startedAt, deadline.signal),
+          try: () =>
+            runCodeModeVm(
+              transformed,
+              api,
+              filename,
+              options.timeoutMs,
+              undefined,
+              deadline.signal,
+              deadline.remainingTimeoutMs,
+            ),
           catch: (cause) => mapCodeModeCause(cause, deadline, options.timeoutMs, 'invoke'),
         })
       }
 
-      function runInWorker(): Effect.Effect<unknown, CodeModeFailure | E, R> {
-        return runCodeModeWorkerEvaluation(
+      function runInWorker(): Effect.Effect<unknown, CodeModeFailure | E, R | CodeModeEffectHostRequirement<R, E>> {
+        return runCodeModeWorkerEvaluation<R, E>(
           definition,
           transformed,
           filename,
           options.timeoutMs,
-          deadline.startedAt,
+          deadline.remainingTimeoutMs,
           deadline.signal,
-          queue,
-          invokeSync,
-          host.errorCodec,
-        ).pipe(Effect.catch((cause) => Effect.fail(mapCodeModeCause(cause, deadline, options.timeoutMs, 'worker'))))
+        ).pipe(
+          Effect.provideService(CodeModeRequestQueueService, queue),
+          Effect.catch((cause) => Effect.fail(mapCodeModeCause(cause, deadline, options.timeoutMs, 'worker'))),
+        )
       }
     },
     (effect) => Effect.scoped(effect),
@@ -141,39 +172,48 @@ function createCodeModeCore<R, E>(): CodeModeCore<R, E> {
   return { evaluate }
 }
 
-function createCodeModeDeadline(
-  effectSignal: AbortSignal,
+const createCodeModeDeadline = Effect.fnUntraced(function* (
   callerSignal: AbortSignal | undefined,
   timeoutMs: number,
-): Effect.Effect<CodeModeDeadline, never, Scope> {
-  return Effect.acquireRelease(
-    Effect.sync(() => {
-      const controller = new AbortController()
-      const startedAt = Date.now()
-      let timedOut = false
-      const abort = (): void => controller.abort()
-      const timeoutId = setTimeout(() => {
-        timedOut = true
-        controller.abort()
-      }, timeoutMs)
-      const signals = [effectSignal, callerSignal].filter((signal): signal is AbortSignal => signal !== undefined)
-      for (const signal of signals) {
-        if (signal.aborted) controller.abort()
-        else signal.addEventListener('abort', abort, { once: true })
-      }
-      return {
-        startedAt,
-        signal: controller.signal,
-        isTimedOut: () => timedOut,
-        dispose: () => {
-          clearTimeout(timeoutId)
-          for (const signal of signals) signal.removeEventListener('abort', abort)
-        },
-      }
-    }),
-    (deadline) => Effect.sync(deadline.dispose),
+): Effect.fn.Return<CodeModeDeadline, never, Scope> {
+  const effectSignal = yield* Effect.abortSignal
+  return yield* Clock.clockWith((clock) =>
+    Effect.acquireRelease(
+      Effect.sync(() => {
+        const controller = new AbortController()
+        const signals = [effectSignal, callerSignal].filter((signal): signal is AbortSignal => signal !== undefined)
+        const startedAt = clock.monotonicTimeNanosUnsafe()
+        let timedOut = false
+        let cancelled = signals.some((signal) => signal.aborted)
+        const remainingTimeoutMs = (): number =>
+          Math.max(0, Math.ceil(timeoutMs - Number(clock.monotonicTimeNanosUnsafe() - startedAt) / 1_000_000))
+        const abort = (): void => {
+          if (!timedOut && !cancelled) {
+            if (remainingTimeoutMs() === 0) timedOut = true
+            else cancelled = true
+          }
+          controller.abort()
+        }
+        const timeoutId = setTimeout(() => {
+          if (!cancelled) timedOut = true
+          controller.abort()
+        }, timeoutMs)
+        if (cancelled) controller.abort()
+        else for (const signal of signals) signal.addEventListener('abort', abort, { once: true })
+        return {
+          remainingTimeoutMs,
+          signal: controller.signal,
+          isTimedOut: () => timedOut || (!cancelled && remainingTimeoutMs() === 0),
+          dispose: () => {
+            clearTimeout(timeoutId)
+            for (const signal of signals) signal.removeEventListener('abort', abort)
+          },
+        }
+      }),
+      (deadline) => Effect.sync(deadline.dispose),
+    ),
   )
-}
+})
 
 function getCodeModeDeadlineFailure(deadline: CodeModeDeadline, timeoutMs: number): CodeModeFailure | undefined {
   if (deadline.isTimedOut()) return createCodeModeTimeoutFailure(timeoutMs)

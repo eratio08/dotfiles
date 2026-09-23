@@ -36,16 +36,12 @@ const codeModeOptionsExecutionMessage = 'The code mode execution must be worker 
 const codeModeSourceMessage = 'The code mode source must be a non-empty string.'
 
 const createCodeModeNonEmptyStringSchema = (message: string) =>
-  Schema.Unknown.pipe(
-    Schema.refine((value): value is string => typeof value === 'string' && value.trim().length > 0, { message }),
+  Schema.String.annotate({ message }).pipe(
+    Schema.check(Schema.makeFilter((value) => value.trim().length > 0 || message, undefined, true)),
   )
 
 const createCodeModePositiveFiniteNumberSchema = (message: string) =>
-  Schema.Unknown.pipe(
-    Schema.refine((value): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0, {
-      message,
-    }),
-  )
+  Schema.Finite.annotate({ message }).pipe(Schema.check(Schema.isGreaterThan(0, { message })))
 
 const CodeModeMethodSchema = Schema.Struct({
   name: Schema.optionalKey(createCodeModeNonEmptyStringSchema(codeModeMethodNameMessage)),
@@ -72,28 +68,16 @@ const CodeModeMethodSchema = Schema.Struct({
 
 const CodeModeDefinitionMethodsSchema = Schema.Array(CodeModeMethodSchema)
   .annotate({ message: codeModeDefinitionMethodsMessage })
-  .pipe(
-    Schema.check(Schema.makeFilter((value) => value.length > 0 || codeModeDefinitionMethodsMessage, undefined, true)),
-  )
+  .pipe(Schema.check(Schema.isMinLength(1, { message: codeModeDefinitionMethodsMessage })))
 
 const CodeModeDefinitionExamplesSchema = Schema.Array(
-  Schema.Unknown.pipe(
-    Schema.refine((value): value is string => typeof value === 'string', {
-      message: codeModeDefinitionExamplesMessage,
-    }),
-  ),
+  Schema.String.annotate({ message: codeModeDefinitionExamplesMessage }),
 ).annotate({ message: codeModeDefinitionExamplesMessage })
 
 const CodeModeDefinitionSchema = Schema.Struct({
   apiName: Schema.optionalKey(createCodeModeNonEmptyStringSchema(codeModeDefinitionApiNameMessage)),
   programName: Schema.optionalKey(createCodeModeNonEmptyStringSchema(codeModeDefinitionProgramNameMessage)),
-  declarations: Schema.optionalKey(
-    Schema.Unknown.pipe(
-      Schema.refine((value): value is string => typeof value === 'string', {
-        message: codeModeDefinitionDeclarationsMessage,
-      }),
-    ),
-  ),
+  declarations: Schema.optionalKey(Schema.String.annotate({ message: codeModeDefinitionDeclarationsMessage })),
   methods: Schema.optionalKey(CodeModeDefinitionMethodsSchema),
   examples: Schema.optionalKey(CodeModeDefinitionExamplesSchema),
 })
@@ -153,7 +137,11 @@ const CodeModeRunOptionsSchema = Schema.Struct({
   filenamePrefix: Schema.optionalKey(createCodeModeNonEmptyStringSchema(codeModeOptionsFilenameMessage)),
   timeoutMs: Schema.optionalKey(createCodeModePositiveFiniteNumberSchema(codeModeOptionsTimeoutMessage)),
   signal: Schema.optionalKey(Schema.Unknown),
-  execution: Schema.optionalKey(Schema.Unknown),
+  execution: Schema.optionalKey(
+    Schema.Union([Schema.Literal('worker'), Schema.Literal('in-process')]).annotate({
+      message: codeModeOptionsExecutionMessage,
+    }),
+  ),
 })
   .annotate({ message: codeModeOptionsObjectMessage })
   .pipe(
@@ -168,22 +156,9 @@ const CodeModeRunOptionsSchema = Schema.Struct({
     Schema.check(
       Schema.makeFilter((value) => value.timeoutMs !== undefined || codeModeOptionsTimeoutMessage, undefined, true),
     ),
-    Schema.check(
-      Schema.makeFilter(
-        (value) =>
-          value.execution === undefined || value.execution === 'worker' || value.execution === 'in-process'
-            ? true
-            : codeModeOptionsExecutionMessage,
-        undefined,
-        true,
-      ),
-    ),
     Schema.refine(
       (value): value is CodeModeRunOptions =>
-        value.cwd !== undefined &&
-        value.filenamePrefix !== undefined &&
-        value.timeoutMs !== undefined &&
-        (value.execution === undefined || value.execution === 'worker' || value.execution === 'in-process'),
+        value.cwd !== undefined && value.filenamePrefix !== undefined && value.timeoutMs !== undefined,
       { message: codeModeOptionsObjectMessage },
     ),
   )
@@ -278,12 +253,14 @@ const CodeModeWorkerErrorSchema = Schema.Union([
 
 const CodeModeWorkerErrorKindSchema = Schema.Struct({ kind: Schema.String })
 
-const CodeModeRequestIdSchema = createCodeModePositiveFiniteNumberSchema(
-  'The code mode request id must be a positive integer.',
-).pipe(
-  Schema.refine((value): value is number => Number.isSafeInteger(value), {
-    message: 'The code mode request id must be a positive integer.',
-  }),
+const codeModeRequestIdMessage = 'The code mode request id must be a positive integer.'
+
+const CodeModeRequestIdSchema = Schema.Finite.annotate({ message: codeModeRequestIdMessage }).pipe(
+  Schema.check(
+    Schema.isInt({ message: codeModeRequestIdMessage }),
+    Schema.isGreaterThan(0, { message: codeModeRequestIdMessage }),
+    Schema.isLessThanOrEqualTo(Number.MAX_SAFE_INTEGER, { message: codeModeRequestIdMessage }),
+  ),
 )
 
 const CodeModeWorkerStartSchema = Schema.Struct({
@@ -291,8 +268,8 @@ const CodeModeWorkerStartSchema = Schema.Struct({
   code: Schema.String,
   filename: Schema.String,
   timeoutMs: createCodeModePositiveFiniteNumberSchema('The code mode worker timeout must be a positive finite number.'),
-  startedAt: createCodeModePositiveFiniteNumberSchema(
-    'The code mode worker start time must be a positive finite number.',
+  remainingTimeoutMs: createCodeModePositiveFiniteNumberSchema(
+    'The code mode worker remaining timeout must be a positive finite number.',
   ),
   methods: Schema.Array(CodeModeMethodSchema),
   syncState: Schema.Unknown,
@@ -313,21 +290,40 @@ const CodeModeAsyncRequestSchema = Schema.Struct({
   args: Schema.Array(Schema.Unknown),
 })
 
-const CodeModeSyncResponseSchema = Schema.Struct({
+const CodeModeSyncSuccessResponseSchema = Schema.Struct({
   type: Schema.Literal('sync-result'),
   id: CodeModeRequestIdSchema,
-  ok: Schema.Boolean,
-  value: Schema.optional(Schema.Unknown),
-  error: Schema.optional(CodeModeWorkerErrorSchema),
+  ok: Schema.Literal(true),
+  value: Schema.Unknown,
 })
 
-const CodeModeAsyncResponseSchema = Schema.Struct({
+const CodeModeSyncFailureResponseSchema = Schema.Struct({
+  type: Schema.Literal('sync-result'),
+  id: CodeModeRequestIdSchema,
+  ok: Schema.Literal(false),
+  error: CodeModeWorkerErrorSchema,
+})
+
+const CodeModeSyncResponseSchema = Schema.Union([CodeModeSyncSuccessResponseSchema, CodeModeSyncFailureResponseSchema])
+
+const CodeModeAsyncSuccessResponseSchema = Schema.Struct({
   type: Schema.Literal('async-result'),
   id: CodeModeRequestIdSchema,
-  ok: Schema.Boolean,
-  value: Schema.optional(Schema.Unknown),
-  error: Schema.optional(CodeModeWorkerErrorSchema),
+  ok: Schema.Literal(true),
+  value: Schema.Unknown,
 })
+
+const CodeModeAsyncFailureResponseSchema = Schema.Struct({
+  type: Schema.Literal('async-result'),
+  id: CodeModeRequestIdSchema,
+  ok: Schema.Literal(false),
+  error: CodeModeWorkerErrorSchema,
+})
+
+const CodeModeAsyncResponseSchema = Schema.Union([
+  CodeModeAsyncSuccessResponseSchema,
+  CodeModeAsyncFailureResponseSchema,
+])
 
 const CodeModeWorkerResultSchema = Schema.Struct({
   type: Schema.Literal('result'),

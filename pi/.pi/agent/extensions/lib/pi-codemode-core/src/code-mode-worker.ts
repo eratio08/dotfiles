@@ -35,7 +35,8 @@ function runCodeModeWorker(): void {
       return
     }
     const api = createCodeModeWorkerApi(start)
-    void runCodeModeVm(start.code, api, start.filename, start.timeoutMs, start.startedAt).then(
+    const startedAt = performance.now() - Math.max(0, start.timeoutMs - start.remainingTimeoutMs)
+    void runCodeModeVm(start.code, api, start.filename, start.timeoutMs, startedAt).then(
       (value) => postCodeModeWorkerResult(value),
       (cause) => postCodeModeWorkerError(cause),
     )
@@ -50,7 +51,7 @@ function createCodeModeWorkerApi(
   parentPort?.on('message', (message: unknown) => {
     let response: CodeModeAsyncResponse
     try {
-      response = Schema.decodeUnknownSync(CodeModeAsyncResponseSchema)(message) as CodeModeAsyncResponse
+      response = Schema.decodeUnknownSync(CodeModeAsyncResponseSchema)(message)
     } catch {
       for (const call of pending.values())
         call.reject(
@@ -100,7 +101,7 @@ function createCodeModeWorkerApi(
       if (response !== undefined) {
         let message: CodeModeSyncResponse
         try {
-          message = Schema.decodeUnknownSync(CodeModeSyncResponseSchema)(response.message) as CodeModeSyncResponse
+          message = Schema.decodeUnknownSync(CodeModeSyncResponseSchema)(response.message)
         } catch {
           throw createCodeModeFailure({
             _tag: 'transport',
@@ -182,9 +183,11 @@ function postCodeModeWorkerError(cause: unknown): void {
 function decodeCodeModeWorkerStart(value: unknown): CodeModeWorkerStart | undefined {
   try {
     const decoded = Schema.decodeUnknownSync(CodeModeWorkerStartSchema)(value)
-    if (!(decoded.syncState instanceof SharedArrayBuffer)) return undefined
-    if (!(decoded.syncPort instanceof MessagePort)) return undefined
-    return decoded as CodeModeWorkerStart
+    const syncState = decoded.syncState
+    const syncPort = decoded.syncPort
+    if (!(syncState instanceof SharedArrayBuffer)) return undefined
+    if (!(syncPort instanceof MessagePort)) return undefined
+    return { ...decoded, syncState, syncPort }
   } catch {
     return undefined
   }

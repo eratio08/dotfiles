@@ -7,7 +7,7 @@ The package does not import Pi, `@earendil-works/pi-tui`, or `typebox`.
 
 ## Package boundary
 
-The root entry exports `createCodeModeCore`, the public contracts, definition validators, and tagged failure helpers.
+The root entry exports `createCodeModeCore`, the `CodeModeEffectHost` service, public contracts, definition validators, and tagged failure helpers.
 The `@eratio/pi-codemode-core/output` entry exports raw-value formatting and output truncation.
 The core returns one final structured-cloneable value in version 0.1.
 The core does not stream program output.
@@ -19,24 +19,31 @@ The core supports typed arrays and buffers when the selected runtime can transfe
 
 Call `createCodeModeCore` once for an evaluator instance.
 The evaluator owns one Jiti instance and a diagnostic evaluation counter.
-The caller owns the Effect runtime that runs each returned Effect.
+The caller provides the host to each evaluation through its Effect environment and owns the Effect runtime that runs it.
 
 ```ts
 import { Effect, Layer, ManagedRuntime } from 'effect'
-import { createCodeModeCore } from '@eratio/pi-codemode-core'
+import { CodeModeEffectHost, createCodeModeCore } from '@eratio/pi-codemode-core'
 
 const core = createCodeModeCore<never, HostFailure>()
 const runtime = ManagedRuntime.make(Layer.empty)
 
-const evaluation = core.evaluate(definition, host, source, {
-  cwd: '/tmp',
-  filenamePrefix: 'program',
-  timeoutMs: 30_000,
-})
+const evaluation = Effect.provideService(
+  core.evaluate(definition, source, {
+    cwd: '/tmp',
+    filenamePrefix: 'program',
+    timeoutMs: 30_000,
+  }),
+  CodeModeEffectHost<never, HostFailure>(),
+  host,
+)
 
 const value = await runtime.runPromise(evaluation)
 await runtime.dispose()
 ```
+
+`CodeModeEffectHost<R, E>()` creates the service key for a host.
+Use `Effect.provideService` to provide one host for each evaluation.
 
 The host type parameter `R` names the Effect services that the host needs.
 The host type parameter `E` names typed host failures.
@@ -49,6 +56,7 @@ The core does not create a runtime and does not call `Effect.runPromise` or `Eff
 ## Effect and transport boundaries
 
 `CodeModeFailure` is the Effect-facing tagged failure for failures that the evaluator creates or returns.
+It uses a plain tagged object instead of one `Schema.TaggedError` class per tag to preserve the public failure shape without ten wrapper classes.
 The built-in failure tags are finite and include validation, transform, compile, invoke, timeout, cancellation, worker, transport, deserialize, and serialize.
 Worker messages use the separate `CodeModeFailureWireValue` data transfer object so that transport validation does not depend on Effect error classes.
 The worker and parent validate public values and worker messages with Effect Schema before they use them.

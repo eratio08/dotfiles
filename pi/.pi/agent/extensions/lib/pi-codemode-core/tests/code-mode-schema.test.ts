@@ -2,11 +2,14 @@ import { describe, expect, test } from 'bun:test'
 import { Schema } from 'effect'
 import { validateCodeModeDefinition, validateCodeModeRunOptions } from '../src/code-mode-contract.ts'
 import {
+  CodeModeAsyncResponseSchema,
   CodeModeEncodedHostErrorSchema,
   CodeModeFailureSchema,
   CodeModeFailureWireValueSchema,
   CodeModeHostErrorEnvelopeSchema,
+  CodeModeSyncResponseSchema,
   CodeModeWireValueSchema,
+  CodeModeWorkerFailureMessageSchema,
   CodeModeWorkerMessageSchema,
 } from '../src/code-mode-schema.ts'
 import { deserializeCodeModeError } from '../src/index.ts'
@@ -159,6 +162,59 @@ describe('code mode schemas', () => {
     //then
     expect(decoded).toEqual(value)
     expect(() => decode({ ...value, value: () => undefined })).toThrow()
+  })
+
+  test('requires worker response values and errors to match the status flag', () => {
+    //given
+    const responses = [
+      {
+        accepts: Schema.is(CodeModeSyncResponseSchema),
+        value: { type: 'sync-result', id: 1, ok: true, value: undefined },
+      },
+      { accepts: Schema.is(CodeModeSyncResponseSchema), value: { type: 'sync-result', id: 1, ok: true } },
+      {
+        accepts: Schema.is(CodeModeSyncResponseSchema),
+        value: {
+          type: 'sync-result',
+          id: 1,
+          ok: false,
+          error: { kind: 'exception', name: 'Error', message: 'failed' },
+        },
+      },
+      { accepts: Schema.is(CodeModeSyncResponseSchema), value: { type: 'sync-result', id: 1, ok: false } },
+      {
+        accepts: Schema.is(CodeModeAsyncResponseSchema),
+        value: { type: 'async-result', id: 1, ok: true, value: undefined },
+      },
+      { accepts: Schema.is(CodeModeAsyncResponseSchema), value: { type: 'async-result', id: 1, ok: true } },
+      {
+        accepts: Schema.is(CodeModeAsyncResponseSchema),
+        value: {
+          type: 'async-result',
+          id: 1,
+          ok: false,
+          error: { kind: 'exception', name: 'Error', message: 'failed' },
+        },
+      },
+      { accepts: Schema.is(CodeModeAsyncResponseSchema), value: { type: 'async-result', id: 1, ok: false } },
+    ]
+
+    //when
+    const accepted = responses.map(({ accepts, value }) => accepts(value))
+
+    //then
+    expect(accepted).toEqual([true, false, true, false, true, false, true, false])
+  })
+
+  test('maps a worker failure without error data to deserialize', () => {
+    //given
+    const decode = Schema.decodeUnknownSync(CodeModeWorkerFailureMessageSchema)
+
+    //when
+    const decoded = decode({ type: 'error' })
+
+    //then
+    expect(deserializeCodeModeError(decoded.error)).toMatchObject({ _tag: 'deserialize' })
   })
 
   test('validates serializable worker messages', () => {
