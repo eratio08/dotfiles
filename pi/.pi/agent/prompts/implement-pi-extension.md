@@ -2,7 +2,6 @@
 description: Implement a Pi extension from a specification
 argument-hint: "<extension specification>"
 ---
-
 Implement the following Pi extension specification:
 
 <extension-specification>
