@@ -1,25 +1,15 @@
 import { Cause, Clock, Effect, Schema } from 'effect'
 import type { Scope } from 'effect/Scope'
-import type {
-  CodeModeCore,
-  CodeModeDefinition,
-  CodeModeEffectHostRequirement,
-  CodeModeRunOptions,
-} from './code-mode-contract.ts'
-import { CodeModeEffectHost, findCodeModeMethod } from './code-mode-contract.ts'
-import {
-  type CodeModeFailure,
-  createCodeModeFailure,
-  isCodeModeFailure,
-  isCodeModeHostError,
-} from './code-mode-failure.ts'
-import { CodeModeRequestQueueService, createCodeModeRequestQueue } from './code-mode-request-queue.ts'
+import type { CodeModeCore, CodeModeDefinition, CodeModeEffectHostRequirement, CodeModeRunOptions } from './contract.ts'
+import { CodeModeEffectHost, findCodeModeMethod } from './contract.ts'
+import { type CodeModeFailure, createCodeModeFailure, isCodeModeFailure, isCodeModeHostError } from './failure.ts'
+import { CodeModeRequestQueueService, createCodeModeRequestQueue } from './request-queue.ts'
 import {
   CodeModeDefinitionSchema,
   CodeModeRunOptionsSchema,
   CodeModeSourceSchema,
   getCodeModeSchemaFailureMessage,
-} from './code-mode-schema.ts'
+} from './schema.ts'
 import {
   createCodeModeApi,
   createCodeModeFilename,
@@ -27,8 +17,8 @@ import {
   runCodeModeVm,
   transformCodeModeProgram,
   validateCodeModeImports,
-} from './code-mode-vm.ts'
-import { runCodeModeWorkerEvaluation } from './code-mode-worker-runner.ts'
+} from './vm.ts'
+import { runCodeModeWorkerEvaluation } from './worker-runner.ts'
 
 interface CodeModeDeadline {
   readonly remainingTimeoutMs: () => number

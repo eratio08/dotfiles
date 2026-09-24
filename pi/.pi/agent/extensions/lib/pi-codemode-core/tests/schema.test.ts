@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Schema } from 'effect'
-import { validateCodeModeDefinition, validateCodeModeRunOptions } from '../src/code-mode-contract.ts'
+import { validateCodeModeDefinition, validateCodeModeRunOptions } from '../src/contract.ts'
+import { deserializeCodeModeError } from '../src/index.ts'
 import {
   CodeModeAsyncResponseSchema,
   CodeModeEncodedHostErrorSchema,
@@ -11,8 +12,7 @@ import {
   CodeModeWireValueSchema,
   CodeModeWorkerFailureMessageSchema,
   CodeModeWorkerMessageSchema,
-} from '../src/code-mode-schema.ts'
-import { deserializeCodeModeError } from '../src/index.ts'
+} from '../src/schema.ts'
 
 const definition = {
   apiName: 'ExampleApi',

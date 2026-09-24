@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test'
-import { validateCodeModeDefinition, validateCodeModeRunOptions } from '../src/code-mode-contract.ts'
-import type { CodeModeWorkerError } from '../src/code-mode-protocol.ts'
+import { validateCodeModeDefinition, validateCodeModeRunOptions } from '../src/contract.ts'
 import {
   createCodeModeFailure,
   deserializeCodeModeError,
   isCodeModeFailure,
   serializeCodeModeError,
 } from '../src/index.ts'
+import type { CodeModeWorkerError } from '../src/protocol.ts'
 
 const definition = {
   apiName: 'ExampleApi',

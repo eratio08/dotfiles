@@ -1,6 +1,10 @@
 {
   "name": "@eratio/pi-codemode-core",
   "version": "0.1.0",
+  "files": [
+    "dist",
+    "src"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -10,18 +14,28 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "test": "bun test tests",
-    "typecheck": "tsc --noEmit",
-    "check": "biome check ."
+    "build": "rolldown -c",
+    "test": "bun run build && bun test tests",
+    "typecheck": "bun run build && tsc --noEmit",
+    "check": "biome check .",
+    "prepack": "bun run build"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./output": "./src/code-mode-output.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./output": {
+      "types": "./dist/output.d.ts",
+      "import": "./dist/output.js"
+    }
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.12",
     "@types/bun": "^1.4.2",
     "@types/node": "^24.5.2",
+    "rolldown": "^1.2.10",
+    "rolldown-plugin-dts": "^0.28.6",
     "typescript": "^5.9.3"
   },
   "dependencies": {

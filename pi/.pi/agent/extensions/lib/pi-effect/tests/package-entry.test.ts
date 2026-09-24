@@ -1,5 +1,6 @@
 import { test } from 'bun:test'
-import * as packageEntry from '../src/index.ts'
+import * as packageEntry from '@eratio08/pi-effect'
+import * as testingEntry from '@eratio08/pi-effect/testing'
 
 type PackagePeerModules = {
   readonly effect: typeof import('effect')
@@ -11,16 +12,16 @@ type PackagePeerModules = {
 const packagePeerModules: PackagePeerModules | undefined = undefined
 void packagePeerModules
 
-test('package entrypoint imports as an ESM module', () => {
+test('package entrypoints import as ESM modules', () => {
   //given
-  const entry: typeof packageEntry = packageEntry
+  const entries = [packageEntry, testingEntry]
 
   //when
-  const entryIsObject = typeof entry === 'object'
+  const entriesAreObjects = entries.every((entry) => typeof entry === 'object')
 
   //then
-  if (!entryIsObject) {
-    throw new Error('The package entrypoint must be an object module namespace.')
+  if (!entriesAreObjects) {
+    throw new Error('The package entrypoints must be object module namespaces.')
   }
 })
 

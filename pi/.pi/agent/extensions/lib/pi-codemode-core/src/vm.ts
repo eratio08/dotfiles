@@ -2,15 +2,15 @@ import { resolve } from 'node:path'
 import { createContext, Script } from 'node:vm'
 import { Schema } from 'effect'
 import { createJiti } from 'jiti'
-import type { CodeModeDefinition, CodeModeMethod } from './code-mode-contract.ts'
+import type { CodeModeDefinition, CodeModeMethod } from './contract.ts'
 import {
   type CodeModeFailure,
   createCodeModeFailure,
   isCodeModeEncodedHostError,
   isCodeModeFailure,
   isCodeModeHostError,
-} from './code-mode-failure.ts'
-import { CodeModeExceptionMessageSchema, CodeModeExceptionSchema } from './code-mode-schema.ts'
+} from './failure.ts'
+import { CodeModeExceptionMessageSchema, CodeModeExceptionSchema } from './schema.ts'
 
 type CodeModeJiti = ReturnType<typeof createJiti>
 type CodeModeApiFunction = (...args: readonly unknown[]) => unknown

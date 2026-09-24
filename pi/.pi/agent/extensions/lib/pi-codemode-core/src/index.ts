@@ -5,26 +5,21 @@ import type {
   CodeModeMethod,
   CodeModeRunOptions,
   CodeModeWireValue,
-} from './code-mode-contract.ts'
+} from './contract.ts'
 import {
   CodeModeEffectHost,
   findCodeModeMethod,
   validateCodeModeDefinition,
   validateCodeModeRunOptions,
-} from './code-mode-contract.ts'
-import { createCodeModeCore } from './code-mode-core.ts'
-import type {
-  CodeModeFailure,
-  CodeModeFailureFields,
-  CodeModeFailureTag,
-  CodeModeFailureWireValue,
-} from './code-mode-failure.ts'
+} from './contract.ts'
+import { createCodeModeCore } from './core.ts'
+import type { CodeModeFailure, CodeModeFailureFields, CodeModeFailureTag, CodeModeFailureWireValue } from './failure.ts'
 import {
   createCodeModeFailure,
   deserializeCodeModeError,
   isCodeModeFailure,
   serializeCodeModeError,
-} from './code-mode-failure.ts'
+} from './failure.ts'
 
 export {
   type CodeModeCore,

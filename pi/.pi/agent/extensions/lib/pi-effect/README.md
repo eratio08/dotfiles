@@ -3,7 +3,7 @@
 `@eratio08/pi-effect` is an Effect-native SDK for Pi extensions.
 It keeps Pi host callbacks at one adapter boundary and gives extension code typed services, typed errors, and managed lifecycle handling.
 This package targets Bun and Pi extension projects.
-It publishes TypeScript source and does not publish compiled JavaScript.
+It publishes ESM JavaScript bundles and bundled TypeScript declarations.
 
 ## Requirements
 
@@ -13,13 +13,14 @@ The package declares these peer dependencies:
 
 - `effect` with the range `^4.0.0-0`.
 - `@earendil-works/pi-coding-agent` for Pi extension types and host APIs.
+- `@earendil-works/pi-ai` for model and provider types.
 - `@earendil-works/pi-tui` for TUI types.
 - `typebox` for tool parameter schemas.
 
 If the Pi extension project does not already provide these peers, install them with:
 
 ```bash
-bun add @eratio08/pi-effect effect @earendil-works/pi-coding-agent @earendil-works/pi-tui typebox
+bun add @eratio08/pi-effect effect @earendil-works/pi-ai @earendil-works/pi-coding-agent @earendil-works/pi-tui typebox
 ```
 
 ## Quick start

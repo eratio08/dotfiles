@@ -1,7 +1,7 @@
 import { Schema } from 'effect'
-import type { CodeModeHostErrorCodec, CodeModeWireValue } from './code-mode-contract.ts'
-import type { CodeModeWorkerError } from './code-mode-protocol.ts'
-import type { CodeModeFailureWireValue } from './code-mode-schema.ts'
+import type { CodeModeHostErrorCodec, CodeModeWireValue } from './contract.ts'
+import type { CodeModeWorkerError } from './protocol.ts'
+import type { CodeModeFailureWireValue } from './schema.ts'
 import {
   CodeModeEncodedHostErrorSchema,
   CodeModeFailureAnySchema,
@@ -13,7 +13,7 @@ import {
   CodeModeWorkerErrorSchema,
   CodeModeWorkerHostErrorShapeSchema,
   CodeModeWorkerHostErrorValueSchema,
-} from './code-mode-schema.ts'
+} from './schema.ts'
 
 type CodeModeFailureTag =
   | 'validation'

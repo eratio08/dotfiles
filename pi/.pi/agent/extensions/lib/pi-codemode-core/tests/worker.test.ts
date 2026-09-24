@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import { Worker } from 'node:worker_threads'
 import { Effect } from 'effect'
-import { CodeModeEffectHost } from '../src/code-mode-contract.ts'
-import { CodeModeRequestQueueService, createCodeModeRequestQueue } from '../src/code-mode-request-queue.ts'
-import { createCodeModeFilename, createCodeModeJiti, transformCodeModeProgram } from '../src/code-mode-vm.ts'
-import { runCodeModeWorkerEvaluation } from '../src/code-mode-worker-runner.ts'
+import { CodeModeEffectHost } from '../src/contract.ts'
+import { CodeModeRequestQueueService, createCodeModeRequestQueue } from '../src/request-queue.ts'
+import { createCodeModeFilename, createCodeModeJiti, transformCodeModeProgram } from '../src/vm.ts'
+import { runCodeModeWorkerEvaluation } from '../src/worker-runner.ts'
 
 const definition = {
   apiName: 'ExampleApi',

@@ -5,7 +5,7 @@ import {
   createCodeModeJiti,
   runCodeModeVm,
   transformCodeModeProgram,
-} from '../src/code-mode-vm.ts'
+} from '../src/vm.ts'
 
 const definition = {
   apiName: 'ExampleApi',

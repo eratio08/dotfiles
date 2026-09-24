@@ -1,19 +1,15 @@
 import { isMainThread, MessagePort, parentPort, receiveMessageOnPort } from 'node:worker_threads'
 import { Schema } from 'effect'
-import { createCodeModeFailure, deserializeCodeModeWorkerError, serializeCodeModeError } from './code-mode-failure.ts'
+import { createCodeModeFailure, deserializeCodeModeWorkerError, serializeCodeModeError } from './failure.ts'
 import type {
   CodeModeAsyncResponse,
   CodeModeSyncRequest,
   CodeModeSyncResponse,
   CodeModeWorkerMessage,
   CodeModeWorkerStart,
-} from './code-mode-protocol.ts'
-import {
-  CodeModeAsyncResponseSchema,
-  CodeModeSyncResponseSchema,
-  CodeModeWorkerStartSchema,
-} from './code-mode-schema.ts'
-import { createCodeModeApi, runCodeModeVm } from './code-mode-vm.ts'
+} from './protocol.ts'
+import { CodeModeAsyncResponseSchema, CodeModeSyncResponseSchema, CodeModeWorkerStartSchema } from './schema.ts'
+import { createCodeModeApi, runCodeModeVm } from './vm.ts'
 
 interface CodeModePendingCall {
   readonly resolve: (value: unknown) => void

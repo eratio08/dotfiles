@@ -1,10 +1,6 @@
 import { Context, type Effect, Schema } from 'effect'
-import { type CodeModeFailure, createCodeModeFailure } from './code-mode-failure.ts'
-import {
-  CodeModeDefinitionSchema,
-  CodeModeRunOptionsSchema,
-  getCodeModeSchemaFailureMessage,
-} from './code-mode-schema.ts'
+import { type CodeModeFailure, createCodeModeFailure } from './failure.ts'
+import { CodeModeDefinitionSchema, CodeModeRunOptionsSchema, getCodeModeSchemaFailureMessage } from './schema.ts'
 
 interface CodeModeMethod {
   readonly name: string

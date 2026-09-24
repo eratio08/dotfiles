@@ -1,6 +1,6 @@
 import type { MessagePort } from 'node:worker_threads'
-import type { CodeModeMethod, CodeModeWireValue } from './code-mode-contract.ts'
-import type { CodeModeFailureWireValue } from './code-mode-schema.ts'
+import type { CodeModeMethod, CodeModeWireValue } from './contract.ts'
+import type { CodeModeFailureWireValue } from './schema.ts'
 
 type CodeModeWorkerError = CodeModeWorkerFailureValue | CodeModeWorkerExceptionValue | CodeModeWorkerHostErrorValue
 

@@ -1,29 +1,29 @@
 import { MessageChannel, Worker } from 'node:worker_threads'
 import { Effect, Schema } from 'effect'
-import type { CodeModeDefinition, CodeModeEffectHostRequirement } from './code-mode-contract.ts'
-import { CodeModeEffectHost } from './code-mode-contract.ts'
-import type { CodeModeHostError } from './code-mode-failure.ts'
+import type { CodeModeDefinition, CodeModeEffectHostRequirement } from './contract.ts'
+import { CodeModeEffectHost } from './contract.ts'
+import type { CodeModeHostError } from './failure.ts'
 import {
   createCodeModeFailure,
   deserializeCodeModeError,
   deserializeCodeModeHostError,
   serializeCodeModeError,
-} from './code-mode-failure.ts'
+} from './failure.ts'
 import type {
   CodeModeAsyncRequest,
   CodeModeAsyncResponse,
   CodeModeSyncRequest,
   CodeModeSyncResponse,
-} from './code-mode-protocol.ts'
-import type { CodeModeRequestQueueRequirement } from './code-mode-request-queue.ts'
-import { CodeModeRequestQueueService } from './code-mode-request-queue.ts'
+} from './protocol.ts'
+import type { CodeModeRequestQueueRequirement } from './request-queue.ts'
+import { CodeModeRequestQueueService } from './request-queue.ts'
 import {
   CodeModeAsyncRequestSchema,
   CodeModeSyncRequestSchema,
   CodeModeWorkerFailureMessageSchema,
   CodeModeWorkerMessageSchema,
-} from './code-mode-schema.ts'
-import { type CodeModeSyncInvoker, isCodeModePromiseLike } from './code-mode-vm.ts'
+} from './schema.ts'
+import { type CodeModeSyncInvoker, isCodeModePromiseLike } from './vm.ts'
 
 /** Runs a worker evaluation with host and queue services from the Effect environment. */
 const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
@@ -53,7 +53,8 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
     ? Effect.fail(createCodeModeCancellationFailure())
     : Effect.try({
         try: () => {
-          const workerUrl = new URL('./code-mode-worker.ts', import.meta.url)
+          const workerExtension = import.meta.url.endsWith('.ts') ? 'ts' : 'js'
+          const workerUrl = new URL(`./worker.${workerExtension}`, import.meta.url)
           const workerOptions = createCodeModeWorkerOptions()
           return new Worker(workerUrl, workerOptions)
         },

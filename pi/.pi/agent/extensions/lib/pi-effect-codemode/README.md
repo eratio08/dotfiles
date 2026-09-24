@@ -1,5 +1,5 @@
 # @eratio08/pi-effect-codemode
-This package is private because its code-mode core dependency is private.
+The published bundle includes `@eratio08/pi-effect` and `@eratio/pi-codemode-core`.
 `@eratio08/pi-effect-codemode` connects `@eratio08/pi-effect` with `@eratio/pi-codemode-core`.
 It registers one TypeScript runner tool from the supplied method definitions.
 The generated API includes synchronous `api.help()` and `api.help("operation")` methods.

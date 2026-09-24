@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
-import { CodeModeEffectHost } from '../src/code-mode-contract.ts'
-import { createCodeModeRequestQueue } from '../src/code-mode-request-queue.ts'
+import { CodeModeEffectHost } from '../src/contract.ts'
+import { createCodeModeRequestQueue } from '../src/request-queue.ts'
 
 describe('code mode request queue', () => {
   test('runs host calls in offer order', async () => {

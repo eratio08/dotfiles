@@ -1,5 +1,5 @@
 import { Schema } from 'effect'
-import type { CodeModeDefinition, CodeModeMethod, CodeModeRunOptions, CodeModeWireValue } from './code-mode-contract.ts'
+import type { CodeModeDefinition, CodeModeMethod, CodeModeRunOptions, CodeModeWireValue } from './contract.ts'
 
 type CodeModeFailureWireValue = {
   readonly _tag: string

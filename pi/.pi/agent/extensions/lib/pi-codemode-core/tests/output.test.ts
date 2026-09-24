@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { formatCodeModeValue, serializeCodeModeOutput, truncateCodeModeOutput } from '../src/code-mode-output.ts'
+import { formatCodeModeValue, serializeCodeModeOutput, truncateCodeModeOutput } from '../src/output.ts'
 
 describe('code mode output', () => {
   test('formats primitive and JSON values', () => {

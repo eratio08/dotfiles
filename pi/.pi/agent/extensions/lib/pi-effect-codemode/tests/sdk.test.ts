@@ -12,7 +12,7 @@ import {
   createCodeModeTool,
   defineCodeModeMethod,
   PiExtension,
-} from '../src/index.ts'
+} from '../dist/index.js'
 
 type TextToolResult = {
   readonly content: readonly { readonly type: string; readonly text?: string }[]

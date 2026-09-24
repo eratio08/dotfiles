@@ -1,13 +1,8 @@
 import { Cause, Context, Effect, Exit, Fiber, Queue, Result } from 'effect'
 import type { Scope } from 'effect/Scope'
-import type { CodeModeEffectHostRequirement } from './code-mode-contract.ts'
-import { CodeModeEffectHost } from './code-mode-contract.ts'
-import {
-  type CodeModeFailure,
-  createCodeModeFailure,
-  createCodeModeHostError,
-  isCodeModeFailure,
-} from './code-mode-failure.ts'
+import type { CodeModeEffectHostRequirement } from './contract.ts'
+import { CodeModeEffectHost } from './contract.ts'
+import { type CodeModeFailure, createCodeModeFailure, createCodeModeHostError, isCodeModeFailure } from './failure.ts'
 
 /** Handles asynchronous host calls for one code mode evaluation. */
 interface CodeModeRequestQueue {
