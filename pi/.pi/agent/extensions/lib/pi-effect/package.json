@@ -1,6 +1,6 @@
 {
-  "name": "@eratio08/pi-effect",
-  "version": "0.1.4",
+  "name": "@eratio/pi-effect",
+  "version": "0.1.0",
   "files": [
     "dist"
   ],

@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { readdirSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { basename } from 'node:path'
 import { CodeModeEffectHost, createCodeModeCore } from '@eratio/pi-codemode-core'
 import { serializeCodeModeOutput } from '@eratio/pi-codemode-core/output'
 import { Effect, Layer, ManagedRuntime } from 'effect'
@@ -9,6 +11,18 @@ describe('package exports', () => {
     expect(typeof CodeModeEffectHost).toBe('function')
     expect(typeof createCodeModeCore).toBe('function')
     expect(typeof serializeCodeModeOutput).toBe('function')
+  })
+
+  test('resolves the root and output entry points for CommonJS consumers', () => {
+    //given
+    const packageRequire = createRequire(import.meta.url)
+    const entries = ['@eratio/pi-codemode-core', '@eratio/pi-codemode-core/output']
+
+    //when
+    const entryNames = entries.map((entry) => basename(packageRequire.resolve(entry)))
+
+    //then
+    expect(entryNames).toEqual(['index.js', 'output.js'])
   })
 
   test('bundles declaration entry points', () => {

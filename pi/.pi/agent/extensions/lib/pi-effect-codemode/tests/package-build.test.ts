@@ -1,6 +1,19 @@
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
+import { basename } from 'node:path'
+
+test('package entry point resolves for CommonJS consumers', () => {
+  //given
+  const packageRequire = createRequire(import.meta.url)
+
+  //when
+  const entryName = basename(packageRequire.resolve('@eratio/pi-effect-codemode'))
+
+  //then
+  assert.equal(entryName, 'index.js')
+})
 
 test('published bundle vendors local dependencies and includes the worker', async () => {
   //given
