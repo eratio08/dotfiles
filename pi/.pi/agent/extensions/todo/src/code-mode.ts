@@ -72,6 +72,7 @@ ${TODO_CODE_EXAMPLE.trim()}
 const TODO_PROMPT = `Use todo only for non-trivial work with three or more tasks.
 Write export default async (todo: TodoApi) => ... and await mutations in order.
 Available methods: add, update, show, next, complete, omit, restore, clear.
+By default, show() returns up to 5 tasks.
 Call todo.help() for exact types, options, and examples.
 `
 
