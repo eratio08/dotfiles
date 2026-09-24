@@ -63,6 +63,7 @@ function formatTodoOperationSummary(summary: TodoOperationSummary): string {
     ['omitted', 'omitted'],
     ['restored', 'restored'],
     ['cleared', 'cleared'],
+    ['showCalls', 'show'],
   ]
   const parts = counters
     .filter(([operation]) => summary[operation] > 0)

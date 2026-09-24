@@ -58,6 +58,7 @@ type TodoOperationSummary = {
   readonly omitted: number
   readonly restored: number
   readonly cleared: number
+  readonly showCalls: number
 }
 
 type TodoToolDetails = TodoCodeDetails & {
@@ -80,6 +81,7 @@ function createTodoOperationSummary(): TodoOperationSummaryCollector {
     omitted: 0,
     restored: 0,
     cleared: 0,
+    showCalls: 0,
   }
   const record = (operation: keyof TodoOperationSummary, count = 1): void => {
     summary[operation] += count
@@ -368,7 +370,12 @@ const executeTodo = Effect.fn('executeTodo')(function* (
   const collector = createTodoOperationSummary()
   const outcome = yield* Effect.match(
     store.transact((draft, signal) => {
-      const api = createTodoApi({ draft, signal, onMutation: collector.record })
+      const api = createTodoApi({
+        draft,
+        signal,
+        onMutation: collector.record,
+        onShow: () => collector.record('showCalls'),
+      })
       return evaluateTodoCode(params.code, api, context.cwd, signal).pipe(
         Effect.map(formatTodoCodeOutput),
         Effect.mapError((error) => new TodoUpdateError({ message: error.message, cause: error })),

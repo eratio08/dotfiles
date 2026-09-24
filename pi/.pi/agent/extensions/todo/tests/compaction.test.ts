@@ -378,13 +378,14 @@ test('formats todo operation summaries in stable order', () => {
     omitted: 0,
     restored: 0,
     cleared: 0,
+    showCalls: 2,
   }
 
   //when
   const formatted = formatTodoOperationSummary(summary)
 
   //then
-  assert.equal(formatted, 'added 3 · updated 4 · started 1 · completed 1')
+  assert.equal(formatted, 'added 3 · updated 4 · started 1 · completed 1 · show 2')
 })
 
 test('formats an empty todo operation summary as no changes', () => {
@@ -397,6 +398,7 @@ test('formats an empty todo operation summary as no changes', () => {
     omitted: 0,
     restored: 0,
     cleared: 0,
+    showCalls: 0,
   }
 
   //when
@@ -425,6 +427,7 @@ test('defines the complete todo result detail contract', async () => {
         omitted: 5,
         restored: 6,
         cleared: 7,
+        showCalls: 8,
       },
       code: 'submitted code',
       codeTruncated: false,
@@ -489,10 +492,11 @@ test('reports every successful mutation count in tool details', async () => {
     omitted: 1,
     restored: 1,
     cleared: 2,
+    showCalls: 1,
   })
 })
 
-test('renders no changes on the collapsed todo call line', async () => {
+test('renders show count on the collapsed todo call line', async () => {
   //given
   const value = harness(branchWithTodos, true)
   await restoreTodos(value)
@@ -511,7 +515,7 @@ test('renders no changes on the collapsed todo call line', async () => {
   const rendered = renderResult(result, { expanded: false }, value.theme, { state, isError: false })
 
   //then
-  assert.equal(call.render(120).join('\n').trimEnd(), 'todo · no changes (to expand)')
+  assert.equal(call.render(120).join('\n').trimEnd(), 'todo · show 1 (to expand)')
   assert.deepEqual(rendered.render(120), [])
 })
 
@@ -549,6 +553,7 @@ test('rolls back all mutations when the program throws', async () => {
     omitted: 0,
     restored: 0,
     cleared: 0,
+    showCalls: 1,
   })
 })
 
@@ -581,6 +586,7 @@ test('commits mutations that remain after a caught API error', async () => {
     omitted: 0,
     restored: 0,
     cleared: 0,
+    showCalls: 0,
   })
   assert.equal(value.appendedEntries.length, 1)
 })
@@ -594,9 +600,10 @@ test('does not append a snapshot or refresh the widget for a read-only program',
   const widget = value.widgets.get('todo')
 
   //when
-  await tool.execute('todo-call', todoCode('return await todo.show()'), undefined, undefined, value.ctx)
+  const result = await tool.execute('todo-call', todoCode('return await todo.show()'), undefined, undefined, value.ctx)
 
   //then
+  assert.equal((result as TodoToolResult).details.summary?.showCalls, 1)
   assert.deepEqual(value.appendedEntries, [])
   assert.equal(value.widgets.get('todo'), widget)
 })
@@ -1065,6 +1072,7 @@ test('renders operation summary on the collapsed todo call line without code lin
         omitted: 0,
         restored: 0,
         cleared: 0,
+        showCalls: 2,
       },
       code: 'submitted code',
       codeTruncated: false,
@@ -1078,7 +1086,7 @@ test('renders operation summary on the collapsed todo call line without code lin
   //then
   assert.equal(
     call.render(120).join('\n').trimEnd(),
-    'todo · added 3 · updated 4 · started 1 · completed 1 (to expand)',
+    'todo · added 3 · updated 4 · started 1 · completed 1 · show 2 (to expand)',
   )
   assert.doesNotMatch(call.render(120).join('\n'), /lines/)
   assert.deepEqual(collapsed.render(120), [])
@@ -1103,6 +1111,7 @@ test('renders summary code and result in expanded todo output', async () => {
         omitted: 0,
         restored: 0,
         cleared: 0,
+        showCalls: 1,
       },
       code: 'line one\nline two',
       codeTruncated: false,
@@ -1119,7 +1128,7 @@ test('renders summary code and result in expanded todo output', async () => {
   const lineOneIndex = lines.findIndex((line) => line.includes('line one'))
   const lineTwoIndex = lines.findIndex((line) => line.includes('line two'))
   assert.match(text, /Summary/)
-  assert.match(text, /added 1 · started 1/)
+  assert.match(text, /added 1 · started 1 · show 1/)
   assert.match(text, /Code/)
   assert.equal(lineTwoIndex, lineOneIndex + 1)
   assert.match(text, /Result/)
@@ -1145,6 +1154,7 @@ test('renders an empty summary in expanded todo output', async () => {
         omitted: 0,
         restored: 0,
         cleared: 0,
+        showCalls: 0,
       },
       code: 'submitted code',
       codeTruncated: false,
@@ -1178,6 +1188,7 @@ test('renders a code truncation notice in expanded todo output', async () => {
         omitted: 0,
         restored: 0,
         cleared: 0,
+        showCalls: 0,
       },
       code: 'partial code',
       codeTruncated: true,

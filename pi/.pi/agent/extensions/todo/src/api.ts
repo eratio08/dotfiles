@@ -35,6 +35,7 @@ interface TodoApiOptions {
   readonly draft: TodoTransactionDraft
   readonly signal?: AbortSignal
   readonly onMutation?: (operation: TodoMutation, count?: number) => void
+  readonly onShow?: () => void
 }
 
 function todoUpdateError(message: string, cause?: unknown): TodoUpdateError {
@@ -136,7 +137,7 @@ function recordMutation(
   return onMutation ? tryTodoApi(() => onMutation(operation, count)) : Result.succeed(undefined)
 }
 
-function createTodoApi({ draft, signal, onMutation }: TodoApiOptions): TodoApi {
+function createTodoApi({ draft, signal, onMutation, onShow }: TodoApiOptions): TodoApi {
   const add = (input: unknown): Promise<Todo> => {
     const aborted = assertNotAborted(signal)
     if (Result.isFailure(aborted)) return promiseResult(aborted)
@@ -258,9 +259,13 @@ function createTodoApi({ draft, signal, onMutation }: TodoApiOptions): TodoApi {
     }
 
     return promiseResult(
-      tryTodoApi(() =>
-        value.includeDetails ? cloneTodos(selected) : selected.map((todo) => withDetails(todo, undefined)),
-      ),
+      tryTodoApi(() => {
+        const result = value.includeDetails
+          ? cloneTodos(selected)
+          : selected.map((todo) => withDetails(todo, undefined))
+        onShow?.()
+        return result
+      }),
     )
   }
 
