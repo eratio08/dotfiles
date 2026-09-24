@@ -1,8 +1,8 @@
 import { test } from 'bun:test'
 import { createRequire } from 'node:module'
 import { basename } from 'node:path'
-import * as packageEntry from '@eratio08/pi-effect'
-import * as testingEntry from '@eratio08/pi-effect/testing'
+import * as packageEntry from '@eratio/pi-effect'
+import * as testingEntry from '@eratio/pi-effect/testing'
 
 type PackagePeerModules = {
   readonly effect: typeof import('effect')
@@ -30,7 +30,7 @@ test('package entrypoints import as ESM modules', () => {
 
 test('package entrypoints resolve for CommonJS consumers', () => {
   //given
-  const entries = ['@eratio08/pi-effect', '@eratio08/pi-effect/testing']
+  const entries = ['@eratio/pi-effect', '@eratio/pi-effect/testing']
 
   //when
   const resolvedEntryNames = entries.map((entry) => basename(packageRequire.resolve(entry)))

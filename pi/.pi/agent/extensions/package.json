@@ -1,0 +1,8 @@
+{
+  "name": "pi-agent-extensions",
+  "private": true,
+  "workspaces": ["*", "lib/*"],
+  "scripts": {
+    "setup": "bun install --filter './lib/*' --frozen-lockfile && bun run --filter './lib/*' build && bun install --filter './*' --frozen-lockfile"
+  }
+}

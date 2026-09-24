@@ -12,7 +12,8 @@
     "paths": {
       "@eratio/pi-codemode-core": ["../pi-codemode-core/src/index.ts"],
       "@eratio/pi-codemode-core/output": ["../pi-codemode-core/src/output.ts"],
-      "@eratio08/pi-effect": ["../pi-effect/src/index.ts"]
+      "@eratio08/pi-effect": ["../pi-effect/src/index.ts"],
+      "@eratio08/pi-effect/testing": ["../pi-effect/src/testing.ts"]
     }
   },
   "include": ["./src/**/*.ts", "./tests/**/*.ts"]
