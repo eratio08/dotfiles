@@ -4,9 +4,9 @@
 	"share": "manual",
 	"autoupdate": false,
 	"plugin": [
-		"cc-safety-net",
-		"@dietrichgebert/ponytail",
-		"./plugins/caveman/caveman.js"
+    "cc-safety-net",
+    // "opencode-landstrip",
+    "file:///Users/el/src/wt/spa-ai-hub/sparness-gondolin/sparness/plugins/sparness-gondolin",
 	],
 	"enabled_providers": ["github-copilot", "omlx", "sparness-gateway"],
 	"mcp": {
@@ -43,6 +43,7 @@
 			"command": ["npx", "-y", "chrome-devtools-mcp@1.0.1"]
     },
     "datadog": {
+			"enabled": false,
       "type": "remote",
       "url": "https://mcp.datadoghq.eu/api/unstable/mcp-server/mcp?referrer_ide=opencode-plugin&plugin_version=0.7.13",
       "oauth": {}
