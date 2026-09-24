@@ -30,7 +30,7 @@ const TodoShowLimitSchema = Schema.Int.check(
 )
 const TodoShowOptionsSchema = Schema.Struct({
   ids: Schema.optionalKey(TodoShowIdsSchema),
-  status: Schema.optionalKey(TodoStatusSchema),
+  status: Schema.optionalKey(Schema.Array(TodoStatusSchema)),
   limit: Schema.optionalKey(TodoShowLimitSchema),
   includeDetails: Schema.optionalKey(Schema.Boolean),
 })

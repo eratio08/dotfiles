@@ -78,7 +78,7 @@ function decodePatch(patch: unknown): TodoResult<TodoPatch> {
 function decodeShowOptions(options: unknown): TodoResult<TodoShowOptions> {
   return decodeTodoValue(
     () => Schema.decodeUnknownResult(TodoShowOptionsSchema)(options ?? {}),
-    'Invalid todo show options: provide task IDs, a status, and a positive integer limit.',
+    'Invalid todo show options: provide task IDs, an array of statuses, and a positive integer limit.',
   )
 }
 
@@ -234,13 +234,13 @@ function createTodoApi({ draft, signal, onMutation }: TodoApiOptions): TodoApi {
     const current = currentResult.success
     const value = valueResult.success
     const ids = value.ids
-    if (value.status && ids && ids.length > 0) {
+    if (value.status !== undefined && ids && ids.length > 0) {
       return promiseResult(
         Result.fail(todoUpdateError('Invalid todo show options: choose either ids or status, not both.')),
       )
     }
 
-    let selected: readonly Todo[]
+    let selected: Todo[]
     if (ids && ids.length > 0) {
       const selectedTodos: Todo[] = []
       for (const id of ids) {
@@ -248,11 +248,13 @@ function createTodoApi({ draft, signal, onMutation }: TodoApiOptions): TodoApi {
         if (Result.isFailure(selectedTodo)) return promiseResult(selectedTodo)
         selectedTodos.push(selectedTodo.success)
       }
-      selected = selectedTodos
-    } else if (value.status) {
-      selected = current.filter((todo) => todo.status === value.status).slice(0, value.limit ?? 5)
+      selected = selectedTodos.sort((left, right) => left.id.localeCompare(right.id))
     } else {
-      selected = current.slice(0, value.limit ?? 5)
+      const statuses: readonly Todo['status'][] = value.status ?? ['in_progress', 'pending']
+      selected = current
+        .filter((todo) => statuses.includes(todo.status))
+        .sort((left, right) => left.id.localeCompare(right.id))
+      selected.length = Math.min(selected.length, value.limit ?? 5)
     }
 
     return promiseResult(

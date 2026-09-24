@@ -27,6 +27,10 @@ test('returns the todo API reference on demand', () => {
   //then
   assert.match(help, /interface TodoApi/)
   assert.match(help, /todo\.add/)
+  assert.match(help, /status defaults to \['in_progress', 'pending'\]/)
+  assert.match(help, /limit defaults to 5/)
+  assert.match(help, /includeDetails option defaults to false/)
+  assert.match(help, /sorted by ID in ascending order/)
 })
 
 test('adds tasks with generated IDs and dependency-derived statuses', async () => {
@@ -177,25 +181,98 @@ test('returns all tasks selected by status', async () => {
   const second = await api.add({ content: 'second', details: 'second details' })
 
   //when
-  const hidden = await api.show({ status: 'pending' })
-  const visible = await api.show({ status: 'pending', includeDetails: true })
-  const limited = await api.show({ status: 'pending', limit: 1 })
+  const hidden = await api.show({ status: ['pending'] })
+  const visible = await api.show({ status: ['pending'], includeDetails: true })
+  const limited = await api.show({ status: ['pending'], limit: 1 })
 
   //then
   assert.deepEqual(
     hidden.map((todo) => todo.id),
-    [first.id, second.id],
+    [first.id, second.id].sort((left, right) => left.localeCompare(right)),
   )
   assert.deepEqual(
     visible.map((todo) => todo.id),
-    [first.id, second.id],
+    [first.id, second.id].sort((left, right) => left.localeCompare(right)),
   )
   assert.equal(hidden[0]?.details, undefined)
-  assert.equal(visible[0]?.details, 'first details')
+  assert.equal(visible.find((todo) => todo.id === first.id)?.details, 'first details')
   assert.deepEqual(
     limited.map((todo) => todo.id),
-    [first.id],
+    [first.id, second.id].sort((left, right) => left.localeCompare(right)).slice(0, 1),
   )
+})
+
+test('defaults show to pending and in-progress tasks in ID order', async () => {
+  //given
+  const { draft, snapshot } = createDraft()
+  const api = createTodoApi({ draft })
+  await api.add({ content: 'first' })
+  await api.add({ content: 'second' })
+  await api.add({ content: 'third' })
+  await api.next()
+  const completed = await api.complete()
+  await api.next()
+  const expectedIds = snapshot()
+    .filter((todo) => todo.status === 'in_progress' || todo.status === 'pending')
+    .map((todo) => todo.id)
+    .sort((left, right) => left.localeCompare(right))
+
+  //when
+  const shown = await api.show()
+
+  //then
+  assert.deepEqual(
+    shown.map((todo) => todo.id),
+    expectedIds,
+  )
+  assert.equal(
+    shown.some((todo) => todo.id === completed.id),
+    false,
+  )
+  assert.ok(shown.some((todo) => todo.status === 'in_progress'))
+  assert.ok(shown.some((todo) => todo.status === 'pending'))
+})
+
+test('filters by any status in the supplied array', async () => {
+  //given
+  const { draft, snapshot } = createDraft()
+  const api = createTodoApi({ draft })
+  await api.add({ content: 'first' })
+  await api.add({ content: 'second' })
+  await api.add({ content: 'third' })
+  await api.next()
+  const completed = await api.complete()
+  const inProgress = await api.next()
+  const pendingIds = snapshot()
+    .filter((todo) => todo.status === 'pending')
+    .map((todo) => todo.id)
+  const expectedIds = [completed.id, ...pendingIds].sort((left, right) => left.localeCompare(right))
+
+  //when
+  const selected = await api.show({ status: ['pending', 'completed'] })
+
+  //then
+  assert.deepEqual(
+    selected.map((todo) => todo.id),
+    expectedIds,
+  )
+  assert.equal(
+    selected.some((todo) => todo.id === inProgress.id),
+    false,
+  )
+})
+
+test('returns no tasks for an empty status array', async () => {
+  //given
+  const { draft } = createDraft()
+  const api = createTodoApi({ draft })
+  await api.add({ content: 'pending' })
+
+  //when
+  const selected = await api.show({ status: [] })
+
+  //then
+  assert.deepEqual(selected, [])
 })
 
 test('limits broad show queries and accepts empty or null IDs', async () => {
@@ -203,10 +280,11 @@ test('limits broad show queries and accepts empty or null IDs', async () => {
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
   const todos = await Promise.all(Array.from({ length: 6 }, (_, index) => api.add({ content: `task ${index + 1}` })))
+  const sortedIds = todos.map((todo) => todo.id).sort((left, right) => left.localeCompare(right))
 
   //when
   const broad = await api.show()
-  const status = await api.show({ status: 'pending' })
+  const status = await api.show({ status: ['pending'] })
   const emptyIds = await api.show({ ids: [] })
   const nullIds = await api.show({ ids: null, limit: 1 })
   const limited = await api.show({ limit: 2 })
@@ -214,23 +292,23 @@ test('limits broad show queries and accepts empty or null IDs', async () => {
   //then
   assert.deepEqual(
     broad.map((todo) => todo.id),
-    todos.slice(0, 5).map((todo) => todo.id),
+    sortedIds.slice(0, 5),
   )
   assert.deepEqual(
     status.map((todo) => todo.id),
-    todos.slice(0, 5).map((todo) => todo.id),
+    sortedIds.slice(0, 5),
   )
   assert.deepEqual(
     emptyIds.map((todo) => todo.id),
-    todos.slice(0, 5).map((todo) => todo.id),
+    sortedIds.slice(0, 5),
   )
   assert.deepEqual(
     nullIds.map((todo) => todo.id),
-    [todos[0]?.id],
+    [sortedIds[0]],
   )
   assert.deepEqual(
     limited.map((todo) => todo.id),
-    todos.slice(0, 2).map((todo) => todo.id),
+    sortedIds.slice(0, 2),
   )
 })
 
@@ -243,22 +321,22 @@ test('returns every explicitly selected ID and rejects mixed selectors', async (
 
   //when
   const selected = await api.show({ ids: [second.id, first.id], limit: 1 })
-  const emptyIdsWithStatus = await api.show({ ids: [], status: 'pending' })
-  const nullIdsWithStatus = await api.show({ ids: null, status: 'pending' })
-  const combined = api.show({ ids: [first.id], status: 'pending' })
+  const emptyIdsWithStatus = await api.show({ ids: [], status: ['pending'] })
+  const nullIdsWithStatus = await api.show({ ids: null, status: ['pending'] })
+  const combined = api.show({ ids: [first.id], status: ['pending'] })
 
   //then
   assert.deepEqual(
     selected.map((todo) => todo.id),
-    [second.id, first.id],
+    [second.id, first.id].sort((left, right) => left.localeCompare(right)),
   )
   assert.deepEqual(
     emptyIdsWithStatus.map((todo) => todo.id),
-    [first.id, second.id],
+    [first.id, second.id].sort((left, right) => left.localeCompare(right)),
   )
   assert.deepEqual(
     nullIdsWithStatus.map((todo) => todo.id),
-    [first.id, second.id],
+    [first.id, second.id].sort((left, right) => left.localeCompare(right)),
   )
   await assert.rejects(combined, /either ids or status/)
 })
@@ -272,13 +350,15 @@ test('rejects invalid show limits and selectors', async () => {
   const zeroLimit = api.show({ limit: 0 })
   const fractionalLimit = api.show({ limit: 1.5 })
   const invalidId = api.show({ ids: ['not-a-todo-id'] })
-  const invalidStatus = api.show({ status: 'unknown' as 'pending' })
+  const invalidStatus = api.show({ status: ['unknown' as 'pending'] })
+  const scalarStatus = api.show({ status: 'pending' } as never)
 
   //then
   await assert.rejects(zeroLimit, /Invalid todo show options/)
   await assert.rejects(fractionalLimit, /Invalid todo show options/)
   await assert.rejects(invalidId, /Invalid todo show options/)
   await assert.rejects(invalidStatus, /Invalid todo show options/)
+  await assert.rejects(scalarStatus, /Invalid todo show options/)
 })
 
 test('omits and restores tasks through dependency-derived state', async () => {
