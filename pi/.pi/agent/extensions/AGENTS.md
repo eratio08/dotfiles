@@ -101,7 +101,3 @@ Dependencies must never be injected via arguments to an effect or a layer, use r
 Always differentiate the effect layer from the core pure logic layer.
 No effect or layer type is permitted to express an error type as a generic `unknown` or `Error` but must use a well defined error type.
 Effects are never run in the logic, they are run at the outer layer at a single point.
-
-## Github
-
-Never reply to a comment with "Thanks for asking" or similar phrases.

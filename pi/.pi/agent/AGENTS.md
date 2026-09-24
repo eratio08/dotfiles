@@ -29,14 +29,15 @@
   Call `ripwire_explore` once for the task.
 
 ## General
-* Use the `opensrc_execute` to access public github repositories source code.
+- Use the `ast-grep` tool for structural code search and transformation.
+* Use the `opensrc` to access public github repositories source code.
 * Use the `gh` cli to access private repositories source code.
 * Never commit anything to Git without the user's explicit instruction.
-- Use the `ast-grep` tool for structural code search and transformation
-- Follow principals of the book `A Philosophy of Software Design` from John Ousterhout
-- Do not write any code comments, unless explicitly instructed
-- Do not remove any existing code comments which have not been introduced by yourself
+- Do not write any code comments, unless explicitly instructed.
+- Do not remove any existing code comments which have not been introduced by yourself.
 - Never guess. Always read up on facts when unsure.
+- Follow principals of the book `A Philosophy of Software Design` from John Ousterhout.
+- Use vertical space to separate logical units in logic.
 
 ## Markdown
 - In Markdown and pull request descriptions always use `ASD-STE100 Simplified Technical English`.
@@ -57,3 +58,6 @@
         It requires PowerShell 5.1 or 7.
         Git must be on `PATH`.
   ```
+
+## Github
+Never reply to a comment with "Thanks for asking" or similar phrases.
