@@ -5,9 +5,11 @@ import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
   formatSize,
+  keyHint,
   truncateHead,
   withFileMutationQueue,
 } from '@earendil-works/pi-coding-agent'
+import { type Component, Container, Text } from '@earendil-works/pi-tui'
 import {
   type CodeModeDefinition,
   CodeModeEffectHost,
@@ -29,21 +31,26 @@ import { Effect } from 'effect'
 import { type Static, type TSchema, Type } from 'typebox'
 import { Check } from 'typebox/value'
 
-interface CodeModeMethodDefinition<Params extends TSchema | undefined, Services, Failure> {
+interface CodeModeMethodDefinition<Params extends TSchema | undefined, Services, Failure, RunContext = void> {
   readonly description: string
   readonly signature: string
   readonly parameters?: Params
   readonly execute: (
     params: Params extends TSchema ? Static<Params> : undefined,
     signal: AbortSignal,
+    runContext: RunContext,
   ) => Effect.Effect<unknown, Failure, Services>
 }
 
-type CodeModeMethodInput<Services, Failure> = {
+type CodeModeMethodInput<Services, Failure, RunContext = void> = {
   readonly description: string
   readonly signature: string
   readonly parameters?: TSchema
-  readonly execute: (params: never, signal: AbortSignal) => Effect.Effect<unknown, Failure, Services>
+  readonly execute: (
+    params: never,
+    signal: AbortSignal,
+    runContext: RunContext,
+  ) => Effect.Effect<unknown, Failure, Services>
 }
 
 interface CodeModeToolOutputDetails {
@@ -53,19 +60,26 @@ interface CodeModeToolOutputDetails {
   readonly totalBytes: number
   readonly totalLines: number
   readonly fullOutputPath?: string
+  readonly operations?: Readonly<Record<string, number>>
 }
 
-interface CodeModeToolDefinition<Services, Failure> {
+interface CodeModeToolDefinition<Services, Failure, RunContext = void> {
   readonly toolName: string
   readonly label?: string
   readonly description: string
-  readonly methods: Readonly<Record<string, CodeModeMethodInput<Services, Failure>>>
+  readonly methods: Readonly<Record<string, CodeModeMethodInput<Services, Failure, RunContext>>>
   readonly typeDeclarations?: string
   readonly examples?: readonly string[]
   readonly timeoutMs: number
   readonly outputLimits?: Partial<CodeModeOutputLimits>
   readonly execution?: CodeModeRunOptions['execution']
   readonly errorCodec?: CodeModeHostErrorCodec<CodeModeFailure | Failure>
+  readonly withRun?: (
+    run: (
+      runContext: RunContext,
+    ) => Effect.Effect<PiToolResult<CodeModeToolOutputDetails>, CodeModeFailure | Failure, Services>,
+    signal: AbortSignal | undefined,
+  ) => Effect.Effect<PiToolResult<CodeModeToolOutputDetails>, CodeModeFailure | Failure, Services>
 }
 
 interface CodeModeTool<Services, Failure> {
@@ -78,6 +92,7 @@ interface CodeModeTool<Services, Failure> {
 function createCodeModeToolOutput(
   value: unknown,
   outputLimits: CodeModeOutputLimits,
+  operations: Readonly<Record<string, number>>,
   toolSignal?: AbortSignal,
 ): Effect.Effect<PiToolResult<CodeModeToolOutputDetails>, CodeModeFailure> {
   const fullOutput = formatCodeModeValue(value)
@@ -88,6 +103,7 @@ function createCodeModeToolOutput(
     outputLines: truncation.outputLines,
     totalBytes: truncation.totalBytes,
     totalLines: truncation.totalLines,
+    operations,
   }
   if (!truncation.truncated) {
     return Effect.succeed({
@@ -112,8 +128,8 @@ function createCodeModeToolOutput(
           _tag: toolSignal?.aborted ? 'cancellation' : 'serialize',
           operation: 'output',
           message: toolSignal?.aborted
-            ? 'Saving the complete code-mode output was cancelled.'
-            : 'The complete code-mode output could not be saved.',
+            ? 'Saving the complete output was cancelled.'
+            : 'The complete output could not be saved.',
           cause,
         }),
     })
@@ -131,17 +147,88 @@ function createCodeModeToolOutput(
   })
 }
 
-function defineCodeModeMethod<Params extends TSchema | undefined = undefined, Services = never, Failure = never>(
-  method: CodeModeMethodDefinition<Params, Services, Failure>,
-): CodeModeMethodDefinition<Params, Services, Failure> {
+function createCodeModeRenderers<Params extends TSchema>(
+  toolLabel: string,
+): Pick<EffectToolDefinition<Params, never, never, CodeModeToolOutputDetails>, 'renderCall' | 'renderResult'> {
+  type RendererState = {
+    call?: Text
+    callText?: string
+    hasResult?: boolean
+    summary?: string
+  }
+  return {
+    renderCall: (_args, theme, context): Component => {
+      const state = (context.state ?? {}) as RendererState
+      const text = (context.lastComponent as Text | undefined) ?? new Text('', 0, 0)
+      state.call = text
+      state.callText = theme.fg('toolTitle', theme.bold(toolLabel))
+      const summary = !context.expanded && state.hasResult && state.summary ? ` · ${state.summary}` : ''
+      const hint = !context.expanded && state.hasResult ? ` ${keyHint('app.tools.expand', 'to expand')}` : ''
+      text.setText(`${state.callText}${summary}${hint}`)
+      return text
+    },
+    renderResult: (result, { expanded, isPartial }, theme, context): Component => {
+      if (isPartial) return new Text(theme.fg('warning', 'Running...'), 0, 0)
+      const details = result.details as CodeModeToolOutputDetails | undefined
+      const output = result.content
+        .map((item) => (item.type === 'text' ? item.text : ''))
+        .filter(Boolean)
+        .join('\n')
+      const code = (context.args as { code: string }).code
+      if (context.isError) {
+        if (!expanded) return new Text(theme.fg('error', output), 0, 0)
+        return new Text(
+          `${theme.fg('toolTitle', 'Code')}\n${theme.fg('toolOutput', code)}\n\n${theme.fg('toolTitle', 'Error')}\n${theme.fg('error', output)}`,
+          0,
+          0,
+        )
+      }
+      const summary =
+        Object.entries(details?.operations ?? {})
+          .map(([operation, count]) => `${operation}: ${count}`)
+          .join(', ') || 'no operations'
+      const state = (context.state ?? {}) as RendererState
+      state.hasResult = true
+      state.summary = summary
+      if (expanded) {
+        return new Text(
+          `${theme.fg('toolTitle', 'Operations')}\n${theme.fg('toolOutput', summary)}\n\n${theme.fg('toolTitle', 'Code')}\n${theme.fg('toolOutput', code)}\n\n${theme.fg('toolTitle', 'Result')}\n${theme.fg('toolOutput', output)}`,
+          0,
+          0,
+        )
+      }
+      if (state.call && state.callText) {
+        state.call.setText(`${state.callText} · ${summary} ${keyHint('app.tools.expand', 'to expand')}`)
+      }
+      return new Container()
+    },
+  }
+}
+
+function defineCodeModeMethod<
+  Params extends TSchema | undefined = undefined,
+  Services = never,
+  Failure = never,
+  RunContext = void,
+>(
+  method: CodeModeMethodDefinition<Params, Services, Failure, RunContext>,
+): CodeModeMethodDefinition<Params, Services, Failure, RunContext> {
   return method
 }
 
 function createCodeModeTool<Services = never, Failure = never>(
   options: CodeModeToolDefinition<Services, Failure>,
+): CodeModeTool<Services, Failure>
+function createCodeModeTool<Services, Failure, RunContext>(
+  options: CodeModeToolDefinition<Services, Failure, RunContext> & {
+    readonly withRun: NonNullable<CodeModeToolDefinition<Services, Failure, RunContext>['withRun']>
+  },
+): CodeModeTool<Services, Failure>
+function createCodeModeTool<Services = never, Failure = never, RunContext = void>(
+  options: CodeModeToolDefinition<Services, Failure, RunContext>,
 ): CodeModeTool<Services, Failure> {
   const methodEntries = Object.entries(options.methods)
-  if (methodEntries.length === 0) throw new TypeError('At least one code-mode method is required.')
+  if (methodEntries.length === 0) throw new TypeError('At least one operation is required.')
   if (Object.hasOwn(options.methods, 'help')) throw new TypeError('The method name "help" is reserved.')
 
   const outputLimits: CodeModeOutputLimits = {
@@ -212,6 +299,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
       methodName: string,
       args: readonly unknown[],
       signal: AbortSignal,
+      runContext: RunContext,
     ): Effect.Effect<unknown, CodeModeFailure | Failure, Services> => {
       const method = Object.hasOwn(options.methods, methodName) ? options.methods[methodName] : undefined
       if (method === undefined) {
@@ -219,7 +307,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
           createCodeModeFailure({
             _tag: 'validation',
             operation: methodName,
-            message: `The code-mode method ${methodName} is not defined.`,
+            message: `The operation ${methodName} is not defined.`,
           }),
         )
       }
@@ -229,22 +317,22 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
             createCodeModeFailure({
               _tag: 'validation',
               operation: methodName,
-              message: `The code-mode method ${methodName} does not accept parameters.`,
+              message: `The operation ${methodName} does not accept parameters.`,
             }),
           )
         }
-        return method.execute(undefined as never, signal)
+        return method.execute(undefined as never, signal, runContext)
       }
       if (args.length !== 1 || !Check(method.parameters, args[0])) {
         return Effect.fail(
           createCodeModeFailure({
             _tag: 'validation',
             operation: methodName,
-            message: `The parameters for code-mode method ${methodName} are invalid.`,
+            message: `The parameters for operation ${methodName} are invalid.`,
           }),
         )
       }
-      return method.execute(args[0] as never, signal)
+      return method.execute(args[0] as never, signal, runContext)
     },
     invokeSync: (methodName: string, args: readonly unknown[]): unknown => {
       if (methodName === 'help') {
@@ -255,7 +343,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
           throw createCodeModeFailure({
             _tag: 'validation',
             operation: 'help',
-            message: `The code-mode method ${args[0]} is not defined. Available methods: ${methodEntries.map(([name]) => name).join(', ')}.`,
+            message: `The operation ${args[0]} is not defined. Available operations: ${methodEntries.map(([name]) => name).join(', ')}.`,
           })
         }
         throw createCodeModeFailure({
@@ -267,7 +355,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
       throw createCodeModeFailure({
         _tag: 'validation',
         operation: methodName,
-        message: `The code-mode method ${methodName} is not synchronous.`,
+        message: `The operation ${methodName} is not synchronous.`,
       })
     },
     ...(options.errorCodec === undefined ? {} : { errorCodec: options.errorCodec }),
@@ -287,29 +375,57 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
     parameters: runParameters,
     promptSnippet: `Run TypeScript against the ${options.toolName} API.`,
     promptGuidelines: [
-      `Export a default async function that receives a ${apiName} value.`,
-      `Use ${programName} for the program type.`,
-      'Call api.help() for a concise list of operations.',
-      'Call api.help("operation") for one operation signature and parameter schema.',
+      'Export a default async function that receives the API object.',
+      'Call api.help() to list available operations.',
+      'Call api.help("operation") for its signature and parameter schema.',
     ],
+    ...createCodeModeRenderers<typeof runParameters>(options.label ?? options.toolName),
     execute: ({
       code,
     }): Effect.Effect<PiToolResult<CodeModeToolOutputDetails>, CodeModeFailure | Failure, Services | PiToolContext> =>
       Effect.gen(function* () {
         const context = yield* PiToolContext
-        const runOptions: CodeModeRunOptions = {
-          cwd: context.cwd,
-          filenamePrefix: options.toolName,
-          timeoutMs: options.timeoutMs,
-          signal: context.toolSignal,
-          ...(options.execution === undefined ? {} : { execution: options.execution }),
-        }
-        const result = yield* Effect.provideService(
-          codeModeCore.evaluate(codeModeDefinition, code, runOptions),
-          codeModeHost,
-          host,
-        )
-        return yield* createCodeModeToolOutput(result, outputLimits, context.toolSignal)
+        const run = (
+          runContext: RunContext,
+        ): Effect.Effect<PiToolResult<CodeModeToolOutputDetails>, CodeModeFailure | Failure, Services> =>
+          Effect.gen(function* () {
+            const operations = new Map<string, number>()
+            const invocationHost = {
+              ...host,
+              invoke: (
+                methodName: string,
+                args: readonly unknown[],
+                signal: AbortSignal,
+              ): Effect.Effect<unknown, CodeModeFailure | Failure, Services> =>
+                Effect.gen(function* () {
+                  yield* Effect.sync(() => {
+                    operations.set(methodName, (operations.get(methodName) ?? 0) + 1)
+                  })
+                  return yield* host.invoke(methodName, args, signal, runContext)
+                }),
+            }
+            const runOptions: CodeModeRunOptions = {
+              cwd: context.cwd,
+              filenamePrefix: options.toolName,
+              timeoutMs: options.timeoutMs,
+              signal: context.toolSignal,
+              ...(options.execution === undefined ? {} : { execution: options.execution }),
+            }
+            const result = yield* Effect.provideService(
+              codeModeCore.evaluate(codeModeDefinition, code, runOptions),
+              codeModeHost,
+              invocationHost,
+            )
+            return yield* createCodeModeToolOutput(
+              result,
+              outputLimits,
+              Object.fromEntries(operations),
+              context.toolSignal,
+            )
+          })
+        return yield* options.withRun === undefined
+          ? run(undefined as RunContext)
+          : options.withRun(run, context.toolSignal)
       }),
   }
   const register = (

@@ -2,6 +2,7 @@ import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { readFile, rm } from 'node:fs/promises'
 import { dirname } from 'node:path'
+import { initTheme } from '@earendil-works/pi-coding-agent'
 import type { CodeModeFailure } from '@eratio/pi-codemode-core'
 import { installFakePlugin } from '@eratio08/pi-effect/testing'
 import { Effect } from 'effect'
@@ -16,7 +17,11 @@ import {
 
 type TextToolResult = {
   readonly content: readonly { readonly type: string; readonly text?: string }[]
-  readonly details?: { readonly truncated?: boolean; readonly fullOutputPath?: string }
+  readonly details?: {
+    readonly truncated?: boolean
+    readonly fullOutputPath?: string
+    readonly operations?: Readonly<Record<string, number>>
+  }
 }
 
 const echoParameters = Type.Object({ text: Type.String() })
@@ -59,9 +64,26 @@ const installCodeModeTool = async (tool: CodeModeTool<never, never>) =>
     ),
   )
 
-test('generated API and program type names follow the tool name', async () => {
+const invokeConcurrentRuns = async (
+  extension: Awaited<ReturnType<typeof installCodeModeTool>>,
+): Promise<[TextToolResult, TextToolResult]> => {
+  const results = await Promise.all([
+    extension.invokeTool('echo', 'echo-count-call', {
+      code: 'export default async (api: echoApi) => api.echo({ text: "one" })',
+    }),
+    extension.invokeTool('echo', 'uppercase-count-call', {
+      code: 'export default async (api: echoApi) => api.uppercase({ text: "two" })',
+    }),
+  ])
+  return results as [TextToolResult, TextToolResult]
+}
+
+test('help exposes generated types, while prompt guidance uses help discovery', async () => {
   //given
   const extension = await installCodeModeTool(createEchoTool(undefined, undefined, 'echo-tool'))
+  const tool = extension.tools.get('echo-tool')
+  assert.ok(tool)
+  const promptGuidelines = tool.promptGuidelines?.join('\n') ?? ''
 
   //when
   const result = (await extension.invokeTool('echo-tool', 'named-help-call', {
@@ -71,6 +93,9 @@ test('generated API and program type names follow the tool name', async () => {
   //then
   assert.match(result.content[0]?.text ?? '', /API type: `echo_toolApi`/)
   assert.match(result.content[0]?.text ?? '', /Program type: `echo_toolProgram`/)
+  assert.match(promptGuidelines, /api\.help\(\)/)
+  assert.match(promptGuidelines, /api\.help\("operation"\)/)
+  assert.doesNotMatch(promptGuidelines, /echo_toolApi|echo_toolProgram/)
 })
 
 test('operation help returns details for one method', async () => {
@@ -138,11 +163,12 @@ test('truncated output points to a file that contains the full result', async ()
 
   //when
   const result = (await extension.invokeTool('echo', 'long-call', {
-    code: 'export default () => "x".repeat(1_000)',
+    code: 'export default async (api: echoApi) => (await api.echo({ text: "x" })).repeat(1_000)',
   })) as TextToolResult
 
   //then
   assert.equal(result.details?.truncated, true)
+  assert.deepEqual(result.details?.operations, { echo: 1 })
   const fullOutputPath = result.details?.fullOutputPath
   assert.ok(fullOutputPath)
   assert.match(result.content[0]?.text ?? '', /Full output saved to:/)
@@ -176,6 +202,49 @@ test('the run tool executes a method and returns its value', async () => {
   assert.deepEqual(called, ['hello'])
 })
 
+test('a run scope passes one context to each method call', async () => {
+  //given
+  const runContext = { prefix: 'scoped:' }
+  const contexts: (typeof runContext)[] = []
+  const tool = createCodeModeTool<never, never, typeof runContext>({
+    toolName: 'scoped',
+    description: 'Run TypeScript against a scoped API.',
+    timeoutMs: 10_000,
+    typeDeclarations: 'type EchoInput = { text: string }',
+    methods: {
+      echo: defineCodeModeMethod<typeof echoParameters, never, never, typeof runContext>({
+        description: 'Return the supplied text with the run prefix.',
+        signature: '(input: EchoInput): Promise<string>',
+        parameters: echoParameters,
+        execute: ({ text }, _signal, context) =>
+          Effect.sync(() => {
+            contexts.push(context)
+            return `${context.prefix}${text}`
+          }),
+      }),
+    },
+    withRun: (run) =>
+      Effect.gen(function* () {
+        const result = yield* run(runContext)
+        assert.deepEqual(result.details?.operations, { echo: 2 })
+        return result
+      }),
+  })
+  const extension = await installCodeModeTool(tool)
+
+  //when
+  const result = (await extension.invokeTool('scoped', 'scoped-run-context-call', {
+    code: 'export default async (api: scopedApi) => [await api.echo({ text: "one" }), await api.echo({ text: "two" })]',
+  })) as TextToolResult
+
+  //then
+  assert.match(result.content[0]?.text ?? '', /scoped:one/)
+  assert.match(result.content[0]?.text ?? '', /scoped:two/)
+  assert.equal(contexts.length, 2)
+  assert.strictEqual(contexts[0], runContext)
+  assert.strictEqual(contexts[1], runContext)
+})
+
 test('the run tool rejects invalid method parameters before execution', async () => {
   //given
   const called: string[] = []
@@ -196,4 +265,134 @@ test('the run tool rejects invalid method parameters before execution', async ()
   //then
   await assert.rejects(invocation)
   assert.deepEqual(called, [])
+})
+
+test('the run tool records repeated operation calls', async () => {
+  //given
+  const extension = await installCodeModeTool(createEchoTool())
+
+  //when
+  const result = (await extension.invokeTool('echo', 'operation-count-call', {
+    code: 'export default async (api: echoApi) => { await api.echo({ text: "one" }); await api.uppercase({ text: "two" }); await api.echo({ text: "three" }); return "done" }',
+  })) as TextToolResult
+
+  //then
+  assert.deepEqual(result.details?.operations, { echo: 2, uppercase: 1 })
+})
+
+test('operation counts stay separate across concurrent runs', async () => {
+  //given
+  const extension = await installCodeModeTool(createEchoTool())
+
+  //when
+  const results = await invokeConcurrentRuns(extension)
+
+  //then
+  assert.deepEqual(results[0].details?.operations, { echo: 1 })
+  assert.deepEqual(results[1].details?.operations, { uppercase: 1 })
+})
+
+test('collapsed rendering shows the operation summary on one line', async () => {
+  //given
+  const extension = await installCodeModeTool(createEchoTool())
+  initTheme('dark')
+  const tool = extension.tools.get('echo')
+  assert.ok(tool)
+  assert.ok(tool.renderCall)
+  assert.ok(tool.renderResult)
+  const args = { code: 'export default async (api: echoApi) => api.echo({ text: "hello" })' }
+  const context = {
+    args,
+    toolCallId: 'collapsed-render-call',
+    invalidate: () => undefined,
+    lastComponent: undefined,
+    state: {},
+    cwd: process.cwd(),
+    executionStarted: true,
+    argsComplete: true,
+    isPartial: false,
+    expanded: false,
+    showImages: false,
+    isError: false,
+  }
+  const theme = {
+    fg: (_color: string, text: string) => text,
+    bold: (text: string) => text,
+  } as never
+  const call = tool.renderCall(args, theme, context as never)
+  const result = {
+    content: [{ type: 'text', text: 'hello' }],
+    details: {
+      truncated: false,
+      outputBytes: 5,
+      outputLines: 1,
+      totalBytes: 5,
+      totalLines: 1,
+      operations: { echo: 2 },
+    },
+  } as never
+
+  //when
+  const rendered = tool.renderResult(result, { expanded: false, isPartial: false }, theme, context as never)
+
+  //then
+  assert.deepEqual(rendered.render(120), [])
+  const callLines = call.render(120)
+  assert.equal(callLines.length, 1)
+  assert.match(callLines[0] ?? '', /echo: 2/)
+  assert.match(callLines[0] ?? '', /to expand/)
+  assert.doesNotMatch(callLines.join('\n'), /export default|hello/)
+})
+
+test('expanded rendering shows the submitted code and result', async () => {
+  //given
+  const extension = await installCodeModeTool(createEchoTool())
+  const tool = extension.tools.get('echo')
+  assert.ok(tool)
+  assert.ok(tool.renderCall)
+  assert.ok(tool.renderResult)
+  const code = 'export default async (api: echoApi) => api.echo({ text: "hello" })'
+  const args = { code }
+  const context = {
+    args,
+    toolCallId: 'expanded-render-call',
+    invalidate: () => undefined,
+    lastComponent: undefined,
+    state: {},
+    cwd: process.cwd(),
+    executionStarted: true,
+    argsComplete: true,
+    isPartial: false,
+    expanded: true,
+    showImages: false,
+    isError: false,
+  }
+  const theme = {
+    fg: (_color: string, text: string) => text,
+    bold: (text: string) => text,
+  } as never
+  tool.renderCall(args, theme, context as never)
+  const result = {
+    content: [{ type: 'text', text: 'hello' }],
+    details: {
+      truncated: false,
+      outputBytes: 5,
+      outputLines: 1,
+      totalBytes: 5,
+      totalLines: 1,
+      operations: { echo: 1 },
+    },
+  } as never
+
+  //when
+  const rendered = tool.renderResult(result, { expanded: true, isPartial: false }, theme, context as never)
+
+  //then
+  const output = rendered.render(120).join('\n')
+  assert.match(output, /Code/)
+  assert.match(output, new RegExp(code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  assert.match(output, /Operations/)
+  assert.match(output, /echo: 1/)
+  assert.match(output, /Result/)
+  assert.match(output, /hello/)
 })

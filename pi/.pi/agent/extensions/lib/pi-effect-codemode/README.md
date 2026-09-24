@@ -11,8 +11,6 @@ An Effect describes work that can use plugin services and return typed failures.
 The SDK validates method arguments and passes the tool abort signal to each handler.
 The SDK truncates large output with Pi's limits and writes the full result to a temporary file when it truncates output.
 The runner tool uses the configured `toolName`.
-`api.help()` lists the available operations and their descriptions.
-`api.help("operation")` returns that operation's signature and parameter schema, plus configured type declarations.
 
 ```ts
 import type { CodeModeFailure } from '@eratio/pi-codemode-core'
@@ -47,16 +45,99 @@ export default PiExtension.install(
 )
 ```
 
-The model can call `api.help()` from inside `tasks` code to see the operation list.
-It can call `api.help("add")` to see that operation's signature and parameter schema.
+## Tool output
+Each successful run includes an `operations` field in its result details.
+The field lists each declared method that the submitted code called and its call count.
+Calls to `api.help()` do not appear in these counts.
+For successful runs, the collapsed view shows the tool label and a one-line operation summary.
+The expanded view shows the submitted code, the operation summary, and the returned text.
+While a run is active, Pi shows `Running...`.
+If a run fails, Pi shows the error text, and the expanded view also shows the submitted code.
+If output is truncated, the expanded view shows the truncated text and the path to the complete result file.
+
+### Example output
+For the `tasks` tool above, the submitted code is:
+
+```typescript
+export default async (api: tasksApi) => api.add({ title: "Review" })
+```
+
+The collapsed call for this run looks like this:
+
+```text
+tasks · add: 1 <configured expand key> to expand
+```
+
+Pi shows the current `app.tools.expand` key in place of the placeholder.
+When expanded, the result looks like this:
+
+```text
+Operations
+add: 1
+
+Code
+export default async (api: tasksApi) => api.add({ title: "Review" })
+
+Result
+{
+  "id": "task-1",
+  "title": "Review"
+}
+```
+
+## Help API
+The submitted program can call `api.help()` synchronously.
+It is not a separate Pi tool. The SDK registers one runner under `toolName`.
+Call `api.help()` to see the operation list, descriptions, generated API and program type names, and configured examples.
+Call `api.help("operation")` to see that method's signature and description.
+The response includes configured type declarations and the parameter schema when the method has parameters.
 The method name `help` is reserved for this generated reference.
+
+### Example output
+For the `tasks` tool above, `api.help("add")` returns:
+
+````text
+# tasks.add(params: { title: string }): Promise<Task>
+
+Create a task record.
+
+## Type declarations
+
+```typescript
+type Task = { id: string; title: string }
+```
+
+Parameter schema:
+
+```json
+{
+  "type": "object",
+  "required": [
+    "title"
+  ],
+  "properties": {
+    "title": {
+      "type": "string"
+    }
+  }
+}
+```
+````
 
 ## Method definitions
 `signature` is appended to the API type named from `toolName`, such as `tasksApi`.
 `parameters` is the TypeBox schema for the method's single argument, and the SDK checks it before it runs the handler.
 Omit `parameters` and use `()` in `signature` when a method takes no arguments.
-The handler receives the validated parameter value and the current `AbortSignal`.
+The handler receives the validated parameter value, the current `AbortSignal`, and the run context as its third argument.
+The context type is the third generic for `defineCodeModeMethod` and defaults to `void`.
 The handler returns an Effect, so it can use the services and typed failures that the SDK generics declare.
+
+### Scope one tool run
+Set the third generic for `createCodeModeTool` when methods need one context shared by every call in a program.
+A non-`void` context requires `withRun`.
+Set `withRun` to wrap the complete program run, including output formatting, and pass the context to `run(context)`. The callback also receives the active tool signal when one is available.
+The SDK passes that context to every method handler in the run.
+If `withRun` is omitted with the default `void` context, the SDK passes `undefined` and keeps the existing execution mode.
 
 ## Runtime settings
 `timeoutMs` sets the evaluation deadline.
