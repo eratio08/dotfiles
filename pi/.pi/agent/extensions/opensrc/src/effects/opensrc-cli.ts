@@ -92,19 +92,19 @@ const OpenSrcCliLive: Layer.Layer<OpenSrcCli, never, PiHost | OpensrcConfigurati
             ),
           )
         }),
-      fetch: (specs, cwd) =>
+      fetch: (specs: readonly string[], cwd: string) =>
         Effect.gen(function* () {
           yield* ensurePreflight
           const result = yield* run(planFetch(specs, cwd), cwd)
           yield* validateResult('fetch', result)
         }),
-      remove: (names) =>
+      remove: (names: readonly string[]) =>
         Effect.gen(function* () {
           yield* ensurePreflight
           const result = yield* run(planRemove(names))
           yield* validateResult('remove', result)
         }),
-      clean: (plans) =>
+      clean: (plans: readonly CliCommandPlan[]) =>
         Effect.gen(function* () {
           yield* ensurePreflight
           for (const plan of plans) {

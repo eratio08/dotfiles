@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent'
 import { Effect, Exit, Layer } from 'effect'
-import type { FileEntry, RawAstMatch, Source } from '../src/core/model.ts'
+import type { FileEntry, OpensrcFailure, RawAstMatch, Source } from '../src/core/model.ts'
 import { createOpensrcFailure } from '../src/core/model.ts'
 import { OpensrcContext } from '../src/effects/context.ts'
 import type { FileSystemService } from '../src/effects/file-system.ts'
@@ -12,6 +12,14 @@ import type { OpenSrcCliService, OpensrcConfig } from '../src/effects/opensrc-cl
 import { OpenSrcCli, OpensrcConfiguration } from '../src/effects/opensrc-cli.ts'
 import type { SourceStoreService } from '../src/effects/source-store.ts'
 import { SourceStore, SourceStoreLive } from '../src/effects/source-store.ts'
+
+const captureEffectResult = <A, E>(
+  effect: Effect.Effect<A, E>,
+): Effect.Effect<{ _tag: 'Left'; left: E } | { _tag: 'Right'; right: A }, never, never> =>
+  Effect.match(effect, {
+    onFailure: (left: E) => ({ _tag: 'Left' as const, left }),
+    onSuccess: (right: A) => ({ _tag: 'Right' as const, right }),
+  })
 
 const source: Source = {
   type: 'npm',
@@ -32,7 +40,7 @@ const contents: Readonly<Record<string, string>> = {
   'src/index.ts': 'export const parse = () => 1',
 }
 
-const failure = (operation: string, message: string, cause?: unknown) =>
+const failure = (operation: string, message: string, cause?: unknown): OpensrcFailure =>
   createOpensrcFailure({
     _tag: 'filesystem',
     operation,
@@ -40,15 +48,8 @@ const failure = (operation: string, message: string, cause?: unknown) =>
     cause,
   })
 
-async function captureFailure(operation: () => Promise<unknown>): Promise<unknown> {
-  return await operation().then(
-    () => undefined,
-    (error) => error,
-  )
-}
-
 describe('opensrc API', () => {
-  test('queries files, tree, grep, AST matches, reads, resolves, and fetches through services', async () => {
+  test('should query files, trees, grep, AST matches, reads, sources, and fetches given OpenSrc services', async () => {
     //given
     let fetchCalls = 0
     const config: OpensrcConfig = {
@@ -57,7 +58,7 @@ describe('opensrc API', () => {
       environment: {},
     }
     const fileSystem: FileSystemService = {
-      list: (_root, pattern) =>
+      list: (_root: string, pattern: string | undefined) =>
         Effect.succeed(
           entries.filter(
             (entry) =>
@@ -65,17 +66,17 @@ describe('opensrc API', () => {
               ((pattern === '**/*.ts' || pattern === 'src/*.ts') && entry.path.endsWith('.ts')),
           ),
         ),
-      read: (_root, path) =>
+      read: (_root: string, path: string) =>
         contents[path] === undefined
           ? Effect.fail(failure('read', `Missing ${path}`, { path, marker: 'filesystem-cause' }))
           : Effect.succeed(contents[path]),
-      realPath: (_root, path) => Effect.succeed(`/tmp/opensrc-api-home/sources/zod/${path ?? ''}`),
+      realPath: (_root: string, path?: string) => Effect.succeed(`/tmp/opensrc-api-home/sources/zod/${path ?? ''}`),
     }
     const store: SourceStoreService = {
       current: () => [source],
       load: () => Effect.succeed([source]),
       refresh: () => Effect.succeed([source]),
-      mutate: (operation) =>
+      mutate: <A>(operation: (before: readonly Source[]) => Effect.Effect<A, OpensrcFailure>) =>
         Effect.gen(function* () {
           const before = [source]
           const value = yield* operation(before)
@@ -94,7 +95,7 @@ describe('opensrc API', () => {
       clean: () => Effect.void,
     }
     const astParser: AstParserService = {
-      find: (sourceName, file, _content, _pattern, _language, _limit) =>
+      find: (sourceName: string, file: string, _content: string, _pattern: string, _language: string, _limit: number) =>
         Effect.succeed<readonly RawAstMatch[]>([
           {
             source: sourceName,
@@ -120,33 +121,34 @@ describe('opensrc API', () => {
       Effect.scoped(
         Effect.gen(function* () {
           const api = yield* createOpensrcApi()
-          const files = yield* Effect.promise(() => api.files('zod', '**/*.ts'))
-          const tree = yield* Effect.promise(() => api.tree('zod'))
-          const grep = yield* Effect.promise(() => api.grep('parse'))
-          const ast = yield* Effect.promise(() => api.astGrep('zod', 'parse()', { lang: 'typescript' }))
-          const reads = yield* Effect.promise(() => api.readMany('zod', ['src/*.ts', 'missing.ts']))
-          const resolved = api.resolve('zod')
-          const fetched = yield* Effect.promise(() => api.fetch('zod'))
-          const invalid = yield* Effect.promise(() =>
-            api.read('', 'missing.ts').then(
-              () => 'unexpected success',
-              (error) => error,
-            ),
-          )
-          const readFailure = yield* Effect.promise(() => captureFailure(() => api.read('zod', 'missing.ts')))
-          const invalidTree = yield* Effect.promise(() => captureFailure(() => api.tree('zod', { depth: -1 } as never)))
-          const invalidGrep = yield* Effect.promise(() =>
-            captureFailure(() => api.grep('parse', { maxResults: 1.5 } as never)),
-          )
-          const invalidAst = yield* Effect.promise(() =>
-            captureFailure(() => api.astGrep('zod', 'parse()', { lang: [''] } as never)),
-          )
-          const invalidClean = yield* Effect.promise(() =>
-            captureFailure(() => api.clean({ packages: 'yes' } as never)),
-          )
-          const invalidPaths = yield* Effect.promise(() => captureFailure(() => api.readMany('zod', [''] as never)))
-          const invalidSpecs = yield* Effect.promise(() => captureFailure(() => api.fetch([''] as never)))
+          const listed = yield* api.list()
+          const hasSource = yield* api.has('zod')
+          const hasMissingSource = yield* api.has('missing')
+          const foundSource = yield* api.get('zod')
+          const missingSource = yield* api.get('missing')
+          const read = yield* api.read('zod', 'src/index.ts')
+          const files = yield* api.files('zod', '**/*.ts')
+          const tree = yield* api.tree('zod')
+          const grep = yield* api.grep('parse')
+          const ast = yield* api.astGrep('zod', 'parse()', { lang: 'typescript' })
+          const reads = yield* api.readMany('zod', ['src/*.ts', 'missing.ts'])
+          const resolved = yield* api.resolve('zod')
+          const fetched = yield* api.fetch('zod')
+          const invalid = yield* captureEffectResult(api.read('', 'missing.ts'))
+          const readFailure = yield* captureEffectResult(api.read('zod', 'missing.ts'))
+          const invalidTree = yield* captureEffectResult(api.tree('zod', { depth: -1 } as never))
+          const invalidGrep = yield* captureEffectResult(api.grep('parse', { maxResults: 1.5 } as never))
+          const invalidAst = yield* captureEffectResult(api.astGrep('zod', 'parse()', { lang: [''] } as never))
+          const invalidClean = yield* captureEffectResult(api.clean({ packages: 'yes' } as never))
+          const invalidPaths = yield* captureEffectResult(api.readMany('zod', [''] as never))
+          const invalidSpecs = yield* captureEffectResult(api.fetch([''] as never))
           return {
+            listed,
+            hasSource,
+            hasMissingSource,
+            foundSource,
+            missingSource,
+            read,
             files,
             tree,
             grep,
@@ -168,6 +170,12 @@ describe('opensrc API', () => {
     )
 
     //then
+    expect(observed.listed).toEqual([source])
+    expect(observed.hasSource).toBe(true)
+    expect(observed.hasMissingSource).toBe(false)
+    expect(observed.foundSource).toEqual(source)
+    expect(observed.missingSource).toBeUndefined()
+    expect(observed.read).toBe(contents['src/index.ts'])
     expect(observed.files.map((entry) => entry.path)).toEqual(['src/index.ts'])
     expect(observed.tree.children).toContainEqual(expect.objectContaining({ name: 'README.md', type: 'file' }))
     expect(observed.grep[0]).toMatchObject({ file: 'README.md', line: 1 })
@@ -176,21 +184,21 @@ describe('opensrc API', () => {
     expect(observed.reads['missing.ts']).toContain('[Error:')
     expect(observed.resolved).toEqual({ type: 'npm', name: 'zod' })
     expect(observed.fetched[0].alreadyExists).toBe(true)
-    expect(observed.invalid).toMatchObject({ _tag: 'validation' })
+    expect(observed.invalid).toMatchObject({ _tag: 'Left', left: { _tag: 'validation' } })
     expect(observed.readFailure).toMatchObject({
-      _tag: 'filesystem',
-      cause: { path: 'missing.ts', marker: 'filesystem-cause' },
+      _tag: 'Left',
+      left: { _tag: 'filesystem', cause: { path: 'missing.ts', marker: 'filesystem-cause' } },
     })
-    expect(observed.invalidTree).toMatchObject({ _tag: 'validation', operation: 'tree' })
-    expect(observed.invalidGrep).toMatchObject({ _tag: 'validation', operation: 'grep' })
-    expect(observed.invalidAst).toMatchObject({ _tag: 'validation', operation: 'astGrep' })
-    expect(observed.invalidClean).toMatchObject({ _tag: 'validation', operation: 'clean' })
-    expect(observed.invalidPaths).toMatchObject({ _tag: 'validation' })
-    expect(observed.invalidSpecs).toMatchObject({ _tag: 'validation', operation: 'validation' })
+    expect(observed.invalidTree).toMatchObject({ _tag: 'Left', left: { _tag: 'validation', operation: 'tree' } })
+    expect(observed.invalidGrep).toMatchObject({ _tag: 'Left', left: { _tag: 'validation', operation: 'grep' } })
+    expect(observed.invalidAst).toMatchObject({ _tag: 'Left', left: { _tag: 'validation', operation: 'astGrep' } })
+    expect(observed.invalidClean).toMatchObject({ _tag: 'Left', left: { _tag: 'validation', operation: 'clean' } })
+    expect(observed.invalidPaths).toMatchObject({ _tag: 'Left', left: { _tag: 'validation' } })
+    expect(observed.invalidSpecs).toMatchObject({ _tag: 'Left', left: { _tag: 'validation', operation: 'validation' } })
     expect(fetchCalls).toBe(1)
   })
 
-  test('serializes concurrent fetch, remove, and clean mutations', async () => {
+  test('should serialize concurrent mutations given simultaneous fetch, remove, and clean operations', async () => {
     //given
     const oldSource: Source = { ...source, name: 'old-package', path: 'sources/old-package' }
     const cleanSource: Source = { ...source, name: 'clean-me', path: 'sources/clean-me' }
@@ -199,12 +207,12 @@ describe('opensrc API', () => {
     const cli: OpenSrcCliService = {
       preflight: () => Effect.void,
       list: () => Effect.sync(() => ({ packages: current })),
-      fetch: (specs) =>
+      fetch: (specs: readonly string[]) =>
         Effect.promise(async () => {
           await new Promise<void>((resolve) => setTimeout(resolve, 10))
           current = [...current, ...specs.map(makeSource)]
         }),
-      remove: (names) =>
+      remove: (names: readonly string[]) =>
         Effect.promise(async () => {
           await new Promise<void>((resolve) => setTimeout(resolve, 10))
           current = current.filter((candidate) => !names.includes(candidate.name))
@@ -235,14 +243,10 @@ describe('opensrc API', () => {
     const observed = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const firstApi = yield* createOpensrcApi()
-          const secondApi = yield* createOpensrcApi()
-          return yield* Effect.promise(() =>
-            Promise.all([
-              firstApi.fetch('new-package'),
-              secondApi.remove(['old-package']),
-              firstApi.clean({ packages: true }),
-            ]),
+          const api = yield* createOpensrcApi()
+          return yield* Effect.all(
+            [api.fetch('new-package'), api.remove(['old-package']), api.clean({ packages: true })],
+            { concurrency: 'unbounded' },
           )
         }).pipe(Effect.provide(layer)),
       ),
@@ -254,7 +258,7 @@ describe('opensrc API', () => {
     expect(observed[2]).toEqual({ success: true, removed: ['clean-me'] })
   })
 
-  test('propagates outer interruption to a pending API call', async () => {
+  test('should interrupt a pending API call given an outer interruption', async () => {
     //given
     const config: OpensrcConfig = {
       bin: 'opensrc',
@@ -270,7 +274,7 @@ describe('opensrc API', () => {
       current: () => [source],
       load: () => Effect.succeed([source]),
       refresh: () => Effect.succeed([source]),
-      mutate: (operation) =>
+      mutate: <A>(operation: (before: readonly Source[]) => Effect.Effect<A, OpensrcFailure>) =>
         Effect.gen(function* () {
           const before = [source]
           const value = yield* operation(before)
@@ -299,7 +303,7 @@ describe('opensrc API', () => {
       Effect.scoped(
         Effect.gen(function* () {
           const api = yield* createOpensrcApi()
-          yield* Effect.promise(() => api.read('zod', 'src/index.ts'))
+          yield* api.read('zod', 'src/index.ts')
         }).pipe(Effect.provide(layer)),
       ),
       { signal: controller.signal },

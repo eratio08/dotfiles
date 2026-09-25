@@ -1,174 +1,85 @@
 import {
-  DEFAULT_MAX_BYTES,
-  DEFAULT_MAX_LINES,
-  type ExtensionAPI,
-  formatSize,
-  keyHint,
-  truncateHead,
-} from '@earendil-works/pi-coding-agent'
-import { Container, Text } from '@earendil-works/pi-tui'
+  type PiExtensionError,
+  type PiProcess,
+  type PiRegistrationContext,
+  type PiToolResult,
+  PiToolContext,
+} from '@eratio/pi-effect'
+import { createTool, PiExtension, type ToolOutputDetails } from '@eratio/pi-effect-codemode'
+import type { ProgramFailureData } from '@eratio/pi-codemode-core'
 import { Effect } from 'effect'
-import { type Static, Type } from 'typebox'
-import { OPENSRC_PROMPT } from './src/core/code-mode.ts'
-import type { OpensrcFailure, OpensrcToolDetails } from './src/core/model.ts'
-import { createOpensrcFailure } from './src/core/model.ts'
-import { decodeOpensrcFailure, failureFromUnknown } from './src/effects/failure.ts'
-import { serializeValue } from './src/effects/output.ts'
-import { createOpensrcRuntime, type OpensrcRuntimeResult } from './src/effects/runtime.ts'
+import { OPENSRC_CODE_TYPES } from './src/core/code-mode.ts'
+import type { OpensrcFailure } from './src/core/model.ts'
+import { opensrcErrorCodec, opensrcMethods } from './src/effects/code-mode.ts'
+import { createOpensrcApi, type OpensrcApiService } from './src/effects/opensrc-api.ts'
+import { resolveOpensrcConfig } from './src/effects/opensrc-cli.ts'
+import { createCallLayer } from './src/effects/runtime.ts'
 
-type OpensrcInput = Static<typeof OpensrcParameters>
-
-interface OpensrcRendererState {
-  call?: Text
-  callText?: string
-  hasResult?: boolean
-  summary?: string
-}
-
-const OpensrcParameters = Type.Object({
-  code: Type.String({
-    description: 'TypeScript module that exports a default async function receiving OpensrcApi.',
-    minLength: 1,
-  }),
+const opensrcTool = createTool<PiToolContext | PiProcess, OpensrcFailure, OpensrcApiService>({
+  toolName: 'opensrc',
+  label: 'OpenSrc',
+  description:
+    'Fetch and inspect package and repository source. Batch dependent calls in one program. If you know a source spec and file path, call `fetch` then `read` directly; use `resolve` or `files` only to discover an unknown spec or path. Call `api.help("operation")` when you need a signature and parameter schema. Use `source.name` after `fetch`. Catch OpenSrc host failures as `OpensrcHostError` and read their typed value.',
+  methods: opensrcMethods,
+  typeDeclarations: OPENSRC_CODE_TYPES,
+  examples: [
+    `export default async (api: opensrcApi) => {
+  const [{ source }] = await api.fetch({ specs: ['zod'] })
+  return await api.readMany({ sourceName: source.name, paths: ['package.json', 'README.md'] })
+}`,
+    `export default async (api: opensrcApi) => {
+  return await api.grep({ pattern: 'parse', options: { sources: ['zod'], include: '**/*.ts' } })
+}`,
+    `export default async (api: opensrcApi) => {
+  try {
+    return await api.read({ sourceName: 'zod', filePath: 'missing.ts' })
+  } catch (error) {
+    const failure = (error as OpensrcHostError).value
+    return { tag: failure._tag, operation: failure.operation, message: failure.message }
+  }
+}`,
+  ],
+  timeoutMs: 30_000,
+  executionMode: 'sequential',
+  errorCodec: opensrcErrorCodec,
+  withRun: (
+    run: (
+      runContext: OpensrcApiService,
+    ) => Effect.Effect<
+      PiToolResult<ToolOutputDetails>,
+      | OpensrcFailure
+      | ProgramFailureData<'validation'>
+      | ProgramFailureData<'transform'>
+      | ProgramFailureData<'compile'>
+      | ProgramFailureData<'invoke'>
+      | ProgramFailureData<'timeout'>
+      | ProgramFailureData<'cancellation'>
+      | ProgramFailureData<'worker'>
+      | ProgramFailureData<'transport'>
+      | ProgramFailureData<'deserialize'>
+      | ProgramFailureData<'serialize'>,
+      PiToolContext | PiProcess
+    >,
+    signal: AbortSignal | undefined,
+  ) =>
+    Effect.gen(function* () {
+      const context = yield* PiToolContext
+      return yield* Effect.scoped(
+        Effect.gen(function* () {
+          const api = yield* createOpensrcApi(signal)
+          return yield* run(api)
+        }).pipe(Effect.provide(createCallLayer({ cwd: context.cwd }, resolveOpensrcConfig()))),
+      )
+    }),
 })
 
-const OPENSRC_ERROR_PREFIX = 'opensrc execution failed'
+const opensrcPlugin = PiExtension.define({
+  id: 'opensrc',
+  // PiEffect provides run services at execution, but the SDK registry type omits them.
+  effect: (registrations: PiRegistrationContext<never, PiExtensionError>) =>
+    opensrcTool.register(registrations.tools as unknown as Parameters<typeof opensrcTool.register>[0]),
+})
 
-function opensrcExtension(pi: ExtensionAPI): void {
-  const runtime = createOpensrcRuntime()
-  pi.registerTool({
-    name: 'opensrc',
-    label: 'OpenSrc',
-    description: "Give coding agents access to any package's source code.",
-    promptSnippet: 'Compose dependency source queries and fetches in one TypeScript program',
-    promptGuidelines: [OPENSRC_PROMPT],
-    parameters: OpensrcParameters,
-    executionMode: 'sequential',
-    execute(_toolCallId, params: OpensrcInput, signal, _onUpdate, context) {
-      return runtime
-        .run(params.code, pi, context, signal, (execution: OpensrcRuntimeResult) =>
-          Effect.gen(function* () {
-            const output = yield* formatOpensrcOutput(execution.value)
-            const code = yield* Effect.try({
-              try: () => formatSubmittedCode(params.code),
-              catch: (cause) =>
-                failureFromUnknown(cause, 'runtime', 'format', 'The opensrc output could not be formatted.'),
-            })
-            return {
-              content: [{ type: 'text' as const, text: output.output }],
-              details: {
-                ...output,
-                code: code.output,
-                codeTruncated: code.truncated,
-                operations: execution.operations,
-              },
-            }
-          }),
-        )
-        .catch((cause) =>
-          Promise.reject(
-            createOpensrcFailure({
-              _tag: 'runtime',
-              operation: 'execute',
-              message: `${OPENSRC_ERROR_PREFIX}: ${formatFailure(cause)}`,
-              cause,
-            }),
-          ),
-        )
-    },
-    renderCall(_args, theme, context) {
-      const state = (context.state ?? {}) as OpensrcRendererState
-      const text = (context.lastComponent as Text | undefined) ?? new Text('', 0, 0)
-      state.call = text
-      state.callText = theme.fg('toolTitle', theme.bold('opensrc'))
-      const summary = !context.expanded && state.hasResult && state.summary ? ` · ${state.summary}` : ''
-      const hint =
-        !context.expanded && state.hasResult
-          ? ` ${theme.fg('muted', `(${keyHint('app.tools.expand', 'to expand')})`)}`
-          : ''
-      text.setText(`${state.callText}${summary}${hint}`)
-      return text
-    },
-    renderResult(result, { expanded }, theme, context) {
-      const state = (context.state ?? {}) as OpensrcRendererState
-      const details = result.details as Partial<OpensrcToolDetails> | undefined
-      const output = typeof details?.output === 'string' ? details.output : resultText(result)
-      const summary = details?.operations ? formatOperationSummary(details.operations) : undefined
-      state.hasResult = true
-      state.summary = summary
-      if (context.isError) return new Text(theme.fg('error', output), 0, 0)
-      if (expanded) {
-        const code = typeof details?.code === 'string' ? details.code : ''
-        return new Text(
-          `${theme.fg('toolTitle', 'Source')}
-${theme.fg('toolOutput', code)}
-
-${theme.fg('toolTitle', 'Response')}
-${theme.fg('toolOutput', output)}`,
-          0,
-          0,
-        )
-      }
-      if (state.call && state.callText) {
-        const collapsedSummary = summary ? ` · ${summary}` : ''
-        state.call.setText(
-          `${state.callText}${collapsedSummary} ${theme.fg('muted', `(${keyHint('app.tools.expand', 'to expand')})`)}`,
-        )
-      }
-      return new Container()
-    },
-  })
-  pi.on('session_shutdown', async () => {
-    await runtime.dispose()
-  })
-}
-
-function formatOpensrcOutput(value: unknown): Effect.Effect<{ output: string; truncated: boolean }, OpensrcFailure> {
-  return serializeValue(value).pipe(
-    Effect.mapError((cause) =>
-      createOpensrcFailure({
-        _tag: 'runtime',
-        operation: 'format',
-        message: 'The opensrc output could not be formatted.',
-        cause,
-      }),
-    ),
-    Effect.map((rawOutput) => {
-      const truncation = truncateHead(rawOutput)
-      if (!truncation.truncated) return { output: rawOutput, truncated: false }
-      return {
-        output: `${truncation.content}\n\n[Output truncated: ${truncation.outputLines} of ${truncation.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}).]`,
-        truncated: true,
-      }
-    }),
-  )
-}
-
-function formatSubmittedCode(code: string): { output: string; truncated: boolean } {
-  const truncation = truncateHead(code, { maxBytes: DEFAULT_MAX_BYTES, maxLines: DEFAULT_MAX_LINES })
-  if (!truncation.truncated) return { output: code, truncated: false }
-  return {
-    output: `${truncation.content}\n\n[Code truncated: ${truncation.outputLines} of ${truncation.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}).]`,
-    truncated: true,
-  }
-}
-
-function formatOperationSummary(operations: Readonly<Record<string, number>> | undefined): string {
-  const entries = Object.entries(operations ?? {})
-  if (entries.length === 0) return 'no operations'
-  return entries.map(([operation, count]) => `${operation}: ${count}`).join(', ')
-}
-
-function resultText(result: { content: readonly { type: string; text?: string }[] }): string {
-  const text = result.content.find((item) => item.type === 'text')
-  return text?.text ?? ''
-}
-
-function formatFailure(error: unknown): string {
-  const failure = decodeOpensrcFailure(error)
-  if (failure !== undefined) return `${failure.operation}: ${failure.message}`
-  if (error instanceof Error) return error.message
-  return 'The TypeScript program failed.'
-}
+const opensrcExtension = PiExtension.install(opensrcPlugin)
 
 export { opensrcExtension as default }

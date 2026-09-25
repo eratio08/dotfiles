@@ -11,7 +11,7 @@ function parseSourceIndex(input: string): Effect.Effect<SourceIndex, OpensrcFail
   return Effect.gen(function* () {
     const value = yield* Effect.try({
       try: () => JSON.parse(text) as unknown,
-      catch: (cause) => sourceIndexFailure(`Invalid opensrc source index JSON: ${errorMessage(cause)}`, cause),
+      catch: (cause: unknown) => sourceIndexFailure(`Invalid opensrc source index JSON: ${errorMessage(cause)}`, cause),
     })
     if (Array.isArray(value) && value.length === 0) return { packages: [], repos: [] }
     return yield* decodeSourceIndex(value)

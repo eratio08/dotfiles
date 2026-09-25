@@ -25,9 +25,11 @@ class FileSystem extends Context.Service<FileSystem, FileSystemService>()('opens
 
 function createFileSystem(): FileSystemService {
   return {
-    list: (sourceRoot, pattern, signal) => listFiles(sourceRoot, pattern, signal),
-    read: (sourceRoot, filePath, signal) => readSourceFile(sourceRoot, filePath, signal),
-    realPath: (sourceRoot, filePath, signal) => resolveRealPath(sourceRoot, filePath, signal),
+    list: (sourceRoot: string, pattern: string | undefined, signal?: AbortSignal) =>
+      listFiles(sourceRoot, pattern, signal),
+    read: (sourceRoot: string, filePath: string, signal?: AbortSignal) => readSourceFile(sourceRoot, filePath, signal),
+    realPath: (sourceRoot: string, filePath?: string, signal?: AbortSignal) =>
+      resolveRealPath(sourceRoot, filePath, signal),
   }
 }
 
@@ -132,7 +134,7 @@ function tryFileSystem<A>(
 ): Effect.Effect<A, OpensrcFailure> {
   return Effect.tryPromise({
     try: run,
-    catch: (cause) => mapFileSystemFailure(operation, path, cause),
+    catch: (cause: unknown) => mapFileSystemFailure(operation, path, cause),
   })
 }
 

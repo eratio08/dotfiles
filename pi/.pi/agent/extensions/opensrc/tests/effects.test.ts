@@ -2,17 +2,16 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
+import { PiProcess } from '@eratio/pi-effect'
 import { Effect, Exit, Layer, ManagedRuntime } from 'effect'
-import type { Source, SourceIndex } from '../src/core/model.ts'
+import type { PiExecutionRequest, Source, SourceIndex } from '../src/core/model.ts'
 import { createOpensrcFailure } from '../src/core/model.ts'
 import { createFileSystem } from '../src/effects/file-system.ts'
 import { createAstParser } from '../src/effects/opensrc-api.ts'
 import type { OpenSrcCliService, OpensrcConfig } from '../src/effects/opensrc-cli.ts'
 import { OpenSrcCli, OpenSrcCliLive, OpensrcConfiguration, resolveOpensrcConfig } from '../src/effects/opensrc-cli.ts'
 import type { PiHostService } from '../src/effects/pi-host.ts'
-import { OpensrcPi, PiHost, PiHostLive } from '../src/effects/pi-host.ts'
-import { createOpensrcRuntime } from '../src/effects/runtime.ts'
+import { PiHost, PiHostLive } from '../src/effects/pi-host.ts'
 import { SourceStore, SourceStoreLive } from '../src/effects/source-store.ts'
 
 const source: Source = {
@@ -46,8 +45,16 @@ async function makeCli(
   return { cli, dispose: () => runtime.dispose() }
 }
 
-async function makePiHost(pi: ExtensionAPI): Promise<{ host: PiHostService; dispose: () => Promise<void> }> {
-  const runtime = ManagedRuntime.make(PiHostLive.pipe(Layer.provide(Layer.succeed(OpensrcPi, pi))))
+async function makePiHost(): Promise<{ host: PiHostService; dispose: () => Promise<void> }> {
+  const runtime = ManagedRuntime.make(
+    PiHostLive.pipe(
+      Layer.provide(
+        Layer.succeed(PiProcess, {
+          exec: () => Effect.succeed({ stdout: '', stderr: '', code: 0, killed: false }),
+        }),
+      ),
+    ),
+  )
   const host = await runtime.runPromise(
     Effect.gen(function* () {
       return yield* PiHost
@@ -57,11 +64,11 @@ async function makePiHost(pi: ExtensionAPI): Promise<{ host: PiHostService; disp
 }
 
 describe('opensrc effects', () => {
-  test('forwards CLI arguments through the Effect service', async () => {
+  test('should forward CLI arguments given an Effect service call', async () => {
     //given
     const requests: Array<{ args: readonly string[]; cwd?: string }> = []
     const host: PiHostService = {
-      exec: (request) => {
+      exec: (request: PiExecutionRequest) => {
         requests.push({ args: request.args, cwd: request.cwd })
         return Effect.succeed({
           stdout: request.args[0] === '--version' ? 'opensrc 0.7.3' : '{"packages":[],"repos":[]}',
@@ -83,11 +90,11 @@ describe('opensrc effects', () => {
     await dispose()
   })
 
-  test('shares one concurrent CLI preflight', async () => {
+  test('should share one CLI preflight given concurrent calls', async () => {
     //given
     let versionCalls = 0
     const host: PiHostService = {
-      exec: (request) =>
+      exec: (request: PiExecutionRequest) =>
         Effect.promise(async () => {
           if (request.args[0] === '--version') {
             versionCalls += 1
@@ -107,7 +114,7 @@ describe('opensrc effects', () => {
     await dispose()
   })
 
-  test('terminates the AST parser worker when interrupted', async () => {
+  test('should terminate the AST parser worker given interrupted parsing', async () => {
     //given
     const controller = new AbortController()
     const parser = createAstParser()
@@ -125,10 +132,10 @@ describe('opensrc effects', () => {
     expect(Exit.hasInterrupts(exit)).toBe(true)
   })
 
-  test('passes environment values to a child without changing the parent environment', async () => {
+  test('should pass environment values to a child without changing the parent environment given a child process launch', async () => {
     //given
     const previousHome = process.env.OPENSRC_HOME
-    const { host, dispose } = await makePiHost({} as ExtensionAPI)
+    const { host, dispose } = await makePiHost()
 
     //when
     const result = await Effect.runPromise(
@@ -145,9 +152,9 @@ describe('opensrc effects', () => {
     await dispose()
   })
 
-  test('keeps concurrent child environments isolated', async () => {
+  test('should keep child environments isolated given concurrent child processes', async () => {
     //given
-    const { host, dispose } = await makePiHost({} as ExtensionAPI)
+    const { host, dispose } = await makePiHost()
     const command = process.execPath
     const args = ['-e', 'setTimeout(() => process.stdout.write(process.env.OPENSRC_HOME ?? ""), 20)']
 
@@ -162,10 +169,10 @@ describe('opensrc effects', () => {
     await dispose()
   })
 
-  test('interrupts a child process while it waits', async () => {
+  test('should interrupt a child process given caller cancellation while it waits', async () => {
     //given
     const controller = new AbortController()
-    const { host, dispose } = await makePiHost({} as ExtensionAPI)
+    const { host, dispose } = await makePiHost()
     const evaluation = Effect.runPromiseExit(
       host.exec({
         command: process.execPath,
@@ -189,10 +196,10 @@ describe('opensrc effects', () => {
     await dispose()
   })
 
-  test('keeps the parent environment after a child failure', async () => {
+  test('should keep the parent environment unchanged given a child failure', async () => {
     //given
     const previousHome = process.env.OPENSRC_HOME
-    const { host, dispose } = await makePiHost({} as ExtensionAPI)
+    const { host, dispose } = await makePiHost()
 
     //when
     const result = await Effect.runPromise(
@@ -209,11 +216,11 @@ describe('opensrc effects', () => {
     await dispose()
   })
 
-  test('forwards the working directory for fetch commands', async () => {
+  test('should forward the working directory given a fetch command', async () => {
     //given
     const requests: Array<{ args: readonly string[]; cwd?: string }> = []
     const host: PiHostService = {
-      exec: (request) => {
+      exec: (request: PiExecutionRequest) => {
         requests.push({ args: request.args, cwd: request.cwd })
         return Effect.succeed({ stdout: 'opensrc 0.7.3', stderr: '', code: 0, killed: false })
       },
@@ -228,7 +235,7 @@ describe('opensrc effects', () => {
     await dispose()
   })
 
-  test('maps a failed CLI command to a typed failure', async () => {
+  test('should map a failed CLI command to a typed failure given a nonzero exit', async () => {
     //given
     const host: PiHostService = {
       exec: () => Effect.succeed({ stdout: 'opensrc 0.7.3', stderr: 'permission denied', code: 2, killed: false }),
@@ -247,7 +254,7 @@ describe('opensrc effects', () => {
     await dispose()
   })
 
-  test('resolves OPENSRC_HOME and the executable without using another cache variable', () => {
+  test('should resolve OPENSRC_HOME and the executable given no other cache variable', () => {
     //given
     const environment = { OPENSRC_HOME: '~/isolated', OPENSRC_BIN: '/tmp/opensrc' }
 
@@ -259,7 +266,7 @@ describe('opensrc effects', () => {
     expect(result.environment).toEqual({ OPENSRC_HOME: '/home/tester/isolated' })
   })
 
-  test('refreshes the source snapshot after success and preserves it after failure', async () => {
+  test('should refresh the source snapshot after success and preserve it after failure given fetch results', async () => {
     //given
     let listCalls = 0
     const changed: Source = { ...source, version: '4.0.0' }
@@ -298,20 +305,7 @@ describe('opensrc effects', () => {
     expect(result.preserved[0].version).toBe('4.0.0')
   })
 
-  test('disposes the managed runtime', async () => {
-    //given
-    const runtime = createOpensrcRuntime()
-    const pi = {} as ExtensionAPI
-    const context = { cwd: '/tmp/project' } as ExtensionContext
-
-    //when
-    await runtime.dispose()
-
-    //then
-    await expect(runtime.run('export default () => 1', pi, context, undefined)).rejects.toThrow('disposed')
-  })
-
-  test('rejects filesystem traversal before reading outside the source root', async () => {
+  test('should reject filesystem traversal before reading outside the source root given an escaping path', async () => {
     //given
     const root = await mkdtemp(join(tmpdir(), 'opensrc-fs-test-'))
     const outside = join(root, '..', 'opensrc-outside.txt')

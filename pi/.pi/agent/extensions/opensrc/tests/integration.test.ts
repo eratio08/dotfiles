@@ -8,10 +8,10 @@ import { resolveOpensrcConfig } from '../src/effects/opensrc-cli.ts'
 import { parseSourceSpec } from '../src/effects/source-spec.ts'
 
 const execFileAsync = promisify(execFile)
-const opensrcBin = resolveOpensrcConfig().bin
+const opensrcBin: string = resolveOpensrcConfig().bin
 
 describe('opensrc CLI isolation', () => {
-  test('reports the verified CLI version from the local installation', async () => {
+  test('should report the verified CLI version given a local installation', async () => {
     //given
     const home = await mkdtemp(join(tmpdir(), 'opensrc-cli-version-'))
 
@@ -25,7 +25,7 @@ describe('opensrc CLI isolation', () => {
     await rm(home, { recursive: true, force: true })
   })
 
-  test('resolves repository specs without network access', () => {
+  test('should resolve repository specs given no network access', () => {
     //given
     const input = 'https://github.com/owner/repo/tree/main/src'
 
@@ -41,7 +41,7 @@ describe('opensrc CLI isolation', () => {
     })
   })
 
-  test('uses an empty isolated OPENSRC_HOME without touching OPENSRC_DIR', async () => {
+  test('should use an isolated empty OPENSRC_HOME given an existing OPENSRC_DIR', async () => {
     //given
     const home = await mkdtemp(join(tmpdir(), 'opensrc-cli-list-'))
     const ignored = await mkdtemp(join(tmpdir(), 'opensrc-cli-ignored-'))

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import type { ExecOptions, ExtensionAPI } from '@earendil-works/pi-coding-agent'
+import { PiProcess } from '@eratio/pi-effect'
 import { Context, Effect, Layer } from 'effect'
 import type { OpensrcFailure, PiExecutionRequest, PiExecutionResult } from '../core/model.ts'
 import { createOpensrcFailure } from '../core/model.ts'
@@ -8,39 +8,25 @@ interface PiHostService {
   readonly exec: (request: PiExecutionRequest) => Effect.Effect<PiExecutionResult, OpensrcFailure>
 }
 
-class OpensrcPi extends Context.Service<OpensrcPi, ExtensionAPI>()('opensrc/Pi') {}
-
 class PiHost extends Context.Service<PiHost, PiHostService>()('opensrc/PiHost') {}
 
-function executeRequest(
-  pi: ExtensionAPI,
-  request: PiExecutionRequest,
-): Effect.Effect<PiExecutionResult, OpensrcFailure> {
-  return Effect.tryPromise({
-    try: (signal) => executePiRequest(pi, request, signal),
-    catch: (cause) => mapPiFailure(request.command, cause),
-  })
-}
-
-const PiHostLive: Layer.Layer<PiHost, never, OpensrcPi> = Layer.effect(
+const PiHostLive: Layer.Layer<PiHost, never, PiProcess> = Layer.effect(
   PiHost,
   Effect.gen(function* () {
-    const pi = yield* OpensrcPi
-    return PiHost.of({ exec: (request) => executeRequest(pi, request) })
+    const piProcess = yield* PiProcess
+    return PiHost.of({
+      exec: (request: PiExecutionRequest) =>
+        Object.keys(request.environment).length === 0
+          ? piProcess
+              .exec(request.command, [...request.args], { cwd: request.cwd })
+              .pipe(Effect.mapError((cause) => mapPiFailure(request.command, cause)))
+          : Effect.tryPromise({
+              try: (signal: AbortSignal) => executeCommandWithEnvironment(request, signal),
+              catch: (cause: unknown) => mapPiFailure(request.command, cause),
+            }),
+    })
   }),
 )
-
-function executePiRequest(
-  pi: ExtensionAPI,
-  request: PiExecutionRequest,
-  signal: AbortSignal,
-): Promise<PiExecutionResult> {
-  if (Object.keys(request.environment).length === 0) {
-    const options: ExecOptions = { cwd: request.cwd, signal }
-    return pi.exec(request.command, [...request.args], options)
-  }
-  return executeCommandWithEnvironment(request, signal)
-}
 
 function executeCommandWithEnvironment(request: PiExecutionRequest, signal: AbortSignal): Promise<PiExecutionResult> {
   return new Promise((resolve) => {
@@ -109,4 +95,4 @@ function mapPiFailure(command: string, cause: unknown): OpensrcFailure {
   })
 }
 
-export { OpensrcPi, PiHost, PiHostLive, type PiHostService }
+export { PiHost, PiHostLive, type PiHostService }

@@ -106,25 +106,6 @@ interface AstGrepOptions {
   readonly limit?: number
 }
 
-interface OpensrcApi {
-  readonly help: () => string
-  readonly list: () => readonly Source[]
-  readonly has: (name: string, version?: string) => boolean
-  readonly get: (name: string) => Source | undefined
-  readonly files: (sourceName: string, glob?: string) => Promise<readonly FileEntry[]>
-  readonly tree: (sourceName: string, options?: TreeOptions) => Promise<TreeNode>
-  readonly grep: (pattern: string, options?: GrepOptions) => Promise<readonly GrepResult[]>
-  readonly astGrep: (sourceName: string, pattern: string, options?: AstGrepOptions) => Promise<readonly AstGrepMatch[]>
-  readonly read: (sourceName: string, filePath: string) => Promise<string>
-  readonly readMany: (sourceName: string, paths: readonly string[]) => Promise<Readonly<Record<string, string>>>
-  readonly resolve: (spec: string) => ParsedSpec
-  readonly fetch: (specs: string | readonly string[]) => Promise<readonly FetchedSource[]>
-  readonly remove: (names: readonly string[]) => Promise<RemoveResult>
-  readonly clean: (options?: CleanOptions) => Promise<RemoveResult>
-}
-
-type OpensrcProgram = (api: OpensrcApi) => unknown | Promise<unknown>
-
 type OpensrcFailureTag =
   | 'validation'
   | 'source-not-found'
@@ -161,28 +142,10 @@ function createOpensrcFailure(fields: OpensrcFailureFields): OpensrcFailure {
   return new OpensrcFailure(fields)
 }
 
-interface OutputLimits {
-  readonly maxBytes: number
-  readonly maxLines: number
-}
-
-interface SerializedOutput {
-  readonly output: string
-  readonly truncated: boolean
-}
-
 interface SourceDiff {
   readonly added: readonly Source[]
   readonly removed: readonly Source[]
   readonly unchanged: readonly Source[]
-}
-
-interface OpensrcToolDetails {
-  readonly output: string
-  readonly truncated: boolean
-  readonly code: string
-  readonly codeTruncated: boolean
-  readonly operations: Readonly<Record<string, number>>
 }
 
 interface PiExecutionResult {
@@ -228,19 +191,14 @@ export {
   type FileEntry,
   type GrepOptions,
   type GrepResult,
-  type OpensrcApi,
   OpensrcFailure,
   type OpensrcFailureTag,
-  type OpensrcProgram,
-  type OpensrcToolDetails,
-  type OutputLimits,
   type PackageSourceType,
   type ParsedSpec,
   type PiExecutionRequest,
   type PiExecutionResult,
   type RawAstMatch,
   type RemoveResult,
-  type SerializedOutput,
   type Source,
   type SourceDiff,
   type SourceFile,

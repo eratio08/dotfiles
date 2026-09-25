@@ -221,7 +221,7 @@ function createGrepContextEffect(
         .filter((item) => options.sources === undefined || options.sources.includes(item.source))
         .sort((left, right) => left.source.localeCompare(right.source)),
     }),
-    catch: (cause) =>
+    catch: (cause: unknown) =>
       createOpensrcFailure({
         _tag: 'validation',
         operation: 'grep',
@@ -285,7 +285,7 @@ function queryCheckpoint(state: QueryState, signal: AbortSignal): Effect.Effect<
     if (count % 128 !== 0) return
     yield* Effect.tryPromise({
       try: () => new Promise<void>((resolve) => setImmediate(resolve)),
-      catch: (cause) => failureFromUnknown(cause, 'runtime', 'query', 'The source query failed.'),
+      catch: (cause: unknown) => failureFromUnknown(cause, 'runtime', 'query', 'The source query failed.'),
     })
     yield* ensureQueryActiveEffect(signal)
   })

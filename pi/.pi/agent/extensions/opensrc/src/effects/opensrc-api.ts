@@ -1,18 +1,23 @@
 import { extname } from 'node:path'
 import { Worker } from 'node:worker_threads'
-import { Cause, Context, Effect, Exit, Layer, Option, Schema, type Scope } from 'effect'
-import { OPENSRC_API_HELP } from '../core/code-mode.ts'
+import { Context, Effect, Layer, Schema, type Scope } from 'effect'
 import { planClean } from '../core/command-plan.ts'
 import type {
+  AstGrepMatch,
+  AstGrepOptions,
+  CleanOptions,
   FetchedSource,
   FileEntry,
-  OpensrcApi,
+  GrepOptions,
+  GrepResult,
   OpensrcFailure,
   ParsedSpec,
   RawAstMatch,
   RemoveResult,
   Source,
   SourceFile,
+  TreeNode,
+  TreeOptions,
 } from '../core/model.ts'
 import { createOpensrcFailure } from '../core/model.ts'
 import { diffSources } from '../core/source-index.ts'
@@ -39,9 +44,27 @@ interface AstParserService {
 
 class AstParser extends Context.Service<AstParser, AstParserService>()('opensrc/AstParser') {}
 
-type OperationRecorder = (operation: string) => void
-
 type ApiEffect<A> = Effect.Effect<A, OpensrcFailure>
+
+interface OpensrcApiService {
+  readonly list: () => ApiEffect<readonly Source[]>
+  readonly has: (name: string, version?: string) => ApiEffect<boolean>
+  readonly get: (name: string) => ApiEffect<Source | undefined>
+  readonly files: (sourceName: string, glob?: string) => ApiEffect<readonly FileEntry[]>
+  readonly tree: (sourceName: string, options?: TreeOptions) => ApiEffect<TreeNode>
+  readonly grep: (pattern: string, options?: GrepOptions) => ApiEffect<readonly GrepResult[]>
+  readonly astGrep: (
+    sourceName: string,
+    pattern: string,
+    options?: AstGrepOptions,
+  ) => ApiEffect<readonly AstGrepMatch[]>
+  readonly read: (sourceName: string, filePath: string) => ApiEffect<string>
+  readonly readMany: (sourceName: string, paths: readonly string[]) => ApiEffect<Readonly<Record<string, string>>>
+  readonly resolve: (spec: string) => ApiEffect<ParsedSpec>
+  readonly fetch: (specs: string | readonly string[]) => ApiEffect<readonly FetchedSource[]>
+  readonly remove: (names: readonly string[]) => ApiEffect<RemoveResult>
+  readonly clean: (options?: CleanOptions) => ApiEffect<RemoveResult>
+}
 
 const NonNegativeIntegerSchema = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
 const TreeDepthSchema = NonNegativeIntegerSchema.pipe(
@@ -75,116 +98,23 @@ const CleanOptionsSchema = Schema.Struct({
   crates: Schema.optional(Schema.Boolean),
 }).pipe(Schema.annotate({ message: 'Clean options must be an object.' }))
 
-interface PromiseEffectRequest {
-  readonly effect: Effect.Effect<unknown, OpensrcFailure>
-  readonly resolve: (value: unknown) => void
-  readonly reject: (error: OpensrcFailure) => void
-}
-
-interface PromiseEffectRunner {
-  readonly run: <A>(effect: Effect.Effect<A, OpensrcFailure>) => Promise<A>
-  readonly take: Effect.Effect<PromiseEffectRequest | undefined>
-  readonly setActive: (request: PromiseEffectRequest | undefined) => void
-  readonly close: (error: OpensrcFailure) => void
-}
-
-function createPromiseEffectRunner(signal: AbortSignal): PromiseEffectRunner {
-  const requests: PromiseEffectRequest[] = []
-  let active: PromiseEffectRequest | undefined
-  let wake: (() => void) | undefined
-  let closed = false
-
-  const run = <A>(effect: Effect.Effect<A, OpensrcFailure>): Promise<A> =>
-    new Promise((resolve, reject) => {
-      if (closed) {
-        reject(cancellationFailure())
-        return
-      }
-      requests.push({
-        effect,
-        resolve: (value) => resolve(value as A),
-        reject,
-      })
-      wake?.()
-    })
-
-  const take = Effect.callback<PromiseEffectRequest | undefined>((resume) => {
-    if (closed || requests.length > 0) {
-      resume(Effect.succeed(closed ? undefined : requests.shift()))
-      return
-    }
-    wake = () => {
-      wake = undefined
-      resume(Effect.succeed(requests.shift()))
-    }
-    return Effect.sync(() => {
-      wake = undefined
-    })
-  })
-
-  const close = (error: OpensrcFailure): void => {
-    if (closed) return
-    closed = true
-    wake?.()
-    wake = undefined
-    active?.reject(error)
-    while (requests.length > 0) requests.shift()?.reject(error)
-    signal.removeEventListener('abort', abortHandler)
-  }
-
-  const abortHandler = (): void => close(cancellationFailure())
-  if (signal.aborted) close(cancellationFailure())
-  else signal.addEventListener('abort', abortHandler, { once: true })
-
-  const setActive = (request: PromiseEffectRequest | undefined): void => {
-    active = request
-  }
-
-  return { run, take, setActive, close }
-}
-
-function processPromiseEffectRequests(runner: PromiseEffectRunner): Effect.Effect<void, never> {
-  return Effect.gen(function* () {
-    while (true) {
-      const request = yield* runner.take
-      if (request === undefined) return
-      runner.setActive(request)
-      const result = yield* Effect.exit(request.effect)
-      runner.setActive(undefined)
-      if (Exit.isSuccess(result)) request.resolve(result.value)
-      else request.reject(effectFailureFromCause(result.cause))
-    }
-  })
-}
-
-function effectFailureFromCause(cause: Cause.Cause<OpensrcFailure>): OpensrcFailure {
-  const failure = Cause.findErrorOption(cause)
-  if (Option.isSome(failure)) return failure.value
-  if (Cause.hasInterruptsOnly(cause)) return cancellationFailure()
-  return failureFromUnknown(Cause.squash(cause), 'runtime', 'api', 'The opensrc API failed.')
-}
-
 function createOpensrcApi(
-  recordOperation: OperationRecorder = () => undefined,
+  signal?: AbortSignal,
 ): Effect.Effect<
-  OpensrcApi,
+  OpensrcApiService,
   OpensrcFailure,
   OpensrcContext | OpensrcConfiguration | FileSystem | OpenSrcCli | SourceStore | AstParser | Scope.Scope
 > {
   return Effect.gen(function* () {
     const context = yield* OpensrcContext
-    const callSignal = yield* Effect.abortSignal
+    const callSignal = signal ?? (yield* Effect.abortSignal)
     const config = yield* OpensrcConfiguration
     const fileSystem = yield* FileSystem
     const cli = yield* OpenSrcCli
     const sourceStore = yield* SourceStore
     const astParser = yield* AstParser
     yield* sourceStore.load()
-    const runner = createPromiseEffectRunner(callSignal)
-    yield* Effect.addFinalizer(() => Effect.sync(() => runner.close(cancellationFailure())))
-    yield* Effect.forkChild(processPromiseEffectRequests(runner))
 
-    const run = <A>(effect: ApiEffect<A>): Promise<A> => runner.run(effect)
     const sourceRoot = (source: Source): ApiEffect<string> =>
       Effect.gen(function* () {
         const cacheRoot = yield* fileSystem.realPath(config.home, undefined, callSignal)
@@ -212,249 +142,187 @@ function createOpensrcApi(
         const root = yield* sourceRoot(source)
         return yield* fileSystem.read(root, validPath, callSignal)
       })
-    const api: OpensrcApi = {
-      help: () => OPENSRC_API_HELP,
-      list: () => {
-        recordOperation('list')
-        return sourceStore.current()
-      },
-      has: (name, version) => {
-        recordOperation('has')
-        const validName = decodeInputSync(
-          'validation',
-          Schema.NonEmptyString,
-          name,
-          'source name must be a non-empty string.',
-        )
-        const validVersion =
-          version === undefined
-            ? undefined
-            : decodeInputSync(
-                'validation',
-                Schema.NonEmptyString,
-                version,
-                'source version must be a non-empty string.',
-              )
-        return sourceStore
-          .current()
-          .some(
-            (source) => source.name === validName && (validVersion === undefined || source.version === validVersion),
-          )
-      },
-      get: (name) => {
-        recordOperation('get')
-        const validName = decodeInputSync(
-          'validation',
-          Schema.NonEmptyString,
-          name,
-          'source name must be a non-empty string.',
-        )
-        return sourceStore.current().find((source) => source.name === validName)
-      },
-      files: (sourceName, globValue) => {
-        recordOperation('files')
-        return run(
-          Effect.gen(function* () {
-            const source = yield* getSource(sourceName)
-            return yield* readFiles(source, globValue)
-          }),
-        )
-      },
-      tree: (sourceName, options = {}) => {
-        recordOperation('tree')
-        return run(
-          Effect.gen(function* () {
-            const treeOptions = yield* decodeTreeOptionsEffect(options)
-            const source = yield* getSource(sourceName)
-            const entries = yield* readFiles(source, undefined)
-            return yield* buildTreeInterruptible(source.name, entries, treeOptions, callSignal)
-          }),
-        )
-      },
-      grep: (patternValue, options = {}) => {
-        recordOperation('grep')
-        return run(
-          Effect.gen(function* () {
-            const patternText = yield* assertStringEffect('grep pattern', patternValue)
-            const grepOptions = yield* decodeGrepOptionsEffect(options)
-            const selected =
-              grepOptions.sources === undefined
-                ? sourceStore.current()
-                : yield* Effect.forEach(grepOptions.sources, (name) => getSource(name))
-            const sourceFiles: Array<{ readonly source: string; readonly files: readonly SourceFile[] }> = []
-            for (const source of selected) {
-              const root = yield* sourceRoot(source)
-              const entries = yield* readFiles(source, grepOptions.include, root)
-              const files: SourceFile[] = []
-              for (const entry of entries) {
-                if (entry.type !== 'file') continue
-                const content = yield* fileSystem.read(root, entry.path, callSignal)
-                files.push({ path: entry.path, content })
-              }
-              sourceFiles.push({ source: source.name, files })
-            }
-            return yield* grepFilesInterruptible(sourceFiles, patternText, grepOptions, callSignal)
-          }),
-        )
-      },
-      astGrep: (sourceName, patternValue, options = {}) => {
-        recordOperation('astGrep')
-        return run(
-          Effect.gen(function* () {
-            const patternText = yield* assertStringEffect('AST pattern', patternValue)
-            const astGrepOptions = yield* decodeAstGrepOptionsEffect(options)
-            const source = yield* getSource(sourceName)
+    const api: OpensrcApiService = {
+      list: () => Effect.succeed(sourceStore.current()),
+      has: (name: string, version?: string) =>
+        Effect.gen(function* () {
+          const validName = yield* assertStringEffect('source name', name)
+          const validVersion = version === undefined ? undefined : yield* assertStringEffect('source version', version)
+          return sourceStore
+            .current()
+            .some(
+              (source) => source.name === validName && (validVersion === undefined || source.version === validVersion),
+            )
+        }),
+      get: (name: string) =>
+        Effect.gen(function* () {
+          const validName = yield* assertStringEffect('source name', name)
+          return sourceStore.current().find((source) => source.name === validName)
+        }),
+      files: (sourceName: string, globValue?: string) =>
+        Effect.gen(function* () {
+          const source = yield* getSource(sourceName)
+          return yield* readFiles(source, globValue)
+        }),
+      tree: (sourceName: string, options = {}) =>
+        Effect.gen(function* () {
+          const treeOptions = yield* decodeTreeOptionsEffect(options)
+          const source = yield* getSource(sourceName)
+          const entries = yield* readFiles(source, undefined)
+          return yield* buildTreeInterruptible(source.name, entries, treeOptions, callSignal)
+        }),
+      grep: (patternValue: string, options = {}) =>
+        Effect.gen(function* () {
+          const patternText = yield* assertStringEffect('grep pattern', patternValue)
+          const grepOptions = yield* decodeGrepOptionsEffect(options)
+          const selected =
+            grepOptions.sources === undefined
+              ? sourceStore.current()
+              : yield* Effect.forEach(grepOptions.sources, (name) => getSource(name))
+          const sourceFiles: Array<{ readonly source: string; readonly files: readonly SourceFile[] }> = []
+          for (const source of selected) {
             const root = yield* sourceRoot(source)
-            const entries = yield* readFiles(source, astGrepOptions.glob, root)
-            const languages = yield* normalizeLanguagesEffect(astGrepOptions.lang)
-            const limit = astGrepOptions.limit ?? 100
-            const matches: RawAstMatch[] = []
+            const entries = yield* readFiles(source, grepOptions.include, root)
+            const files: SourceFile[] = []
             for (const entry of entries) {
               if (entry.type !== 'file') continue
-              const fileLanguages = languages.length > 0 ? languages : inferredLanguage(entry.path)
-              for (const lang of fileLanguages) {
-                const content = yield* fileSystem.read(root, entry.path, callSignal)
-                const remaining = limit - matches.length
-                if (remaining <= 0) {
-                  return yield* normalizeAstMatchesInterruptible(source.name, matches, callSignal)
-                }
-                const result = yield* astParser.find(source.name, entry.path, content, patternText, lang, remaining)
-                matches.push(...result.slice(0, remaining))
-                if (matches.length >= limit) {
-                  return yield* normalizeAstMatchesInterruptible(source.name, matches.slice(0, limit), callSignal)
-                }
+              const content = yield* fileSystem.read(root, entry.path, callSignal)
+              files.push({ path: entry.path, content })
+            }
+            sourceFiles.push({ source: source.name, files })
+          }
+          return yield* grepFilesInterruptible(sourceFiles, patternText, grepOptions, callSignal)
+        }),
+      astGrep: (sourceName: string, patternValue: string, options: AstGrepOptions = {}) =>
+        Effect.gen(function* () {
+          const patternText = yield* assertStringEffect('AST pattern', patternValue)
+          const astGrepOptions = yield* decodeAstGrepOptionsEffect(options)
+          const source = yield* getSource(sourceName)
+          const root = yield* sourceRoot(source)
+          const entries = yield* readFiles(source, astGrepOptions.glob, root)
+          const languages = yield* normalizeLanguagesEffect(astGrepOptions.lang)
+          const limit = astGrepOptions.limit ?? 100
+          const matches: RawAstMatch[] = []
+          for (const entry of entries) {
+            if (entry.type !== 'file') continue
+            const fileLanguages = languages.length > 0 ? languages : inferredLanguage(entry.path)
+            for (const lang of fileLanguages) {
+              const content = yield* fileSystem.read(root, entry.path, callSignal)
+              const remaining = limit - matches.length
+              if (remaining <= 0) {
+                return yield* normalizeAstMatchesInterruptible(source.name, matches, callSignal)
+              }
+              const result = yield* astParser.find(source.name, entry.path, content, patternText, lang, remaining)
+              matches.push(...result.slice(0, remaining))
+              if (matches.length >= limit) {
+                return yield* normalizeAstMatchesInterruptible(source.name, matches.slice(0, limit), callSignal)
               }
             }
-            return yield* normalizeAstMatchesInterruptible(source.name, matches, callSignal)
-          }),
-        )
-      },
-      read: (sourceName, filePath) => {
-        recordOperation('read')
-        return run(
-          Effect.gen(function* () {
-            const source = yield* getSource(sourceName)
-            return yield* readOne(source, filePath)
-          }),
-        )
-      },
-      readMany: (sourceName, paths) => {
-        recordOperation('readMany')
-        return run(
-          Effect.gen(function* () {
-            const validPaths = yield* assertStringArrayEffect('read paths', paths)
-            const source = yield* getSource(sourceName)
-            const result: Record<string, string> = {}
-            for (const requestedPath of validPaths) {
-              if (hasGlobMagic(requestedPath)) {
-                const entries = yield* readFilesOrError(source, requestedPath, result)
-                if (entries === undefined) continue
-                const files = entries.filter((entry) => entry.type === 'file')
-                if (files.length === 0) {
-                  result[requestedPath] = `[Error: no files matched ${requestedPath}]`
-                  continue
-                }
-                for (const entry of files) {
-                  const value = yield* readOneOrError(source, entry.path)
-                  if (value !== undefined) result[entry.path] = value
-                }
+          }
+          return yield* normalizeAstMatchesInterruptible(source.name, matches, callSignal)
+        }),
+      read: (sourceName: string, filePath: string) =>
+        Effect.gen(function* () {
+          const source = yield* getSource(sourceName)
+          return yield* readOne(source, filePath)
+        }),
+      readMany: (sourceName: string, paths: readonly string[]) =>
+        Effect.gen(function* () {
+          const validPaths = yield* assertStringArrayEffect('read paths', paths)
+          const source = yield* getSource(sourceName)
+          const result: Record<string, string> = {}
+          for (const requestedPath of validPaths) {
+            if (hasGlobMagic(requestedPath)) {
+              const entries = yield* readFilesOrError(source, requestedPath, result)
+              if (entries === undefined) continue
+              const files = entries.filter((entry) => entry.type === 'file')
+              if (files.length === 0) {
+                result[requestedPath] = `[Error: no files matched ${requestedPath}]`
                 continue
               }
-              const value = yield* readOneOrError(source, requestedPath)
-              if (value !== undefined) result[requestedPath] = value
+              for (const entry of files) {
+                const value = yield* readOneOrError(source, entry.path)
+                if (value !== undefined) result[entry.path] = value
+              }
+              continue
             }
-            return result
-          }),
-        )
-      },
-      resolve: (spec) => {
-        recordOperation('resolve')
-        const validSpec = decodeInputSync(
-          'validation',
-          Schema.NonEmptyString,
-          spec,
-          'source spec must be a non-empty string.',
-        )
-        try {
-          return parseSourceSpec(validSpec)
-        } catch (cause) {
-          const failure = decodeOpensrcFailure(cause)
-          throw validationFailure(
-            'resolve',
-            failure?.message ?? (cause instanceof Error ? cause.message : 'The source spec could not be parsed.'),
-            failure ?? cause,
+            const value = yield* readOneOrError(source, requestedPath)
+            if (value !== undefined) result[requestedPath] = value
+          }
+          return result
+        }),
+      resolve: (spec: string) =>
+        Effect.gen(function* () {
+          const validSpec = yield* assertStringEffect('source spec', spec)
+          return yield* Effect.try({
+            try: () => parseSourceSpec(validSpec),
+            catch: (cause: unknown) => {
+              const failure = decodeOpensrcFailure(cause)
+              return validationFailure(
+                'resolve',
+                failure?.message ?? (cause instanceof Error ? cause.message : 'The source spec could not be parsed.'),
+                failure ?? cause,
+              )
+            },
+          })
+        }),
+      fetch: (specValues: string | readonly string[]) =>
+        Effect.gen(function* () {
+          const specs = yield* normalizeSpecsEffect(specValues)
+          const parsed: ParsedSpec[] = []
+          for (const spec of specs) {
+            parsed.push(
+              yield* parseSourceSpecEffect(spec).pipe(
+                Effect.mapError((cause) => validationFailure('fetch', cause.message, cause)),
+              ),
+            )
+          }
+          const mutation = yield* sourceStore.mutate((before) =>
+            Effect.gen(function* () {
+              const existing = parsed.map((spec) => before.some((source) => sourceMatchesSpec(source, spec)))
+              yield* cli.fetch(specs, context.cwd)
+              return existing
+            }),
           )
-        }
-      },
-      fetch: (specValues) => {
-        recordOperation('fetch')
-        return run(
-          Effect.gen(function* () {
-            const specs = yield* normalizeSpecsEffect(specValues)
-            const parsed: ParsedSpec[] = []
-            for (const spec of specs) {
-              parsed.push(
-                yield* parseSourceSpecEffect(spec).pipe(
-                  Effect.mapError((cause) => validationFailure('fetch', cause.message, cause)),
-                ),
-              )
-            }
-            const mutation = yield* sourceStore.mutate((before) =>
-              Effect.gen(function* () {
-                const existing = parsed.map((spec) => before.some((source) => sourceMatchesSpec(source, spec)))
-                yield* cli.fetch(specs, context.cwd)
-                return existing
-              }),
+          const fetched: FetchedSource[] = []
+          for (const [index, spec] of parsed.entries()) {
+            const source = mutation.after.find((candidate) => sourceMatchesSpec(candidate, spec))
+            if (source === undefined) return yield* Effect.fail(sourceNotFound(spec.name))
+            fetched.push({ source, alreadyExists: mutation.value[index] })
+          }
+          return fetched
+        }),
+      remove: (names: readonly string[]) =>
+        Effect.gen(function* () {
+          const validNames = yield* assertStringArrayEffect('source names', names)
+          if (validNames.length === 0)
+            return yield* Effect.fail(validationFailure('remove', 'At least one source name is required.'))
+          if (validNames.some((name) => name.startsWith('-') || name.includes('\u0000'))) {
+            return yield* Effect.fail(
+              validationFailure('remove', 'Source names cannot start with a flag or contain a null byte.'),
             )
-            const fetched: FetchedSource[] = []
-            for (const [index, spec] of parsed.entries()) {
-              const source = mutation.after.find((candidate) => sourceMatchesSpec(candidate, spec))
-              if (source === undefined) return yield* Effect.fail(sourceNotFound(spec.name))
-              fetched.push({ source, alreadyExists: mutation.value[index] })
-            }
-            return fetched
-          }),
-        )
-      },
-      remove: (names) => {
-        recordOperation('remove')
-        return run(
-          Effect.gen(function* () {
-            const validNames = yield* assertStringArrayEffect('source names', names)
-            if (validNames.length === 0)
-              return yield* Effect.fail(validationFailure('remove', 'At least one source name is required.'))
-            if (validNames.some((name) => name.startsWith('-') || name.includes('\u0000'))) {
-              return yield* Effect.fail(
-                validationFailure('remove', 'Source names cannot start with a flag or contain a null byte.'),
-              )
-            }
-            const mutation = yield* sourceStore.mutate((before) =>
-              Effect.gen(function* () {
-                yield* cli.remove(validNames)
-                return before
-              }),
-            )
-            const removed = diffSources(mutation.value, mutation.after).removed.map((source) => source.name)
-            return { success: true, removed: [...new Set(removed)] } satisfies RemoveResult
-          }),
-        )
-      },
-      clean: (options = {}) => {
-        recordOperation('clean')
-        return run(
-          Effect.gen(function* () {
-            const cleanOptions = yield* decodeCleanOptionsEffect(options)
-            const mutation = yield* sourceStore.mutate((before) =>
-              Effect.gen(function* () {
-                yield* cli.clean(planClean(cleanOptions))
-                return before
-              }),
-            )
-            const removed = diffSources(mutation.value, mutation.after).removed.map((source) => source.name)
-            return { success: true, removed: [...new Set(removed)] } satisfies RemoveResult
-          }),
-        )
-      },
+          }
+          const mutation = yield* sourceStore.mutate((before) =>
+            Effect.gen(function* () {
+              yield* cli.remove(validNames)
+              return before
+            }),
+          )
+          const removed = diffSources(mutation.value, mutation.after).removed.map((source) => source.name)
+          return { success: true, removed: [...new Set(removed)] } satisfies RemoveResult
+        }),
+      clean: (options = {}) =>
+        Effect.gen(function* () {
+          const cleanOptions = yield* decodeCleanOptionsEffect(options)
+          const mutation = yield* sourceStore.mutate((before) =>
+            Effect.gen(function* () {
+              yield* cli.clean(planClean(cleanOptions))
+              return before
+            }),
+          )
+          const removed = diffSources(mutation.value, mutation.after).removed.map((source) => source.name)
+          return { success: true, removed: [...new Set(removed)] } satisfies RemoveResult
+        }),
     }
 
     function readFilesOrError(
@@ -463,13 +331,13 @@ function createOpensrcApi(
       result: Record<string, string>,
     ): ApiEffect<readonly FileEntry[] | undefined> {
       return Effect.match(readFiles(source, pattern), {
-        onFailure: (cause) => {
+        onFailure: (cause: OpensrcFailure) => {
           const stopped = operationStopped(cause)
           if (stopped !== undefined) return { _tag: 'failure' as const, error: stopped }
           result[pattern] = formatIndividualError(cause)
           return { _tag: 'formatted' as const }
         },
-        onSuccess: (entries) => ({ _tag: 'success' as const, entries }),
+        onSuccess: (entries: readonly FileEntry[]) => ({ _tag: 'success' as const, entries }),
       }).pipe(
         Effect.flatMap((outcome) => {
           if (outcome._tag === 'failure') return Effect.fail(outcome.error)
@@ -481,12 +349,12 @@ function createOpensrcApi(
 
     function readOneOrError(source: Source, path: string): ApiEffect<string | undefined> {
       return Effect.match(readOne(source, path), {
-        onFailure: (cause) => {
+        onFailure: (cause: OpensrcFailure) => {
           const stopped = operationStopped(cause)
           if (stopped !== undefined) return { _tag: 'failure' as const, error: stopped }
           return { _tag: 'formatted' as const, value: formatIndividualError(cause) }
         },
-        onSuccess: (value) => ({ _tag: 'success' as const, value }),
+        onSuccess: (value: string) => ({ _tag: 'success' as const, value }),
       }).pipe(
         Effect.flatMap((outcome) => {
           if (outcome._tag === 'failure') return Effect.fail(outcome.error)
@@ -505,14 +373,14 @@ function AstParserLive(): Layer.Layer<AstParser, never, never> {
 
 function createAstParser(): AstParserService {
   return {
-    find: (source, file, content, patternText, language, limit) =>
+    find: (source: string, file: string, content: string, patternText: string, language: string, limit: number) =>
       Effect.tryPromise({
-        try: (signal) =>
+        try: (signal: AbortSignal) =>
           evaluateAstParserInWorker(
             { type: 'parse', source, file, content, pattern: patternText, language, limit },
             signal,
           ),
-        catch: (cause) => {
+        catch: (cause: unknown) => {
           return failureFromUnknown(cause, 'parser', 'astGrep', 'The source file could not be parsed.')
         },
       }),
@@ -626,19 +494,8 @@ function decodeInputEffect<S extends Schema.ConstraintDecoder<unknown>>(
 ): ApiEffect<S['Type']> {
   return Effect.try({
     try: () => Schema.decodeUnknownSync(schema)(value),
-    catch: (cause) => validationFailure(operation, message, cause),
+    catch: (cause: unknown) => validationFailure(operation, message, cause),
   })
-}
-
-function decodeInputSync<S extends Schema.ConstraintDecoder<unknown>>(
-  operation: string,
-  schema: S,
-  value: unknown,
-  message: string,
-): S['Type'] {
-  const result = Schema.decodeUnknownResult(schema)(value)
-  if (result._tag === 'Failure') throw validationFailure(operation, message, result.failure)
-  return result.success
 }
 
 type TreeOptionsValue = Schema.Schema.Type<typeof TreeOptionsSchema>
@@ -719,4 +576,4 @@ function filesystemFailure(operation: string, cause: unknown): OpensrcFailure {
   })
 }
 
-export { AstParser, AstParserLive, type AstParserService, createAstParser, createOpensrcApi }
+export { AstParser, AstParserLive, type AstParserService, createAstParser, createOpensrcApi, type OpensrcApiService }

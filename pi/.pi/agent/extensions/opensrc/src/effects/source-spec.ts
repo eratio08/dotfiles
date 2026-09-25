@@ -45,7 +45,8 @@ function parseSourceSpec(input: string): ParsedSpec {
 function parseSourceSpecEffect(input: string): Effect.Effect<ParsedSpec, OpensrcFailure> {
   return Effect.try({
     try: () => parseSourceSpec(input),
-    catch: (cause) => failureFromUnknown(cause, 'validation', 'source-spec', 'The source spec could not be parsed.'),
+    catch: (cause: unknown) =>
+      failureFromUnknown(cause, 'validation', 'source-spec', 'The source spec could not be parsed.'),
   })
 }
 

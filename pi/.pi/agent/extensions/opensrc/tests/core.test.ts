@@ -2,11 +2,9 @@ import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
 import { planClean, planFetch } from '../src/core/command-plan.ts'
 import type { FileEntry, RawAstMatch, Source } from '../src/core/model.ts'
-import { truncateOutput } from '../src/core/output.ts'
 import { diffSources } from '../src/core/source-index.ts'
 import { isContainedPath, normalizeAstMatches } from '../src/core/source-query.ts'
 import { sourceMatchesSpec } from '../src/core/source-spec.ts'
-import { serializeOutput, serializeValue } from '../src/effects/output.ts'
 import { normalizeSources, parseSourceIndex } from '../src/effects/source-index.ts'
 import {
   buildTree,
@@ -31,7 +29,7 @@ function file(path: string, type: FileEntry['type'] = 'file'): FileEntry {
 }
 
 describe('opensrc core', () => {
-  test('parses the empty cache response', () => {
+  test('should parse the empty cache response given empty cache output', () => {
     //given
     const input = 'No sources cached yet.\n'
 
@@ -42,7 +40,7 @@ describe('opensrc core', () => {
     expect(result).toEqual({ packages: [], repos: [] })
   })
 
-  test('normalizes package and repository records and calculates source diffs', () => {
+  test('should normalize package and repository records and calculate source diffs given source records', () => {
     //given
     const index = {
       updatedAt: '2026-01-01T00:00:00Z',
@@ -64,20 +62,20 @@ describe('opensrc core', () => {
     expect(result.unchanged).toHaveLength(1)
   })
 
-  test('rejects a source path that escapes the cache root', () => {
+  test('should reject a source path that escapes the cache root given an outside path', () => {
     //given
     const input = JSON.stringify({
       packages: [{ name: 'zod', version: '3.0.0', path: '../zod', fetchedAt: '2026-01-01' }],
     })
 
     //when
-    const result = () => Effect.runSync(normalizeSources(Effect.runSync(parseSourceIndex(input))))
+    const result = (): readonly Source[] => Effect.runSync(normalizeSources(Effect.runSync(parseSourceIndex(input))))
 
     //then
     expect(result).toThrow('unsafe path')
   })
 
-  test('parses supported package and repository forms', () => {
+  test('should parse package and repository forms given supported source specs', () => {
     //given
     const inputs = [
       'zod',
@@ -102,7 +100,7 @@ describe('opensrc core', () => {
     ])
   })
 
-  test('matches a source by name and requested version', () => {
+  test('should match a source by name and version given a requested version', () => {
     //given
     const source = { ...packageSource }
     const spec = parseSourceSpec('npm:zod@3.0.0')
@@ -114,7 +112,7 @@ describe('opensrc core', () => {
     expect(result).toBe(true)
   })
 
-  test('plans deterministic clean commands for registry filters', () => {
+  test('should plan deterministic clean commands given registry filters', () => {
     //given
     const options = { packages: true, repos: true, npm: true, pypi: true, crates: true }
 
@@ -129,7 +127,7 @@ describe('opensrc core', () => {
     ])
   })
 
-  test('plans fetch arguments with the working directory and quiet flag', () => {
+  test('should plan fetch arguments with the working directory and quiet flag given fetch options', () => {
     //given
     const specs = ['zod']
 
@@ -140,7 +138,7 @@ describe('opensrc core', () => {
     expect(result.args).toEqual(['fetch', 'zod', '--cwd', '/tmp/project', '--quiet'])
   })
 
-  test('builds a sorted tree with a depth limit and pattern', () => {
+  test('should build a sorted tree with a depth limit and pattern given tree options', () => {
     //given
     const entries = [file('src/z.ts'), file('src/a.ts'), file('README.md'), file('src', 'directory')]
 
@@ -164,7 +162,7 @@ describe('opensrc core', () => {
     })
   })
 
-  test('limits case-insensitive grep results and reports line metadata', () => {
+  test('should limit case-insensitive grep results and report line metadata given a query and result limit', () => {
     //given
     const sources = [{ source: 'zod', files: [{ path: 'src/a.ts', content: '  Parse  \nnone\nparse again' }] }]
 
@@ -175,7 +173,7 @@ describe('opensrc core', () => {
     expect(result).toEqual([{ source: 'zod', file: 'src/a.ts', line: 1, column: 3, text: 'Parse' }])
   })
 
-  test('stops CPU-heavy queries after cancellation', async () => {
+  test('should stop CPU-heavy queries given a cancellation signal', async () => {
     //given
     const controller = new AbortController()
     const entries = Array.from({ length: 1024 }, (_, index) => file(`src/${index}.ts`))
@@ -216,7 +214,7 @@ describe('opensrc core', () => {
     ])
   })
 
-  test('normalizes AST positions and metavariables', () => {
+  test('should normalize AST positions and metavariables given AST match results', () => {
     //given
     const matches: RawAstMatch[] = [
       {
@@ -245,19 +243,7 @@ describe('opensrc core', () => {
     })
   })
 
-  test('keeps the truncation marker when only one output line is allowed', () => {
-    //given
-    const input = 'first\nsecond'
-
-    //when
-    const result = truncateOutput(input, { maxBytes: 64, maxLines: 1 })
-
-    //then
-    expect(result.output).toContain('output truncated')
-    expect(result.truncated).toBe(true)
-  })
-
-  test('enforces source-root containment', () => {
+  test('should enforce source-root containment given a source path', () => {
     //given
     const root = '/tmp/cache/source'
 
@@ -268,18 +254,5 @@ describe('opensrc core', () => {
     expect(result).toBe('/tmp/cache/source/src/index.ts')
     expect(isContainedPath(root, result)).toBe(true)
     expect(() => Effect.runSync(resolveContainedPath(root, '../../secret'))).toThrow()
-  })
-
-  test('serializes values and truncates deterministic output', () => {
-    //given
-    const value = { answer: 42 }
-
-    //when
-    const result = Effect.runSync(serializeOutput(value, { maxBytes: 64, maxLines: 2 }))
-
-    //then
-    expect(Effect.runSync(serializeValue(undefined))).toBe('undefined')
-    expect(result.truncated).toBe(true)
-    expect(result.output).toContain('output truncated')
   })
 })

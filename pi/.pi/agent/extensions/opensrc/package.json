@@ -24,9 +24,11 @@
   },
   "dependencies": {
     "@ast-grep/napi": "latest",
+    "@eratio/pi-codemode-core": "file:../lib/pi-codemode-core",
+    "@eratio/pi-effect-codemode": "file:../lib/pi-effect-codemode",
+    "@eratio/pi-effect": "file:../lib/pi-effect",
     "effect": "4.0.0-rc.112",
     "glob": "latest",
-    "jiti": "2.7.0",
     "opensrc": "0.7.3"
   }
 }

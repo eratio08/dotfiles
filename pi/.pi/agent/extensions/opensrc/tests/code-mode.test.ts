@@ -1,326 +1,213 @@
 import { describe, expect, test } from 'bun:test'
-import { type ExtensionAPI, type ExtensionContext, initTheme } from '@earendil-works/pi-coding-agent'
-import { Effect, Exit } from 'effect'
+import { createFakeExtensionApi } from '@eratio/pi-effect/testing'
 import opensrcExtension from '../index.ts'
-import { OPENSRC_API_HELP } from '../src/core/code-mode.ts'
-import type { OpensrcApi } from '../src/core/model.ts'
-import { createCodeEvaluator } from '../src/effects/code-evaluator.ts'
+import { createOpensrcFailure, OpensrcFailure } from '../src/core/model.ts'
+import { opensrcErrorCodec } from '../src/effects/code-mode.ts'
 
-initTheme()
-
-interface RegisteredTestTool {
-  readonly execute: (...args: readonly unknown[]) => Promise<unknown>
-  readonly executionMode?: string
-  readonly name?: string
-  readonly renderCall: (...args: readonly unknown[]) => unknown
-  readonly renderResult: (...args: readonly unknown[]) => unknown
-}
-
-const api: OpensrcApi = {
-  help: () => OPENSRC_API_HELP,
-  list: () => [{ type: 'npm', name: 'zod', version: '3.0.0', path: 'zod', fetchedAt: '2026-01-01' }],
-  has: (name) => name === 'zod',
-  get: (name) => (name === 'zod' ? api.list()[0] : undefined),
-  files: async () => [],
-  tree: async () => ({ name: 'zod', type: 'directory', children: [] }),
-  grep: async () => [],
-  astGrep: async () => [],
-  read: async () => '',
-  readMany: async () => ({}),
-  resolve: (spec) => ({ type: 'npm', name: spec }),
-  fetch: async () => [],
-  remove: async () => ({ success: true, removed: [] }),
-  clean: async () => ({ success: true, removed: [] }),
+async function createOpenSrcHarness(): Promise<{
+  extension: ReturnType<typeof createFakeExtensionApi>
+  requests: string[][]
+  invoke: (code: string, signal?: AbortSignal) => Promise<unknown>
+}> {
+  const extension = createFakeExtensionApi()
+  const requests: string[][] = []
+  extension.api.exec = async (
+    _command: string,
+    args: string[],
+  ): Promise<{ stdout: string; stderr: string; code: number; killed: false }> => {
+    requests.push([...args])
+    return {
+      stdout: args[0] === '--version' ? 'opensrc 0.7.3' : '{"packages":[],"repos":[]}',
+      stderr: '',
+      code: 0,
+      killed: false,
+    }
+  }
+  await opensrcExtension(extension.api as never)
+  return {
+    extension,
+    requests,
+    invoke: (code: string, signal?: AbortSignal): Promise<unknown> => {
+      const previousHome = process.env.OPENSRC_HOME
+      delete process.env.OPENSRC_HOME
+      return extension.invokeTool('opensrc', 'opensrc-test-call', { code }, undefined, signal).finally(() => {
+        if (previousHome === undefined) delete process.env.OPENSRC_HOME
+        else process.env.OPENSRC_HOME = previousHome
+      })
+    },
+  }
 }
 
 describe('opensrc code mode', () => {
-  test('evaluates a TypeScript default program', async () => {
+  test('should register a sequential SDK tool with OpenSrc guidance given code-mode setup', async () => {
     //given
-    const evaluator = createCodeEvaluator()
-    const code = 'export default async (opensrc: OpensrcApi) => opensrc.list().map((source) => source.name)'
+    const { extension } = await createOpenSrcHarness()
 
     //when
-    const result = await Effect.runPromise(evaluator.evaluate(code, api))
+    const tool = extension.tools.get('opensrc')
 
     //then
-    expect(result).toEqual(['zod'])
+    expect(tool?.name).toBe('opensrc')
+    expect(tool?.description).toContain('Use `source.name` after `fetch`.')
+    expect(tool?.executionMode).toBe('sequential')
+    expect(tool?.promptSnippet).toContain('opensrc API')
+    expect(tool?.promptGuidelines).toContain('Call api.help() to list available operations.')
+    expect(tool?.parameters).toBeDefined()
   })
 
-  test('exposes the API reference on demand', async () => {
+  test('should return method results with operation counts given method calls', async () => {
     //given
-    const evaluator = createCodeEvaluator()
-    const code = 'export default (opensrc: OpensrcApi) => opensrc.help()'
+    const { invoke, requests } = await createOpenSrcHarness()
+    const code = `export default async (api: opensrcApi) => ({
+  present: await api.has({ name: 'zod' }),
+  missing: await api.has({ name: 'other' }),
+})`
 
     //when
-    const result = await Effect.runPromise(evaluator.evaluate(code, api))
+    const result = await invoke(code)
 
     //then
-    expect(result).toBe(OPENSRC_API_HELP)
+    const toolResult = result as {
+      content: readonly { type: string; text: string }[]
+      details: { truncated: boolean; operations: Readonly<Record<string, number>> }
+    }
+    expect(JSON.parse(toolResult.content[0].text)).toEqual({ present: false, missing: false })
+    expect(toolResult.details).toMatchObject({ truncated: false, operations: { has: 2 } })
+    expect(requests).toEqual([['--version'], ['list', '--json']])
   })
 
-  test('rejects a module without a callable default export', async () => {
+  test('should provide generated help for OpenSrc methods and domain types given the API schema', async () => {
     //given
-    const evaluator = createCodeEvaluator()
-    const code = 'export const value = 1'
+    const { invoke } = await createOpenSrcHarness()
 
     //when
-    const exit = await Effect.runPromise(Effect.exit(evaluator.evaluate(code, api)))
+    const result = await invoke(
+      'export default (api: opensrcApi) => ({ overview: api.help(), read: api.help("read") })',
+    )
 
     //then
-    expect(Exit.isFailure(exit)).toBe(true)
-    if (Exit.isFailure(exit)) expect(String(exit.cause)).toContain('default function')
+    const content = (result as { content: readonly { text: string }[] }).content
+    const help = JSON.parse(content[0].text) as { overview: string; read: string }
+    expect(help.overview).toContain('Batch dependent calls in one program.')
+    expect(help.overview).toContain('`fetch` then `read` directly')
+    expect(help.overview).toContain('`resolve` or `files` only to discover an unknown spec or path')
+    expect(help.overview).toContain('`api.help("operation")` when you need a signature and parameter schema')
+    for (const method of [
+      'list',
+      'has',
+      'get',
+      'files',
+      'tree',
+      'grep',
+      'astGrep',
+      'read',
+      'readMany',
+      'resolve',
+      'fetch',
+      'remove',
+      'clean',
+    ]) {
+      expect(help.overview).toContain(`- \`${method}\`:`)
+    }
+    expect(help.read).toContain('read(params: { sourceName: string; filePath: string }): Promise<string>')
+    expect(help.read).toContain('Read one file from a cached source.')
+    expect(help.read).toContain('type Source =')
+    expect(help.read).toContain('type OpensrcHostError =')
   })
 
-  test('blocks process require and globalThis in the VM', async () => {
+  test('should reject invalid method parameters before execution given invalid input', async () => {
     //given
-    const evaluator = createCodeEvaluator()
-    const code = 'export default () => [typeof process, typeof require, typeof globalThis]'
+    const { invoke } = await createOpenSrcHarness()
 
     //when
-    const result = await Effect.runPromise(evaluator.evaluate(code, api))
+    const invocation = invoke("export default async (api: opensrcApi) => api.read({ sourceName: 'zod', filePath: '' })")
 
     //then
-    expect(result).toEqual(['undefined', 'undefined', 'undefined'])
+    await expect(invocation).rejects.toThrow()
   })
 
-  test('stops a program that exceeds the timeout', async () => {
+  test('should preserve nested failure causes given worker error encoding', () => {
     //given
-    const evaluator = createCodeEvaluator(5)
-    const code = 'export default () => new Promise(() => {})'
+    const cause: { path: string; failure: Error; circular?: unknown } = {
+      path: '/tmp/cache/source/file.ts',
+      failure: new Error('permission denied'),
+    }
+    cause.circular = cause
+    const failure = createOpensrcFailure({
+      _tag: 'filesystem',
+      operation: 'read',
+      message: 'Unable to read source files',
+      cause,
+    })
+    const encoded = opensrcErrorCodec.encode(failure)
 
     //when
-    const exit = await Effect.runPromise(Effect.exit(evaluator.evaluate(code, api)))
+    const decoded = opensrcErrorCodec.decode(encoded)
 
     //then
-    expect(Exit.isFailure(exit)).toBe(true)
-    if (Exit.isFailure(exit)) expect(String(exit.cause)).toContain('timed out')
+    const encodedRecord = encoded as {
+      readonly kind: string
+      readonly cause: {
+        readonly path: string
+        readonly failure: { readonly name: string; readonly message: string; readonly stack: string }
+        readonly circular: string
+      }
+    }
+    expect(decoded).toBeInstanceOf(OpensrcFailure)
+    expect(encodedRecord.kind).toBe('opensrc')
+    expect(encodedRecord.cause.path).toBe('/tmp/cache/source/file.ts')
+    expect(encodedRecord.cause.failure.name).toBe('Error')
+    expect(encodedRecord.cause.failure.message).toBe('permission denied')
+    expect(typeof encodedRecord.cause.failure.stack).toBe('string')
+    expect(encodedRecord.cause.circular).toBe('[Circular]')
+    expect(decoded.cause).toEqual(encodedRecord.cause)
   })
 
-  test('terminates a program that loops after an awaited API call', async () => {
+  test('should preserve typed OpenSrc failures given worker calls that fail', async () => {
     //given
-    const evaluator = createCodeEvaluator(20)
-    const code =
-      "export default async (opensrc: OpensrcApi) => { await opensrc.read('zod', 'index.ts'); while (true) {} }"
+    const { invoke } = await createOpenSrcHarness()
+    const code = `export default async (api: opensrcApi) => {
+  try {
+    await api.read({ sourceName: 'missing', filePath: 'README.md' })
+  } catch (error) {
+    const failure = error as {
+      type?: string
+      value?: { _tag?: string; operation?: string; message?: string }
+    }
+    return {
+      type: failure.type,
+      tag: failure.value?._tag,
+      operation: failure.value?.operation,
+      message: failure.value?.message,
+    }
+  }
+  return { tag: 'none' }
+}`
 
     //when
-    const exit = await Effect.runPromise(Effect.exit(evaluator.evaluate(code, api)))
+    const result = await invoke(code)
 
     //then
-    expect(Exit.isFailure(exit)).toBe(true)
-    if (Exit.isFailure(exit)) expect(String(exit.cause)).toContain('timed out')
+    const content = (result as { content: readonly { text: string }[] }).content
+    expect(JSON.parse(content[0].text)).toEqual({
+      type: 'code-mode-host-error',
+      tag: 'source-not-found',
+      operation: 'source',
+      message: 'Cached source not found: missing',
+    })
   })
 
-  test('terminates a program when evaluation is cancelled', async () => {
+  test('should cancel a running OpenSrc program given an aborted signal', async () => {
     //given
+    const { invoke } = await createOpenSrcHarness()
     const controller = new AbortController()
-    const evaluator = createCodeEvaluator()
-    const delayedApi: OpensrcApi = {
-      ...api,
-      read: async () => {
-        await new Promise<void>((resolve) => setTimeout(resolve, 100))
-        return ''
-      },
-    }
-    const evaluation = Effect.runPromiseExit(
-      evaluator.evaluate(
-        "export default async (opensrc: OpensrcApi) => await opensrc.read('zod', 'index.ts')",
-        delayedApi,
-      ),
-      { signal: controller.signal },
-    )
+    const timeout = setTimeout(() => controller.abort(), 10)
 
     //when
-    await new Promise<void>((resolve) =>
-      setTimeout(() => {
-        controller.abort()
-        resolve()
-      }, 5),
-    )
-    const exit = await evaluation
+    const invocation = invoke('export default async () => { while (true) {} }', controller.signal)
 
     //then
-    expect(Exit.hasInterrupts(exit)).toBe(true)
-  })
-
-  test('stops an already aborted program before evaluation', async () => {
-    //given
-    const controller = new AbortController()
-    controller.abort()
-    const evaluator = createCodeEvaluator()
-
-    //when
-    const exit = await Effect.runPromiseExit(evaluator.evaluate('export default () => 1', api), {
-      signal: controller.signal,
-    })
-
-    //then
-    expect(Exit.hasInterrupts(exit)).toBe(true)
-  })
-
-  test('registers one sequential native tool', () => {
-    //given
-    const registrations: unknown[] = []
-    const pi = {
-      registerTool: (tool: unknown) => {
-        registrations.push(tool)
-      },
-      on: () => undefined,
-    }
-
-    //when
-    opensrcExtension(pi as unknown as ExtensionAPI)
-
-    //then
-    expect(registrations).toHaveLength(1)
-    expect(registrations[0]).toMatchObject({
-      name: 'opensrc',
-      description: "Give coding agents access to any package's source code.",
-      executionMode: 'sequential',
-      promptSnippet: expect.any(String),
-      promptGuidelines: [expect.stringContaining('api.help()')],
-      parameters: expect.any(Object),
-    })
-    const promptGuidelines =
-      (registrations[0] as { promptGuidelines?: readonly string[] }).promptGuidelines?.join('\n') ?? ''
-    expect(promptGuidelines).not.toContain('interface OpensrcApi')
-  })
-
-  test('renders the collapsed result as one summary line', () => {
-    //given
-    let registeredTool: RegisteredTestTool | undefined
-    const pi = {
-      registerTool: (tool: unknown) => {
-        registeredTool = tool as RegisteredTestTool
-      },
-      on: () => undefined,
-    }
-    opensrcExtension(pi as unknown as ExtensionAPI)
-    const theme = {
-      bold: (value: string) => value,
-      fg: (color: string, value: string) => `${color}:${value}`,
-    }
-    const state: Record<string, unknown> = {}
-    const call = registeredTool?.renderCall({ code: 'export default () => 1' }, theme, { expanded: false, state })
-
-    //when
-    const result = registeredTool?.renderResult(
-      { content: [{ type: 'text', text: 'response' }], details: { operations: { list: 2, read: 1 } } },
-      { expanded: false, isPartial: false },
-      theme,
-      { isError: false, state },
-    )
-
-    //then
-    expect(call).toBeDefined()
-    expect(result).toBeDefined()
-    const renderedCall = call as { render: (width: number) => string[] }
-    const renderedResult = result as { render: (width: number) => string[] }
-    const callText = renderedCall.render(120).join('\n').trimEnd()
-    expect(callText).toContain('list: 2, read: 1')
-    expect(callText).toContain('to expand')
-    expect(callText).not.toContain('lines')
-    expect(renderedResult.render(120)).toEqual([])
-  })
-
-  test('executes a program and returns only its final result', async () => {
-    //given
-    let registeredTool: RegisteredTestTool | undefined
-    const calls: string[][] = []
-    const pi = {
-      registerTool: (tool: unknown) => {
-        registeredTool = tool as RegisteredTestTool
-      },
-      on: () => undefined,
-      exec: async (_command: string, args: string[]) => {
-        calls.push(args)
-        return {
-          stdout: args[0] === '--version' ? 'opensrc 0.7.3' : '{"packages":[],"repos":[]}',
-          stderr: '',
-          code: 0,
-          killed: false,
-        }
-      },
-    }
-    opensrcExtension(pi as unknown as ExtensionAPI)
-    if (!registeredTool) throw new Error('opensrc tool was not registered')
-    const signal = new AbortController().signal
-    const context = { cwd: '/tmp/project' } as ExtensionContext
-
-    //when
-    const result = await registeredTool.execute(
-      'test-call',
-      { code: 'export default (opensrc: OpensrcApi) => opensrc.list()' },
-      signal,
-      undefined,
-      context,
-    )
-
-    //then
-    expect(result).toMatchObject({
-      content: [{ type: 'text', text: '[]' }],
-      details: { truncated: false, operations: { list: 1 } },
-    })
-    expect(calls).toEqual([['--version'], ['list', '--json']])
-  })
-
-  test('renders expanded results as text components', () => {
-    //given
-    let registeredTool: RegisteredTestTool | undefined
-    const pi = {
-      registerTool: (tool: unknown) => {
-        registeredTool = tool as RegisteredTestTool
-      },
-      on: () => undefined,
-    }
-    opensrcExtension(pi as unknown as ExtensionAPI)
-    const theme = {
-      bold: (value: string) => value,
-      fg: (color: string, value: string) => `${color}:${value}`,
-    }
-
-    //when
-    const result = registeredTool?.renderResult(
-      {
-        content: [{ type: 'text', text: 'response' }],
-        details: { code: 'export default () => 1', output: 'response' },
-      },
-      { expanded: true, isPartial: false },
-      theme,
-      { isError: false },
-    )
-
-    //then
-    expect(result).toBeDefined()
-    const rendered = result as { render: (width: number) => string[] }
-    const text = rendered.render(120).join('\n')
-    expect(text).toContain('export default () => 1')
-    expect(text).toContain('response')
-  })
-
-  test('renders error results as text components', () => {
-    //given
-    let registeredTool: RegisteredTestTool | undefined
-    const pi = {
-      registerTool: (tool: unknown) => {
-        registeredTool = tool as RegisteredTestTool
-      },
-      on: () => undefined,
-    }
-    opensrcExtension(pi as unknown as ExtensionAPI)
-    const theme = {
-      bold: (value: string) => value,
-      fg: (color: string, value: string) => `${color}:${value}`,
-    }
-
-    //when
-    const result = registeredTool?.renderResult(
-      { content: [{ type: 'text', text: 'failure' }], details: {} },
-      { expanded: false, isPartial: false },
-      theme,
-      { isError: true },
-    )
-
-    //then
-    expect(result).toBeDefined()
+    await expect(invocation).rejects.toThrow()
+    clearTimeout(timeout)
   })
 })

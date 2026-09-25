@@ -47,7 +47,9 @@ function SourceStoreLive(): Layer.Layer<SourceStore, never, OpenSrcCli> {
           return sources
         })
       const refresh = (): Effect.Effect<readonly Source[], OpensrcFailure> => lock.withPermits(1)(refreshState())
-      const mutate: SourceStoreService['mutate'] = (operation) =>
+      const mutate: SourceStoreService['mutate'] = <A>(
+        operation: (before: readonly Source[]) => Effect.Effect<A, OpensrcFailure>,
+      ) =>
         lock.withPermits(1)(
           Effect.gen(function* () {
             const before = yield* Ref.get(state)
