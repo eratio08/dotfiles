@@ -13,12 +13,21 @@ type FakePiOptions = {
   rewriteFailure?: boolean
 }
 
-function createPi(options: FakePiOptions = {}) {
+function createPi(options: FakePiOptions = {}): {
+  calls: string[][]
+  signals: (AbortSignal | undefined)[]
+  handlers: Map<string, Handler>
+  pi: ExtensionAPI
+} {
   const calls: string[][] = []
   const signals: (AbortSignal | undefined)[] = []
   const handlers = new Map<string, Handler>()
   const pi = {
-    exec: async (_command: string, args: string[], execOptions?: { signal?: AbortSignal }) => {
+    exec: async (
+      _command: string,
+      args: string[],
+      execOptions?: { signal?: AbortSignal },
+    ): Promise<{ code: number; killed: boolean; stderr: string; stdout: string }> => {
       calls.push(args)
       signals.push(execOptions?.signal)
       if (args[0] === '--version') {
@@ -34,7 +43,7 @@ function createPi(options: FakePiOptions = {}) {
         stdout: options.rewriteStdout ?? `rtk ${args[1]}\n`,
       }
     },
-    on: (event: string, handler: Handler) => {
+    on: (event: string, handler: Handler): void => {
       handlers.set(event, handler)
     },
   }
@@ -42,13 +51,18 @@ function createPi(options: FakePiOptions = {}) {
   return { calls, signals, handlers, pi: pi as unknown as ExtensionAPI }
 }
 
-async function startPi(options: FakePiOptions = {}) {
+async function startPi(options: FakePiOptions = {}): Promise<{
+  calls: string[][]
+  signals: (AbortSignal | undefined)[]
+  handlers: Map<string, Handler>
+  pi: ExtensionAPI
+}> {
   const testPi = createPi(options)
   await rtk(testPi.pi)
   return testPi
 }
 
-async function invoke(handlers: Map<string, Handler>, event: string, ...args: unknown[]) {
+async function invoke(handlers: Map<string, Handler>, event: string, ...args: unknown[]): Promise<void> {
   const handler = handlers.get(event)
   if (!handler) {
     throw new Error(`Missing ${event} handler`)
@@ -56,10 +70,10 @@ async function invoke(handlers: Map<string, Handler>, event: string, ...args: un
   await handler(...args)
 }
 
-async function captureWarnings(action: () => Promise<unknown>) {
+async function captureWarnings(action: () => Promise<unknown>): Promise<unknown[][]> {
   const warnings: unknown[][] = []
   const originalWarn = console.warn
-  console.warn = (...args: Parameters<typeof console.warn>) => {
+  console.warn = (...args: Parameters<typeof console.warn>): void => {
     warnings.push(args)
   }
 
@@ -72,7 +86,7 @@ async function captureWarnings(action: () => Promise<unknown>) {
   return warnings
 }
 
-test('extension validates RTK during startup', async () => {
+test('should validate RTK given extension startup', async () => {
   // given
   const { calls, handlers, pi } = createPi()
 
@@ -85,7 +99,7 @@ test('extension validates RTK during startup', async () => {
   assert.equal(handlers.has('session_shutdown'), true)
 })
 
-test('extension ignores non-bash tool calls', async () => {
+test('should ignore non-Bash tool calls given another tool type', async () => {
   // given
   const { calls, handlers } = await startPi()
 
@@ -96,7 +110,7 @@ test('extension ignores non-bash tool calls', async () => {
   assert.deepEqual(calls, [['--version']])
 })
 
-test('extension rewrites bash commands through the RTK dependency', async () => {
+test('should rewrite Bash commands given the RTK dependency', async () => {
   // given
   const { calls, signals, handlers } = await startPi({ rewriteCode: 3 })
   const event = { toolName: 'bash', input: { command: 'ls -la' } }
@@ -112,7 +126,7 @@ test('extension rewrites bash commands through the RTK dependency', async () => 
   assert.ok(signals[1])
 })
 
-test('extension ignores empty rewrite output', async () => {
+test('should ignore rewrite output given empty output', async () => {
   // given
   const { handlers } = await startPi({ rewriteStdout: '' })
   const event = { toolName: 'bash', input: { command: 'ls -la' } }
@@ -124,7 +138,7 @@ test('extension ignores empty rewrite output', async () => {
   assert.equal(event.input.command, 'ls -la')
 })
 
-test('extension ignores unchanged rewrite output', async () => {
+test('should ignore rewrite output given an unchanged command', async () => {
   // given
   const { handlers } = await startPi({ rewriteStdout: 'ls -la\n' })
   const event = { toolName: 'bash', input: { command: 'ls -la' } }
@@ -136,7 +150,7 @@ test('extension ignores unchanged rewrite output', async () => {
   assert.equal(event.input.command, 'ls -la')
 })
 
-test('extension ignores rewrite failures', async () => {
+test('should ignore rewrite failures given a failed rewrite', async () => {
   // given
   const { handlers } = await startPi({ rewriteFailure: true })
   const event = { toolName: 'bash', input: { command: 'ls -la' } }
@@ -148,7 +162,7 @@ test('extension ignores rewrite failures', async () => {
   assert.equal(event.input.command, 'ls -la')
 })
 
-test('extension disposes on session shutdown', async () => {
+test('should dispose the extension given session shutdown', async () => {
   // given
   const { calls, handlers } = await startPi()
 
@@ -159,7 +173,7 @@ test('extension disposes on session shutdown', async () => {
   assert.deepEqual(calls, [['--version']])
 })
 
-test('extension disables when RTK binary is unavailable', async () => {
+test('should disable RTK given an unavailable RTK binary', async () => {
   // given
   const { calls, handlers, pi } = createPi({ versionCode: 1 })
 

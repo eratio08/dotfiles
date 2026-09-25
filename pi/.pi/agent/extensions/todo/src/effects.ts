@@ -1,10 +1,17 @@
 import { randomUUID } from 'node:crypto'
-import { Pi, PiContext, type PiServices, PiSession, PiToolContext, PiTools, PiUi } from '@eratio08/pi-effect'
+import {
+  Pi,
+  PiContext,
+  type PiServices,
+  PiSession,
+  PiTools,
+  PiUi,
+  type ToolDefinition,
+} from '@eratio/pi-effect-codemode'
 import { Context, Effect, Layer, Ref, Result, Schema, Semaphore } from 'effect'
-import { createTodoApi } from './api.ts'
-import { evaluateTodoCode, formatTodoCodeOutput, type TodoCodeDetails } from './evaluator.ts'
+import { createTodoApi, type TodoApi } from './api.ts'
 import { cloneTodos, formatTodoContext, TODO_STATE_ENTRY, type Todo, TodoUpdateError } from './state.ts'
-import { TodoStore } from './store.ts'
+import { TodoStore, type TodoTransactionDraft, type TodoTransactionResult } from './store.ts'
 
 const decodeTodoSnapshotMarker = Schema.decodeUnknownResult(
   Schema.Struct({
@@ -46,55 +53,19 @@ type TodoCompactionEvent = {
   readonly willRetry: boolean
 }
 
-type TodoProgramParams = {
-  code: string
-}
-
-type TodoOperationSummary = {
-  readonly added: number
-  readonly updated: number
-  readonly started: number
-  readonly completed: number
-  readonly omitted: number
-  readonly restored: number
-  readonly cleared: number
-  readonly showCalls: number
-}
-
-type TodoToolDetails = TodoCodeDetails & {
-  readonly summary?: TodoOperationSummary
-  readonly code?: string
-  readonly codeTruncated?: boolean
-}
-
-type TodoOperationSummaryCollector = {
-  readonly record: (operation: keyof TodoOperationSummary, count?: number) => void
-  readonly snapshot: () => TodoOperationSummary
-}
-
-function createTodoOperationSummary(): TodoOperationSummaryCollector {
-  const summary = {
-    added: 0,
-    updated: 0,
-    started: 0,
-    completed: 0,
-    omitted: 0,
-    restored: 0,
-    cleared: 0,
-    showCalls: 0,
-  }
-  const record = (operation: keyof TodoOperationSummary, count = 1): void => {
-    summary[operation] += count
-  }
-  return { record, snapshot: () => ({ ...summary }) }
-}
-
-type TodoToolResult = {
-  content: Array<{ type: 'text'; text: string }>
-  details: TodoToolDetails
-}
-
 type TodoEffectsRequirements = PiServices | TodoStatusRequestVersion | TodoStore | TodoUi
+
+type TodoRunContext = {
+  readonly api: TodoApi
+}
+
+type TodoRunServices = TodoEffectsRequirements | TodoEffects
+
+type TodoToolRun = NonNullable<ToolDefinition<TodoRunServices, TodoUiError, TodoRunContext>['withRun']>
+type TodoRunFailure =
+  ReturnType<Parameters<TodoToolRun>[0]> extends Effect.Effect<unknown, infer Failure, infer _Services>
+    ? Failure
+    : never
 
 class TodoStatusRequestVersion extends Context.Service<
   TodoStatusRequestVersion,
@@ -139,6 +110,68 @@ class TodoUi extends Context.Service<
     readonly show: (todos: readonly Todo[]) => Effect.Effect<void, TodoUiError, PiUi>
   }
 >()('todo/TodoUi') {}
+
+function transactTodo<A, R>(
+  run: (draft: TodoTransactionDraft, signal: AbortSignal) => Effect.Effect<A, TodoUpdateError, R>,
+  signal: AbortSignal | undefined,
+  operation: string,
+): Effect.Effect<TodoTransactionResult<A>, TodoUiError, TodoEffectsRequirements | R> {
+  return Effect.gen(function* () {
+    const session = yield* PiSession
+    const store = yield* TodoStore
+    const ui = yield* TodoUi
+    if (yield* store.isSuspended) {
+      return yield* Effect.fail(new TodoUiError({ operation, message: SUSPENDED_TODO_ERROR }))
+    }
+
+    const before = yield* store.snapshot
+    const outcome = yield* Effect.match(store.transact(run, signal), {
+      onFailure: (error) => ({ error }),
+      onSuccess: (result) => ({ result }),
+    })
+    if ('error' in outcome) {
+      return yield* Effect.fail(
+        new TodoUiError({
+          operation,
+          message: outcome.error.message,
+          cause: outcome.error.cause ?? outcome.error,
+        }),
+      )
+    }
+
+    if (outcome.result.changed) {
+      const persisted = yield* Effect.match(
+        mapTodoEffect(
+          'append-entry',
+          session.appendEntry(TODO_STATE_ENTRY, { todos: cloneTodos(outcome.result.todos) }),
+        ),
+        {
+          onFailure: (error) => ({ error }),
+          onSuccess: () => ({ success: true as const }),
+        },
+      )
+      if ('error' in persisted) {
+        const rollback = yield* Effect.match(store.replace(before), {
+          onFailure: (error) => ({ error }),
+          onSuccess: () => ({ success: true as const }),
+        })
+        if ('error' in rollback) {
+          return yield* Effect.fail(
+            new TodoUiError({
+              operation: `${operation}-rollback`,
+              message: rollback.error.message,
+              cause: rollback.error,
+            }),
+          )
+        }
+        return yield* Effect.fail(persisted.error)
+      }
+      yield* ui.update(outcome.result.todos)
+    }
+
+    return outcome.result
+  })
+}
 
 const suspendTracking = Effect.fnUntraced(function* (): Effect.fn.Return<void, TodoUiError, TodoEffectsRequirements> {
   const tools = yield* PiTools
@@ -354,81 +387,64 @@ const syncFromSession = Effect.fn('syncFromSession')(function* (
   yield* scheduleSessionPhaseSync()
 })
 
-const executeTodo = Effect.fn('executeTodo')(function* (
-  params: TodoProgramParams,
-): Effect.fn.Return<TodoToolResult, TodoUiError, TodoEffectsRequirements> {
-  const context = yield* PiContext
-  const tool = yield* PiToolContext
-  const session = yield* PiSession
-  const store = yield* TodoStore
-  const ui = yield* TodoUi
-  if (yield* store.isSuspended) {
-    return yield* Effect.fail(new TodoUiError({ operation: 'execute', message: SUSPENDED_TODO_ERROR }))
-  }
-
-  const before = yield* store.snapshot
-  const collector = createTodoOperationSummary()
-  const outcome = yield* Effect.match(
-    store.transact((draft, signal) => {
-      const api = createTodoApi({
-        draft,
+const withTodoRun: TodoToolRun = (run, signal) =>
+  Effect.gen(function* () {
+    let runFailure: TodoRunFailure | undefined
+    const outcome = yield* Effect.match(
+      transactTodo(
+        (draft, transactionSignal) => {
+          const api = createTodoApi({ draft, signal: transactionSignal })
+          return run({ api }).pipe(
+            Effect.mapError((error) => {
+              runFailure = error
+              return new TodoUpdateError({ message: error.message, cause: error })
+            }),
+          )
+        },
         signal,
-        onMutation: collector.record,
-        onShow: () => collector.record('showCalls'),
-      })
-      return evaluateTodoCode(params.code, api, context.cwd, signal).pipe(
-        Effect.map(formatTodoCodeOutput),
-        Effect.mapError((error) => new TodoUpdateError({ message: error.message, cause: error })),
-      )
-    }, tool.toolSignal),
-    {
-      onFailure: (error) => ({ error }),
-      onSuccess: (result) => ({ result }),
-    },
-  )
-  if ('error' in outcome) {
-    return yield* Effect.fail(
-      new TodoUiError({
-        operation: 'execute',
-        message: outcome.error.message,
-        cause: outcome.error.cause ?? outcome.error,
-      }),
-    )
-  }
-
-  const submittedCode = formatTodoCodeOutput(params.code, 'Code')
-  if (outcome.result.changed) {
-    const persisted = yield* Effect.match(
-      mapTodoEffect('append-entry', session.appendEntry(TODO_STATE_ENTRY, { todos: cloneTodos(outcome.result.todos) })),
+        'execute',
+      ),
       {
         onFailure: (error) => ({ error }),
-        onSuccess: () => ({ success: true as const }),
+        onSuccess: (result) => ({ result }),
       },
     )
-    if ('error' in persisted) {
-      const rollback = yield* Effect.match(store.replace(before), {
-        onFailure: (error) => ({ error }),
-        onSuccess: () => ({ success: true as const }),
-      })
-      if ('error' in rollback) {
+    if ('error' in outcome) {
+      if (runFailure !== undefined) {
         return yield* Effect.fail(
-          new TodoUiError({ operation: 'execute-rollback', message: rollback.error.message, cause: rollback.error }),
+          new TodoUiError({
+            operation: 'execute',
+            message: runFailure.message,
+            cause:
+              runFailure.cause instanceof Error
+                ? runFailure.cause
+                : new Error(runFailure.message, { cause: runFailure.cause }),
+          }),
         )
       }
-      return yield* Effect.fail(persisted.error)
+      return yield* Effect.fail(outcome.error)
     }
-    yield* ui.update(outcome.result.todos)
-  }
-  return {
-    content: [{ type: 'text', text: outcome.result.value.output }],
-    details: {
-      output: outcome.result.value.output,
-      truncated: outcome.result.value.truncated,
-      summary: collector.snapshot(),
-      code: submittedCode.output,
-      codeTruncated: submittedCode.truncated,
+    return outcome.result.value
+  })
+
+const clearTodos = Effect.fn('clearTodos')(function* (
+  signal?: AbortSignal,
+): Effect.fn.Return<number, TodoUiError, TodoEffectsRequirements> {
+  const outcome = yield* transactTodo(
+    (draft, transactionSignal) => {
+      const api = createTodoApi({ draft, signal: transactionSignal })
+      return Effect.tryPromise({
+        try: () => api.clear(),
+        catch: (cause) =>
+          cause instanceof TodoUpdateError
+            ? cause
+            : new TodoUpdateError({ message: cause instanceof Error ? cause.message : String(cause), cause }),
+      })
     },
-  }
+    signal,
+    'execute',
+  )
+  return outcome.value.cleared
 })
 
 const handleAgentEnd = Effect.fnUntraced(function* (): Effect.fn.Return<void, TodoUiError, TodoEffectsRequirements> {
@@ -492,9 +508,8 @@ class TodoEffects extends Context.Service<
   {
     readonly syncFromSession: (preserveOpenTasks?: boolean) => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
     readonly requestPlannotatorPhase: () => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
-    readonly executeTodo: (
-      params: TodoProgramParams,
-    ) => Effect.Effect<TodoToolResult, TodoUiError, TodoEffectsRequirements>
+    readonly withRun: TodoToolRun
+    readonly clearTodos: (signal?: AbortSignal) => Effect.Effect<number, TodoUiError, TodoEffectsRequirements>
     readonly handleAgentEnd: () => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
     readonly handleCompaction: (event: TodoCompactionEvent) => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
     readonly showTodos: () => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
@@ -507,7 +522,8 @@ const TodoEffectsLayer: Layer.Layer<TodoEffects, never, never> = Layer.succeed(
   TodoEffects.of({
     syncFromSession,
     requestPlannotatorPhase,
-    executeTodo,
+    withRun: withTodoRun,
+    clearTodos,
     handleAgentEnd,
     handleCompaction,
     showTodos,
@@ -519,10 +535,9 @@ export {
   TodoEffects,
   TodoEffectsLayer,
   type TodoEffectsRequirements,
-  type TodoProgramParams,
+  type TodoRunContext,
+  type TodoRunServices,
   TodoStatusRequestVersion,
-  type TodoToolDetails,
-  type TodoToolResult,
   TodoUi,
   TodoUiError,
   todoHostError,

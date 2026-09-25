@@ -58,7 +58,9 @@ function SkillTogglePlannerLive(
     SkillTogglePlanner,
     Effect.gen(function* () {
       const fs = yield* FileSystem
-      return SkillTogglePlanner.of({ plan: (records, drafts) => plan(fs, codec, patcher, records, drafts) })
+      return SkillTogglePlanner.of({
+        plan: (records: SkillRecord[], drafts: SkillDraft[]) => plan(fs, codec, patcher, records, drafts),
+      })
     }),
   )
 }

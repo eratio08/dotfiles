@@ -60,7 +60,7 @@ function workflowErrorMessage(cause: unknown, fallback: string): string {
 function validateWebFetchUrl(rawUrl: string): Effect.Effect<URL, WebFetchValidationError> {
   return Effect.try({
     try: () => assertSafePublicHttpUrl(rawUrl),
-    catch: (cause) => new WebFetchValidationError({ message: workflowErrorMessage(cause, 'Blocked URL') }),
+    catch: (cause: unknown) => new WebFetchValidationError({ message: workflowErrorMessage(cause, 'Blocked URL') }),
   })
 }
 

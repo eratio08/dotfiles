@@ -19,10 +19,10 @@ function createTestExtensionApi(): TestExtensionApi {
   const api: TestExtensionApi = {
     tools: [],
     handlers: new Map(),
-    registerTool(tool) {
+    registerTool(tool: RegisteredTool): void {
       api.tools.push(tool)
     },
-    on(event, handler) {
+    on(event: string, handler: ExtensionHandler): void {
       const handlers = api.handlers.get(event) ?? []
       handlers.push(handler)
       api.handlers.set(event, handlers)
@@ -46,7 +46,7 @@ function withEnvironment(values: Record<string, string | undefined>, action: () 
   })
 }
 
-test('extension registers the same tools under the same credential gate', async () => {
+test('should register the same tools under one credential gate given extension setup', async () => {
   //given
   await withEnvironment(
     { EXA_API_KEY: undefined, PARALLEL_API_KEY: undefined, PI_WEBSEARCH_PROVIDER: undefined },
@@ -79,7 +79,7 @@ test('extension registers the same tools under the same credential gate', async 
   )
 })
 
-test('extension keeps the webfetch tool-call URL messages', async () => {
+test('should preserve webfetch tool-call URL messages given a tool call', async () => {
   //given
   await withEnvironment(
     { EXA_API_KEY: undefined, PARALLEL_API_KEY: undefined, PI_WEBSEARCH_PROVIDER: undefined },

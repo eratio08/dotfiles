@@ -77,40 +77,40 @@ function createLayerHarness(options: LayerHarnessOptions = {}): LayerHarness {
   const statuses: Status[] = []
   const pi = {
     model: {
-      set: (nextModel: Gpt5Model) =>
+      set: (nextModel: Gpt5Model): Effect.Effect<boolean, GptContextModeError> =>
         options.setModelFailure === undefined
           ? Effect.sync(() => {
               activeModel = nextModel
               modelChanges.push(nextModel)
               return true
             })
-          : Effect.fail(options.setModelFailure),
+          : Effect.fail(options.setModelFailure as GptContextModeError),
     },
   }
   const context = {
     mode: 'tui',
     hasUI: options.hasUI ?? true,
-    get model() {
+    get model(): Gpt5Model {
       return activeModel
     },
   }
   const session = {
-    entries: () => Effect.succeed(entries),
-    appendEntry: (_type: string, data: { mode: GptContextMode }) =>
+    entries: (): Effect.Effect<unknown[]> => Effect.succeed(entries),
+    appendEntry: (_type: string, data: { mode: GptContextMode }): Effect.Effect<void> =>
       Effect.sync(() => {
         savedModes.push(data)
       }),
   }
   const ui = {
-    notify: (message: string, type: NotificationType) =>
+    notify: (message: string, type: NotificationType): Effect.Effect<void> =>
       Effect.sync(() => {
         if (options.hasUI !== false) notifications.push({ message, type })
       }),
-    setStatus: (key: string, value: string | undefined) =>
+    setStatus: (key: string, value: string | undefined): Effect.Effect<void> =>
       Effect.sync(() => {
         if (options.hasUI !== false) statuses.push({ key, value })
       }),
-    theme: () => Effect.succeed(undefined),
+    theme: (): Effect.Effect<undefined> => Effect.succeed(undefined),
   }
   const runtime = ManagedRuntime.make(
     Layer.mergeAll(
@@ -127,10 +127,10 @@ function createLayerHarness(options: LayerHarnessOptions = {}): LayerHarness {
 
   return {
     run,
-    setEntries(nextEntries) {
+    setEntries(nextEntries: unknown[]): void {
       entries = nextEntries
     },
-    snapshot() {
+    snapshot(): ReturnType<LayerHarness['snapshot']> {
       return {
         activeModel,
         modelChanges: [...modelChanges],
@@ -196,28 +196,32 @@ async function createExtensionHarness(options: LayerHarnessOptions = {}): Promis
     hasUI: options.hasUI ?? true,
     cwd: process.cwd(),
     signal: undefined,
-    get model() {
+    get model(): Gpt5Model {
       return activeModel
     },
     ui: {
-      notify: (message: string, type: NotificationType) => notifications.push({ message, type }),
-      setStatus: (key: string, value: string | undefined) => statuses.push({ key, value }),
+      notify: (message: string, type: NotificationType): void => {
+        notifications.push({ message, type })
+      },
+      setStatus: (key: string, value: string | undefined): void => {
+        statuses.push({ key, value })
+      },
       theme: undefined,
     },
     sessionManager: {
-      getCwd: () => process.cwd(),
-      getSessionId: () => 'test-session',
-      getSessionFile: () => undefined,
-      getSessionDir: () => process.cwd(),
-      getLeafId: () => null,
-      getLeafEntry: () => undefined,
-      getEntries: () => entries,
-      getTree: () => [],
-      getEntry: () => undefined,
-      getBranch: () => [],
-      buildContextEntries: () => [],
-      getLabel: () => undefined,
-      getSessionName: () => undefined,
+      getCwd: (): string => process.cwd(),
+      getSessionId: (): string => 'test-session',
+      getSessionFile: (): undefined => undefined,
+      getSessionDir: (): string => process.cwd(),
+      getLeafId: (): null => null,
+      getLeafEntry: (): undefined => undefined,
+      getEntries: (): unknown[] => entries,
+      getTree: (): unknown[] => [],
+      getEntry: (): undefined => undefined,
+      getBranch: (): unknown[] => [],
+      buildContextEntries: (): unknown[] => [],
+      getLabel: (): undefined => undefined,
+      getSessionName: (): undefined => undefined,
     },
   }
   await gptContextModeExtension(api as never)
@@ -228,13 +232,13 @@ async function createExtensionHarness(options: LayerHarnessOptions = {}): Promis
     notifications,
     statuses,
     context,
-    setEntries(nextEntries) {
+    setEntries(nextEntries: unknown[]): void {
       entries = nextEntries
     },
   }
 }
 
-test('exports the high context window through the extension entry point', () => {
+test('should export the high context window given an extension entry-point import', () => {
   //given
   const expected = GPT5_HIGH_CONTEXT_WINDOW
 
@@ -245,7 +249,7 @@ test('exports the high context window through the extension entry point', () => 
   assert.equal(actual, expected)
 })
 
-test('exports command parsing and persistence helpers', () => {
+test('should export command parsing and persistence helpers given a module import', () => {
   //given
   const entries = [{ type: 'custom', customType: 'gpt-context-mode', data: { mode: 'high' } }]
 
@@ -258,7 +262,7 @@ test('exports command parsing and persistence helpers', () => {
   assert.equal(restored, 'high')
 })
 
-test('parses commands and restores the latest saved mode', () => {
+test('should parse commands and restore the latest saved mode given command input and persisted state', () => {
   //given
   const entries = [
     { type: 'custom', customType: 'gpt-context-mode', data: { mode: 'high' } },
@@ -274,7 +278,7 @@ test('parses commands and restores the latest saved mode', () => {
   assert.equal(restored, 'low')
 })
 
-test('changes only the context window and preserves model identity', () => {
+test('should change only the context window given a mode transition', () => {
   //given
   const source = model()
 
@@ -286,7 +290,7 @@ test('changes only the context window and preserves model identity', () => {
   assert.equal(changed.contextWindow, GPT5_HIGH_CONTEXT_WINDOW)
 })
 
-test('detects configured models and builds stable keys', () => {
+test('should detect configured models and build stable keys given model configuration', () => {
   //given
   const supported = model()
   const unsupported = { ...supported, id: 'gpt-5.5' }
@@ -305,7 +309,7 @@ test('detects configured models and builds stable keys', () => {
   assert.deepEqual(result, [true, true, false, 'github-copilot/gpt-5.6-sol', '🚀'])
 })
 
-test('applies high mode, persists it, and updates status through shared services', async () => {
+test('should apply and persist high mode and update status given shared services', async () => {
   //given
   const outcome = await withLayerHarness(async (harness) => {
     await harness.run((service) => service.handleCommand('high'))
@@ -321,7 +325,7 @@ test('applies high mode, persists it, and updates status through shared services
   assert.match(outcome.statuses.at(-1)?.value ?? '', /context: 🚀/)
 })
 
-test('uses the model-specific low window after a high transition', async () => {
+test('should use the model-specific low window given a transition from high mode', async () => {
   //given
   const source = model(GPT5_HIGH_CONTEXT_WINDOW, 'gpt-5.6-luna')
 
@@ -335,7 +339,7 @@ test('uses the model-specific low window after a high transition', async () => {
   assert.equal(outcome.modelChanges.at(-1)?.contextWindow, GPT_CONTEXT_LOW_WINDOWS.get(source.id))
 })
 
-test('uses the default context window for GPT-6 models', async () => {
+test('should use the default context window given a GPT-6 model', async () => {
   //given
   const source = model(1_000_000, 'gpt-6-luna')
 
@@ -349,7 +353,7 @@ test('uses the default context window for GPT-6 models', async () => {
   assert.equal(outcome.modelChanges.at(-1)?.contextWindow, 272000)
 })
 
-test('restores saved mode from the shared session service', async () => {
+test('should restore saved mode given the shared session service', async () => {
   //given
   const entries = [{ type: 'custom', customType: 'gpt-context-mode', data: { mode: 'high' } }]
 
@@ -365,7 +369,7 @@ test('restores saved mode from the shared session service', async () => {
   assert.equal(outcome.snapshot.modelChanges.at(-1)?.contextWindow, GPT5_HIGH_CONTEXT_WINDOW)
 })
 
-test('warns without changing state for an invalid command', async () => {
+test('should warn and preserve state given an invalid command', async () => {
   //given
   const outcome = await withLayerHarness(async (harness) => {
     await harness.run((service) => service.handleCommand('unknown'))
@@ -381,7 +385,7 @@ test('warns without changing state for an invalid command', async () => {
   assert.deepEqual(outcome.savedModes, [])
 })
 
-test('recovers from a model change failure', async () => {
+test('should recover state given a model change failure', async () => {
   //given
   const outcome = await withLayerHarness(
     async (harness) => {
@@ -400,7 +404,7 @@ test('recovers from a model change failure', async () => {
   assert.match(outcome.statuses.at(-1)?.value ?? '', /context: 🚀/)
 })
 
-test('does not call UI methods when UI is unavailable', async () => {
+test('should avoid UI calls given an unavailable UI', async () => {
   //given
   const outcome = await withLayerHarness(
     async (harness) => {
@@ -419,7 +423,7 @@ test('does not call UI methods when UI is unavailable', async () => {
   assert.equal(outcome.activeModel.contextWindow, GPT5_HIGH_CONTEXT_WINDOW)
 })
 
-test('reapplies saved mode after session start and model selection', async () => {
+test('should reapply saved mode given session start and model selection', async () => {
   //given
   const harness = await createExtensionHarness()
   harness.setEntries([{ type: 'custom', customType: 'gpt-context-mode', data: { mode: 'high' } }])
@@ -433,7 +437,7 @@ test('reapplies saved mode after session start and model selection', async () =>
   assert.equal(harness.modelChanges.length, 2)
 })
 
-test('warns when the selected model is not a supported GPT model', async () => {
+test('should warn given a selected model that is not a supported GPT model', async () => {
   //given
   const harness = await createExtensionHarness({ initialModel: { ...model(), id: 'gpt-5.5' } })
   const command = harness.commands.get('gpt-context-mode')
@@ -447,7 +451,7 @@ test('warns when the selected model is not a supported GPT model', async () => {
   assert.equal(harness.notifications.at(-1)?.type, 'warning')
 })
 
-test('clears status only once when session shutdown is repeated', async () => {
+test('should clear status only once given repeated session shutdown events', async () => {
   //given
   const harness = await createExtensionHarness()
   const shutdown = harness.events.get('session_shutdown')

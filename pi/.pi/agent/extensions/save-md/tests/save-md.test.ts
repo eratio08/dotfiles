@@ -39,7 +39,11 @@ function assistantMessage(
   }
 }
 
-async function createHarness(cwd: string) {
+async function createHarness(cwd: string): Promise<{
+  notifications: { message: string; type?: 'info' | 'warning' | 'error' }[]
+  runner: ExtensionRunner
+  sessionManager: SessionManager
+}> {
   const sessionManager = SessionManager.inMemory(cwd)
   const loaded = await discoverAndLoadExtensions([extensionPath], cwd, join(cwd, '.agent'))
   assert.deepEqual(loaded.errors, [])
@@ -59,13 +63,13 @@ async function createHarness(cwd: string) {
   const notifications: Array<{ message: string; type?: 'info' | 'warning' | 'error' }> = []
   runner.setUIContext({
     ...runner.getUIContext(),
-    notify: (message, type) => notifications.push({ message, type }),
+    notify: (message: string, type?: 'info' | 'warning' | 'error') => notifications.push({ message, type }),
   })
 
   return { notifications, runner, sessionManager }
 }
 
-test('saves only assistant text blocks as Markdown', async () => {
+test('should save only assistant text blocks as Markdown given a response with mixed blocks', async () => {
   const cwd = await mkdtemp(join(tmpdir(), 'pi-save-md-'))
 
   try {
@@ -89,7 +93,7 @@ test('saves only assistant text blocks as Markdown', async () => {
   }
 })
 
-test('rejects file names outside the current working directory', async () => {
+test('should reject file names given a path outside the current working directory', async () => {
   const cwd = await mkdtemp(join(tmpdir(), 'pi-save-md-'))
   const escapedPath = join(cwd, '..', 'escaped.md')
 
@@ -114,7 +118,7 @@ test('rejects file names outside the current working directory', async () => {
   }
 })
 
-test('saves the latest assistant response as Markdown', async () => {
+test('should save the latest assistant response as Markdown given a completed response', async () => {
   const cwd = await mkdtemp(join(tmpdir(), 'pi-save-md-'))
 
   try {
@@ -134,7 +138,7 @@ test('saves the latest assistant response as Markdown', async () => {
   }
 })
 
-test('preserves Markdown that already ends with a newline', async () => {
+test('should preserve Markdown that ends with a newline given a trailing newline', async () => {
   const cwd = await mkdtemp(join(tmpdir(), 'pi-save-md-'))
 
   try {
@@ -152,7 +156,7 @@ test('preserves Markdown that already ends with a newline', async () => {
   }
 })
 
-test('warns when the command has no file name', async () => {
+test('should warn given a command with no file name', async () => {
   const cwd = await mkdtemp(join(tmpdir(), 'pi-save-md-'))
 
   try {
@@ -169,7 +173,7 @@ test('warns when the command has no file name', async () => {
   }
 })
 
-test('does not overwrite an existing file', async () => {
+test('should preserve the existing file given an existing destination', async () => {
   const cwd = await mkdtemp(join(tmpdir(), 'pi-save-md-'))
 
   try {
@@ -189,7 +193,7 @@ test('does not overwrite an existing file', async () => {
   }
 })
 
-test('saves the latest assistant response on the active branch', async () => {
+test('should save the latest assistant response given the active branch', async () => {
   const cwd = await mkdtemp(join(tmpdir(), 'pi-save-md-'))
 
   try {
@@ -208,7 +212,7 @@ test('saves the latest assistant response on the active branch', async () => {
   }
 })
 
-test('warns when the latest assistant response has no Markdown text', async () => {
+test('should warn given a latest assistant response with no Markdown text', async () => {
   const cwd = await mkdtemp(join(tmpdir(), 'pi-save-md-'))
 
   try {
@@ -227,7 +231,7 @@ test('warns when the latest assistant response has no Markdown text', async () =
   }
 })
 
-test('warns when there is no assistant response to save', async () => {
+test('should warn given no assistant response to save', async () => {
   const cwd = await mkdtemp(join(tmpdir(), 'pi-save-md-'))
 
   try {

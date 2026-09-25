@@ -1,5 +1,5 @@
 import { Context, Effect, Layer } from 'effect'
-import { FileSystem } from '../ports/fs.ts'
+import { FileSystem, type FileSystemError } from '../ports/fs.ts'
 import type { ApplyResult, SkillChange } from '../types.ts'
 
 class SkillChangeWriter extends Context.Service<
@@ -23,8 +23,8 @@ function applyChange(fs: FileSystem['Service'], change: SkillChange): Effect.Eff
       return { _tag: 'applied' as const }
     }),
     {
-      onFailure: (error) => ({ _tag: 'error' as const, error }),
-      onSuccess: (attempt) => attempt,
+      onFailure: (error: FileSystemError) => ({ _tag: 'error' as const, error }),
+      onSuccess: (attempt: { _tag: 'conflict' } | { _tag: 'applied' }) => attempt,
     },
   )
 }
@@ -61,7 +61,7 @@ const SkillChangeWriterLive: Layer.Layer<SkillChangeWriter, never, FileSystem> =
   SkillChangeWriter,
   Effect.gen(function* () {
     const fs = yield* FileSystem
-    return SkillChangeWriter.of({ apply: (changes) => apply(fs, changes) })
+    return SkillChangeWriter.of({ apply: (changes: SkillChange[]) => apply(fs, changes) })
   }),
 )
 

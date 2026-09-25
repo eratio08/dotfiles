@@ -12,7 +12,7 @@ function task(id: string, content: string): Todo {
   return { id, content, status: 'pending', dependsOn: [] }
 }
 
-test('commits a successful transaction and reports whether it changed state', async () => {
+test('should commit a successful transaction and report state changes given a mutating program', async () => {
   //given
   const runtime = ManagedRuntime.make(TodoStore.layer)
 
@@ -36,7 +36,7 @@ test('commits a successful transaction and reports whether it changed state', as
   await runtime.dispose()
 })
 
-test('discards every draft mutation when the program throws', async () => {
+test('should discard every draft mutation given a program that throws', async () => {
   //given
   const runtime = ManagedRuntime.make(TodoStore.layer)
   const cause = new Error('program failed')
@@ -71,7 +71,7 @@ test('discards every draft mutation when the program throws', async () => {
   await runtime.dispose()
 })
 
-test('serializes concurrent transactions around one shared snapshot', async () => {
+test('should serialize concurrent transactions given one shared snapshot', async () => {
   //given
   const runtime = ManagedRuntime.make(TodoStore.layer)
   const first = runtime.runPromise(
@@ -115,7 +115,7 @@ test('serializes concurrent transactions around one shared snapshot', async () =
   await runtime.dispose()
 })
 
-test('does not append a change for a read-only transaction', async () => {
+test('should not append a change given a read-only transaction', async () => {
   //given
   const runtime = ManagedRuntime.make(TodoStore.layer)
 
@@ -133,7 +133,7 @@ test('does not append a change for a read-only transaction', async () => {
   await runtime.dispose()
 })
 
-test('rejects an aborted transaction before it runs', async () => {
+test('should reject a transaction before it runs given an aborted signal', async () => {
   //given
   const runtime = ManagedRuntime.make(TodoStore.layer)
   const controller = new AbortController()
@@ -152,7 +152,7 @@ test('rejects an aborted transaction before it runs', async () => {
   await runtime.dispose()
 })
 
-test('passes the Effect cancellation signal to a transaction and prevents a late commit', async () => {
+test('should pass the Effect cancellation signal and prevent a late commit given a pending transaction', async () => {
   //given
   const runtime = ManagedRuntime.make(TodoStore.layer)
   const controller = new AbortController()

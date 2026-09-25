@@ -16,7 +16,7 @@ function run<A, E>(fs: MemoryFileSystem, effect: Effect.Effect<A, E, SkillToggle
 }
 
 describe('SkillTogglePlanner', () => {
-  test('plans a normalization change for duplicated disable-model-invocation keys even if the mode is unchanged', async () => {
+  test('should plan a normalization change given duplicate disable-model-invocation keys and an unchanged mode', async () => {
     //given
     const filePath = '/skills/handoff/SKILL.md'
     const raw = [

@@ -10,7 +10,7 @@ import {
 const codec = new SimpleFrontmatterCodec()
 
 describe('frontmatter validation', () => {
-  test('reports duplicate top-level frontmatter keys', () => {
+  test('should report duplicate top-level keys given frontmatter with repeated keys', () => {
     //given
     const doc = codec.parse(
       [

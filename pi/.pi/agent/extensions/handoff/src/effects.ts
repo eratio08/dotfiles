@@ -69,7 +69,7 @@ function errorMessage(cause: unknown): string {
 function tryPi<A>(operation: string, evaluate: () => A): Effect.Effect<A, HandoffPiError> {
   return Effect.try({
     try: evaluate,
-    catch: (cause) => new HandoffPiError({ operation, message: errorMessage(cause) }),
+    catch: (cause: unknown) => new HandoffPiError({ operation, message: errorMessage(cause) }),
   })
 }
 
@@ -142,7 +142,7 @@ const generatePrompt = Effect.fnUntraced(function* (
       }
       return result
     },
-    catch: (cause) => new HandoffGenerationError({ message: errorMessage(cause) }),
+    catch: (cause: unknown) => new HandoffGenerationError({ message: errorMessage(cause) }),
   }).pipe(Effect.tapError((error) => Effect.logError(`[handoff] generation-error: ${errorMessage(error)}`)))
 })
 
@@ -179,11 +179,11 @@ const restoreModel = Effect.fnUntraced(function* (): Effect.fn.Return<
   const modelResult = yield* Effect.match(
     Effect.tryPromise({
       try: () => pi.setModel(model),
-      catch: (cause) => errorMessage(cause),
+      catch: (cause: unknown) => errorMessage(cause),
     }),
     {
-      onFailure: (message) => ({ applied: false, reason: message }),
-      onSuccess: (applied) => ({ applied, reason: applied ? undefined : 'auth-missing' }),
+      onFailure: (message: string) => ({ applied: false, reason: message }),
+      onSuccess: (applied: boolean) => ({ applied, reason: applied ? undefined : 'auth-missing' }),
     },
   )
   if (!modelResult.applied) {
@@ -200,7 +200,7 @@ const restoreModel = Effect.fnUntraced(function* (): Effect.fn.Return<
   const thinkingResult = yield* Effect.match(
     tryPi('setThinkingLevel', () => pi.setThinkingLevel(pending.state.thinkingLevel)),
     {
-      onFailure: (error) => ({ applied: false, reason: error.message }),
+      onFailure: (error: HandoffPiError) => ({ applied: false, reason: error.message }),
       onSuccess: () => ({ applied: true, reason: undefined }),
     },
   )
@@ -222,7 +222,7 @@ const run = Effect.fnUntraced(function* (): Effect.fn.Return<
   const ctx = yield* HandoffCommandContext
   yield* Effect.tryPromise({
     try: () => ctx.waitForIdle(),
-    catch: (cause) => new HandoffPiError({ operation: 'waitForIdle', message: errorMessage(cause) }),
+    catch: (cause: unknown) => new HandoffPiError({ operation: 'waitForIdle', message: errorMessage(cause) }),
   })
 
   const selectedModel = ctx.model
@@ -258,7 +258,7 @@ const run = Effect.fnUntraced(function* (): Effect.fn.Return<
 
   const result = yield* Effect.tryPromise({
     try: () => ctx.navigateTree(branchPointId, { summarize: false }),
-    catch: (cause) => new HandoffNavigationError({ message: errorMessage(cause) }),
+    catch: (cause: unknown) => new HandoffNavigationError({ message: errorMessage(cause) }),
   })
   if (result.cancelled) {
     return { status: 'cancelled' as const, stage: 'navigation' as const }

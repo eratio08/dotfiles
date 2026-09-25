@@ -29,7 +29,7 @@ function RtkFromProcess(pi: ExtensionAPI): Layer.Layer<Rtk, RtkError> {
     Rtk,
     Effect.gen(function* () {
       const version = yield* Effect.tryPromise({
-        try: (signal): Promise<ExecResult> => pi.exec('rtk', ['--version'], { signal }),
+        try: (signal: AbortSignal): Promise<ExecResult> => pi.exec('rtk', ['--version'], { signal }),
         catch: toRtkError,
       })
       if (version.code !== 0) {
@@ -39,7 +39,7 @@ function RtkFromProcess(pi: ExtensionAPI): Layer.Layer<Rtk, RtkError> {
       return Rtk.of({
         rewrite: (command: string): Effect.Effect<string | null, RtkError> =>
           Effect.tryPromise({
-            try: (signal): Promise<ExecResult> => pi.exec('rtk', ['rewrite', command], { signal }),
+            try: (signal: AbortSignal): Promise<ExecResult> => pi.exec('rtk', ['rewrite', command], { signal }),
             catch: toRtkError,
           }).pipe(Effect.map((result): string | null => normalizeRewrite(command, result.stdout))),
       })

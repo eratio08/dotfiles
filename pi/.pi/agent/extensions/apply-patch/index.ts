@@ -1,7 +1,15 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
+import type {
+  AgentToolResult,
+  AgentToolUpdateCallback,
+  ExtensionAPI,
+  ExtensionContext,
+  Theme,
+  ToolDefinition,
+  ToolRenderResultOptions,
+} from '@earendil-works/pi-coding-agent'
 import { keyHint, withFileMutationQueue } from '@earendil-works/pi-coding-agent'
 import { Text } from '@earendil-works/pi-tui'
-import { Type } from 'typebox'
+import { type Static, Type } from 'typebox'
 import { type AppliedFile, applyPatch, parsePatch } from './src/patch.ts'
 
 const parameters = Type.Object({
@@ -11,6 +19,10 @@ const parameters = Type.Object({
 interface ApplyPatchDetails {
   files: AppliedFile[]
 }
+
+type ApplyPatchRenderContext = Parameters<
+  NonNullable<ToolDefinition<typeof parameters, ApplyPatchDetails>['renderCall']>
+>[2]
 
 function applyPatchExtension(pi: ExtensionAPI): void {
   pi.registerTool({
@@ -25,7 +37,13 @@ function applyPatchExtension(pi: ExtensionAPI): void {
       'Use edit instead of apply_patch for precise changes within one existing file.',
     ],
     parameters,
-    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+    async execute(
+      _toolCallId: string,
+      params: Static<typeof parameters>,
+      signal: AbortSignal | undefined,
+      _onUpdate: AgentToolUpdateCallback<ApplyPatchDetails> | undefined,
+      ctx: ExtensionContext,
+    ): Promise<AgentToolResult<ApplyPatchDetails>> {
       if (signal?.aborted) throw new Error('Operation aborted')
       const files = await applyPatch(ctx.cwd, parsePatch(params.patchText), withFileMutationQueue)
       if (signal?.aborted) throw new Error('Operation aborted')
@@ -34,12 +52,17 @@ function applyPatchExtension(pi: ExtensionAPI): void {
         details: { files } satisfies ApplyPatchDetails,
       }
     },
-    renderCall(_args, theme, context) {
+    renderCall(_args: Static<typeof parameters>, theme: Theme, context: ApplyPatchRenderContext): Text {
       const text = (context.lastComponent as Text | undefined) ?? new Text('', 0, 0)
       text.setText(theme.fg('toolTitle', theme.bold('apply_patch')))
       return text
     },
-    renderResult(result, { expanded, isPartial }, theme, context) {
+    renderResult(
+      result: AgentToolResult<ApplyPatchDetails>,
+      { expanded, isPartial }: ToolRenderResultOptions,
+      theme: Theme,
+      context: ApplyPatchRenderContext,
+    ): Text {
       const text = (context.lastComponent as Text | undefined) ?? new Text('', 0, 0)
       if (isPartial) {
         text.setText(theme.fg('warning', 'Applying patch...'))

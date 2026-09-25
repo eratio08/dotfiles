@@ -11,6 +11,8 @@ import {
   compareSessions,
   decodeHerdrPaneId,
   normalizeComments,
+  type SessionComparison,
+  type SessionSelection,
   type SessionSummary,
   selectSessionSlug,
   TUICR_COMPLETION_MARKER,
@@ -107,7 +109,7 @@ function makePi(): PiFixture {
   return { pi, calls }
 }
 
-function makeRuntime(pi: ExtensionAPI, options: TuicrLayerOptions = {}) {
+function makeRuntime(pi: ExtensionAPI, options: TuicrLayerOptions = {}): ManagedRuntime.ManagedRuntime<Tuicr, never> {
   return ManagedRuntime.make(
     TuicrLayer.pipe(Layer.provide(Layer.succeed(TuicrPi, pi)), Layer.provide(Layer.succeed(TuicrConfig, options))),
   )
@@ -125,11 +127,18 @@ async function withHerdrEnvironment<T>(value: string | undefined, action: () => 
   }
 }
 
-function compareAndSelect(before: readonly SessionSummary[], after: readonly SessionSummary[]) {
+function compareAndSelect(
+  before: readonly SessionSummary[],
+  after: readonly SessionSummary[],
+): { comparison: SessionComparison; selection: SessionSelection } {
   return { comparison: compareSessions(before, after), selection: selectSessionSlug(before, after) }
 }
 
-function buildReviewInvocation(scope: { readonly type: 'revisions'; readonly revset: string }) {
+function buildReviewInvocation(scope: { readonly type: 'revisions'; readonly revset: string }): {
+  args: readonly string[]
+  command: string
+  blockingCommand: string
+} {
   return {
     args: buildTuicrArgs(scope),
     command: buildTuicrCommand(scope),
@@ -155,7 +164,7 @@ function renderCommentStates(
   }
 }
 
-test('builds explicit and shell-safe review arguments', () => {
+test('should build explicit and shell-safe review arguments given review options', () => {
   //given
   const scope = { type: 'revisions' as const, revset: "HEAD~1..HEAD; printf 'bad'" }
 
@@ -170,7 +179,7 @@ test('builds explicit and shell-safe review arguments', () => {
   assert.equal(result.blockingCommand.includes(TUICR_COMPLETION_MARKER), false)
 })
 
-test('compares sessions and rejects ambiguous discovery', () => {
+test('should compare sessions and reject ambiguous discovery given multiple sessions', () => {
   //given
   const before = [session('old', false)]
   const after = [session('old', false), session('one', true), session('two', true)]
@@ -186,7 +195,7 @@ test('compares sessions and rejects ambiguous discovery', () => {
   assert.equal(result.selection._tag, 'ambiguous')
 })
 
-test('selects an updated existing session', () => {
+test('should select an updated existing session given session metadata', () => {
   //given
   const before = [session('existing', false)]
   const after = [{ ...session('existing', false), comment_count: 1, updated_at: '2026-01-01T00:01:00Z' }]
@@ -198,7 +207,7 @@ test('selects an updated existing session', () => {
   assert.deepEqual(result, { _tag: 'found', session: after[0] })
 })
 
-test('normalizes comments to user-authored records', () => {
+test('should normalize comments to user-authored records given raw comment data', () => {
   //given
   const comments = [comment('implicit-user'), comment('agent', 'agent')]
 
@@ -212,7 +221,7 @@ test('normalizes comments to user-authored records', () => {
   )
 })
 
-test('rejects malformed Herdr pane responses', () => {
+test('should reject malformed Herdr pane responses given invalid response data', () => {
   //given
   const response = { result: { pane: {} } }
 
@@ -223,7 +232,7 @@ test('rejects malformed Herdr pane responses', () => {
   assert.equal(paneId, null)
 })
 
-test('opens the owned pane, retrieves user comments, and closes only that pane', async () => {
+test('should open the owned pane, retrieve user comments, and close only that pane given a review lifecycle', async () => {
   //given
   await withHerdrEnvironment('1', async () => {
     const fixture = makePi()
@@ -281,7 +290,7 @@ test('opens the owned pane, retrieves user comments, and closes only that pane',
   })
 })
 
-test('returns no comments when tuicr creates no persisted session', async () => {
+test('should return no comments given that tuicr creates no persisted session', async () => {
   //given
   await withHerdrEnvironment('1', async () => {
     const calls: Array<readonly string[]> = []
@@ -314,7 +323,7 @@ test('returns no comments when tuicr creates no persisted session', async () => 
   })
 })
 
-test('reports the tuicr exit status and closes the owned pane', async () => {
+test('should report the tuicr exit status and close the owned pane given process exit', async () => {
   //given
   await withHerdrEnvironment('1', async () => {
     const calls: Array<readonly string[]> = []
@@ -344,7 +353,7 @@ test('reports the tuicr exit status and closes the owned pane', async () => {
   })
 })
 
-test('refuses Herdr operations without the required environment', async () => {
+test('should refuse Herdr operations given a missing required environment', async () => {
   //given
   await withHerdrEnvironment(undefined, async () => {
     const fixture = makePi()
@@ -365,7 +374,7 @@ test('refuses Herdr operations without the required environment', async () => {
   })
 })
 
-test('closes a pane when launch fails after ownership starts', async () => {
+test('should close the pane given a launch failure after ownership starts', async () => {
   //given
   await withHerdrEnvironment('1', async () => {
     const calls: Array<readonly string[]> = []
@@ -399,7 +408,7 @@ test('closes a pane when launch fails after ownership starts', async () => {
   })
 })
 
-test('passes cancellation to the process effect', async () => {
+test('should pass cancellation to the process effect given an aborted operation', async () => {
   //given
   await withHerdrEnvironment('1', async () => {
     const controller = new AbortController()
@@ -438,7 +447,7 @@ test('passes cancellation to the process effect', async () => {
   })
 })
 
-test('renders collapsed and expanded comment results', () => {
+test('should render collapsed and expanded comment results given both display states', () => {
   //given
   let registration: unknown
   const pi = {

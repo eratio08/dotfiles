@@ -11,7 +11,7 @@ function runLive<A, E>(effect: Effect.Effect<A, E, FileSystem>): Promise<A> {
 }
 
 describe('FileSystemLive', () => {
-  test('reads, writes atomically, preserves modes, and lists files', async () => {
+  test('should read and write atomically, preserve file modes, and list files given filesystem operations', async () => {
     //given
     const root = await mkdtemp(join(tmpdir(), 'pi-skill-toggle-fs-test-'))
     const file = join(root, 'skill.md')
@@ -52,7 +52,7 @@ describe('FileSystemLive', () => {
     }
   })
 
-  test('returns a typed failure for missing reads', async () => {
+  test('should return a typed failure given a missing file read', async () => {
     //given
     const root = await mkdtemp(join(tmpdir(), 'pi-skill-toggle-fs-error-test-'))
     const missing = join(root, 'missing.md')

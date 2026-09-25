@@ -138,7 +138,7 @@ const readResponseReader = Effect.fnUntraced(function* (
   while (true) {
     const { done, value } = yield* Effect.tryPromise({
       try: () => reader.read(),
-      catch: (cause) => responseBodyFailure(response, cause),
+      catch: (cause: unknown) => responseBodyFailure(response, cause),
     })
     if (done) break
     if (!value) continue
@@ -164,12 +164,12 @@ const readResponseText = Effect.fnUntraced(function* (
 ): Effect.fn.Return<string, WebToolsHttpResponseBodyError | WebToolsHttpResponseTooLargeError> {
   const reader = yield* Effect.try({
     try: () => response.body?.getReader(),
-    catch: (cause) => responseBodyFailure(response, cause),
+    catch: (cause: unknown) => responseBodyFailure(response, cause),
   })
   if (reader === undefined) {
     const text = yield* Effect.tryPromise({
       try: () => response.text(),
-      catch: (cause) => responseBodyFailure(response, cause),
+      catch: (cause: unknown) => responseBodyFailure(response, cause),
     })
     if (maxBytes !== undefined && Buffer.byteLength(text) > maxBytes) {
       return yield* Effect.fail(responseTooLarge(response, maxBytes))
@@ -196,8 +196,8 @@ function createHttpService(
   ): Effect.fn.Return<Response, WebToolsHttpRequestError | WebToolsHttpTimeoutError> {
     if (observeRequest) yield* Effect.sync(() => observeRequest(url, init, timeoutMs))
     return yield* Effect.tryPromise({
-      try: (signal) => (fetchImplementation ?? fetch)(url, { ...init, signal }),
-      catch: (cause) => requestFailure(url, init, cause),
+      try: (signal: AbortSignal) => (fetchImplementation ?? fetch)(url, { ...init, signal }),
+      catch: (cause: unknown) => requestFailure(url, init, cause),
     }).pipe(
       Effect.timeout(timeoutMs),
       Effect.catchTag('TimeoutError', () => Effect.fail(requestTimeout(url, init, timeoutMs))),

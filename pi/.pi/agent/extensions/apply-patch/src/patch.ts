@@ -104,7 +104,7 @@ function parsePatch(patchText: string): PatchOperation[] {
 async function applyPatch(
   cwd: string,
   operations: PatchOperation[],
-  lock: FileLock = async (_path, action) => action(),
+  lock: FileLock = async <T>(_path: string, action: () => Promise<T>): Promise<T> => action(),
 ): Promise<AppliedFile[]> {
   const root = await realpath(cwd)
   const paths = new Set<string>()

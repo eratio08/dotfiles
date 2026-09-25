@@ -33,7 +33,7 @@ function sessionEntry(todos: readonly Todo[]): unknown {
   return { type: 'custom', customType: 'todo', data: { todos } }
 }
 
-test('migrates legacy description fields during snapshot restore', () => {
+test('should migrate legacy description fields given a restored snapshot', () => {
   //given
   const legacy = sessionEntry([
     {
@@ -52,7 +52,7 @@ test('migrates legacy description fields during snapshot restore', () => {
   assert.equal(todos[0]?.details, 'legacy details')
 })
 
-test('restores the latest valid todo snapshot and derives blocked state', () => {
+test('should restore the latest valid snapshot and derive blocked state given multiple snapshots', () => {
   //given
   const first = todo(firstId, 'first', 'completed')
   const second = todo(secondId, 'second', 'pending', [firstId], 'details')
@@ -68,7 +68,7 @@ test('restores the latest valid todo snapshot and derives blocked state', () => 
   assert.deepEqual(todos[1]?.dependsOn, [firstId])
 })
 
-test('formats task details and lifecycle counts', () => {
+test('should format task details and lifecycle counts given a task snapshot', () => {
   //given
   const todos = [
     todo(firstId, 'active', 'in_progress', [], ' line one\n\n line two '),
@@ -103,7 +103,7 @@ test('formats task details and lifecycle counts', () => {
   assert.match(summarizeTodos(todos), /1 in progress/)
 })
 
-test('reports blocked task counts without task names', () => {
+test('should report blocked task counts without task names given blocked tasks', () => {
   //given
   const todos = [todo(firstId, 'blocked one', 'blocked'), todo(secondId, 'blocked two', 'blocked')]
 
@@ -116,7 +116,7 @@ test('reports blocked task counts without task names', () => {
   assert.doesNotMatch(reminder, /blocked two/)
 })
 
-test('projects one task from multiple independent todo trees', () => {
+test('should project one task given multiple independent todo trees', () => {
   //given
   const todos = [
     todo(firstId, 'tree one active', 'in_progress', [], 'active details'),
@@ -138,7 +138,7 @@ test('projects one task from multiple independent todo trees', () => {
   assert.match(context, /Tasks: 4 remaining, 2 blocked, 0 complete, 0 omitted\./)
 })
 
-test('restores the latest todo tree from multiple snapshots', () => {
+test('should restore the latest todo tree given multiple snapshots', () => {
   //given
   const firstTree = sessionEntry([
     todo(firstId, 'first tree root'),
@@ -160,7 +160,7 @@ test('restores the latest todo tree from multiple snapshots', () => {
   assert.deepEqual(todos[1]?.dependsOn, [thirdId])
 })
 
-test('handoff keeps open tasks and trims closed dependencies', () => {
+test('should keep open tasks and trim closed dependencies given a handoff', () => {
   //given
   const completed = todo(firstId, 'completed', 'completed')
   const active = todo(secondId, 'active', 'in_progress', [firstId])
@@ -178,7 +178,7 @@ test('handoff keeps open tasks and trims closed dependencies', () => {
   assert.deepEqual(handoff[1]?.dependsOn, [secondId])
 })
 
-test('serializes store restore and rejects invalid replacement without changing state', async () => {
+test('should serialize store restore and reject invalid replacement without changing state given concurrent calls', async () => {
   //given
   const runtime = ManagedRuntime.make(TodoStore.layer)
   const initial = [todo(firstId, 'initial')]
@@ -202,7 +202,7 @@ test('serializes store restore and rejects invalid replacement without changing 
   await runtime.dispose()
 })
 
-test('preserves suspension state across resume', async () => {
+test('should preserve suspension state given a resume operation', async () => {
   //given
   const runtime = ManagedRuntime.make(TodoStore.layer)
 
@@ -226,7 +226,7 @@ test('preserves suspension state across resume', async () => {
   await runtime.dispose()
 })
 
-test('clones snapshots before returning them', () => {
+test('should clone snapshots before returning them given a snapshot read', () => {
   //given
   const source = [todo(firstId, 'task', 'pending', [secondId])]
 

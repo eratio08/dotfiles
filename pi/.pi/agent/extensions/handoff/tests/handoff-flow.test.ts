@@ -187,13 +187,13 @@ function makeHarness(options: HarnessOptions = {}): Harness {
     setModelCalls,
     thinkingLevels,
     newSessionCalls,
-    get waitForIdleCalls() {
+    get waitForIdleCalls(): number {
       return waitForIdleCalls
     },
   }
 }
 
-test('branches in the current session and preserves continuation ordering', async () => {
+test('should branch in the current session and preserve continuation ordering given a handoff request', async () => {
   //given
   const harness = makeHarness({ prompt: 'Continue from the generated handoff.' })
 
@@ -244,7 +244,7 @@ test('branches in the current session and preserves continuation ordering', asyn
   assert.equal(harness.sessionId, 'handoff-session')
 })
 
-test('continues without Todo items', async () => {
+test('should continue given no Todo items', async () => {
   //given
   const harness = makeHarness({ branch: makeBranch(false), prompt: 'Continue without Todo state.' })
 
@@ -260,7 +260,7 @@ test('continues without Todo items', async () => {
   assert.deepEqual(harness.actions[1], { kind: 'user', content: 'Continue without Todo state.' })
 })
 
-test('leaves the current branch unchanged when generation is cancelled', async () => {
+test('should leave the current branch unchanged given cancelled generation', async () => {
   //given
   const harness = makeHarness({ prompt: null })
 
@@ -273,7 +273,7 @@ test('leaves the current branch unchanged when generation is cancelled', async (
   assert.deepEqual(harness.notifications, [{ message: 'Cancelled', type: 'info' }])
 })
 
-test('leaves the current branch unchanged when navigation is cancelled', async () => {
+test('should leave the current branch unchanged given cancelled navigation', async () => {
   //given
   const harness = makeHarness({ prompt: 'Continue.', navigationCancelled: true })
 
@@ -286,7 +286,7 @@ test('leaves the current branch unchanged when navigation is cancelled', async (
   assert.deepEqual(harness.notifications, [{ message: 'Branch cancelled', type: 'info' }])
 })
 
-test('reports generation failures without navigating', async () => {
+test('should report generation failures and avoid navigation given a failed generation', async () => {
   //given
   const harness = makeHarness({ promptError: new Error('generation failed') })
 
@@ -299,7 +299,7 @@ test('reports generation failures without navigating', async () => {
   assert.deepEqual(harness.notifications, [{ message: 'generation failed', type: 'error' }])
 })
 
-test('disposes the runtime once when shutdown repeats', async () => {
+test('should dispose the runtime once given repeated shutdown events', async () => {
   //given
   const harness = makeHarness()
   const context = harness.context as unknown as ExtensionContext
@@ -313,7 +313,7 @@ test('disposes the runtime once when shutdown repeats', async () => {
   assert.deepEqual(harness.notifications, [])
 })
 
-test('restores the pending model before the agent turn', async () => {
+test('should restore the pending model given the next agent turn', async () => {
   //given
   const pendingModel = {
     type: 'custom',

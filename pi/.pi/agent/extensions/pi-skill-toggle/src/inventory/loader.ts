@@ -4,7 +4,7 @@ import { SkillLocator } from '../discovery/skill-locator.ts'
 import type { FrontmatterCodec } from '../frontmatter/parser.ts'
 import { deriveSkillMetadata } from '../frontmatter/validation.ts'
 import { FileSystem, type FileSystemError } from '../ports/fs.ts'
-import type { LocatedSkillFile, SkillRecord } from '../types.ts'
+import type { LocatedSkillFile, SkillDiagnostic, SkillInvocationMode, SkillRecord, SkillSource } from '../types.ts'
 import { classifyInvocationMode } from './classifier.ts'
 
 class SkillInventory extends Context.Service<
@@ -52,12 +52,22 @@ function loadRecord(
             diagnostics: metadata.diagnostics,
           }
         },
-        catch: (error) => error,
+        catch: (error: unknown) => error,
       })
     }),
     {
-      onFailure: (error) => fallbackRecord(file, error),
-      onSuccess: (record) => record,
+      onFailure: (error: unknown) => fallbackRecord(file, error),
+      onSuccess: (record: {
+        id: string
+        name: string
+        description: string
+        filePath: string
+        baseDir: string
+        source: SkillSource
+        editable: boolean
+        mode: SkillInvocationMode
+        diagnostics: SkillDiagnostic[]
+      }) => record,
     },
   )
 }
@@ -84,7 +94,7 @@ function SkillInventoryLive(codec: FrontmatterCodec): Layer.Layer<SkillInventory
     Effect.gen(function* () {
       const fs = yield* FileSystem
       const locator = yield* SkillLocator
-      return SkillInventory.of({ load: (cwd) => load(fs, locator, codec, cwd) })
+      return SkillInventory.of({ load: (cwd: string) => load(fs, locator, codec, cwd) })
     }),
   )
 }

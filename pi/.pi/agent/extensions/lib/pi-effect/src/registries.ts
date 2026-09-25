@@ -66,7 +66,9 @@ type PiEventResult<Name extends PiEventName> = PiEventResultMap[Name]
 /** Effect handler for one event, with its event-specific input and result types. */
 type PiEventHandler<Services, Failure, Name extends PiEventName> = (
   event: PiEventMap[Name],
-) => Effect.Effect<PiEventResult<Name> | undefined, Failure, Services | PiServices>
+) =>
+  | Effect.Effect<PiEventResult<Name> | undefined, Failure, Services | PiServices>
+  | Effect.Effect<void, Failure, Services | PiServices>
 
 /** Policy for handling a failed event handler: return the failure, keep the event neutral, or reject the action. */
 type PiFailurePolicy = 'propagate' | 'neutral' | 'failClosed'

@@ -18,29 +18,30 @@ async function createHarness(): Promise<{
     cwd: '/tmp',
     signal: undefined,
     ui: {
-      notify: (message: string) => notifications.push(message),
-      custom: async () => ({ action: 'cancel' as const, drafts: [] }),
+      notify: (message: string): number => notifications.push(message),
+      custom: async (): Promise<{ action: 'cancel'; drafts: never[] }> => ({ action: 'cancel' as const, drafts: [] }),
     },
-    reload: async () => {},
+    reload: async (): Promise<void> => {},
     sessionManager: {
-      getCwd: () => '/tmp',
-      getSessionId: () => 'test',
-      getSessionFile: () => undefined,
-      getSessionDir: () => '/tmp',
-      getLeafId: () => null,
-      getLeafEntry: () => undefined,
-      getEntries: () => [],
-      getTree: () => [],
-      getEntry: () => undefined,
-      getBranch: () => [],
-      buildContextEntries: () => [],
-      getLabel: () => undefined,
-      getSessionName: () => undefined,
+      getCwd: (): string => '/tmp',
+      getSessionId: (): string => 'test',
+      getSessionFile: (): undefined => undefined,
+      getSessionDir: (): string => '/tmp',
+      getLeafId: (): null => null,
+      getLeafEntry: (): undefined => undefined,
+      getEntries: (): never[] => [],
+      getTree: (): never[] => [],
+      getEntry: (): undefined => undefined,
+      getBranch: (): never[] => [],
+      buildContextEntries: (): never[] => [],
+      getLabel: (): undefined => undefined,
+      getSessionName: (): undefined => undefined,
     },
   }
   const pi = {
-    registerCommand: (name: string, spec: { handler: CommandHandler }) => commands.set(name, spec),
-    on: (event: string, handler: EventHandler) => events.set(event, handler),
+    registerCommand: (name: string, spec: { handler: CommandHandler }): Map<string, { handler: CommandHandler }> =>
+      commands.set(name, spec),
+    on: (event: string, handler: EventHandler): Map<string, EventHandler> => events.set(event, handler),
   }
   await piSkillToggle(pi as never)
   return {
@@ -57,7 +58,7 @@ async function createHarness(): Promise<{
 }
 
 describe('piSkillToggle', () => {
-  test('disposes once and ignores commands after shutdown', async () => {
+  test('should dispose once and ignore commands given repeated shutdown', async () => {
     //given
     const harness = await createHarness()
 

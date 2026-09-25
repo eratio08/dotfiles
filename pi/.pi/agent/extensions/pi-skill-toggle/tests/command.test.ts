@@ -60,8 +60,9 @@ async function runScenario(scenario: Scenario): Promise<State> {
     model: undefined,
   }
   const ui = {
-    notify: (message: string) => Effect.sync(() => state.notifications.push(message)),
-    custom: () =>
+    notify: (message: string): Effect.Effect<number, never, never> =>
+      Effect.sync(() => state.notifications.push(message)),
+    custom: (): Effect.Effect<Option.Option<SkillToggleUiResult>, never, never> =>
       Effect.sync(() => {
         state.customCalls += 1
         return Option.some(
@@ -71,7 +72,7 @@ async function runScenario(scenario: Scenario): Promise<State> {
   }
   const command = {
     ...context,
-    reload: () => Effect.sync(() => state.reloads++),
+    reload: (): Effect.Effect<number, never, never> => Effect.sync(() => state.reloads++),
   }
   const inventoryLayer = Layer.succeed(
     SkillInventory,
@@ -137,7 +138,7 @@ async function runScenario(scenario: Scenario): Promise<State> {
 }
 
 describe('runToggleSkillsCommand', () => {
-  test('notifies and does not scan outside TUI mode', async () => {
+  test('should notify and avoid scanning given non-TUI mode', async () => {
     //given
     const scenario: Scenario = { mode: 'rpc' }
 
@@ -150,7 +151,7 @@ describe('runToggleSkillsCommand', () => {
     assert.equal(state.customCalls, 0)
   })
 
-  test('notifies when no skills are found', async () => {
+  test('should notify given no skills are found', async () => {
     //given
     const scenario: Scenario = { skills: [] }
 
@@ -164,7 +165,7 @@ describe('runToggleSkillsCommand', () => {
     assert.equal(state.customCalls, 0)
   })
 
-  test('stops after a cancelled dialog', async () => {
+  test('should stop processing given a cancelled dialog', async () => {
     //given
     const scenario: Scenario = { uiResult: { action: 'cancel', drafts: [{ skill, desiredMode: skill.mode }] } }
 
@@ -179,7 +180,7 @@ describe('runToggleSkillsCommand', () => {
     assert.deepEqual(state.notifications, [])
   })
 
-  test('notifies when the planner finds no changes', async () => {
+  test('should notify given a plan with no changes', async () => {
     //given
     const scenario: Scenario = {
       uiResult: { action: 'apply', drafts: [{ skill, desiredMode: 'manual-only' }] },
@@ -195,7 +196,7 @@ describe('runToggleSkillsCommand', () => {
     assert.equal(state.written, 0)
   })
 
-  test('reports an applied change and reloads', async () => {
+  test('should report the applied change and reload skills given a successful apply', async () => {
     //given
     const scenario: Scenario = {
       uiResult: { action: 'apply', drafts: [{ skill, desiredMode: 'manual-only' }] },
@@ -214,7 +215,7 @@ describe('runToggleSkillsCommand', () => {
     assert.equal(state.reloads, 1)
   })
 
-  test('notifies when inventory fails', async () => {
+  test('should notify given an inventory failure', async () => {
     //given
     const scenario: Scenario = { inventoryError: true }
 

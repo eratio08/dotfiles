@@ -60,6 +60,31 @@ test('should preserve event results and provide the current invocation context g
   expect(systemPromptOptions).toEqual({ cwd: '/workspace' })
 })
 
+test('should accept void effects given a side-effect-only event handler', async () => {
+  //given
+  let handled = false
+  const plugin = PiExtension.define({
+    id: 'tests/void-event-result',
+    effect: (registrations) =>
+      registrations.events.on('session_start', () =>
+        Effect.sync(() => {
+          handled = true
+        }),
+      ),
+  })
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+
+  try {
+    //when
+    await fake.invokeEvent('session_start', { type: 'session_start' })
+
+    //then
+    expect(handled).toBe(true)
+  } finally {
+    await shutdown(fake)
+  }
+})
+
 test('should map invocation context read failures to PiHostError given a failing host read', async () => {
   //given
   const plugin = PiExtension.define({
@@ -428,6 +453,7 @@ test('should capture event handler construction failures given a synchronous thr
 })
 
 test('should register boolean and string flags given Pi host overloads', async () => {
+  //given
   const plugin = PiExtension.define({
     id: 'tests/flags',
     effect: ({ flags }) =>
@@ -436,8 +462,12 @@ test('should register boolean and string flags given Pi host overloads', async (
         yield* flags.register('profile', { type: 'string', default: 'default' })
       }),
   })
-  const fake = await installFakePlugin(PiExtension.install(plugin))
+  const factory = PiExtension.install(plugin)
 
+  //when
+  const fake = await installFakePlugin(factory)
+
+  //then
   expect(fake.flags.get('enabled')?.value).toBe(true)
   expect(fake.flags.get('profile')?.value).toBe('default')
   await shutdown(fake)

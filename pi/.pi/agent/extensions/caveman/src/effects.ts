@@ -34,7 +34,7 @@ function toHostError(operation: string, cause: unknown): CavemanHostError {
 function tryHost<A>(operation: string, evaluate: () => A): Effect.Effect<A, CavemanHostError> {
   return Effect.try({
     try: evaluate,
-    catch: (cause) => toHostError(operation, cause),
+    catch: (cause: unknown) => toHostError(operation, cause),
   })
 }
 

@@ -42,7 +42,7 @@ class WebSearchParseError extends Schema.TaggedError<WebSearchParseError>()('Web
 function parseSearchResponseEffect(body: string): Effect.Effect<string | undefined, WebSearchParseError> {
   return Effect.try({
     try: () => parseSearchResponse(body),
-    catch: (cause) =>
+    catch: (cause: unknown) =>
       new WebSearchParseError({
         message: Predicate.isError(cause) ? cause.message : 'Unable to parse search response',
       }),

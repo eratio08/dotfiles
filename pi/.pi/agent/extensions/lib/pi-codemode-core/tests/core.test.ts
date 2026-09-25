@@ -106,30 +106,18 @@ describe('code mode core', () => {
       invoke: () => Effect.succeed('unused'),
       invokeSync: () => 2,
     }
+    const firstResult = await Effect.runPromise(
+      evaluateWithHost(core, definition, firstHost, 'export default (api: ExampleApi) => api.add(0)', options),
+    )
 
     //when
     const result = Effect.runPromise(
-      Effect.gen(function* () {
-        const first = yield* evaluateWithHost(
-          core,
-          definition,
-          firstHost,
-          'export default (api: ExampleApi) => api.add(0)',
-          options,
-        )
-        const second = yield* evaluateWithHost(
-          core,
-          definition,
-          secondHost,
-          'export default (api: ExampleApi) => api.add(0)',
-          options,
-        )
-        return [first, second]
-      }),
+      evaluateWithHost(core, definition, secondHost, 'export default (api: ExampleApi) => api.add(0)', options),
     )
 
     //then
-    await expect(result).resolves.toEqual([1, 2])
+    expect(firstResult).toBe(1)
+    await expect(result).resolves.toBe(2)
   })
 
   test('should preserve host Effect requirements given an Effect-based host', async () => {
@@ -187,20 +175,23 @@ describe('code mode core', () => {
       invoke: () => Effect.succeed('ok'),
       invokeSync: (_method: string, args: readonly unknown[]) => Number(args[0]) + 1,
     }
-
-    //when
-    const results = await Promise.all([
-      runtime.runPromise(
+    const evaluation = Effect.all(
+      [
         evaluateWithHost(core, definition, host, 'export default (api: ExampleApi) => api.add(1)', options),
-      ),
-      runtime.runPromise(
         evaluateWithHost(core, definition, host, 'export default (api: ExampleApi) => api.add(2)', options),
-      ),
-    ])
-    await runtime.dispose()
+      ],
+      { concurrency: 'unbounded' },
+    )
 
-    //then
-    expect(results).toEqual([2, 3])
+    try {
+      //when
+      const results = await runtime.runPromise(evaluation)
+
+      //then
+      expect(results).toEqual([2, 3])
+    } finally {
+      await runtime.dispose()
+    }
   })
 
   test('should reject external imports before worker creation given a program with an import', async () => {
@@ -405,8 +396,6 @@ describe('code mode core', () => {
       invoke: () => Effect.succeed('ok'),
       invokeSync: () => 1,
     }
-
-    //when
     const result = Effect.runPromise(
       evaluateWithHost(core, definition, host, 'export default () => new Promise(() => {})', {
         ...options,
@@ -415,6 +404,8 @@ describe('code mode core', () => {
       }),
     )
     await new Promise((resolve) => setTimeout(resolve, 20))
+
+    //when
     controller.abort()
 
     //then
@@ -429,8 +420,6 @@ describe('code mode core', () => {
       invoke: () => Effect.never,
       invokeSync: () => 1,
     }
-
-    //when
     const result = Effect.runPromise(
       evaluateWithHost(core, definition, host, 'export default async (api: ExampleApi) => await api.wait("ok")', {
         ...options,
@@ -438,6 +427,8 @@ describe('code mode core', () => {
       }),
     )
     await new Promise((resolve) => setTimeout(resolve, 20))
+
+    //when
     controller.abort()
 
     //then

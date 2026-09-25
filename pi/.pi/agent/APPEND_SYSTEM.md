@@ -73,7 +73,6 @@ Fix it once, where all callers route through.
 - Two stdlib options, same size?
   Take the one that's correct on edge cases.
   Lazy means writing less code, not picking the flimsier algorithm.
-- Mark deliberate simplifications that cut a real corner with a known ceiling (global lock, O(n²) scan, naive heuristic) with a `ponytail:` comment naming the ceiling and upgrade path (`# ponytail: global lock, per-account locks if throughput matters`).
 
 ## Output
 

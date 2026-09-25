@@ -52,7 +52,7 @@ function tryTemporaryOutput<A>(
 ): Effect.Effect<A, WebToolsFilesystemError> {
   return Effect.tryPromise({
     try: execute,
-    catch: (cause) => temporaryOutputError(operation, path, cause),
+    catch: (cause: unknown) => temporaryOutputError(operation, path, cause),
   })
 }
 
@@ -81,7 +81,7 @@ function createWebToolsTemporaryOutputTestLayer(
   return Layer.succeed(
     WebToolsTemporaryOutput,
     WebToolsTemporaryOutput.of({
-      writeOutput: (prefix, content) =>
+      writeOutput: (prefix: string, content: string) =>
         Effect.sync(() => {
           const path = join(root, `${prefix}-${sequence++}`, 'output.txt')
           writes.push({ prefix, content, path })

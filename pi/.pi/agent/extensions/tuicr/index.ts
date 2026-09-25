@@ -1,14 +1,20 @@
 import {
+  type AgentToolResult,
+  type AgentToolUpdateCallback,
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
   type ExtensionAPI,
+  type ExtensionContext,
   formatSize,
   keyHint,
+  type Theme,
+  type ToolDefinition,
+  type ToolRenderResultOptions,
   truncateHead,
 } from '@earendil-works/pi-coding-agent'
 import { Text } from '@earendil-works/pi-tui'
 import { type Effect, Layer, ManagedRuntime, Schema } from 'effect'
-import { Type } from 'typebox'
+import { type Static, Type } from 'typebox'
 import { type CommentData, type TuicrToolInput, TuicrToolInputSchema } from './src/core.ts'
 import { Tuicr, TuicrConfig, TuicrLayer, type TuicrOpenResult, TuicrPi } from './src/effects.ts'
 
@@ -25,6 +31,8 @@ type TuicrToolDetails = {
   readonly scope: TuicrOpenResult['pane']['scope']
   readonly comments: readonly CommentData[]
 }
+
+type TuicrRenderContext = Parameters<NonNullable<ToolDefinition<typeof Parameters, TuicrToolDetails>['renderCall']>>[2]
 
 function commentOutput(comments: readonly CommentData[]): string {
   if (comments.length === 0) return 'No user comments.'
@@ -81,16 +89,15 @@ function tuicrExtension(pi: ExtensionAPI): void {
     name: 'tuicr',
     label: 'tuicr user review',
     description:
-      'Open tuicr in a Herdr pane for a user-led review, wait for the user to exit, and return user comments. Never inspect diffs or write review findings.',
-    promptSnippet: 'Use tuicr for a blocking user-led review that returns comments when the user exits',
-    promptGuidelines: [
-      'Use tuicr when the user asks to start a review; it blocks until the user exits the TUI.',
-      'The user performs the review manually in the tuicr TUI.',
-      'tuicr returns normalized user comments after the user exits.',
-      'Never inspect diffs, generate findings, suggest findings, or write review comments.',
-    ],
+      'Open tuicr in a Herdr pane for a user-led review, wait for the user to exit, and return user comments.',
     parameters: Parameters,
-    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+    async execute(
+      _toolCallId: string,
+      params: Static<typeof Parameters>,
+      signal: AbortSignal | undefined,
+      _onUpdate: AgentToolUpdateCallback<TuicrToolDetails> | undefined,
+      ctx: ExtensionContext,
+    ): Promise<AgentToolResult<TuicrToolDetails>> {
       const input = Schema.decodeUnknownSync(TuicrToolInputSchema)(params as unknown) as TuicrToolInput
       if (ctx.mode !== 'tui') {
         throw new Error('tuicr requires Pi TUI mode')
@@ -110,10 +117,15 @@ function tuicrExtension(pi: ExtensionAPI): void {
         throw new Error(failureMessage(error))
       }
     },
-    renderCall(_args, theme) {
+    renderCall(_args: Static<typeof Parameters>, theme: Theme): Text {
       return new Text(theme.fg('toolTitle', theme.bold('tuicr review')), 0, 0)
     },
-    renderResult(result, { expanded }, theme, context) {
+    renderResult(
+      result: AgentToolResult<TuicrToolDetails>,
+      { expanded }: ToolRenderResultOptions,
+      theme: Theme,
+      context: TuicrRenderContext,
+    ): Text {
       const content = resultText(result)
       if (context.isError) return new Text(theme.fg('error', content), 0, 0)
       const details = result.details as TuicrToolDetails | undefined

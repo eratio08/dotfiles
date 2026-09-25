@@ -59,7 +59,10 @@ Use this configuration in every extension:
   "linter": {
     "enabled": true,
     "rules": {
-      "preset": "recommended"
+      "preset": "recommended",
+      "nursery": {
+        "useExplicitType": "error"
+      }
     }
   },
   "assist": {
@@ -90,6 +93,7 @@ Test custom rendering in both collapsed and expanded states when applicable.
 Run the relevant tests and type checks with Bun before you finish.
 Use BDD style tests using `//given //when //then` structuring; each section must only be used once in a single test.
 The `//when` section must only contain a single invocation.
+Test names must follow the BDD pattern of "should <expected outcome> given <scenario>".
 
 ## EffectJS
 

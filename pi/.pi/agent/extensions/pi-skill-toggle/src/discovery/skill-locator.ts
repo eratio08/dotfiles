@@ -104,7 +104,7 @@ const SkillLocatorLive: Layer.Layer<SkillLocator, never, FileSystem> = Layer.eff
   SkillLocator,
   Effect.gen(function* () {
     const fs = yield* FileSystem
-    return SkillLocator.of({ findSkillFiles: (cwd) => findSkillFiles(fs, cwd) })
+    return SkillLocator.of({ findSkillFiles: (cwd: string) => findSkillFiles(fs, cwd) })
   }),
 )
 

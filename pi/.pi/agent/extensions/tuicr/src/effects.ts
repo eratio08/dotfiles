@@ -103,8 +103,8 @@ const TuicrLayer: Layer.Layer<Tuicr, never, TuicrPi | TuicrConfig> = Layer.effec
       args: readonly string[],
     ): Effect.fn.Return<ExecResult, TuicrProcessError> {
       const result = yield* Effect.tryPromise({
-        try: (signal): Promise<ExecResult> => pi.exec(command, [...args], { signal }),
-        catch: (cause) => processFailure(command, args, cause),
+        try: (signal: AbortSignal): Promise<ExecResult> => pi.exec(command, [...args], { signal }),
+        catch: (cause: unknown) => processFailure(command, args, cause),
       })
       if (result.code !== 0) {
         return yield* resultFailure(command, args, result)
@@ -119,7 +119,7 @@ const TuicrLayer: Layer.Layer<Tuicr, never, TuicrPi | TuicrConfig> = Layer.effec
     ): Effect.fn.Return<unknown, TuicrProcessError> {
       return yield* Effect.try({
         try: () => JSON.parse(stdout) as unknown,
-        catch: (cause) => processFailure(command, args, cause),
+        catch: (cause: unknown) => processFailure(command, args, cause),
       })
     })
 
@@ -192,7 +192,7 @@ const TuicrLayer: Layer.Layer<Tuicr, never, TuicrPi | TuicrConfig> = Layer.effec
 
       const normalizedScope = yield* Effect.try({
         try: () => Schema.decodeUnknownSync(ReviewScopeSchema)(scope),
-        catch: (cause) => stateFailure('open', String(cause)),
+        catch: (cause: unknown) => stateFailure('open', String(cause)),
       })
       const helpResult = yield* runProcess(TUICR_COMMAND, ['--help']).pipe(
         Effect.catch(() => Effect.succeed(undefined)),

@@ -1,5 +1,5 @@
 import { Key, matchesKey } from '@earendil-works/pi-tui'
-import type { PiTheme, PiTui, PiUiService } from '@eratio08/pi-effect'
+import type { PiHostError, PiTheme, PiTui, PiUiService, PiUiUnavailableError } from '@eratio08/pi-effect'
 import { Effect, Option } from 'effect'
 import { formatSourceKind } from '../inventory/classifier.ts'
 import type { SkillDraft, SkillInvocationMode, SkillRecord, SkillToggleUiResult } from '../types.ts'
@@ -9,7 +9,14 @@ import { filterSkills, modeLabel, toggleMode } from './view-model.ts'
 type SkillToggleTui = PiTui
 type SkillToggleTheme = PiTheme
 
-function showSkillToggleUi(ui: PiUiService, skills: SkillRecord[]) {
+function showSkillToggleUi(
+  ui: PiUiService,
+  skills: SkillRecord[],
+): Effect.Effect<
+  SkillToggleUiResult | { action: 'cancel'; drafts: never[] },
+  PiHostError | PiUiUnavailableError,
+  never
+> {
   return ui
     .custom<SkillToggleUiResult>((tui, theme, _keybindings, done) => new SkillToggleOverlay(tui, theme, skills, done), {
       overlay: true,

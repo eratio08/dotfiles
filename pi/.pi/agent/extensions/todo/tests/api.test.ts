@@ -16,7 +16,7 @@ function createDraft(initial: readonly Todo[] = []): { draft: TodoTransactionDra
   return { draft, snapshot: () => cloneTodos(todos) }
 }
 
-test('returns the todo API reference on demand', () => {
+test('should return the todo API reference given an on-demand request', () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
@@ -35,7 +35,7 @@ test('returns the todo API reference on demand', () => {
   assert.match(help, /sorted by ID in ascending order/)
 })
 
-test('adds tasks with generated IDs and dependency-derived statuses', async () => {
+test('should add tasks with generated IDs and derived statuses given task dependencies', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
@@ -51,7 +51,7 @@ test('adds tasks with generated IDs and dependency-derived statuses', async () =
   assert.deepEqual(second.dependsOn, [first.id])
 })
 
-test('reports successful mutations without counting reads or failures', async () => {
+test('should report successful mutations without counting reads or failures given mixed API calls', async () => {
   //given
   const { draft } = createDraft()
   const mutations: Array<{ operation: string; count: number }> = []
@@ -90,7 +90,7 @@ test('reports successful mutations without counting reads or failures', async ()
   ])
 })
 
-test('starts and completes tasks without automatically starting the next task', async () => {
+test('should start and complete tasks without starting the next task given explicit transitions', async () => {
   //given
   const { draft, snapshot } = createDraft()
   const api = createTodoApi({ draft })
@@ -107,7 +107,7 @@ test('starts and completes tasks without automatically starting the next task', 
   assert.equal(snapshot().find((todo) => todo.id === second.id)?.status, 'pending')
 })
 
-test('returns the completed task and remaining task counts', async () => {
+test('should return the completed task and remaining counts given task completion', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
@@ -126,7 +126,7 @@ test('returns the completed task and remaining task counts', async () => {
   assert.equal(result.allDone, false)
 })
 
-test('reports allDone when no pending, in-progress, or blocked tasks remain', async () => {
+test('should report allDone given no pending, in-progress, or blocked tasks', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
@@ -141,7 +141,7 @@ test('reports allDone when no pending, in-progress, or blocked tasks remain', as
   assert.equal(result.allDone, true)
 })
 
-test('rejects next when a task is already active', async () => {
+test('should reject next given an active task', async () => {
   //given
   const { draft, snapshot } = createDraft()
   const mutations: Array<{ operation: string; count: number }> = []
@@ -168,7 +168,7 @@ test('rejects next when a task is already active', async () => {
   assert.deepEqual(mutations, [{ operation: 'started', count: 1 }])
 })
 
-test('updates details and replaces dependencies atomically', async () => {
+test('should update details and replace dependencies atomically given a task update', async () => {
   //given
   const { draft, snapshot } = createDraft()
   const api = createTodoApi({ draft })
@@ -187,7 +187,7 @@ test('updates details and replaces dependencies atomically', async () => {
   assert.equal(snapshot().find((todo) => todo.id === task.id)?.details, undefined)
 })
 
-test('returns one selected snapshot and hides details by default', async () => {
+test('should return one selected snapshot and hide details by default given a single selected task', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
@@ -209,7 +209,7 @@ test('returns one selected snapshot and hides details by default', async () => {
   assert.ok(first)
 })
 
-test('returns all tasks selected by status', async () => {
+test('should return all selected tasks given a status filter', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
@@ -238,7 +238,7 @@ test('returns all tasks selected by status', async () => {
   )
 })
 
-test('defaults show to pending and in-progress tasks in ID order', async () => {
+test('should show pending and in-progress tasks in ID order given no status filter', async () => {
   //given
   const { draft, snapshot } = createDraft()
   const api = createTodoApi({ draft })
@@ -269,7 +269,7 @@ test('defaults show to pending and in-progress tasks in ID order', async () => {
   assert.ok(shown.some((todo) => todo.status === 'pending'))
 })
 
-test('filters by any status in the supplied array', async () => {
+test('should filter tasks by any supplied status given a status array', async () => {
   //given
   const { draft, snapshot } = createDraft()
   const api = createTodoApi({ draft })
@@ -298,7 +298,7 @@ test('filters by any status in the supplied array', async () => {
   )
 })
 
-test('returns no tasks for an empty status array', async () => {
+test('should return no tasks given an empty status array', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
@@ -311,7 +311,7 @@ test('returns no tasks for an empty status array', async () => {
   assert.deepEqual(selected, [])
 })
 
-test('limits broad show queries and accepts empty or null IDs', async () => {
+test('should limit broad show queries and accept empty or null IDs given a broad query', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
@@ -348,7 +348,7 @@ test('limits broad show queries and accepts empty or null IDs', async () => {
   )
 })
 
-test('returns every explicitly selected ID and rejects mixed selectors', async () => {
+test('should return every selected ID and reject mixed selectors given explicit IDs', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
@@ -377,7 +377,7 @@ test('returns every explicitly selected ID and rejects mixed selectors', async (
   await assert.rejects(combined, /either ids or status/)
 })
 
-test('rejects invalid show limits and selectors', async () => {
+test('should reject invalid show limits and selectors given invalid query options', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
@@ -397,7 +397,7 @@ test('rejects invalid show limits and selectors', async () => {
   await assert.rejects(scalarStatus, /Invalid todo show options/)
 })
 
-test('omits and restores tasks through dependency-derived state', async () => {
+test('should omit and restore tasks given dependency-derived state changes', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
@@ -412,7 +412,7 @@ test('omits and restores tasks through dependency-derived state', async () => {
   assert.equal(restored.status, 'pending')
 })
 
-test('clears every task and reports the number removed', async () => {
+test('should clear every task and report the number removed given a clear request', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
@@ -427,7 +427,7 @@ test('clears every task and reports the number removed', async () => {
   assert.deepEqual(await api.show(), [])
 })
 
-test('rejects invalid dependencies and completed dependency changes', async () => {
+test('should reject invalid dependencies and completed dependency changes given an invalid task update', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
@@ -446,7 +446,7 @@ test('rejects invalid dependencies and completed dependency changes', async () =
   await assert.rejects(api.update(open.id, { dependsOn: [task.id, task.id] }), /more than once/)
 })
 
-test('blocks the active task when an update adds an incomplete dependency', async () => {
+test('should block the active task given an update that adds an incomplete dependency', async () => {
   //given
   const { draft, snapshot } = createDraft()
   const api = createTodoApi({ draft })

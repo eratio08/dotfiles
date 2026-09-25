@@ -2,7 +2,7 @@ import { writeFile } from 'node:fs/promises'
 import { isAbsolute, relative, resolve } from 'node:path'
 
 import type { AssistantMessage } from '@earendil-works/pi-ai'
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
+import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent'
 
 function textContent(content: unknown): string {
   if (!Array.isArray(content)) return ''
@@ -24,7 +24,7 @@ function textContent(content: unknown): string {
 function saveMarkdownExtension(pi: ExtensionAPI): void {
   pi.registerCommand('save-md', {
     description: 'Save the latest assistant response as Markdown (usage: /save-md name)',
-    handler: async (args, ctx) => {
+    handler: async (args: string, ctx: ExtensionCommandContext) => {
       await ctx.waitForIdle()
 
       const branch = ctx.sessionManager.getBranch()

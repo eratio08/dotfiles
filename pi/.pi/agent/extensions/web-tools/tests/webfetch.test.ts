@@ -8,14 +8,14 @@ import {
 } from '../src/core/webfetch.ts'
 import { convertHTMLToMarkdown, extractTextFromHTML } from '../src/html.ts'
 
-test('webfetch blocks localhost and private IPv4', () => {
+test('should block localhost and private IPv4 given a local or private host', () => {
   assert.throws(() => assertSafePublicHttpUrl('http://localhost'))
   assert.throws(() => assertSafePublicHttpUrl('http://127.0.0.1'))
   assert.throws(() => assertSafePublicHttpUrl('http://192.168.1.10'))
   assert.doesNotThrow(() => assertSafePublicHttpUrl('https://example.com'))
 })
 
-test('html helpers return readable text and markdown', () => {
+test('should return readable text and Markdown given HTML input', () => {
   const html = '<html><body><h1>Hello</h1><p>World</p><script>bad()</script></body></html>'
   assert.match(extractTextFromHTML(html), /Hello/)
   assert.match(extractTextFromHTML(html), /World/)
@@ -24,13 +24,13 @@ test('html helpers return readable text and markdown', () => {
   assert.match(convertHTMLToMarkdown(html), /World/)
 })
 
-test('webfetch accept headers vary by format', () => {
+test('should vary Accept headers given an output format', () => {
   assert.match(acceptHeaderForFormat('markdown'), /text\/markdown/)
   assert.match(acceptHeaderForFormat('text'), /text\/plain/)
   assert.match(acceptHeaderForFormat('html'), /text\/html/)
 })
 
-test('webfetch preview lines trim blanks and truncate long lines', () => {
+test('should trim blank preview lines and truncate long lines given preview text', () => {
   assert.deepEqual(webFetchPreviewLines('\n first line \n\nsecond line\nthird line\nfourth line', 3, 20), [
     'first line',
     'second line',
@@ -39,7 +39,7 @@ test('webfetch preview lines trim blanks and truncate long lines', () => {
   assert.deepEqual(webFetchPreviewLines('abcdefghijklmnopqrstuvwxyz', 3, 8), ['abcdefg…'])
 })
 
-test('webfetch preserves URL policy and tool schema', () => {
+test('should preserve URL policy and tool schema given webfetch configuration', () => {
   //given
   const webFetchTool = createWebFetchTool(async () => {
     throw new Error('test runner must not execute the webfetch workflow')

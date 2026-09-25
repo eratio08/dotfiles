@@ -35,10 +35,10 @@ class TodoStore extends Context.Service<
     readonly snapshot: Effect.Effect<readonly Todo[]>
     readonly restore: (entries: readonly unknown[]) => Effect.Effect<readonly Todo[]>
     readonly replace: (next: readonly Todo[]) => Effect.Effect<readonly Todo[], TodoUpdateError>
-    readonly transact: <A>(
-      run: (draft: TodoTransactionDraft, signal: AbortSignal) => Effect.Effect<A, TodoUpdateError>,
+    readonly transact: <A, R = never>(
+      run: (draft: TodoTransactionDraft, signal: AbortSignal) => Effect.Effect<A, TodoUpdateError, R>,
       signal?: AbortSignal,
-    ) => Effect.Effect<TodoTransactionResult<A>, TodoUpdateError>
+    ) => Effect.Effect<TodoTransactionResult<A>, TodoUpdateError, R>
     readonly isSuspended: Effect.Effect<boolean>
     readonly suspend: (wasActiveBeforeSuspend: boolean) => Effect.Effect<boolean>
     readonly resume: Effect.Effect<TodoResumeResult>
@@ -53,7 +53,8 @@ class TodoStore extends Context.Service<
         wasActiveBeforeSuspend: false,
       })
       const lock = yield* Semaphore.make(1)
-      const withLock = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> => Semaphore.withPermit(lock)(effect)
+      const withLock = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+        Semaphore.withPermit(lock)(effect)
 
       const snapshot = withLock(Ref.get(state).pipe(Effect.map((value) => cloneTodos(value.todos))))
 
@@ -83,10 +84,10 @@ class TodoStore extends Context.Service<
         )
       })
 
-      const transact = Effect.fnUntraced(function* <A>(
-        run: (draft: TodoTransactionDraft, signal: AbortSignal) => Effect.Effect<A, TodoUpdateError>,
+      const transact = Effect.fnUntraced(function* <A, R>(
+        run: (draft: TodoTransactionDraft, signal: AbortSignal) => Effect.Effect<A, TodoUpdateError, R>,
         signal?: AbortSignal,
-      ): Effect.fn.Return<TodoTransactionResult<A>, TodoUpdateError> {
+      ): Effect.fn.Return<TodoTransactionResult<A>, TodoUpdateError, R> {
         return yield* withLock(
           Effect.gen(function* () {
             if (signal?.aborted) {

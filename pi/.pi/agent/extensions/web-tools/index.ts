@@ -1,9 +1,9 @@
 import { StringEnum } from '@earendil-works/pi-ai'
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, getMarkdownTheme } from '@earendil-works/pi-coding-agent'
 import { Container, Markdown, Spacer, Text } from '@earendil-works/pi-tui'
-import { type EffectToolDefinition, PiExtension, PiToolContext } from '@eratio08/pi-effect'
+import { type EffectToolDefinition, PiExtension, type PiRegistrationContext, PiToolContext } from '@eratio08/pi-effect'
 import { Effect, Layer, Predicate } from 'effect'
-import { Type } from 'typebox'
+import { type Static, Type } from 'typebox'
 import {
   assertSafePublicHttpUrl,
   DEFAULT_TIMEOUT_SECONDS,
@@ -46,6 +46,15 @@ const webFetchParameters = Type.Object({
   ),
 })
 
+type WebFetchToolDefinition = EffectToolDefinition<
+  typeof webFetchParameters,
+  WebToolsHttp | WebToolsTemporaryOutput,
+  WebFetchError,
+  WebFetchDetails
+>
+type WebFetchRenderCallParameters = Parameters<NonNullable<WebFetchToolDefinition['renderCall']>>
+type WebFetchRenderResultParameters = Parameters<NonNullable<WebFetchToolDefinition['renderResult']>>
+
 function createWebFetchTool(
   _run?: WebFetchEffectRunner,
 ): EffectToolDefinition<
@@ -64,7 +73,7 @@ function createWebFetchTool(
       'Use webfetch instead of bash curl for normal public HTTP or HTTPS retrieval.',
     ],
     parameters: webFetchParameters,
-    renderCall(args, theme) {
+    renderCall(args: WebFetchRenderCallParameters[0], theme: WebFetchRenderCallParameters[1]): Text {
       const format = Predicate.isString(args.format) ? args.format : 'markdown'
       let target = Predicate.isString(args.url) ? args.url : ''
       try {
@@ -76,7 +85,11 @@ function createWebFetchTool(
         0,
       )
     },
-    renderResult(result, { expanded, isPartial }, theme) {
+    renderResult(
+      result: WebFetchRenderResultParameters[0],
+      { expanded, isPartial }: WebFetchRenderResultParameters[1],
+      theme: WebFetchRenderResultParameters[2],
+    ): Text | Markdown | Container {
       if (isPartial) return new Text(theme.fg('warning', 'Fetching...'), 0, 0)
       const details = result.details as WebFetchDetails | undefined
       const content = result.content.find((item) => item.type === 'text')
@@ -101,7 +114,7 @@ function createWebFetchTool(
       container.addChild(new Text(theme.fg('dim', `Full output: ${details.fullOutputPath}`), 0, 0))
       return container
     },
-    execute: (params) => runWebFetch(params),
+    execute: (params: Static<typeof webFetchParameters>) => runWebFetch(params),
   }
 }
 
@@ -116,6 +129,15 @@ const webSearchParameters = Type.Object({
     Type.Number({ description: `Maximum model context characters. Default 10000, max ${MAX_CONTEXT_CHARACTERS}` }),
   ),
 })
+
+type WebSearchToolDefinition = EffectToolDefinition<
+  typeof webSearchParameters,
+  WebToolsHttp | WebToolsTemporaryOutput | WebSearchConfig,
+  WebSearchError,
+  WebSearchDetails
+>
+type WebSearchRenderCallParameters = Parameters<NonNullable<WebSearchToolDefinition['renderCall']>>
+type WebSearchRenderResultParameters = Parameters<NonNullable<WebSearchToolDefinition['renderResult']>>
 
 function createWebSearchTool(
   _run?: WebSearchEffectRunner,
@@ -135,11 +157,15 @@ function createWebSearchTool(
       'Use websearch before webfetch when the user needs discovery rather than one exact URL.',
     ],
     parameters: webSearchParameters,
-    renderCall(args, theme) {
+    renderCall(args: WebSearchRenderCallParameters[0], theme: WebSearchRenderCallParameters[1]): Text {
       const query = truncateInline(Predicate.isString(args.query) ? args.query : '', 80)
       return new Text(`${theme.fg('toolTitle', theme.bold('websearch '))}${theme.fg('accent', query)}`, 0, 0)
     },
-    renderResult(result, { expanded, isPartial }, theme) {
+    renderResult(
+      result: WebSearchRenderResultParameters[0],
+      { expanded, isPartial }: WebSearchRenderResultParameters[1],
+      theme: WebSearchRenderResultParameters[2],
+    ): Text | Container {
       if (isPartial) return new Text(theme.fg('warning', 'Searching...'), 0, 0)
       const details = result.details as WebSearchDetails | undefined
       const content = result.content.find((item) => item.type === 'text')
@@ -161,7 +187,7 @@ function createWebSearchTool(
       container.addChild(new Text(theme.fg('dim', `Full output: ${details.fullOutputPath}`), 0, 0))
       return container
     },
-    execute: (params) =>
+    execute: (params: Static<typeof webSearchParameters>) =>
       Effect.gen(function* () {
         const context = yield* PiToolContext
         return yield* runWebSearch(params, context.toolCallId, context.session.file ?? null)
@@ -176,7 +202,7 @@ type WebToolsFailure = WebFetchError | WebSearchError
 const webToolsPlugin = PiExtension.define<WebToolsServices, WebToolsFailure>({
   id: 'web-tools',
   layer: Layer.mergeAll(WebToolsHttpLive, WebToolsTemporaryOutputLive, WebSearchConfigLive()),
-  effect: (registrations) =>
+  effect: (registrations: PiRegistrationContext<WebToolsServices, WebToolsFailure>) =>
     Effect.gen(function* () {
       yield* registrations.tools.register(createWebFetchTool())
       if (hasWebSearchCredentials()) yield* registrations.tools.register(createWebSearchTool())

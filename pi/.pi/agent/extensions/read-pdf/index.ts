@@ -1,9 +1,19 @@
 import { resolve } from 'node:path'
 
-import { type ExtensionAPI, formatSize, keyHint } from '@earendil-works/pi-coding-agent'
+import {
+  type AgentToolResult,
+  type AgentToolUpdateCallback,
+  type ExtensionAPI,
+  type ExtensionContext,
+  formatSize,
+  keyHint,
+  type Theme,
+  type ToolDefinition,
+  type ToolRenderResultOptions,
+} from '@earendil-works/pi-coding-agent'
 import { Text } from '@earendil-works/pi-tui'
 import { Layer, ManagedRuntime } from 'effect'
-import { Type } from 'typebox'
+import { type Static, Type } from 'typebox'
 import { type PdfReaderDetails, pagesToMarkdown, readPdf } from './src/effects.ts'
 import { FileSystemLive } from './src/services/fs.ts'
 import { PdfExtractorLive } from './src/services/pdf.ts'
@@ -11,6 +21,10 @@ import { PdfExtractorLive } from './src/services/pdf.ts'
 const parameters = Type.Object({
   path: Type.String({ description: 'Path to a PDF file, relative to the current working directory' }),
 })
+
+type ReadPdfRenderContext = Parameters<
+  NonNullable<ToolDefinition<typeof parameters, PdfReaderDetails>['renderCall']>
+>[2]
 
 function readPdfExtension(pi: ExtensionAPI): void {
   const runtime = ManagedRuntime.make(Layer.mergeAll(FileSystemLive, PdfExtractorLive))
@@ -30,7 +44,13 @@ function readPdfExtension(pi: ExtensionAPI): void {
     promptSnippet: 'Read a PDF file and convert it to Markdown',
     promptGuidelines: ['Use read-pdf instead of treating a PDF as plain text.'],
     parameters,
-    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+    async execute(
+      _toolCallId: string,
+      params: Static<typeof parameters>,
+      signal: AbortSignal | undefined,
+      _onUpdate: AgentToolUpdateCallback<PdfReaderDetails> | undefined,
+      ctx: ExtensionContext,
+    ): Promise<AgentToolResult<PdfReaderDetails>> {
       const path = params.path.startsWith('@') ? params.path.slice(1) : params.path
       const absolutePath = resolve(ctx.cwd, path)
       const result = await runtime.runPromise(readPdf(absolutePath, params.path), { signal })
@@ -39,12 +59,17 @@ function readPdfExtension(pi: ExtensionAPI): void {
         details: result.details,
       }
     },
-    renderCall(args, theme, context) {
+    renderCall(args: Static<typeof parameters>, theme: Theme, context: ReadPdfRenderContext): Text {
       const text = (context.lastComponent as Text | undefined) ?? new Text('', 0, 0)
       text.setText(theme.fg('toolTitle', theme.bold('read-pdf ')) + theme.fg('muted', args.path))
       return text
     },
-    renderResult(result, { expanded, isPartial }, theme, context) {
+    renderResult(
+      result: AgentToolResult<PdfReaderDetails>,
+      { expanded, isPartial }: ToolRenderResultOptions,
+      theme: Theme,
+      context: ReadPdfRenderContext,
+    ): Text {
       const text = (context.lastComponent as Text | undefined) ?? new Text('', 0, 0)
       if (isPartial) {
         text.setText(theme.fg('warning', 'Reading PDF...'))

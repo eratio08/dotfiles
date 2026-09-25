@@ -28,7 +28,7 @@ function webFetchLayer(
   )
 }
 
-test('webfetch effect preserves request headers, conversion, and details', async () => {
+test('should preserve request headers, conversion, and details given a webfetch response', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   let request: { url: string; headers: Headers; timeoutMs: number } | undefined
@@ -69,7 +69,7 @@ test('webfetch effect preserves request headers, conversion, and details', async
   assert.deepEqual(writes, [])
 })
 
-test('webfetch effect validates the URL inside the workflow', async () => {
+test('should validate the URL given a webfetch workflow', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   let requestCount = 0
@@ -94,7 +94,7 @@ test('webfetch effect validates the URL inside the workflow', async () => {
   assert.equal(requestCount, 0)
 })
 
-test('webfetch effect preserves non-success response errors', async () => {
+test('should preserve response errors given a non-success status', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   const fetchImplementation: WebToolsFetch = async () =>
@@ -113,7 +113,7 @@ test('webfetch effect preserves non-success response errors', async () => {
   assert.equal(error.message, 'Unable to fetch https://example.com/status: HTTP 503 Service Unavailable')
 })
 
-test('webfetch effect redacts credentials from status errors', async () => {
+test('should redact credentials from status errors given a credentialed URL', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   const fetchImplementation: WebToolsFetch = async () =>
@@ -136,7 +136,7 @@ test('webfetch effect redacts credentials from status errors', async () => {
   assert.doesNotMatch(error.message, /secret/)
 })
 
-test('webfetch effect rejects image content', async () => {
+test('should reject image content given an image response', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   const fetchImplementation: WebToolsFetch = async () =>
@@ -155,7 +155,7 @@ test('webfetch effect rejects image content', async () => {
   assert.equal(error.message, 'Unsupported fetched image content type: image/png')
 })
 
-test('webfetch effect rejects non-text content', async () => {
+test('should reject non-text content given a non-text response', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   const fetchImplementation: WebToolsFetch = async () =>
@@ -174,13 +174,13 @@ test('webfetch effect rejects non-text content', async () => {
   assert.equal(error.message, 'Unsupported fetched file content type: application/octet-stream')
 })
 
-test('webfetch effect maps an oversized raw response', async () => {
+test('should map an oversized raw response given a body over the size limit', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   const fetchImplementation: WebToolsFetch = async () =>
     new Response(
       new ReadableStream<Uint8Array>({
-        start(controller) {
+        start(controller: ReadableStreamDefaultController<Uint8Array<ArrayBufferLike>>): void {
           controller.enqueue(new Uint8Array(MAX_RESPONSE_BYTES + 1))
         },
       }),
@@ -200,7 +200,7 @@ test('webfetch effect maps an oversized raw response', async () => {
   assert.equal(error.message, 'Response too large (exceeds 5.0MB)')
 })
 
-test('webfetch effect maps temporary output failures', async () => {
+test('should map temporary output failures given a failed write', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   const fullOutput = Array.from({ length: 2001 }, (_, index) => `line ${index + 1}`).join('\n')
@@ -237,7 +237,7 @@ test('webfetch effect maps temporary output failures', async () => {
   assert.deepEqual(writes, [])
 })
 
-test('webfetch effect spills complete output when truncation is required', async () => {
+test('should spill complete output given a response that requires truncation', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   const fullOutput = Array.from({ length: 2001 }, (_, index) => `line ${index + 1}`).join('\n')

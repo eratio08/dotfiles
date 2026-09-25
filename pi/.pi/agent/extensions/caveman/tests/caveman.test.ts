@@ -8,21 +8,21 @@ import {
   resolveSessionMode,
 } from '../src/core.ts'
 
-test('parse command modes', () => {
+test('should parse command modes given command input', () => {
   assert.deepEqual(parseCavemanCommand(''), { type: 'set-mode', mode: DEFAULT_MODE })
   assert.deepEqual(parseCavemanCommand('ultra'), { type: 'set-mode', mode: 'ultra' })
   assert.deepEqual(parseCavemanCommand('stop'), { type: 'set-mode', mode: 'off' })
   assert.equal(parseCavemanCommand('bogus').type, 'invalid')
 })
 
-test('parse natural language toggles', () => {
+test('should parse natural language toggles given toggle requests', () => {
   assert.equal(parseModeChange('talk like caveman'), DEFAULT_MODE)
   assert.equal(parseModeChange('please stop caveman mode'), 'off')
   assert.equal(parseModeChange('/caveman wenyan'), 'wenyan-full')
   assert.equal(parseModeChange('nothing to see here'), null)
 })
 
-test('resolve last valid saved mode from branch', () => {
+test('should resolve the last valid saved mode given branch history', () => {
   //given
   const entries = [
     { type: 'custom', customType: 'caveman-mode', data: { mode: 'lite' } },
@@ -39,7 +39,7 @@ test('resolve last valid saved mode from branch', () => {
   assert.equal(mode, 'ultra')
 })
 
-test('resolve mode uses fallback when branch has no valid entry', () => {
+test('should use the fallback mode given branch history with no valid entry', () => {
   //given
   const entries = [{ type: 'custom', customType: 'other', data: { mode: 'off' } }]
 
@@ -50,7 +50,7 @@ test('resolve mode uses fallback when branch has no valid entry', () => {
   assert.equal(mode, 'lite')
 })
 
-test('instructions include active level', () => {
+test('should include the active level in instructions given a mode setting', () => {
   const text = getModeInstructions('full')
   assert.match(text, /CAVEMAN MODE ACTIVE — level: full/)
   assert.match(text, /Drop articles/)

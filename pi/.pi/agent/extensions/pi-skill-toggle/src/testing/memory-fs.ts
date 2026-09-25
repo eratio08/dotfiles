@@ -25,18 +25,18 @@ class MemoryFileSystem {
     }
 
     this.service = FileSystem.of({
-      readFile: (path) => {
+      readFile: (path: string) => {
         const content = this.files.get(path)
         return content === undefined
           ? Effect.fail(this.error('readFile', path, `missing file: ${path}`))
           : Effect.succeed(content)
       },
-      writeFileAtomic: (path, content) => {
+      writeFileAtomic: (path: string, content: string) => {
         this.addFile(path, content)
         return Effect.void
       },
-      access: (path) => Effect.succeed(this.files.has(path) || this.dirs.has(path)),
-      readdir: (path) => {
+      access: (path: string) => Effect.succeed(this.files.has(path) || this.dirs.has(path)),
+      readdir: (path: string) => {
         if (!this.dirs.has(path)) return Effect.fail(this.error('readdir', path, `missing directory: ${path}`))
         const prefix = path === '/' ? '/' : `${path}/`
         const names = new Set<string>()
@@ -62,8 +62,9 @@ class MemoryFileSystem {
           }),
         )
       },
-      realpath: (path) => Effect.succeed(this.canonicalPaths.get(path) ?? path),
-      stat: (path) => Effect.succeed({ isDirectory: this.dirs.has(path), isFile: this.files.has(path), mode: 0o644 }),
+      realpath: (path: string) => Effect.succeed(this.canonicalPaths.get(path) ?? path),
+      stat: (path: string) =>
+        Effect.succeed({ isDirectory: this.dirs.has(path), isFile: this.files.has(path), mode: 0o644 }),
     })
     this.layer = Layer.succeed(FileSystem, this.service)
   }

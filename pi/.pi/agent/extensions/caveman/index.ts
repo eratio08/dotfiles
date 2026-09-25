@@ -18,7 +18,7 @@ function cavemanExtension(pi: ExtensionAPI): void {
 
   pi.registerCommand('caveman', {
     description: 'Set caveman mode: off|lite|full|ultra|wenyan-lite|wenyan-full|wenyan-ultra',
-    handler: async (args, ctx) =>
+    handler: async (args: string, ctx: ExtensionContext) =>
       runtime.runPromise(
         Effect.provideService(
           Caveman.use((caveman) => caveman.handleCommand(args)),
@@ -31,17 +31,17 @@ function cavemanExtension(pi: ExtensionAPI): void {
 
   pi.registerCommand('caveman-commit', {
     description: 'Run /skill:caveman-commit',
-    handler: async (args, ctx) => sendAlias('caveman-commit', args, ctx),
+    handler: async (args: string, ctx: ExtensionContext) => sendAlias('caveman-commit', args, ctx),
   })
 
   pi.registerCommand('caveman-review', {
     description: 'Run /skill:caveman-review',
-    handler: async (args, ctx) => sendAlias('caveman-review', args, ctx),
+    handler: async (args: string, ctx: ExtensionContext) => sendAlias('caveman-review', args, ctx),
   })
 
   pi.registerCommand('caveman-compress', {
     description: 'Run /skill:caveman-compress',
-    handler: async (args, ctx) => sendAlias('caveman-compress', args, ctx),
+    handler: async (args: string, ctx: ExtensionContext) => sendAlias('caveman-compress', args, ctx),
   })
 
   pi.on('session_start', async (_event, ctx) => {

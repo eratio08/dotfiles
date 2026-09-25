@@ -8,21 +8,21 @@ import {
   previewLines as webSearchPreviewLines,
 } from '../src/core/websearch.ts'
 
-test('websearch registration gate checks credentials', () => {
+test('should gate websearch registration on credentials given provider configuration', () => {
   assert.equal(hasWebSearchCredentials({} as NodeJS.ProcessEnv), false)
   assert.equal(hasWebSearchCredentials({ EXA_API_KEY: 'x' } as NodeJS.ProcessEnv), true)
   assert.equal(hasWebSearchCredentials({ PARALLEL_API_KEY: 'x' } as NodeJS.ProcessEnv), true)
   assert.equal(hasWebSearchCredentials({ EXA_API_KEY: '   ' } as NodeJS.ProcessEnv), false)
 })
 
-test('websearch selects configured provider', () => {
+test('should select the configured provider given provider settings', () => {
   assert.equal(selectProvider({ PI_WEBSEARCH_PROVIDER: 'parallel' } as NodeJS.ProcessEnv), 'parallel')
   assert.equal(selectProvider({ EXA_API_KEY: 'x' } as NodeJS.ProcessEnv), 'exa')
   assert.equal(selectProvider({ PARALLEL_API_KEY: 'x' } as NodeJS.ProcessEnv), 'parallel')
   assert.equal(selectProvider({} as NodeJS.ProcessEnv), 'exa')
 })
 
-test('websearch parses direct json and sse responses', () => {
+test('should parse direct JSON and SSE responses given provider payloads', () => {
   const direct = JSON.stringify({ result: { content: [{ type: 'text', text: 'direct hit' }] } })
   const sse = [
     'event: message',
@@ -33,12 +33,12 @@ test('websearch parses direct json and sse responses', () => {
   assert.equal(parseSearchResponse('data: not-json'), undefined)
 })
 
-test('websearch preview lines trim blanks and truncate long lines', () => {
+test('should trim blank preview lines and truncate long lines given preview text', () => {
   assert.deepEqual(webSearchPreviewLines('\n alpha \n\nbeta\ngamma\ndelta', 2, 20), ['alpha', 'beta'])
   assert.deepEqual(webSearchPreviewLines('abcdefghijklmnopqrstuvwxyz', 3, 8), ['abcdefg…'])
 })
 
-test('websearch preserves selected-provider fallback and tool schema', () => {
+test('should preserve provider fallback and tool schema given a selected provider', () => {
   //given
   const webSearchTool = createWebSearchTool(async () => {
     throw new Error('test runner must not execute the websearch workflow')

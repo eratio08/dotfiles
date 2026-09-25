@@ -7,7 +7,7 @@ import {
   WebToolsTemporaryOutput,
 } from '../src/effects/services/temporary-output.ts'
 
-test('temporary output writes complete output with the current path layout', async () => {
+test('should write complete temporary output given the current path layout', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   const runtime = ManagedRuntime.make(createWebToolsTemporaryOutputTestLayer(writes, '/tmp/web-tools-test'))

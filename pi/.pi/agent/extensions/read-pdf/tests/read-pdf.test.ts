@@ -73,10 +73,10 @@ function loadTool(): LoadedTool {
   let tool: ReadPdfTool | undefined
   let shutdown: (() => Promise<void>) | undefined
   readPdfExtension({
-    registerTool(candidate: unknown) {
+    registerTool(candidate: unknown): void {
       tool = candidate as ReadPdfTool
     },
-    on(event: string, handler: unknown) {
+    on(event: string, handler: unknown): void {
       if (event === 'session_shutdown') shutdown = handler as () => Promise<void>
     },
   } as unknown as ExtensionAPI)
@@ -88,12 +88,12 @@ function loadTool(): LoadedTool {
 }
 
 const theme = {
-  fg: (_role: string, text: string) => text,
-  bold: (text: string) => text,
+  fg: (_role: string, text: string): string => text,
+  bold: (text: string): string => text,
 }
 
 describe('read-pdf effects', () => {
-  test('converts extracted pages into Markdown headings and paragraphs', () => {
+  test('should convert extracted pages into Markdown headings and paragraphs given page text', () => {
     //given
     const pages = ['Title\n\nFirst paragraph\nsecond line', '  Another page  ']
 
@@ -104,11 +104,11 @@ describe('read-pdf effects', () => {
     assert.equal(markdown, '# Page 1\n\nTitle\n\nFirst paragraph\nsecond line\n\n# Page 2\n\nAnother page')
   })
 
-  test('runs the PDF pipeline with replacement services', async () => {
+  test('should run the PDF pipeline given replacement services', async () => {
     //given
     let writes = 0
     const fileSystem = FileSystem.of({
-      readFile: (path) => {
+      readFile: (path: string) => {
         assert.equal(path, '/input.pdf')
         return Effect.succeed(new Uint8Array([1, 2, 3]))
       },
@@ -142,7 +142,7 @@ describe('read-pdf effects', () => {
     }
   })
 
-  test('extracts text from a real PDF with the live layers', async () => {
+  test('should extract text given a real PDF and live layers', async () => {
     //given
     const root = await mkdtemp(join(tmpdir(), 'pi-read-pdf-real-test-'))
     const path = join(root, 'sample.pdf')
@@ -163,7 +163,7 @@ describe('read-pdf effects', () => {
     }
   })
 
-  test('returns a typed failure from a replacement FileSystem layer', async () => {
+  test('should return a typed failure given a replacement FileSystem layer failure', async () => {
     //given
     const expected = new FileSystemError({ operation: 'readFile', path: '/missing.pdf', cause: 'missing' })
     const fileSystem = FileSystem.of({
@@ -193,7 +193,7 @@ describe('read-pdf effects', () => {
     }
   })
 
-  test('returns a typed failure from a replacement PdfExtractor layer', async () => {
+  test('should return a typed failure given a replacement PdfExtractor layer failure', async () => {
     //given
     const expected = new PdfExtractionError({ cause: 'invalid PDF' })
     const extractor = PdfExtractor.of({ extract: () => Effect.fail(expected) })
@@ -219,7 +219,7 @@ describe('read-pdf effects', () => {
     }
   })
 
-  test('writes complete output when the pipeline truncates the result', async () => {
+  test('should write complete output given a truncated pipeline result', async () => {
     //given
     const root = await mkdtemp(join(tmpdir(), 'pi-read-pdf-truncation-test-'))
     const input = join(root, 'sample.pdf')
@@ -249,7 +249,7 @@ describe('read-pdf effects', () => {
     }
   })
 
-  test('cancels the pipeline through the runtime signal option', async () => {
+  test('should cancel the pipeline given an aborted runtime signal', async () => {
     //given
     const controller = new AbortController()
     controller.abort()
@@ -272,7 +272,7 @@ describe('read-pdf effects', () => {
 })
 
 describe('read-pdf tool', () => {
-  test('renders compact and expanded results', async () => {
+  test('should render compact and expanded results given both rendering modes', async () => {
     //given
     const root = await mkdtemp(join(tmpdir(), 'pi-read-pdf-render-test-'))
     const path = join(root, 'sample.pdf')
@@ -298,7 +298,7 @@ describe('read-pdf tool', () => {
     }
   })
 
-  test('disposes the runtime during session shutdown', async () => {
+  test('should dispose the runtime given session shutdown', async () => {
     //given
     const loaded = loadTool()
 

@@ -4,8 +4,8 @@ import { Effect, Layer } from 'effect'
 import { SkillLocator, SkillLocatorLive } from '../../src/discovery/skill-locator.ts'
 import { MemoryFileSystem } from '../../src/testing/memory-fs.ts'
 
-const originalHome = process.env.HOME
-const originalAgentDir = process.env.PI_CODING_AGENT_DIR
+const originalHome: string | undefined = process.env.HOME
+const originalAgentDir: string | undefined = process.env.PI_CODING_AGENT_DIR
 
 function run<A, E>(fs: MemoryFileSystem, effect: Effect.Effect<A, E, SkillLocator>): Promise<A> {
   const layer = SkillLocatorLive.pipe(Layer.provide(fs.layer))
@@ -23,7 +23,7 @@ describe('SkillLocator', () => {
     restoreEnv('PI_CODING_AGENT_DIR', originalAgentDir)
   })
 
-  test('finds global, user, and project skills with Pi root markdown discovery rules', async () => {
+  test('should find global, user, and project skills given Pi root markdown discovery rules', async () => {
     //given
     const fs = new MemoryFileSystem([
       '/home/tester/.pi/agent/skills/user-root.md',
@@ -49,7 +49,7 @@ describe('SkillLocator', () => {
     assert.equal(byPath.has('/repo/.agents/skills/ignored-project-legacy-root.md'), false)
   })
 
-  test('deduplicates global and project skill roots that resolve to the same directory', async () => {
+  test('should deduplicate skill roots given global and project roots that resolve to one directory', async () => {
     //given
     const canonicalSkillRoot = '/home/tester/.dotfiles/home/.agents/skills'
     const fs = new MemoryFileSystem(

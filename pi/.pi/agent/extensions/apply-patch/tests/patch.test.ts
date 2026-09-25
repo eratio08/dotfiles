@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import test from 'node:test'
 import { applyPatch, parsePatch } from '../src/patch.ts'
 
-async function fixture(files: Record<string, string>, run: (directory: string) => Promise<void>) {
+async function fixture(files: Record<string, string>, run: (directory: string) => Promise<void>): Promise<void> {
   const directory = await mkdtemp(join(tmpdir(), 'pi-apply-patch-'))
   try {
     await Promise.all(Object.entries(files).map(([path, content]) => writeFile(join(directory, path), content)))
@@ -15,7 +15,7 @@ async function fixture(files: Record<string, string>, run: (directory: string) =
   }
 }
 
-test('applyPatch adds, updates, moves, and deletes files', async () => {
+test('should add, update, move, and delete files given a patch with each operation', async () => {
   await fixture({ 'app.ts': 'const value = 1;\n', 'old.ts': 'old\n', 'remove.ts': 'remove\n' }, async (directory) => {
     const files = await applyPatch(
       directory,
@@ -47,7 +47,7 @@ test('applyPatch adds, updates, moves, and deletes files', async () => {
   })
 })
 
-test('applyPatch preserves BOM and CRLF when updating', async () => {
+test('should preserve BOM and CRLF given an update to a CRLF file with a BOM', async () => {
   await fixture({ 'windows.txt': '\uFEFFfirst\r\nsecond\r\n' }, async (directory) => {
     await applyPatch(
       directory,
@@ -63,7 +63,7 @@ test('applyPatch preserves BOM and CRLF when updating', async () => {
   })
 })
 
-test('applyPatch rejects mismatched hunks without changing files', async () => {
+test('should reject mismatched hunks given a patch that does not match the file', async () => {
   await fixture({ 'app.ts': 'const value = 1;\n' }, async (directory) => {
     await assert.rejects(
       applyPatch(
@@ -81,7 +81,7 @@ test('applyPatch rejects mismatched hunks without changing files', async () => {
   })
 })
 
-test('parsePatch rejects invalid and escaping paths', async () => {
+test('should reject invalid and escaping paths given a patch with unsafe paths', async () => {
   assert.throws(() => parsePatch('*** Begin Patch\n*** End Patch'), /empty patch/)
   await fixture({}, async (directory) => {
     await assert.rejects(
@@ -97,7 +97,7 @@ test('parsePatch rejects invalid and escaping paths', async () => {
   })
 })
 
-test('applyPatch rejects duplicate paths before mutation', async () => {
+test('should reject duplicate paths before mutation given a patch with repeated paths', async () => {
   await fixture({ 'app.ts': 'one\n' }, async (directory) => {
     await assert.rejects(
       applyPatch(

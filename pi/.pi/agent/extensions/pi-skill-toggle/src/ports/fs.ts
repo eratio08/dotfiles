@@ -51,7 +51,7 @@ function tryFileSystem<A>(
 ): Effect.Effect<A, FileSystemError> {
   return Effect.tryPromise({
     try: execute,
-    catch: (cause) => toFileSystemError(operation, path, cause),
+    catch: (cause: unknown) => toFileSystemError(operation, path, cause),
   })
 }
 

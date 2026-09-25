@@ -11,7 +11,7 @@ function run<A, E>(fs: MemoryFileSystem, effect: Effect.Effect<A, E, SkillChange
 }
 
 describe('SkillChangeWriter', () => {
-  test('applies independent changes and reports conflicts and filesystem errors', async () => {
+  test('should apply independent changes and report conflicts and filesystem errors given conflicting changes', async () => {
     //given
     const first = skillChange('/skills/first/SKILL.md', 'first', 'old', 'new')
     const conflict = skillChange('/skills/conflict/SKILL.md', 'conflict', 'old', 'new')

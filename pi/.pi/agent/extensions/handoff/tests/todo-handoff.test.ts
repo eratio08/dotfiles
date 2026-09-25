@@ -11,8 +11,10 @@ const specifiers = [...source.matchAll(/import\((['"])([^'"]+)\1\)/g)].map((matc
 const todoSpecifier = specifiers.find((specifier) => specifier.includes('todo') && specifier.endsWith('state.ts'))
 assert.ok(todoSpecifier, 'handoff/src/effects.ts must dynamically import the todo state module')
 
-const todoState = await import(pathToFileURL(resolve(handoffSourceDir, todoSpecifier)).href)
-for (const name of ['extractLatestTodoSnapshot', 'getTodoHandoffSnapshot', 'formatTodoContext']) {
+const todoState: typeof import('../../todo/src/state.ts') = await import(
+  pathToFileURL(resolve(handoffSourceDir, todoSpecifier)).href
+)
+for (const name of ['extractLatestTodoSnapshot', 'getTodoHandoffSnapshot', 'formatTodoContext'] as const) {
   assert.equal(
     typeof todoState[name],
     'function',
@@ -64,7 +66,7 @@ assert.deepEqual(handoffTodos, [
     details: 'later details',
   },
 ])
-assert.match(handoffContext, /content="active work"/)
-assert.match(handoffContext, /details="active details"/)
+assert.match(handoffContext, /Current task: "active work"/)
+assert.match(handoffContext, /Details: "active details"/)
 assert.doesNotMatch(handoffContext, /later work/)
 assert.doesNotMatch(handoffContext, /later details/)

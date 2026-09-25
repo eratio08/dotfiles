@@ -11,7 +11,7 @@ import {
   WebToolsHttpTimeoutError,
 } from '../src/effects/services/http.ts'
 
-test('http service forwards request data and returns native response data', async () => {
+test('should forward request data and return native response data given an HTTP request', async () => {
   //given
   const calls: Array<{ url: string; method: string; headers: Headers; body: string; timeoutMs: number }> = []
   const fetchImplementation: WebToolsFetch = async () =>
@@ -59,9 +59,9 @@ test('http service forwards request data and returns native response data', asyn
   ])
 })
 
-test('http service maps request timeout separately from caller cancellation', async () => {
+test('should map request timeout separately from caller cancellation given a timed-out request', async () => {
   //given
-  const fetchImplementation: WebToolsFetch = async (_url, init) => {
+  const fetchImplementation: WebToolsFetch = async (_url: URL | RequestInfo, init: RequestInit | undefined) => {
     await new Promise<never>((_resolve, reject) => {
       init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
     })
@@ -95,15 +95,15 @@ test('http service maps request timeout separately from caller cancellation', as
   assert.equal(callerError instanceof WebToolsHttpRequestError, false)
 })
 
-test('http service cancels a response reader when the raw body exceeds its limit', async () => {
+test('should cancel a response reader given a raw body over the size limit', async () => {
   //given
   let cancelled = false
   const response = new Response(
     new ReadableStream<Uint8Array>({
-      start(controller) {
+      start(controller: ReadableStreamDefaultController<Uint8Array<ArrayBufferLike>>): void {
         controller.enqueue(new TextEncoder().encode('too large'))
       },
-      cancel() {
+      cancel(): void {
         cancelled = true
       },
     }),
@@ -122,7 +122,7 @@ test('http service cancels a response reader when the raw body exceeds its limit
   assert.equal(cancelled, true)
 })
 
-test('http service releases a response reader when caller cancels body reading', async () => {
+test('should release a response reader given caller cancellation during body reading', async () => {
   //given
   let startedResolve!: () => void
   const started = new Promise<void>((resolve) => {
@@ -131,11 +131,11 @@ test('http service releases a response reader when caller cancels body reading',
   let cancelled = false
   const response = new Response(
     new ReadableStream<Uint8Array>({
-      pull() {
+      pull(): Promise<void> {
         startedResolve()
         return new Promise<void>(() => undefined)
       },
-      cancel() {
+      cancel(): void {
         cancelled = true
       },
     }),
@@ -162,7 +162,7 @@ test('http service releases a response reader when caller cancels body reading',
   assert.equal(cancelled, true)
 })
 
-test('http service maps response body failures and redacts credentials', async () => {
+test('should map response body failures and redact credentials given a credentialed URL', async () => {
   //given
   const fetchImplementation: WebToolsFetch = async () => {
     throw new Error('request failed for https://example.com/?exaApiKey=secret')
@@ -178,7 +178,7 @@ test('http service maps response body failures and redacts credentials', async (
     )
   const response = new Response(
     new ReadableStream<Uint8Array>({
-      start(controller) {
+      start(controller: ReadableStreamDefaultController<Uint8Array<ArrayBufferLike>>): void {
         controller.error(new Error('body failed'))
       },
     }),
@@ -196,7 +196,7 @@ test('http service maps response body failures and redacts credentials', async (
   assert.ok(bodyError instanceof WebToolsHttpResponseBodyError)
 })
 
-test('http service reads an unbounded response body without applying a webfetch limit', async () => {
+test('should read an unbounded response body without a webfetch limit given an HTTP request', async () => {
   //given
   const response = new Response('complete search response')
   const runtime = ManagedRuntime.make(createWebToolsHttpTestLayer(async () => response))

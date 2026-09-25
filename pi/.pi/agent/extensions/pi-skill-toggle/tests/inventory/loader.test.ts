@@ -21,7 +21,7 @@ function run<A, E>(
 }
 
 describe('SkillInventory', () => {
-  test('sorts records and preserves per-file diagnostics and editability', async () => {
+  test('should sort records and preserve diagnostics and editability given per-file inventory data', async () => {
     //given
     const validPath = '/skills/zulu/SKILL.md'
     const noFrontmatterPath = '/skills/alpha/SKILL.md'

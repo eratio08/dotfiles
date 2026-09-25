@@ -1,12 +1,5 @@
-import {
-  type PiExtensionError,
-  type PiProcess,
-  type PiRegistrationContext,
-  type PiToolResult,
-  PiToolContext,
-} from '@eratio/pi-effect'
-import { createTool, PiExtension, type ToolOutputDetails } from '@eratio/pi-effect-codemode'
-import type { ProgramFailureData } from '@eratio/pi-codemode-core'
+import { type PiExtensionError, type PiProcess, type PiRegistrationContext, PiToolContext } from '@eratio/pi-effect'
+import { createTool, PiExtension } from '@eratio/pi-effect-codemode'
 import { Effect } from 'effect'
 import { OPENSRC_CODE_TYPES } from './src/core/code-mode.ts'
 import type { OpensrcFailure } from './src/core/model.ts'
@@ -14,6 +7,10 @@ import { opensrcErrorCodec, opensrcMethods } from './src/effects/code-mode.ts'
 import { createOpensrcApi, type OpensrcApiService } from './src/effects/opensrc-api.ts'
 import { resolveOpensrcConfig } from './src/effects/opensrc-cli.ts'
 import { createCallLayer } from './src/effects/runtime.ts'
+
+type OpenSrcWithRun = NonNullable<
+  Parameters<typeof createTool<PiToolContext | PiProcess, OpensrcFailure, OpensrcApiService>>[0]['withRun']
+>
 
 const opensrcTool = createTool<PiToolContext | PiProcess, OpensrcFailure, OpensrcApiService>({
   toolName: 'opensrc',
@@ -42,26 +39,7 @@ const opensrcTool = createTool<PiToolContext | PiProcess, OpensrcFailure, Opensr
   timeoutMs: 30_000,
   executionMode: 'sequential',
   errorCodec: opensrcErrorCodec,
-  withRun: (
-    run: (
-      runContext: OpensrcApiService,
-    ) => Effect.Effect<
-      PiToolResult<ToolOutputDetails>,
-      | OpensrcFailure
-      | ProgramFailureData<'validation'>
-      | ProgramFailureData<'transform'>
-      | ProgramFailureData<'compile'>
-      | ProgramFailureData<'invoke'>
-      | ProgramFailureData<'timeout'>
-      | ProgramFailureData<'cancellation'>
-      | ProgramFailureData<'worker'>
-      | ProgramFailureData<'transport'>
-      | ProgramFailureData<'deserialize'>
-      | ProgramFailureData<'serialize'>,
-      PiToolContext | PiProcess
-    >,
-    signal: AbortSignal | undefined,
-  ) =>
+  withRun: (run: Parameters<OpenSrcWithRun>[0], signal: Parameters<OpenSrcWithRun>[1]) =>
     Effect.gen(function* () {
       const context = yield* PiToolContext
       return yield* Effect.scoped(

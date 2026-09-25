@@ -43,7 +43,7 @@ function handoffExtension(pi: ExtensionAPI): void {
 
   pi.registerCommand('handoff', {
     description: 'Compact the current conversation so a fresh session can continue the work',
-    handler: async (_args, ctx) => {
+    handler: async (_args: string, ctx: ExtensionCommandContext) => {
       if (ctx.mode !== 'tui') {
         notify(ctx, 'handoff requires interactive mode', 'error')
         return

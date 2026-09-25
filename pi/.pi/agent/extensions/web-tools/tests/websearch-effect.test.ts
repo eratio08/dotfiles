@@ -31,7 +31,7 @@ function webSearchLayer(
   )
 }
 
-test('websearch effect preserves Exa request options and direct JSON parsing', async () => {
+test('should preserve Exa request options and parse direct JSON given an Exa response', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   let request: { url: string; headers: Headers; body: JsonRpcBody; timeoutMs: number } | undefined
@@ -89,7 +89,7 @@ test('websearch effect preserves Exa request options and direct JSON parsing', a
   assert.deepEqual(writes, [])
 })
 
-test('websearch effect preserves Parallel provider selection and session fallback', async () => {
+test('should preserve Parallel provider selection and session fallback given provider settings', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   let request: { url: string; headers: Headers; body: JsonRpcBody } | undefined
@@ -120,7 +120,7 @@ test('websearch effect preserves Parallel provider selection and session fallbac
   assert.equal(request?.body.params.arguments.session_id, 'tool-call-id')
 })
 
-test('websearch effect keeps an explicit provider even without its credentials', async () => {
+test('should keep an explicit provider given missing credentials', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   let requestUrl = ''
@@ -143,7 +143,7 @@ test('websearch effect keeps an explicit provider even without its credentials',
   assert.equal(requestUrl, 'https://search.parallel.ai/mcp')
 })
 
-test('websearch effect maps invalid search response data', async () => {
+test('should map invalid search response data given a malformed response', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   const fetchImplementation: WebToolsFetch = async () => new Response('{invalid json')
@@ -164,7 +164,7 @@ test('websearch effect maps invalid search response data', async () => {
   assert.match(error.message, /JSON|Unexpected token/)
 })
 
-test('websearch effect reads a full body without the webfetch raw limit', async () => {
+test('should read a full response body without the webfetch limit given a search response', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   const fullOutput = 'x'.repeat(5 * 1024 * 1024 + 1)
@@ -185,7 +185,7 @@ test('websearch effect reads a full body without the webfetch raw limit', async 
   assert.equal(writes[0]?.content, fullOutput)
 })
 
-test('websearch effect returns the existing no-results text', async () => {
+test('should return the existing no-results text given an empty search result', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   const fetchImplementation: WebToolsFetch = async () => new Response(JSON.stringify({ result: { content: [] } }))
@@ -203,7 +203,7 @@ test('websearch effect returns the existing no-results text', async () => {
   assert.equal(result.details.lineCount, 1)
 })
 
-test('websearch effect preserves provider response errors', async () => {
+test('should preserve provider response errors given a failed provider request', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   const fetchImplementation: WebToolsFetch = async () =>
@@ -225,7 +225,7 @@ test('websearch effect preserves provider response errors', async () => {
   assert.equal(error.message, 'web_search_exa failed: HTTP 429 Too Many Requests')
 })
 
-test('websearch effect spills complete output when search results are truncated', async () => {
+test('should spill complete output given truncated search results', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   const fullOutput = Array.from({ length: 2001 }, (_, index) => `result ${index + 1}`).join('\n')

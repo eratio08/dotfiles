@@ -11,7 +11,7 @@ function todo(id: string, content: string, status: TodoStatus = 'pending', depen
   return { id, content, status, dependsOn }
 }
 
-test('validates dependency references and cycles', () => {
+test('should validate dependency references and cycles given a dependency graph', () => {
   //given
   const first = todo(firstId, 'first', 'pending', [secondId])
   const second = todo(secondId, 'second', 'pending', [firstId])
@@ -23,7 +23,7 @@ test('validates dependency references and cycles', () => {
   assert.match(error ?? '', /cycle/)
 })
 
-test('rejects unknown, duplicate, and self dependencies', () => {
+test('should reject unknown, duplicate, and self dependencies given invalid references', () => {
   //given
   const unknown = todo(firstId, 'unknown', 'pending', [secondId])
   const duplicate = todo(firstId, 'duplicate', 'pending', [secondId, secondId])
@@ -39,7 +39,7 @@ test('rejects unknown, duplicate, and self dependencies', () => {
   assert.match(errors[2] ?? '', /cannot depend on itself/)
 })
 
-test('reevaluates dependency-derived states using completed tasks only', () => {
+test('should reevaluate dependency-derived states using completed tasks only given task state changes', () => {
   //given
   const completed = todo(firstId, 'completed', 'completed')
   const ready = todo(secondId, 'ready', 'blocked', [firstId])
@@ -55,7 +55,7 @@ test('reevaluates dependency-derived states using completed tasks only', () => {
   )
 })
 
-test('does not treat omitted dependencies as completed', () => {
+test('should not treat omitted dependencies as completed given an omitted prerequisite', () => {
   //given
   const omitted = todo(firstId, 'omitted', 'omitted')
   const dependent = todo(secondId, 'dependent', 'pending', [firstId])
@@ -67,7 +67,7 @@ test('does not treat omitted dependencies as completed', () => {
   assert.equal(next[1]?.status, 'blocked')
 })
 
-test('removes an active task when its dependency becomes incomplete', () => {
+test('should remove an active task given an incomplete dependency', () => {
   //given
   const dependency = todo(firstId, 'dependency', 'pending')
   const active = todo(secondId, 'active', 'in_progress', [firstId])
@@ -80,7 +80,7 @@ test('removes an active task when its dependency becomes incomplete', () => {
   assert.equal(getActiveTodo(next), undefined)
 })
 
-test('returns the active task before the first ready task', () => {
+test('should return the active task before the first ready task given a mixed task list', () => {
   //given
   const ready = todo(firstId, 'ready')
   const active = todo(secondId, 'active', 'in_progress')

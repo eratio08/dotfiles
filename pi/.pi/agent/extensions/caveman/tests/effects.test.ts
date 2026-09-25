@@ -46,8 +46,11 @@ function makePi(overrides: PiOverrides = {}): TestHarness {
   const commands = new Map<string, CommandHandler>()
   const appended: Array<{ customType: string; data: unknown }> = []
   const messages: Array<{ content: string; options?: MessageOptions }> = []
-  const appendEntry = overrides.appendEntry ?? ((customType, data) => appended.push({ customType, data }))
-  const sendUserMessage = overrides.sendUserMessage ?? ((content, options) => messages.push({ content, options }))
+  const appendEntry =
+    overrides.appendEntry ?? ((customType: string, data: unknown): number => appended.push({ customType, data }))
+  const sendUserMessage =
+    overrides.sendUserMessage ??
+    ((content: string, options: MessageOptions | undefined): number => messages.push({ content, options }))
 
   const pi = {
     on(event: string, handler: EventHandler): void {
@@ -115,7 +118,7 @@ function commandHandler(harness: TestHarness, name: string): CommandHandler {
   return handler
 }
 
-test('service persists mode and tracks agent activity', async () => {
+test('should persist mode and track agent activity given service events', async () => {
   //given
   const harness = makePi()
   const context = makeContext()
@@ -152,7 +155,7 @@ test('service persists mode and tracks agent activity', async () => {
   }
 })
 
-test('service is safe without UI', async () => {
+test('should run safely given no UI', async () => {
   //given
   const harness = makePi()
   const context = makeContext({ hasUI: false, throwOnUi: true })
@@ -185,7 +188,7 @@ test('service is safe without UI', async () => {
   }
 })
 
-test('service delivers aliases based on idle state', async () => {
+test('should deliver aliases given the agent idle state', async () => {
   //given
   const harness = makePi()
   const idleContext = makeContext({ idle: true })
@@ -217,7 +220,7 @@ test('service delivers aliases based on idle state', async () => {
   }
 })
 
-test('service reports persistence failures without changing mode', async () => {
+test('should report persistence failures and keep the mode unchanged given a failed write', async () => {
   //given
   const harness = makePi({
     appendEntry: () => {
@@ -255,7 +258,7 @@ test('service reports persistence failures without changing mode', async () => {
   }
 })
 
-test('input uses the current event context', async () => {
+test('should use the current event context given an input event', async () => {
   //given
   const harness = makePi()
   cavemanExtension(harness.pi)
@@ -278,7 +281,7 @@ test('input uses the current event context', async () => {
   }
 })
 
-test('before agent start injects mode instructions', async () => {
+test('should inject mode instructions given agent startup', async () => {
   //given
   const harness = makePi()
   cavemanExtension(harness.pi)
@@ -298,7 +301,7 @@ test('before agent start injects mode instructions', async () => {
   }
 })
 
-test('before agent start does not inject instructions in off mode', async () => {
+test('should skip mode instructions given agent startup in off mode', async () => {
   //given
   const harness = makePi()
   cavemanExtension(harness.pi)
@@ -317,7 +320,7 @@ test('before agent start does not inject instructions in off mode', async () => 
   }
 })
 
-test('session shutdown clears status and disposes runtime', async () => {
+test('should clear status and dispose the runtime given session shutdown', async () => {
   //given
   const harness = makePi()
   cavemanExtension(harness.pi)

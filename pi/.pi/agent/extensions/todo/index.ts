@@ -1,27 +1,28 @@
-import { keyHint } from '@earendil-works/pi-coding-agent'
-import { Container, matchesKey, Text, truncateToWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui'
+import { matchesKey, truncateToWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui'
 import {
-  type EffectToolDefinition,
+  createTool,
+  defineMethod,
+  Pi,
   PiContext,
   PiExtension,
-  type PiServices,
   type PiTheme,
   type PiTui,
   PiUi,
-} from '@eratio08/pi-effect'
+  type ToolDefinition,
+} from '@eratio/pi-effect-codemode'
 import { Effect, Layer, Ref, Result, Schema, Semaphore } from 'effect'
-import { type Static, Type } from 'typebox'
-import { TODO_PROMPT } from './src/code-mode.ts'
+import { Type } from 'typebox'
+import { TODO_CODE_EXAMPLE, TODO_CODE_TYPES, TODO_PROMPT } from './src/code-mode.ts'
 import {
   TodoEffects,
   TodoEffectsLayer,
-  type TodoProgramParams,
+  type TodoRunContext,
   TodoStatusRequestVersion,
-  type TodoToolDetails,
   TodoUi,
-  type TodoUiError,
+  TodoUiError,
   todoHostError,
 } from './src/effects.ts'
+import { TODO_ID_PATTERN, TODO_STATUSES } from './src/model.ts'
 import { getTodoCounts, isOpenTodo, type Todo, type TodoStatus, todoDescriptionLines } from './src/state.ts'
 import { TodoStore } from './src/store.ts'
 
@@ -29,46 +30,62 @@ const PLAN_SUBMIT_TOOL_NAME = 'plannotator_submit_plan'
 const decodeApprovedPlanSubmissionDetails = Schema.decodeUnknownResult(
   Schema.Struct({ approved: Schema.Literal(true) }),
 )
-const Params = Type.Object({
-  code: Type.String({
-    description: 'TypeScript module that exports a default async function receiving TodoApi.',
-    minLength: 1,
-  }),
-})
-type TodoToolParams = Static<typeof Params>
-type TodoOperationSummary = NonNullable<TodoToolDetails['summary']>
-type TodoRendererState = {
-  call?: { readonly setText: (text: string) => void }
-  callText?: string
-  hasResult?: boolean
-  summary?: string
-}
 type TodoServices = TodoEffects | TodoStore | TodoStatusRequestVersion | TodoUi
-type TodoRequirements = TodoServices | PiServices
+type TodoToolErrorCodec = NonNullable<ToolDefinition<TodoServices, TodoUiError, TodoRunContext>['errorCodec']>
+type TodoToolFailure = Parameters<TodoToolErrorCodec['encode']>[0]
 
-function toolExpandHint(): string {
-  try {
-    return keyHint('app.tools.expand', 'to expand')
-  } catch {
-    return 'to expand'
-  }
+const todoIdParameter = Type.String({ pattern: TODO_ID_PATTERN.source })
+const todoStatusParameter = Type.Union(TODO_STATUSES.map((status) => Type.Literal(status)))
+const addTodoParameters = Type.Object({
+  content: Type.String(),
+  details: Type.Optional(Type.String()),
+  dependsOn: Type.Optional(Type.Array(todoIdParameter)),
+})
+const updateTodoParameters = Type.Tuple([
+  todoIdParameter,
+  Type.Object({
+    content: Type.Optional(Type.String()),
+    details: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    dependsOn: Type.Optional(Type.Array(todoIdParameter)),
+  }),
+])
+const showTodoParameters = Type.Object({
+  ids: Type.Optional(Type.Union([Type.Array(todoIdParameter), Type.Null()])),
+  status: Type.Optional(Type.Array(todoStatusParameter)),
+  limit: Type.Optional(Type.Integer({ minimum: 1 })),
+  includeDetails: Type.Optional(Type.Boolean()),
+})
+const todoToolErrorWireSchema = Schema.Struct({
+  _tag: Schema.String,
+  operation: Schema.String,
+  message: Schema.String,
+  cause: Schema.optionalKey(Schema.String),
+})
+const todoToolErrorCodec: TodoToolErrorCodec = {
+  encode: (error) => ({
+    _tag: error._tag,
+    operation: error.operation,
+    message: error.message,
+    ...(error.cause === undefined
+      ? {}
+      : { cause: error.cause instanceof Error ? error.cause.message : String(error.cause) }),
+  }),
+  decode: (value) => {
+    const result = Schema.decodeUnknownResult(todoToolErrorWireSchema)(value)
+    if (Result.isFailure(result)) throw new TypeError('The Todo tool error payload is invalid.')
+    return new TodoUiError({
+      operation: result.success.operation,
+      message: result.success.message,
+      ...(result.success.cause === undefined ? {} : { cause: result.success.cause }),
+    })
+  },
 }
 
-function formatTodoOperationSummary(summary: TodoOperationSummary): string {
-  const counters: Array<[keyof TodoOperationSummary, string]> = [
-    ['added', 'added'],
-    ['updated', 'updated'],
-    ['started', 'started'],
-    ['completed', 'completed'],
-    ['omitted', 'omitted'],
-    ['restored', 'restored'],
-    ['cleared', 'cleared'],
-    ['showCalls', 'show'],
-  ]
-  const parts = counters
-    .filter(([operation]) => summary[operation] > 0)
-    .map(([operation, label]) => `${label} ${summary[operation]}`)
-  return parts.join(' · ') || 'no changes'
+function runTodoApiOperation<A>(operation: string, run: () => Promise<A>): Effect.Effect<A, TodoUiError> {
+  return Effect.tryPromise({
+    try: run,
+    catch: (cause) => todoHostError(operation, cause),
+  })
 }
 
 function isApprovedPlanSubmission(event: {
@@ -258,78 +275,101 @@ const statusRequestLayer = Layer.effect(
 )
 
 const todoLayer = Layer.mergeAll(TodoStore.layer, todoUiLayer, statusRequestLayer, TodoEffectsLayer)
-const todoTool: EffectToolDefinition<typeof Params, TodoRequirements, TodoUiError, TodoToolDetails> = {
-  name: 'todo',
+const todoTool = createTool<TodoServices, TodoUiError, TodoRunContext>({
+  toolName: 'todo',
   label: 'Todo',
   description:
     'Run TypeScript code that reads and updates the current todo plan for non-trivial work with three or more tasks.',
   promptSnippet: 'Use todo only for non-trivial work with three or more tasks',
   promptGuidelines: [TODO_PROMPT],
-  parameters: Params,
+  timeoutMs: 30_000,
   executionMode: 'sequential',
-  execute: (params: TodoToolParams) =>
+  typeDeclarations: TODO_CODE_TYPES,
+  examples: [TODO_CODE_EXAMPLE.trim()],
+  errorCodec: todoToolErrorCodec,
+  methods: {
+    add: defineMethod({
+      description:
+        'Add a todo to the current plan. Add prerequisites before their dependents, then use their IDs in dependsOn.',
+      signature: '(input: TodoInput): Promise<Todo>',
+      parameters: addTodoParameters,
+      execute: (input, _signal, context) => runTodoApiOperation('add', () => context.api.add(input)),
+    }),
+    update: defineMethod({
+      description: 'Update one todo by ID. Dependency changes are validated atomically.',
+      signature: '(id: TodoId, patch: TodoPatch): Promise<Todo>',
+      parameters: updateTodoParameters,
+      execute: ([id, patch], _signal, context) => runTodoApiOperation('update', () => context.api.update(id, patch)),
+    }),
+    show: defineMethod({
+      description:
+        'List todos in ID order. By default, return up to five pending or in-progress todos without details. ' +
+        'Empty or null IDs use the default query. Non-empty IDs cannot combine with status. ' +
+        'Non-empty IDs return every selected todo, regardless of limit. Empty status returns none. ' +
+        'The limit applies after filtering and sorting. Set includeDetails to true to show details.',
+      signature: '(options?: TodoShowOptions): Promise<readonly Todo[]>',
+      parameters: showTodoParameters,
+      optionalParameters: true,
+      execute: (options, _signal, context) => runTodoApiOperation('show', () => context.api.show(options)),
+    }),
+    next: defineMethod({
+      description: 'Start the next ready todo. Fail if a todo is active or no todo is ready.',
+      signature: '(): Promise<Todo>',
+      execute: (_params, _signal, context) => runTodoApiOperation('next', () => context.api.next()),
+    }),
+    complete: defineMethod({
+      description:
+        'Complete the active todo and return remaining counts. ' +
+        'allDone is true only when no pending, in-progress, or blocked todos remain.',
+      signature: '(): Promise<TodoCompleteResult>',
+      execute: (_params, _signal, context) => runTodoApiOperation('complete', () => context.api.complete()),
+    }),
+    omit: defineMethod({
+      description: 'Mark one todo as omitted. Its dependents remain blocked until it is completed.',
+      signature: '(id: TodoId): Promise<Todo>',
+      parameters: todoIdParameter,
+      execute: (id, _signal, context) => runTodoApiOperation('omit', () => context.api.omit(id)),
+    }),
+    restore: defineMethod({
+      description: 'Restore one omitted todo to a pending or dependency-blocked state.',
+      signature: '(id: TodoId): Promise<Todo>',
+      parameters: todoIdParameter,
+      execute: (id, _signal, context) => runTodoApiOperation('restore', () => context.api.restore(id)),
+    }),
+    clear: defineMethod({
+      description: 'Clear every todo from the current plan and return the number removed.',
+      signature: '(): Promise<{ readonly cleared: number }>',
+      execute: (_params, _signal, context) => runTodoApiOperation('clear', () => context.api.clear()),
+    }),
+  },
+  withRun: (run, signal) =>
     Effect.gen(function* () {
       const effects = yield* TodoEffects
-      return yield* effects.executeTodo(params as TodoProgramParams)
+      return yield* effects.withRun(run, signal)
     }),
-  renderCall(_args, theme, context) {
-    const state = (context.state ?? {}) as TodoRendererState
-    const text = new Text('', 0, 0)
-    state.call = text
-    state.callText = theme.fg('toolTitle', theme.bold('todo'))
-    const summary = !context.expanded && state.hasResult && state.summary ? ` · ${state.summary}` : ''
-    const hint = !context.expanded && state.hasResult ? ` ${theme.fg('muted', `(${toolExpandHint()})`)}` : ''
-    text.setText(`${state.callText}${summary}${hint}`)
-    return text
-  },
-  renderResult(result, { expanded }, theme, context) {
-    const state = (context.state ?? {}) as TodoRendererState
-    const details = result.details as TodoToolDetails | undefined
-    const output = details?.output ?? result.content.find((item) => item.type === 'text')?.text ?? ''
-    const summary = details?.summary ? formatTodoOperationSummary(details.summary) : undefined
-    state.hasResult = true
-    state.summary = summary
-    if (context.isError) return new Text(theme.fg('error', output), 0, 0)
-    if (expanded) {
-      const expandedSummary = summary ?? 'no changes'
-      const code = details?.code ?? '[Submitted code unavailable]'
-      const codeHeading = details?.codeTruncated ? 'Code (truncated)' : 'Code'
-      const expandedOutput = ['Summary', expandedSummary, '', codeHeading, code, '', 'Result', output].join('\n')
-      return new Text(theme.fg('toolOutput', expandedOutput), 0, 0)
-    }
-    if (state.call && state.callText) {
-      const collapsedSummary = summary ? ` · ${summary}` : ''
-      state.call.setText(`${state.callText}${collapsedSummary} ${theme.fg('muted', `(${toolExpandHint()})`)}`)
-    }
-    return new Container()
-  },
-}
+})
 
-const todoPlugin = PiExtension.define<TodoServices, TodoUiError>({
+const todoPlugin = PiExtension.define<TodoServices, TodoToolFailure>({
   id: 'todo',
   layer: todoLayer,
   effect: (registrations) =>
     Effect.gen(function* () {
       const effects = yield* TodoEffects
-      yield* registrations.events.on('session_start', () => effects.syncFromSession().pipe(Effect.as(undefined)))
+      yield* registrations.events.on('session_start', () => effects.syncFromSession())
       yield* registrations.events.on('session_tree', (event) =>
-        effects.syncFromSession(event.summaryEntry !== undefined).pipe(Effect.as(undefined)),
+        effects.syncFromSession(event.summaryEntry !== undefined),
       )
-      yield* registrations.events.on('before_agent_start', () => effects.syncFromSession().pipe(Effect.as(undefined)))
+      yield* registrations.events.on('before_agent_start', () => effects.syncFromSession())
       yield* registrations.events.on('input', () =>
         effects.requestPlannotatorPhase().pipe(Effect.as({ action: 'continue' })),
       )
       yield* registrations.events.on('tool_result', (event) =>
-        isApprovedPlanSubmission(event)
-          ? effects.requestPlannotatorPhase().pipe(Effect.as(undefined))
-          : Effect.succeed(undefined),
+        isApprovedPlanSubmission(event) ? effects.requestPlannotatorPhase() : Effect.succeed(undefined),
       )
-      yield* registrations.events.on('agent_end', () => effects.handleAgentEnd().pipe(Effect.as(undefined)))
-      yield* registrations.events.on('session_compact', (event) =>
-        effects.handleCompaction(event).pipe(Effect.as(undefined)),
-      )
-      yield* registrations.events.on('session_shutdown', () => effects.clearTodoWidget().pipe(Effect.as(undefined)))
-      yield* registrations.tools.register(todoTool)
+      yield* registrations.events.on('agent_end', () => effects.handleAgentEnd())
+      yield* registrations.events.on('session_compact', (event) => effects.handleCompaction(event))
+      yield* registrations.events.on('session_shutdown', () => effects.clearTodoWidget())
+      yield* todoTool.register(registrations.tools)
       yield* registrations.commands.register('todos', {
         description: 'Show todos on the current branch',
         handler: () =>
@@ -362,13 +402,33 @@ const todoPlugin = PiExtension.define<TodoServices, TodoUiError>({
               return
             }
             if (!context.hasUI) return
-            const result = yield* effects.executeTodo({
-              code: 'export default async (todo: TodoApi) => { await todo.clear() }',
-            })
-            const cleared = result.details.summary?.cleared ?? 0
-            yield* ui
-              .notify(`Cleared ${cleared} todo${cleared === 1 ? '' : 's'}`, 'info')
-              .pipe(Effect.mapError((cause) => todoHostError('notify', cause)))
+            const cleared = yield* effects.clearTodos(context.signal)
+            const clearedMessage = `Cleared ${cleared} todo${cleared === 1 ? '' : 's'}`
+            const pi = yield* Pi
+            const deliveryFailure = yield* Effect.match(
+              Effect.gen(function* () {
+                const isIdle = yield* context.isIdle().pipe(Effect.mapError((cause) => todoHostError('is-idle', cause)))
+                yield* pi.messages
+                  .sendMessage(
+                    { customType: 'todo-clear', content: clearedMessage, display: false },
+                    isIdle ? { triggerTurn: false } : { deliverAs: 'nextTurn' },
+                  )
+                  .pipe(Effect.mapError((cause) => todoHostError('send-message', cause)))
+              }),
+              {
+                onFailure: (error) => error,
+                onSuccess: () => undefined,
+              },
+            )
+            yield* ui.notify(clearedMessage, 'info').pipe(Effect.mapError((cause) => todoHostError('notify', cause)))
+            if (deliveryFailure) {
+              yield* ui
+                .notify(
+                  `${clearedMessage}, but the assistant context was not updated: ${deliveryFailure.message}`,
+                  'warning',
+                )
+                .pipe(Effect.mapError((cause) => todoHostError('notify', cause)))
+            }
           }),
       })
     }),
@@ -376,4 +436,4 @@ const todoPlugin = PiExtension.define<TodoServices, TodoUiError>({
 
 const todoExtension = PiExtension.install(todoPlugin)
 
-export { formatTodoOperationSummary, todoExtension as default }
+export { todoExtension as default }

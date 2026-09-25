@@ -38,7 +38,7 @@ const BLOCK_TAGS = new Set([
   'ul',
 ])
 
-function pushBreak(chunks: string[]) {
+function pushBreak(chunks: string[]): void {
   const last = chunks[chunks.length - 1] ?? ''
   if (!last.endsWith('\n')) chunks.push('\n')
 }
@@ -47,17 +47,17 @@ function extractTextFromHTML(html: string): string {
   const chunks: string[] = []
   let skipDepth = 0
   const parser = new Parser({
-    onopentag(name) {
+    onopentag(name: string): void {
       if (skipDepth > 0 || ['script', 'style', 'noscript', 'iframe', 'object', 'embed'].includes(name)) {
         skipDepth += 1
         return
       }
       if (BLOCK_TAGS.has(name)) pushBreak(chunks)
     },
-    ontext(text) {
+    ontext(text: string): void {
       if (skipDepth === 0) chunks.push(text)
     },
-    onclosetag(name) {
+    onclosetag(name: string): void {
       if (skipDepth > 0) {
         skipDepth -= 1
         return
