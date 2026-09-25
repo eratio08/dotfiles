@@ -13,7 +13,7 @@ The SDK truncates large output with Pi's limits and writes the full result to a 
 The runner tool uses the configured `toolName`.
 
 ```ts
-import type { CodeModeFailure } from '@eratio/pi-codemode-core'
+import type { ProgramFailure } from '@eratio/pi-codemode-core'
 import { createTool, defineMethod, PiExtension } from '@eratio08/pi-effect-codemode'
 import { Effect } from 'effect'
 import { Type } from 'typebox'
@@ -38,7 +38,7 @@ const tool = createTool<never, never>({
 })
 
 export default PiExtension.install(
-  PiExtension.define<CodeModeFailure>({
+  PiExtension.define<ProgramFailure>({
     id: 'tasks',
     effect: ({ tools }) => tool.register(tools),
   }),
