@@ -7,7 +7,7 @@ Each program receives the API as a typed `api` argument and returns a value.
 
 ```ts
 import { Effect, Layer, ManagedRuntime } from 'effect'
-import { CodeModeEffectHost, createCodeModeCore } from '@eratio/pi-codemode-core'
+import { ProgramHost, createProgramRunner } from '@eratio/pi-codemode-core'
 
 const definition = {
   apiName: 'MathApi',
@@ -22,9 +22,9 @@ const host = {
     Effect.succeed(Number(args[0]) + Number(args[1])),
 }
 
-const core = createCodeModeCore<never, never>()
+const core = createProgramRunner<never, never>()
 const runtime = ManagedRuntime.make(
-  Layer.succeed(CodeModeEffectHost<never, never>(), host),
+  Layer.succeed(ProgramHost<never, never>(), host),
 )
 const source = 'export default async (api: MathApi) => api.add(2, 3)'
 const result = await runtime.runPromise(
