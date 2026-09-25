@@ -6,6 +6,7 @@ import {
   DEFAULT_MAX_LINES,
   formatSize,
   keyHint,
+  type ToolExecutionMode,
   truncateHead,
   withFileMutationQueue,
 } from '@earendil-works/pi-coding-agent'
@@ -23,20 +24,32 @@ import { formatValue, type OutputLimits } from '@eratio/pi-codemode-core/output'
 import {
   type EffectToolDefinition,
   type PiRegistrationError,
+  type PiServices,
   PiToolContext,
   type PiToolRegistry,
   type PiToolResult,
-} from '@eratio08/pi-effect'
+} from '@eratio/pi-effect'
 import { Effect } from 'effect'
 import { type Static, type TSchema, Type } from 'typebox'
 import { Check } from 'typebox/value'
 
-interface MethodDefinition<Params extends TSchema | undefined, Services, Failure, RunContext = void> {
+interface MethodDefinition<
+  Params extends TSchema | undefined,
+  Services,
+  Failure,
+  RunContext = void,
+  OptionalParameters extends boolean = false,
+> {
   readonly description: string
   readonly signature: string
   readonly parameters?: Params
+  readonly optionalParameters?: Params extends TSchema ? OptionalParameters : never
   readonly execute: (
-    params: Params extends TSchema ? Static<Params> : undefined,
+    params: Params extends TSchema
+      ? OptionalParameters extends true
+        ? Static<Params> | undefined
+        : Static<Params>
+      : undefined,
     signal: AbortSignal,
     runContext: RunContext,
   ) => Effect.Effect<unknown, Failure, Services>
@@ -46,6 +59,7 @@ type MethodInput<Services, Failure, RunContext = void> = {
   readonly description: string
   readonly signature: string
   readonly parameters?: TSchema
+  readonly optionalParameters?: boolean
   readonly execute: (
     params: never,
     signal: AbortSignal,
@@ -67,17 +81,20 @@ interface ToolDefinition<Services, Failure, RunContext = void> {
   readonly toolName: string
   readonly label?: string
   readonly description: string
+  readonly promptSnippet?: string
+  readonly promptGuidelines?: readonly string[]
   readonly methods: Readonly<Record<string, MethodInput<Services, Failure, RunContext>>>
   readonly typeDeclarations?: string
   readonly examples?: readonly string[]
   readonly timeoutMs: number
   readonly outputLimits?: Partial<OutputLimits>
+  readonly executionMode?: ToolExecutionMode
   readonly execution?: ProgramRunOptions['execution']
   readonly errorCodec?: ProgramHostErrorCodec<ProgramFailure | Failure>
   readonly withRun?: (
     run: (runContext: RunContext) => Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services>,
     signal: AbortSignal | undefined,
-  ) => Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services>
+  ) => Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services | PiServices>
 }
 
 interface RegisteredTool<Services, Failure> {
@@ -203,14 +220,26 @@ function createToolRenderers<Params extends TSchema>(
   }
 }
 
+function defineMethod<Params extends TSchema, Services = never, Failure = never, RunContext = void>(
+  method: MethodDefinition<Params, Services, Failure, RunContext, true> & { readonly optionalParameters: true },
+): MethodDefinition<Params, Services, Failure, RunContext, true>
 function defineMethod<
   Params extends TSchema | undefined = undefined,
   Services = never,
   Failure = never,
   RunContext = void,
 >(
-  method: MethodDefinition<Params, Services, Failure, RunContext>,
-): MethodDefinition<Params, Services, Failure, RunContext> {
+  method: MethodDefinition<Params, Services, Failure, RunContext, false>,
+): MethodDefinition<Params, Services, Failure, RunContext, false>
+function defineMethod<
+  Params extends TSchema | undefined = undefined,
+  Services = never,
+  Failure = never,
+  RunContext = void,
+  OptionalParameters extends boolean = false,
+>(
+  method: MethodDefinition<Params, Services, Failure, RunContext, OptionalParameters>,
+): MethodDefinition<Params, Services, Failure, RunContext, OptionalParameters> {
   return method
 }
 
@@ -321,7 +350,14 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
         }
         return method.execute(undefined as never, signal, runContext)
       }
-      if (args.length !== 1 || !Check(method.parameters, args[0])) {
+      if (method.optionalParameters && args.length <= 1 && args[0] === undefined) {
+        return method.execute(undefined as never, signal, runContext)
+      }
+      const tupleParameters = Array.isArray((method.parameters as TSchema & { items?: unknown }).items)
+      const validParameters = tupleParameters
+        ? Check(method.parameters, args)
+        : args.length === 1 && Check(method.parameters, args[0])
+      if (!validParameters) {
         return Effect.fail(
           createProgramFailure({
             _tag: 'validation',
@@ -330,7 +366,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
           }),
         )
       }
-      return method.execute(args[0] as never, signal, runContext)
+      return method.execute((tupleParameters ? args : args[0]) as never, signal, runContext)
     },
     invokeSync: (methodName: string, args: readonly unknown[]): unknown => {
       if (methodName === 'help') {
@@ -361,21 +397,33 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
   const runParameters = Type.Object({
     code: Type.String({ description: 'A TypeScript program that exports a default function.' }),
   })
-  const runTool: EffectToolDefinition<typeof runParameters, Services, ProgramFailure | Failure, ToolOutputDetails> = {
+  const runTool: EffectToolDefinition<
+    typeof runParameters,
+    Services | PiServices,
+    ProgramFailure | Failure,
+    ToolOutputDetails
+  > = {
     name: options.toolName,
     label: options.label ?? options.toolName,
     description: options.description,
+    ...(options.executionMode === undefined ? {} : { executionMode: options.executionMode }),
     parameters: runParameters,
-    promptSnippet: `Run TypeScript against the ${options.toolName} API.`,
+    promptSnippet: options.promptSnippet ?? `Run TypeScript against the ${options.toolName} API.`,
     promptGuidelines: [
-      'Export a default async function that receives the API object.',
-      'Call api.help() to list available operations.',
-      'Call api.help("operation") for its signature and parameter schema.',
+      ...(options.promptGuidelines ?? [
+        'Export a default async function that receives the API object.',
+        'Call api.help() to list available operations.',
+        'Call api.help("operation") for its signature and parameter schema.',
+      ]),
     ],
     ...createToolRenderers<typeof runParameters>(options.label ?? options.toolName),
     execute: ({
       code,
-    }): Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services | PiToolContext> =>
+    }): Effect.Effect<
+      PiToolResult<ToolOutputDetails>,
+      ProgramFailure | Failure,
+      Services | PiServices | PiToolContext
+    > =>
       Effect.gen(function* () {
         const context = yield* PiToolContext
         const run = (

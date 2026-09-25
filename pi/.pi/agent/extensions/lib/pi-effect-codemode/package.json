@@ -29,6 +29,7 @@
     "typebox": "*"
   },
   "dependencies": {
+    "@eratio/pi-effect": "^0.1.0",
     "jiti": "2.7.0"
   },
   "devDependencies": {
@@ -36,7 +37,6 @@
     "@earendil-works/pi-coding-agent": "^0.83.0",
     "@earendil-works/pi-tui": "^0.83.0",
     "@eratio/pi-codemode-core": "file:../pi-codemode-core",
-    "@eratio08/pi-effect": "file:../pi-effect",
     "@types/bun": "^1.4.2",
     "@types/node": "^24.10.1",
     "effect": "4.0.0-rc.112",

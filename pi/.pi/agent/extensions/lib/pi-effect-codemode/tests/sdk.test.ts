@@ -4,10 +4,17 @@ import { readFile, rm } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { initTheme } from '@earendil-works/pi-coding-agent'
 import type { ProgramFailure } from '@eratio/pi-codemode-core'
-import { installFakePlugin } from '@eratio08/pi-effect/testing'
+import { installFakePlugin } from '@eratio/pi-effect/testing'
 import { Effect } from 'effect'
 import { Type } from 'typebox'
-import { createTool, defineMethod, type MethodDefinition, PiExtension, type RegisteredTool } from '../dist/index.js'
+import {
+  createTool,
+  defineMethod,
+  type MethodDefinition,
+  PiExtension,
+  PiToolError,
+  type RegisteredTool,
+} from '../dist/index.js'
 
 type TextToolResult = {
   readonly content: readonly { readonly type: string; readonly text?: string }[]
@@ -19,6 +26,23 @@ type TextToolResult = {
 }
 
 const echoParameters = Type.Object({ text: Type.String() })
+const tupleParameters = Type.Tuple([Type.String(), Type.String()])
+
+const optionalEchoTool = createTool({
+  toolName: 'optional-echo',
+  description: 'Run TypeScript against an API with an optional argument.',
+  timeoutMs: 10_000,
+  typeDeclarations: 'type EchoInput = { text: string }',
+  methods: {
+    echo: defineMethod({
+      description: 'Return supplied text or a default value.',
+      signature: '(input?: EchoInput): Promise<string>',
+      parameters: echoParameters,
+      optionalParameters: true,
+      execute: (input) => Effect.succeed(input?.text ?? 'empty'),
+    }),
+  },
+})
 
 const createEchoTool = (
   execute: MethodDefinition<typeof echoParameters, never, never>['execute'] = ({ text }) => Effect.succeed(text),
@@ -57,6 +81,112 @@ const installTool = async (tool: RegisteredTool<never, never>) =>
     ),
   )
 
+test('should pass the execution mode given a registered Pi tool', async () => {
+  //given
+  const tool = createTool({
+    toolName: 'sequential',
+    description: 'Run TypeScript against a sequential API.',
+    timeoutMs: 10_000,
+    executionMode: 'sequential',
+    methods: {
+      echo: defineMethod({
+        description: 'Return a value.',
+        signature: '(): Promise<string>',
+        execute: () => Effect.succeed('value'),
+      }),
+    },
+  })
+
+  //when
+  const extension = await installTool(tool)
+
+  //then
+  assert.equal(extension.tools.get('sequential')?.executionMode, 'sequential')
+})
+
+test('should pass custom prompt text and guidelines given tool registration', async () => {
+  //given
+  const extension = await installTool(
+    createTool({
+      toolName: 'prompted',
+      description: 'Run TypeScript against a prompted API.',
+      promptSnippet: 'Use the task API.',
+      promptGuidelines: ['Use the task API only for task work.'],
+      timeoutMs: 10_000,
+      methods: {
+        list: defineMethod({
+          description: 'List tasks.',
+          signature: '(): Promise<string[]>',
+          execute: () => Effect.succeed([]),
+        }),
+      },
+    }),
+  )
+
+  //when
+  const tool = extension.tools.get('prompted')
+
+  //then
+  assert.ok(tool)
+  assert.equal(tool.promptSnippet, 'Use the task API.')
+  assert.deepEqual(tool.promptGuidelines, ['Use the task API only for task work.'])
+})
+
+test('should validate tuple schemas and pass positional method arguments given valid inputs', async () => {
+  //given
+  const extension = await installTool(
+    createTool({
+      toolName: 'pair',
+      description: 'Join two strings.',
+      timeoutMs: 10_000,
+      methods: {
+        join: defineMethod({
+          description: 'Join two strings.',
+          signature: '(left: string, right: string): Promise<string>',
+          parameters: tupleParameters,
+          execute: ([left, right]) => Effect.succeed(`${left}:${right}`),
+        }),
+      },
+    }),
+  )
+
+  //when
+  const result = (await extension.invokeTool('pair', 'tuple-call', {
+    code: 'export default async (api: pairApi) => api.join("left", "right")',
+  })) as TextToolResult
+
+  //then
+  assert.equal(result.content[0]?.text, 'left:right')
+  assert.deepEqual(result.details?.operations, { join: 1 })
+})
+
+test('should reject the wrong number of positional method arguments given tuple schema inputs', async () => {
+  //given
+  const extension = await installTool(
+    createTool({
+      toolName: 'pair',
+      description: 'Join two strings.',
+      timeoutMs: 10_000,
+      methods: {
+        join: defineMethod({
+          description: 'Join two strings.',
+          signature: '(left: string, right: string): Promise<string>',
+          parameters: tupleParameters,
+          execute: ([left, right]) => Effect.succeed(`${left}:${right}`),
+        }),
+      },
+    }),
+  )
+
+  //when
+  const invocation = extension.invokeTool('pair', 'invalid-tuple-call', {
+    code: 'export default async (api: pairApi) => (api.join as (...args: unknown[]) => Promise<string>)("only")',
+  })
+
+  //then
+  await assert.rejects(invocation)
+})
+
 const invokeConcurrentRuns = async (
   extension: Awaited<ReturnType<typeof installTool>>,
 ): Promise<[TextToolResult, TextToolResult]> => {
@@ -71,7 +201,7 @@ const invokeConcurrentRuns = async (
   return results as [TextToolResult, TextToolResult]
 }
 
-test('help exposes generated types, while prompt guidance uses help discovery', async () => {
+test('should expose generated types and use help discovery given help requests', async () => {
   //given
   const extension = await installTool(createEchoTool(undefined, undefined, 'echo-tool'))
   const tool = extension.tools.get('echo-tool')
@@ -91,7 +221,7 @@ test('help exposes generated types, while prompt guidance uses help discovery', 
   assert.doesNotMatch(promptGuidelines, /echo_toolApi|echo_toolProgram/)
 })
 
-test('operation help returns details for one method', async () => {
+test('should return method details given an operation-specific help request', async () => {
   //given
   const extension = await installTool(createEchoTool())
 
@@ -109,7 +239,7 @@ test('operation help returns details for one method', async () => {
   assert.doesNotMatch(result.content[0]?.text ?? '', /Convert the supplied text to uppercase\./)
 })
 
-test('help without an operation returns an overview', async () => {
+test('should return an overview given a help request without an operation', async () => {
   //given
   const extension = await installTool(createEchoTool())
 
@@ -126,7 +256,7 @@ test('help without an operation returns an overview', async () => {
   assert.match(result.content[0]?.text ?? '', /Program type: `echoProgram`/)
 })
 
-test('operation help rejects unknown method names', async () => {
+test('should reject unknown method names given an operation-help request', async () => {
   //given
   const extension = await installTool(createEchoTool())
 
@@ -139,7 +269,7 @@ test('operation help rejects unknown method names', async () => {
   await assert.rejects(invocation)
 })
 
-test('the runner does not register a separate help tool', async () => {
+test('should omit a separate help tool given runner registration', async () => {
   //given
   const extension = await installTool(createEchoTool())
 
@@ -150,7 +280,7 @@ test('the runner does not register a separate help tool', async () => {
   await assert.rejects(invocation)
 })
 
-test('truncated output points to a file that contains the full result', async () => {
+test('should point truncated output to a file with the full result given oversized output', async () => {
   //given
   const extension = await installTool(createEchoTool(undefined, { maxBytes: 100, maxLines: 5 }))
 
@@ -172,7 +302,7 @@ test('truncated output points to a file that contains the full result', async ()
   }
 })
 
-test('the run tool executes a method and returns its value', async () => {
+test('should execute a method and return its value given a run request', async () => {
   //given
   const called: string[] = []
   const extension = await installTool(
@@ -195,7 +325,39 @@ test('the run tool executes a method and returns its value', async () => {
   assert.deepEqual(called, ['hello'])
 })
 
-test('a run scope passes one context to each method call', async () => {
+test('should enforce the configured timeout given a long-running method', async () => {
+  //given
+  const extension = await installTool(
+    createTool<never, never>({
+      toolName: 'timeout',
+      description: 'Run TypeScript against a tool with a short timeout.',
+      timeoutMs: 25,
+      methods: {
+        wait: defineMethod({
+          description: 'Return immediately before the program stalls.',
+          signature: '(): Promise<void>',
+          execute: () => Effect.succeed(undefined),
+        }),
+      },
+    }),
+  )
+
+  //when
+  const invocation = extension.invokeTool('timeout', 'timeout-call', {
+    code: 'export default async (api: timeoutApi) => { await api.wait(); await new Promise(() => {}) }',
+  })
+
+  //then
+  await assert.rejects(invocation, (error: unknown) => {
+    assert.ok(error instanceof PiToolError)
+    const cause = error.cause as ProgramFailure
+    assert.equal(cause._tag, 'timeout')
+    assert.match(cause.message, /timed out after 25ms/)
+    return true
+  })
+})
+
+test('should pass one context to each method call given a run scope', async () => {
   //given
   const runContext = { prefix: 'scoped:' }
   const contexts: (typeof runContext)[] = []
@@ -238,7 +400,7 @@ test('a run scope passes one context to each method call', async () => {
   assert.strictEqual(contexts[1], runContext)
 })
 
-test('the run tool rejects invalid method parameters before execution', async () => {
+test('should reject invalid method parameters before execution given invalid input', async () => {
   //given
   const called: string[] = []
   const extension = await installTool(
@@ -260,7 +422,34 @@ test('the run tool rejects invalid method parameters before execution', async ()
   assert.deepEqual(called, [])
 })
 
-test('the run tool records repeated operation calls', async () => {
+test('should accept omitted, undefined, and valid arguments given optional method parameters', async () => {
+  //given
+  const extension = await installTool(optionalEchoTool)
+
+  //when
+  const result = (await extension.invokeTool('optional-echo', 'optional-arguments-call', {
+    code: 'export default async (api: optional_echoApi) => [await api.echo(), await api.echo(undefined), await api.echo({ text: "hello" })].join("|")',
+  })) as TextToolResult
+
+  //then
+  assert.equal(result.content[0]?.text, 'empty|empty|hello')
+  assert.deepEqual(result.details?.operations, { echo: 3 })
+})
+
+test('should validate supplied arguments given optional method parameters', async () => {
+  //given
+  const extension = await installTool(optionalEchoTool)
+
+  //when
+  const invocation = extension.invokeTool('optional-echo', 'invalid-optional-call', {
+    code: 'export default async (api: optional_echoApi) => api.echo({ text: 42 })',
+  })
+
+  //then
+  await assert.rejects(invocation)
+})
+
+test('should record repeated operation calls given a run', async () => {
   //given
   const extension = await installTool(createEchoTool())
 
@@ -273,7 +462,7 @@ test('the run tool records repeated operation calls', async () => {
   assert.deepEqual(result.details?.operations, { echo: 2, uppercase: 1 })
 })
 
-test('operation counts stay separate across concurrent runs', async () => {
+test('should keep operation counts separate given concurrent runs', async () => {
   //given
   const extension = await installTool(createEchoTool())
 
@@ -285,7 +474,7 @@ test('operation counts stay separate across concurrent runs', async () => {
   assert.deepEqual(results[1].details?.operations, { uppercase: 1 })
 })
 
-test('collapsed rendering shows the operation summary on one line', async () => {
+test('should show the operation summary on one line given collapsed rendering', async () => {
   //given
   const extension = await installTool(createEchoTool())
   initTheme('dark')
@@ -337,7 +526,7 @@ test('collapsed rendering shows the operation summary on one line', async () => 
   assert.doesNotMatch(callLines.join('\n'), /export default|hello/)
 })
 
-test('expanded rendering shows the submitted code and result', async () => {
+test('should show the submitted code and result given expanded rendering', async () => {
   //given
   const extension = await installTool(createEchoTool())
   const tool = extension.tools.get('echo')

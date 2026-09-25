@@ -1,13 +1,18 @@
 import { Effect, Semaphore } from 'effect'
 import { PiHostError, piCauseMessage } from '../errors.ts'
-import type { PiHostValue, PiToolsService } from '../services.ts'
+import type { PiHostOperations, PiToolsService } from '../services.ts'
 
-const createPiToolsService = (host: PiHostValue): PiToolsService => {
+/**
+ * Creates tool operations backed by the host and serializes active-tool replacements.
+ * @param host Low-level Pi operations for reading and replacing tools.
+ * @returns The Pi tools service.
+ */
+const createPiToolsService = (host: PiHostOperations): PiToolsService => {
   const semaphore = Semaphore.makeUnsafe(1)
   return {
     active: host.getActiveTools,
     all: host.getAllTools,
-    replaceActive: (toolNames) =>
+    replaceActive: (toolNames: readonly string[]) =>
       semaphore
         .withPermit(host.setActiveTools(toolNames))
         .pipe(

@@ -1,4 +1,37 @@
-import { PiExtension } from '@eratio08/pi-effect'
+import {
+  Pi,
+  PiContext,
+  PiExtension,
+  PiRegistrationError,
+  type PiServices,
+  PiSession,
+  type PiTheme,
+  PiToolError,
+  type PiToolRegistry,
+  type PiToolResult,
+  PiTools,
+  type PiTui,
+  PiUi,
+} from '@eratio/pi-effect'
 import { createTool, defineMethod, type MethodDefinition, type RegisteredTool, type ToolDefinition } from './sdk.ts'
 
-export { createTool, defineMethod, type MethodDefinition, PiExtension, type RegisteredTool, type ToolDefinition }
+export {
+  createTool,
+  defineMethod,
+  type MethodDefinition,
+  Pi,
+  PiContext,
+  PiExtension,
+  PiRegistrationError,
+  type PiServices,
+  PiSession,
+  type PiTheme,
+  PiToolError,
+  type PiToolRegistry,
+  type PiToolResult,
+  PiTools,
+  type PiTui,
+  PiUi,
+  type RegisteredTool,
+  type ToolDefinition,
+}

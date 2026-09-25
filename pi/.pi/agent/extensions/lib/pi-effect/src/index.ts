@@ -1,3 +1,4 @@
+/** Error classes returned by host operations, registrations, tools, and runtime shutdown. */
 export {
   type PiExtensionError,
   PiHostError,
@@ -6,8 +7,11 @@ export {
   PiToolError,
   PiUiUnavailableError,
 } from './errors.ts'
+/** Plugin definition types accepted by the installation API. */
 export type { PiPlugin, PiPluginDefinition } from './plugin.ts'
+/** Plugin definition and installation helpers. */
 export { PiExtension } from './plugin.ts'
+/** Event, command, shortcut, flag, tool, and renderer registration types. */
 export type {
   PiCommandDefinition,
   PiCommandRegistry,
@@ -26,7 +30,9 @@ export type {
   PiShortcutRegistry,
   PiToolRegistry,
 } from './registries.ts'
+/** Renderer types supported by Pi extensions. */
 export type { PiEntryRenderer, PiMessageRenderer } from './renderers.ts'
+/** Context, session, host, UI, and service operation types. */
 export type {
   PiCommandContextValue,
   PiCompactOptions,
@@ -54,12 +60,13 @@ export type {
   PiWidgetOptions,
   PiWorkingIndicatorOptions,
 } from './services.ts'
+/** Effect service tags for Pi operations and invocation context. */
 export {
   Pi,
   PiCommandContext,
   PiContext,
   PiFlags,
-  PiHost,
+  PiHostService,
   PiMessages,
   PiProcess,
   type PiServices,
@@ -69,4 +76,5 @@ export {
   PiTools,
   PiUi,
 } from './services.ts'
+/** Types for Effect-based tools and their results. */
 export type { EffectToolDefinition, PiToolResult } from './tools.ts'

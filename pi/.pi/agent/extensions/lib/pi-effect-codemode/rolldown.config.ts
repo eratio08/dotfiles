@@ -11,10 +11,13 @@ const config = defineConfig({
     alias: {
       '@eratio/pi-codemode-core/output': '../pi-codemode-core/src/output.ts',
       '@eratio/pi-codemode-core': '../pi-codemode-core/src/index.ts',
-      '@eratio08/pi-effect': '../pi-effect/src/index.ts',
+      '@eratio/pi-effect': '../pi-effect/src/index.ts',
     },
   },
-  external: [/^(?:@earendil-works\/pi-coding-agent|@earendil-works\/pi-tui|effect|jiti|typebox)(?:\/|$)/, /^node:/],
+  external: [
+    /^(?:@earendil-works\/pi-coding-agent|@earendil-works\/pi-tui|@eratio\/pi-effect|effect|jiti|typebox)(?:\/|$)/,
+    /^node:/,
+  ],
   platform: 'node',
   output: {
     dir: 'dist',

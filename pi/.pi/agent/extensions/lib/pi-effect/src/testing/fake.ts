@@ -16,18 +16,31 @@ type FakeCommand = {
   readonly description?: string
 }
 
+/** Fake extension host state and helpers for exercising registered Pi callbacks. */
 type FakeExtension = {
+  /** Fake Pi API passed to the extension factory. */
   readonly api: ExtensionAPI
+  /** Event handlers registered by name. */
   readonly events: Map<string, FakeCallback[]>
+  /** Commands registered by name. */
   readonly commands: Map<string, FakeCommand>
+  /** Shortcut handlers registered by key. */
   readonly shortcuts: Map<string, (context: ExtensionContext) => Promise<void> | void>
+  /** Flag defaults registered by name. */
   readonly flags: Map<string, { readonly value: boolean | string | undefined }>
+  /** Tools registered by name. */
   readonly tools: Map<string, ToolDefinition>
+  /** Message renderers registered by custom type. */
   readonly messageRenderers: Map<string, unknown>
+  /** Entry renderers registered by custom type. */
   readonly entryRenderers: Map<string, unknown>
+  /** Invokes all handlers registered for an event and returns their results. */
   readonly invokeEvent: (name: string, event: unknown, context?: ExtensionContext) => Promise<readonly unknown[]>
+  /** Invokes a registered command. Rejects if the command name is unknown. */
   readonly invokeCommand: (name: string, args?: string, context?: ExtensionContext) => Promise<void>
+  /** Invokes command completions, or returns `null` when no provider is registered. */
   readonly invokeCommandCompletions: (name: string, prefix?: string) => Promise<readonly AutocompleteItem[] | null>
+  /** Executes a registered tool with the supplied invocation values. */
   readonly invokeTool: (
     name: string,
     toolCallId: string,
@@ -38,6 +51,12 @@ type FakeExtension = {
   ) => Promise<unknown>
 }
 
+/**
+ * Creates a fake Pi context in terminal UI mode with the supplied working directory.
+ * The default working directory is `process.cwd()`.
+ * @param cwd Working directory returned by the fake context.
+ * @returns A fake extension context with available UI and empty session state.
+ */
 function createFakeExtensionContext(cwd = process.cwd()): ExtensionContext {
   const sessionManager = {
     getCwd: () => cwd,
@@ -55,34 +74,34 @@ function createFakeExtensionContext(cwd = process.cwd()): ExtensionContext {
     getSessionName: () => undefined,
   } as unknown as SessionManager
   const ui = {
-    select: async () => undefined,
-    confirm: async () => false,
-    input: async () => undefined,
-    notify: () => undefined,
-    onTerminalInput: () => () => undefined,
-    setStatus: () => undefined,
-    setWorkingMessage: () => undefined,
-    setWorkingVisible: () => undefined,
-    setWorkingIndicator: () => undefined,
-    setHiddenThinkingLabel: () => undefined,
-    setWidget: () => undefined,
-    setFooter: () => undefined,
-    setHeader: () => undefined,
-    setTitle: () => undefined,
-    custom: async () => undefined,
-    pasteToEditor: () => undefined,
-    setEditorText: () => undefined,
-    getEditorText: () => '',
-    editor: async () => undefined,
-    addAutocompleteProvider: () => undefined,
-    setEditorComponent: () => undefined,
-    getEditorComponent: () => undefined,
+    select: async (): Promise<undefined> => undefined,
+    confirm: async (): Promise<boolean> => false,
+    input: async (): Promise<undefined> => undefined,
+    notify: (): undefined => undefined,
+    onTerminalInput: () => (): undefined => undefined,
+    setStatus: (): undefined => undefined,
+    setWorkingMessage: (): undefined => undefined,
+    setWorkingVisible: (): undefined => undefined,
+    setWorkingIndicator: (): undefined => undefined,
+    setHiddenThinkingLabel: (): undefined => undefined,
+    setWidget: (): undefined => undefined,
+    setFooter: (): undefined => undefined,
+    setHeader: (): undefined => undefined,
+    setTitle: (): undefined => undefined,
+    custom: async (): Promise<undefined> => undefined,
+    pasteToEditor: (_text: string): undefined => undefined,
+    setEditorText: (_text: string): undefined => undefined,
+    getEditorText: (): string => '',
+    editor: async (): Promise<undefined> => undefined,
+    addAutocompleteProvider: (): undefined => undefined,
+    setEditorComponent: (): undefined => undefined,
+    getEditorComponent: (): undefined => undefined,
     theme: undefined,
-    getAllThemes: () => [],
-    getTheme: () => undefined,
-    setTheme: () => ({ success: false }),
-    getToolsExpanded: () => false,
-    setToolsExpanded: () => undefined,
+    getAllThemes: (): never[] => [],
+    getTheme: (): undefined => undefined,
+    setTheme: (): { success: boolean } => ({ success: false }),
+    getToolsExpanded: (): boolean => false,
+    setToolsExpanded: (): undefined => undefined,
   }
   return {
     ui,
@@ -106,6 +125,10 @@ function createFakeExtensionContext(cwd = process.cwd()): ExtensionContext {
   } as unknown as ExtensionContext
 }
 
+/**
+ * Creates a fake Pi API that records registrations and can invoke registered callbacks.
+ * @returns Fake API state and callback invocation helpers.
+ */
 function createFakeExtensionApi(): FakeExtension {
   const events = new Map<string, FakeCallback[]>()
   const eventBus = new Map<string, Array<(data: unknown) => void>>()
@@ -186,22 +209,29 @@ function createFakeExtensionApi(): FakeExtension {
     tools,
     messageRenderers,
     entryRenderers,
-    invokeEvent: async (name, event, context = createFakeExtensionContext()) => {
+    invokeEvent: async (name: string, event: unknown, context = createFakeExtensionContext()) => {
       const results: unknown[] = []
       for (const handler of events.get(name) ?? []) results.push(await handler(event, context))
       return results
     },
-    invokeCommand: async (name, args = '', context = createFakeExtensionContext()) => {
+    invokeCommand: async (name: string, args = '', context = createFakeExtensionContext()) => {
       const command = commands.get(name)
       if (!command) throw new Error(`Unknown fake command: ${name}`)
       await command.handler(args, context)
     },
-    invokeCommandCompletions: async (name, prefix = '') => {
+    invokeCommandCompletions: async (name: string, prefix = '') => {
       const command = commands.get(name)
       if (!command) throw new Error(`Unknown fake command: ${name}`)
       return command.getArgumentCompletions ? command.getArgumentCompletions(prefix) : null
     },
-    invokeTool: async (name, toolCallId, params, context = createFakeExtensionContext(), signal, onUpdate) => {
+    invokeTool: async (
+      name: string,
+      toolCallId: string,
+      params: unknown,
+      context = createFakeExtensionContext(),
+      signal?: AbortSignal,
+      onUpdate?: (update: unknown) => void,
+    ) => {
       const tool = tools.get(name)
       if (!tool) throw new Error(`Unknown fake tool: ${name}`)
       return tool.execute(toolCallId, params, signal, onUpdate, context)
@@ -210,6 +240,11 @@ function createFakeExtensionApi(): FakeExtension {
   return extension
 }
 
+/**
+ * Runs an extension factory against a fake Pi API and returns its captured registrations.
+ * @param factory Extension factory to run.
+ * @returns Fake API state after the factory registers its callbacks.
+ */
 async function installFakePlugin(factory: ExtensionFactory): Promise<FakeExtension> {
   const fake = createFakeExtensionApi()
   await factory(fake.api)

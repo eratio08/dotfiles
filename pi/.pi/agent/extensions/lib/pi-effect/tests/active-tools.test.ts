@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test'
 import { Effect } from 'effect'
 import { createPiToolsService } from '../src/services/active-tools.ts'
-import type { PiHostValue } from '../src/services.ts'
+import type { PiHostOperations } from '../src/services.ts'
 
-test('releases a semaphore permit when a waiting tool operation is interrupted', async () => {
+test('should release a semaphore permit given an interrupted waiting tool operation', async () => {
   //given
   const calls: string[][] = []
   let firstStartedResolve: (() => void) | undefined
@@ -14,7 +14,7 @@ test('releases a semaphore permit when a waiting tool operation is interrupted',
   const firstRelease = new Promise<void>((resolve) => {
     releaseFirst = resolve
   })
-  const host: PiHostValue = {
+  const host: PiHostOperations = {
     exec: () => Effect.succeed({ stdout: '', stderr: '', code: 0, killed: false }),
     sendMessage: () => Effect.succeed(undefined),
     sendUserMessage: () => Effect.succeed(undefined),

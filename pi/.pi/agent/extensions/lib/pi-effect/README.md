@@ -75,7 +75,7 @@ It is a composition-root port, not a runtime service.
 Registered callbacks use Effect service requirements for their dependencies.
 
 A Layer supplies services to an Effect program.
-A plugin layer can require `PiHost` or stable host services such as `PiMessages`, `PiTools`, `PiFlags`, and `PiProcess` while the layer is built.
+A plugin layer can require `PiHostService` or stable host services such as `PiMessages`, `PiTools`, `PiFlags`, and `PiProcess` while the layer is built.
 A plugin layer must not require `Pi`, `PiContext`, `PiSessionContext`, `PiCommandContext`, `PiToolContext`, `PiSession`, or `PiUi` because those services are invocation-scoped.
 The setup program can use stable host services, but it cannot use invocation-scoped services.
 The adapter builds the plugin layer once and keeps its resources until shutdown.

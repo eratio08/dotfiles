@@ -26,7 +26,7 @@ function contextValue(cwd: string): PiContextValue {
   }
 }
 
-test('runtime builds a stable layer once and releases scoped resources', async () => {
+test('should build a stable layer once and release scoped resources given runtime startup and shutdown', async () => {
   //given
   let builds = 0
   let releases = 0
@@ -58,7 +58,7 @@ test('runtime builds a stable layer once and releases scoped resources', async (
   expect(releases).toBe(1)
 })
 
-test('runtime keeps invocation contexts isolated', async () => {
+test('should keep invocation contexts isolated given concurrent runtime calls', async () => {
   //given
   const runtime = createPiManagedRuntime(Layer.empty)
   const readCwd = Effect.map(PiContext, (context) => context.cwd)
@@ -74,7 +74,7 @@ test('runtime keeps invocation contexts isolated', async () => {
   expect(values).toEqual(['/one', '/two'])
 })
 
-test('runtime interrupts work and rejects runs after disposal', async () => {
+test('should interrupt work and reject runs given a disposed runtime', async () => {
   //given
   const runtime = createPiManagedRuntime(Layer.empty)
   const controller = new AbortController()

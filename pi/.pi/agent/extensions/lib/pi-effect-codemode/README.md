@@ -1,6 +1,8 @@
-# @eratio08/pi-effect-codemode
-The published bundle includes `@eratio08/pi-effect` and `@eratio/pi-codemode-core`.
-`@eratio08/pi-effect-codemode` connects `@eratio08/pi-effect` with `@eratio/pi-codemode-core`.
+# @eratio/pi-effect-codemode
+The package installs `@eratio/pi-effect` as a runtime dependency and bundles `@eratio/pi-codemode-core`.
+Consumers do not need to add `@eratio/pi-effect` directly.
+It keeps the Pi host packages, `effect`, and `typebox` as peer dependencies.
+It re-exports Pi Effect services so users can import them from this package.
 It registers one TypeScript runner tool from the supplied method definitions.
 The generated API includes synchronous `api.help()` and `api.help("operation")` methods.
 
@@ -11,14 +13,18 @@ An Effect describes work that can use plugin services and return typed failures.
 The SDK validates method arguments and passes the tool abort signal to each handler.
 The SDK truncates large output with Pi's limits and writes the full result to a temporary file when it truncates output.
 The runner tool uses the configured `toolName`.
+`PiExtension` exposes Pi Effect's `commands` registry beside the `tools` registry.
+Register slash commands there when they need to run extension Effects directly instead of a code-mode program.
+Import `PiExtension` from this package to use the command registry beside the tool registry.
 
 ```ts
 import type { ProgramFailure } from '@eratio/pi-codemode-core'
-import { createTool, defineMethod, PiExtension } from '@eratio08/pi-effect-codemode'
+import { createTool, defineMethod, PiExtension } from '@eratio/pi-effect-codemode'
 import { Effect } from 'effect'
 import { Type } from 'typebox'
 
 const addParameters = Type.Object({ title: Type.String() })
+const tasks: string[] = []
 
 const tool = createTool<never, never>({
   toolName: 'tasks',
@@ -32,7 +38,11 @@ const tool = createTool<never, never>({
       description: 'Create a task record.',
       signature: '(params: { title: string }): Promise<Task>',
       parameters: addParameters,
-      execute: ({ title }) => Effect.succeed({ id: 'task-1', title }),
+      execute: ({ title }) =>
+        Effect.sync(() => {
+          tasks.push(title)
+          return { id: `task-${tasks.length}`, title }
+        }),
     }),
   },
 })
@@ -40,7 +50,17 @@ const tool = createTool<never, never>({
 export default PiExtension.install(
   PiExtension.define<ProgramFailure>({
     id: 'tasks',
-    effect: ({ tools }) => tool.register(tools),
+    effect: ({ tools, commands }) =>
+      Effect.gen(function* () {
+        yield* tool.register(tools)
+        yield* commands.register('clear-tasks', {
+          description: 'Clear task records.',
+          handler: () =>
+            Effect.sync(() => {
+              tasks.length = 0
+            }),
+        })
+      }),
   }),
 )
 ```
@@ -126,9 +146,13 @@ Parameter schema:
 
 ## Method definitions
 `signature` is appended to the API type named from `toolName`, such as `tasksApi`.
-`parameters` is the TypeBox schema for the method's single argument, and the SDK checks it before it runs the handler.
+`parameters` is the TypeBox schema for a method argument, and the SDK checks supplied values before it runs the handler.
 Omit `parameters` and use `()` in `signature` when a method takes no arguments.
+Set `optionalParameters: true` when a schema-backed method takes one optional argument.
+The `signature` must also mark that argument as optional, such as `(options?: Options): Promise<Result>`.
+The handler receives `undefined` when the caller omits the argument or passes `undefined`.
 The handler receives the validated parameter value, the current `AbortSignal`, and the run context as its third argument.
+Use `Type.Tuple([...])` when the method accepts multiple positional arguments, and type the handler's first parameter as that tuple.
 The context type is the third generic for `defineMethod` and defaults to `void`.
 The handler returns an Effect, so it can use the services and typed failures that the SDK generics declare.
 
@@ -141,6 +165,9 @@ If `withRun` is omitted with the default `void` context, the SDK passes `undefin
 
 ## Runtime settings
 `timeoutMs` sets the evaluation deadline.
+`promptSnippet` overrides the generated short tool hint.
+`promptGuidelines` replaces the generated tool usage rules.
+`executionMode` selects whether Pi runs this tool sequentially or in parallel.
 `outputLimits` optionally overrides the maximum result size in bytes and lines for the runner tool.
 The SDK uses Pi's default output limits when `outputLimits` is not set.
 When the SDK truncates output, the tool result includes the temporary file path and the line and byte counts.

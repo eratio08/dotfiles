@@ -15,7 +15,7 @@ const packagePeerModules: PackagePeerModules | undefined = undefined
 const packageRequire = createRequire(import.meta.url)
 void packagePeerModules
 
-test('package entrypoints import as ESM modules', () => {
+test('should import package entry points given an ESM consumer', () => {
   //given
   const entries = [packageEntry, testingEntry]
 
@@ -28,7 +28,7 @@ test('package entrypoints import as ESM modules', () => {
   }
 })
 
-test('package entrypoints resolve for CommonJS consumers', () => {
+test('should resolve package entry points given a CommonJS consumer', () => {
   //given
   const entries = ['@eratio/pi-effect', '@eratio/pi-effect/testing']
 

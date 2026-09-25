@@ -19,7 +19,9 @@ import { type PiExtensionError, PiRegistrationError } from './errors.ts'
 import type { PiServices } from './services.ts'
 import type { EffectToolDefinition } from './tools.ts'
 
+/** Name of a Pi extension event that can be registered. */
 type PiEventName = ExtensionEvent['type']
+/** Maps each event name to the matching Pi event payload. */
 type PiEventMap = {
   [Name in PiEventName]: Extract<ExtensionEvent, { type: Name }>
 }
@@ -56,45 +58,64 @@ type PiEventResults = {
   input: InputEventResult
 }
 
+/** Maps each event name to the result type accepted by its handler. */
 type PiEventResultMap = {
   [Name in PiEventName]: Name extends keyof PiEventResults ? PiEventResults[Name] : undefined
 }
 type PiEventResult<Name extends PiEventName> = PiEventResultMap[Name]
+/** Effect handler for one event, with its event-specific input and result types. */
 type PiEventHandler<Services, Failure, Name extends PiEventName> = (
   event: PiEventMap[Name],
 ) => Effect.Effect<PiEventResult<Name> | undefined, Failure, Services | PiServices>
 
+/** Policy for handling a failed event handler: return the failure, keep the event neutral, or reject the action. */
 type PiFailurePolicy = 'propagate' | 'neutral' | 'failClosed'
+/** Optional event registration settings. */
 type PiEventOptions = {
+  /** Overrides `defaultPiFailurePolicy` for a failed event handler. */
   readonly failure?: PiFailurePolicy
 }
 
+/** Runtime-neutral callback shape used by the host event registration port. */
 type PiEventCallback<Services, Failure> = {
   run(event: unknown): Effect.Effect<unknown, Failure, Services | PiServices>
 }['run']
 
+/** Host registration port for event handlers. */
 interface PiEventRegistrationPort<Services, Failure> {
+  /** Registers a host event callback with its selected failure policy. */
   readonly register: (name: PiEventName, handler: PiEventCallback<Services, Failure>, policy: PiFailurePolicy) => void
 }
 
+/** Host registration port for commands. */
 interface PiCommandRegistrationPort<Services, Failure> {
+  /** Registers a command with the host. */
   readonly register: (name: string, definition: PiCommandDefinition<Services, Failure>) => void
 }
 
+/** Command description and Effect handlers supplied during registration. */
 interface PiCommandDefinition<Services, Failure> {
+  /** Help text shown for the command. */
   readonly description?: string
+  /** Returns completions for the current argument prefix, or `null` when none apply. */
   readonly getArgumentCompletions?: (
     argumentPrefix: string,
   ) => Effect.Effect<readonly AutocompleteItem[] | null, Failure, Services | PiServices>
+  /** Runs the command with the argument text supplied by Pi. */
   readonly handler: (args: string) => Effect.Effect<void, Failure, Services | PiServices>
 }
 
+/** Host registration port for keyboard shortcuts. */
 interface PiShortcutRegistrationPort<Services, Failure> {
+  /** Registers a keyboard shortcut with the host. */
   readonly register: (shortcut: KeyId, definition: PiShortcutDefinition<Services, Failure>) => void
 }
 
+/** Description and Effect handler supplied for a keyboard shortcut. */
 interface PiShortcutDefinition<Services, Failure> {
+  /** Help text shown for the shortcut. */
   readonly description?: string
+  /** Runs when the shortcut is pressed. */
   readonly handler: () => Effect.Effect<void, Failure, Services | PiServices>
 }
 
@@ -110,29 +131,42 @@ const PiFlagDefinitionSchema = Schema.Union([
     default: Schema.optional(Schema.String),
   }),
 ] as const)
+/** Boolean or string flag definition, with an optional description and default value. */
 type PiFlagDefinition = Schema.Schema.Type<typeof PiFlagDefinitionSchema>
 
+/** Host registration port for custom renderers. */
 interface PiRendererRegistrationPort {
+  /** Registers a renderer for custom message content. */
   readonly registerMessage: (customType: string, renderer: MessageRenderer) => void
+  /** Registers a renderer for custom session entries. */
   readonly registerEntry: (customType: string, renderer: EntryRenderer) => void
 }
 
+/** Host registration port for flags. */
 interface PiFlagRegistrationPort {
+  /** Registers a flag definition with the host. */
   readonly register: (name: string, definition: PiFlagDefinition) => void
 }
 
+/** Host registration port for Effect tools. */
 interface PiToolRegistrationPort<Services, Failure> {
+  /** Registers an Effect tool definition with the host. */
   readonly register: <Params extends TSchema, Details>(
     definition: EffectToolDefinition<Params, Services | PiServices, Failure, Details>,
   ) => void
 }
 
+/** Renderer registration data shared by message and entry renderers. */
 interface PiRendererDefinition {
+  /** Custom content type handled by the renderer. */
   readonly customType: string
+  /** Renderer selected for the custom content type. */
   readonly render: MessageRenderer | EntryRenderer
 }
 
+/** Effect API for registering handlers for Pi extension events. */
 interface PiEventRegistry<Services, Failure = PiExtensionError> {
+  /** Registers a typed event handler and returns an Effect that fails if registration fails. */
   readonly on: <Name extends PiEventName>(
     name: Name,
     handler: PiEventHandler<Services, Failure, Name>,
@@ -140,44 +174,68 @@ interface PiEventRegistry<Services, Failure = PiExtensionError> {
   ) => Effect.Effect<void, PiRegistrationError>
 }
 
+/** Effect API for registering Pi commands. */
 interface PiCommandRegistry<Services, Failure = PiExtensionError> {
+  /** Registers a command and returns an Effect that fails if registration fails. */
   readonly register: (
     name: string,
     definition: PiCommandDefinition<Services, Failure>,
   ) => Effect.Effect<void, PiRegistrationError>
 }
 
+/** Effect API for registering keyboard shortcuts. */
 interface PiShortcutRegistry<Services, Failure = PiExtensionError> {
+  /** Registers a shortcut and returns an Effect that fails if registration fails. */
   readonly register: (
     shortcut: KeyId,
     definition: PiShortcutDefinition<Services, Failure>,
   ) => Effect.Effect<void, PiRegistrationError>
 }
 
+/** Effect API for registering boolean and string flags. */
 interface PiFlagRegistry {
+  /** Registers a validated flag definition and returns an Effect that fails if registration fails. */
   readonly register: (name: string, definition: PiFlagDefinition) => Effect.Effect<void, PiRegistrationError>
 }
 
+/** Effect API for registering tools that run as Effects. */
 interface PiToolRegistry<Services, Failure = PiExtensionError> {
+  /** Registers a tool and returns an Effect that fails if registration fails. */
   readonly register: <Params extends TSchema, Details>(
     definition: EffectToolDefinition<Params, Services | PiServices, Failure, Details>,
   ) => Effect.Effect<void, PiRegistrationError>
 }
 
+/** Effect API for registering custom message and session-entry renderers. */
 interface PiRendererRegistry {
+  /** Registers a renderer for the given custom message type. */
   readonly message: (customType: string, renderer: MessageRenderer) => Effect.Effect<void, PiRegistrationError>
+  /** Registers a renderer for the given custom session-entry type. */
   readonly entry: (customType: string, renderer: EntryRenderer) => Effect.Effect<void, PiRegistrationError>
 }
 
+/** Registries available to a plugin setup Effect. */
 interface PiRegistrationContext<Services, Failure = PiExtensionError> {
+  /** Event handlers registered by this plugin. */
   readonly events: PiEventRegistry<Services, Failure>
+  /** Commands registered by this plugin. */
   readonly commands: PiCommandRegistry<Services, Failure>
+  /** Keyboard shortcuts registered by this plugin. */
   readonly shortcuts: PiShortcutRegistry<Services, Failure>
+  /** Flags registered by this plugin. */
   readonly flags: PiFlagRegistry
+  /** Effect tools registered by this plugin. */
   readonly tools: PiToolRegistry<Services, Failure>
+  /** Custom message and session-entry renderers registered by this plugin. */
   readonly renderers: PiRendererRegistry
 }
 
+/**
+ * Returns the adapter's default failure policy for an event name.
+ * Tool-call failures reject the action, observation and transform failures use neutral results, and other failures propagate.
+ * @param name Event name used to choose the policy.
+ * @returns The default event failure policy.
+ */
 function defaultPiFailurePolicy(name: PiEventName): PiFailurePolicy {
   switch (name) {
     case 'project_trust':
@@ -210,7 +268,7 @@ const registerEffect = Effect.fnUntraced(function* (
 ): Effect.fn.Return<void, PiRegistrationError> {
   return yield* Effect.try({
     try: register,
-    catch: (cause) =>
+    catch: (cause: unknown) =>
       new PiRegistrationError({
         registration,
         message: cause instanceof Error ? cause.message : String(cause),
@@ -219,6 +277,12 @@ const registerEffect = Effect.fnUntraced(function* (
   })
 })
 
+/**
+ * Builds the Effect-based registration context from host registration ports.
+ * Registration failures become `PiRegistrationError` values.
+ * @param ports Host functions used to register each kind of extension callback.
+ * @returns Registries for the plugin setup Effect.
+ */
 function createPiRegistries<Services, Failure = PiExtensionError>(ports: {
   readonly events: PiEventRegistrationPort<Services, Failure>
   readonly commands: PiCommandRegistrationPort<Services, Failure>
@@ -228,7 +292,11 @@ function createPiRegistries<Services, Failure = PiExtensionError>(ports: {
   readonly renderers: PiRendererRegistrationPort
 }): PiRegistrationContext<Services, Failure> {
   const events: PiEventRegistry<Services, Failure> = {
-    on: (name, handler, options) =>
+    on: <Name extends PiEventName>(
+      name: Name,
+      handler: PiEventHandler<Services, Failure, Name>,
+      options?: PiEventOptions,
+    ) =>
       registerEffect(`event:${name}`, () =>
         ports.events.register(
           name,
@@ -238,25 +306,28 @@ function createPiRegistries<Services, Failure = PiExtensionError>(ports: {
       ),
   }
   const commands: PiCommandRegistry<Services, Failure> = {
-    register: (name, definition) => registerEffect(`command:${name}`, () => ports.commands.register(name, definition)),
+    register: (name: string, definition: Parameters<PiCommandRegistry<Services, Failure>['register']>[1]) =>
+      registerEffect(`command:${name}`, () => ports.commands.register(name, definition)),
   }
   const shortcuts: PiShortcutRegistry<Services, Failure> = {
-    register: (shortcut, definition) =>
+    register: (shortcut: KeyId, definition: Parameters<PiShortcutRegistry<Services, Failure>['register']>[1]) =>
       registerEffect(`shortcut:${shortcut}`, () => ports.shortcuts.register(shortcut, definition)),
   }
   const flags: PiFlagRegistry = {
-    register: (name, definition) =>
+    register: (name: string, definition: Parameters<PiFlagRegistry['register']>[1]) =>
       registerEffect(`flag:${name}`, () =>
         ports.flags.register(name, Schema.decodeUnknownSync(PiFlagDefinitionSchema)(definition)),
       ),
   }
   const tools: PiToolRegistry<Services, Failure> = {
-    register: (definition) => registerEffect(`tool:${definition.name}`, () => ports.tools.register(definition)),
+    register: <Params extends TSchema, Details>(
+      definition: EffectToolDefinition<Params, Services | PiServices, Failure, Details>,
+    ) => registerEffect(`tool:${definition.name}`, () => ports.tools.register(definition)),
   }
   const renderers: PiRendererRegistry = {
-    message: (customType, renderer) =>
+    message: (customType: string, renderer: Parameters<PiRendererRegistry['message']>[1]) =>
       registerEffect(`message-renderer:${customType}`, () => ports.renderers.registerMessage(customType, renderer)),
-    entry: (customType, renderer) =>
+    entry: (customType: string, renderer: Parameters<PiRendererRegistry['entry']>[1]) =>
       registerEffect(`entry-renderer:${customType}`, () => ports.renderers.registerEntry(customType, renderer)),
   }
 

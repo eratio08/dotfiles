@@ -1,5 +1,10 @@
-import type { PiFlagsService, PiHostValue } from '../services.ts'
+import type { PiFlagsService, PiHostOperations } from '../services.ts'
 
-const createPiFlagsService = (host: PiHostValue): PiFlagsService => ({ get: host.getFlag })
+/**
+ * Creates flag-read operations backed by the Pi host.
+ * @param host Low-level Pi operations that read flags.
+ * @returns The Pi flags service.
+ */
+const createPiFlagsService = (host: PiHostOperations): PiFlagsService => ({ get: host.getFlag })
 
 export { createPiFlagsService }

@@ -104,7 +104,7 @@ function fakeApi(
   return api as unknown as ExtensionAPI
 }
 
-test('PiExtension.install runs setup once and disposes on shutdown', async () => {
+test('should run setup once and dispose on shutdown given PiExtension.install', async () => {
   //given
   let setupRuns = 0
   const plugin = PiExtension.define({

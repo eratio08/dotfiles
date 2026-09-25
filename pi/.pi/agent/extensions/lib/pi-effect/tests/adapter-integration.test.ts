@@ -7,8 +7,8 @@ import {
   PiCommandContext,
   PiContext,
   PiExtension,
-  PiHost,
   type PiHostError,
+  PiHostService,
   PiMessages,
   PiProcess,
   PiRegistrationError,
@@ -31,7 +31,7 @@ async function shutdown(fake: Awaited<ReturnType<typeof installFakePlugin>>): Pr
   await fake.invokeEvent('session_shutdown', { type: 'session_shutdown', reason: 'quit' })
 }
 
-test('preserves event results and provides the current invocation context', async () => {
+test('should preserve event results and provide the current invocation context given an event invocation', async () => {
   //given
   let cwd = ''
   let systemPromptOptions: unknown
@@ -60,7 +60,7 @@ test('preserves event results and provides the current invocation context', asyn
   expect(systemPromptOptions).toEqual({ cwd: '/workspace' })
 })
 
-test('maps invocation context read failures to PiHostError', async () => {
+test('should map invocation context read failures to PiHostError given a failing host read', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/context-read-failure',
@@ -95,7 +95,7 @@ test('maps invocation context read failures to PiHostError', async () => {
   await shutdown(fake)
 })
 
-test('maps command system prompt option failures to PiHostError', async () => {
+test('should map command system-prompt option failures to PiHostError given a failing option read', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/system-prompt-options-read-failure',
@@ -128,7 +128,7 @@ test('maps command system prompt option failures to PiHostError', async () => {
   await shutdown(fake)
 })
 
-test('maps session snapshot failures to PiHostError', async () => {
+test('should map session snapshot failures to PiHostError given a failing session read', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/session-snapshot-failure',
@@ -166,7 +166,7 @@ test('maps session snapshot failures to PiHostError', async () => {
   await shutdown(fake)
 })
 
-test('maps session context read failures to PiHostError', async () => {
+test('should map session context read failures to PiHostError given a failing context read', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/session-context-read-failure',
@@ -205,7 +205,7 @@ test('maps session context read failures to PiHostError', async () => {
   await shutdown(fake)
 })
 
-test('keeps stable host services across invocation contexts', async () => {
+test('should keep host services stable given multiple invocation contexts', async () => {
   //given
   let setupMessages: unknown
   const facadeMessages: unknown[] = []
@@ -238,7 +238,7 @@ test('keeps stable host services across invocation contexts', async () => {
   expect(facadeMessages[1]).toBe(setupMessages)
 })
 
-test('models the Pi event bus with Effect operations', async () => {
+test('should model the Pi event bus given Effect operations', async () => {
   //given
   const received: unknown[] = []
   const plugin = PiExtension.define({
@@ -266,7 +266,7 @@ test('models the Pi event bus with Effect operations', async () => {
   expect(received).toEqual([{ value: 1 }])
 })
 
-test('cleans up scoped Pi event bus subscriptions', async () => {
+test('should clean up event bus subscriptions given a closed scope', async () => {
   //given
   const received: unknown[] = []
   const plugin = PiExtension.define({
@@ -295,7 +295,7 @@ test('cleans up scoped Pi event bus subscriptions', async () => {
   expect(received).toEqual([{ value: 1 }])
 })
 
-test('maps Pi event bus failures to PiHostError', async () => {
+test('should map event bus failures to PiHostError given a failed host operation', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/effect-event-bus-failure',
@@ -326,7 +326,7 @@ test('maps Pi event bus failures to PiHostError', async () => {
   await shutdown(fake)
 })
 
-test('returns a typed error for unsupported custom UI operations', async () => {
+test('should return a typed error given an unsupported custom UI operation', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/trust-ui-custom',
@@ -365,7 +365,7 @@ test('returns a typed error for unsupported custom UI operations', async () => {
   await shutdown(fake)
 })
 
-test('applies neutral and fail-closed event policies', async () => {
+test('should apply neutral and fail-closed policies given configured event policies', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/event-failures',
@@ -408,7 +408,7 @@ test('applies neutral and fail-closed event policies', async () => {
   expect(toolResults).toEqual([{ block: true, reason: 'The tool-call handler failed.' }])
 })
 
-test('captures synchronous event handler construction failures', async () => {
+test('should capture event handler construction failures given a synchronous throw', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/sync-handler-throw',
@@ -427,7 +427,7 @@ test('captures synchronous event handler construction failures', async () => {
   await shutdown(fake)
 })
 
-test('registers boolean and string flags through the Pi host overloads', async () => {
+test('should register boolean and string flags given Pi host overloads', async () => {
   const plugin = PiExtension.define({
     id: 'tests/flags',
     effect: ({ flags }) =>
@@ -443,7 +443,7 @@ test('registers boolean and string flags through the Pi host overloads', async (
   await shutdown(fake)
 })
 
-test('rejects malformed package-owned flag definitions', async () => {
+test('should reject malformed flag definitions given package-owned flags', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/invalid-flag',
@@ -461,7 +461,7 @@ test('rejects malformed package-owned flag definitions', async () => {
   await expect(installation).rejects.toBeInstanceOf(PiRegistrationError)
 })
 
-test('provides tool identity, progress updates, and the final result', async () => {
+test('should provide tool identity, progress updates, and a final result given tool execution', async () => {
   //given
   const updates: unknown[] = []
   const Params = Type.Object({ query: Type.String() })
@@ -503,7 +503,7 @@ test('provides tool identity, progress updates, and the final result', async () 
   expect(updates).toEqual([{ content: [{ type: 'text', text: 'working:search' }] }])
 })
 
-test('returns a typed error for unavailable UI capabilities', async () => {
+test('should return a typed error given unavailable UI capabilities', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/ui-guard',
@@ -531,7 +531,7 @@ test('returns a typed error for unavailable UI capabilities', async () => {
   await shutdown(fake)
 })
 
-test('maps tools-expanded UI read failures to PiHostError', async () => {
+test('should map tools-expanded UI read failures to PiHostError given a failed UI read', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/ui-tools-expanded-failure',
@@ -569,7 +569,7 @@ test('maps tools-expanded UI read failures to PiHostError', async () => {
   await shutdown(fake)
 })
 
-test('forwards Effect cancellation to host promises with AbortSignal support', async () => {
+test('should forward Effect cancellation to host promises given AbortSignal support', async () => {
   //given
   const contextController = new AbortController()
   const callController = new AbortController()
@@ -623,7 +623,7 @@ test('forwards Effect cancellation to host promises with AbortSignal support', a
 class ScopedProbe extends Context.Service<ScopedProbe, { readonly value: number }>()('tests/ScopedProbe') {}
 class LayerFailure extends Schema.TaggedError<LayerFailure>()('LayerFailure', {}) {}
 
-test('releases the runtime scope when shutdown registration fails', async () => {
+test('should release the runtime scope given a failed shutdown registration', async () => {
   //given
   let releases = 0
   const plugin = PiExtension.define<ScopedProbe>({
@@ -654,7 +654,7 @@ test('releases the runtime scope when shutdown registration fails', async () => 
   expect(releases).toBe(1)
 })
 
-test('preserves plugin layer construction failures', async () => {
+test('should preserve plugin layer construction failures given a failed layer build', async () => {
   //given
   const plugin = PiExtension.define<ScopedProbe, LayerFailure>({
     id: 'tests/layer-failure',
@@ -669,7 +669,7 @@ test('preserves plugin layer construction failures', async () => {
   await expect(installation).rejects.toBeInstanceOf(LayerFailure)
 })
 
-test('runs command completions and disposes a scoped layer once across repeated shutdown', async () => {
+test('should run command completions and dispose a scoped layer once given repeated shutdown', async () => {
   //given
   let releases = 0
   let replacementCwd = ''
@@ -679,7 +679,7 @@ test('runs command completions and disposes a scoped layer once across repeated 
     layer: Layer.effect(
       ScopedProbe,
       Effect.gen(function* () {
-        const host = yield* PiHost
+        const host = yield* PiHostService
         return yield* Effect.acquireRelease(Effect.succeed(ScopedProbe.of({ value: host.events ? 1 : 0 })), () =>
           Effect.sync(() => {
             releases += 1

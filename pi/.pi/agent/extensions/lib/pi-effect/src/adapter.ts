@@ -6,6 +6,7 @@ import type {
   ExtensionFactory,
   ExtensionUIContext,
   ProjectTrustContext,
+  SessionManager,
   ToolDefinition,
 } from '@earendil-works/pi-coding-agent'
 import { Effect, Layer, Option } from 'effect'
@@ -40,13 +41,16 @@ import {
   PiContext,
   type PiContextValue,
   type PiCustomFactory,
+  type PiCustomMessage,
   PiFlags,
-  PiHost,
-  type PiHostValue,
+  type PiHostOperations,
+  PiHostService,
+  type PiInvocationServices,
   PiMessages,
   PiProcess,
   type PiServices,
   PiSession,
+  type PiSessionChangeOptions,
   PiSessionContext,
   type PiSessionContextValue,
   type PiStableServices,
@@ -103,13 +107,17 @@ type PiUiPort = {
 
 type PiStableFacade = Pick<Pi['Service'], 'messages' | 'tools' | 'flags' | 'process' | 'events' | 'model'>
 
+type PiReplacedSessionContext = Parameters<
+  NonNullable<NonNullable<Parameters<ExtensionCommandContext['switchSession']>[1]>['withSession']>
+>[0]
+
 const hostTry = Effect.fnUntraced(function* <A>(
   operation: string,
   evaluate: () => A,
 ): Effect.fn.Return<A, PiHostError> {
   return yield* Effect.try({
     try: evaluate,
-    catch: (cause) => new PiHostError({ operation, message: piCauseMessage(cause), cause }),
+    catch: (cause: unknown) => new PiHostError({ operation, message: piCauseMessage(cause), cause }),
   })
 })
 
@@ -118,21 +126,28 @@ const hostTryPromise = Effect.fnUntraced(function* <A>(
   evaluate: (signal: AbortSignal) => Promise<A>,
 ): Effect.fn.Return<A, PiHostError> {
   return yield* Effect.tryPromise({
-    try: (signal) => evaluate(signal),
-    catch: (cause) => new PiHostError({ operation, message: piCauseMessage(cause), cause }),
+    try: (signal: AbortSignal) => evaluate(signal),
+    catch: (cause: unknown) => new PiHostError({ operation, message: piCauseMessage(cause), cause }),
   })
 })
 
-function createPiHostValue(api: ExtensionAPI): PiHostValue {
+function createPiHostOperations(api: ExtensionAPI): PiHostOperations {
   return {
-    exec: (command, args, options) =>
+    exec: (
+      command: string,
+      args: Parameters<PiHostOperations['exec']>[1],
+      options?: Parameters<PiHostOperations['exec']>[2],
+    ) =>
       hostTryPromise('exec', (signal) =>
         api.exec(command, [...args], {
           ...options,
           signal: combinePiAbortSignals(options?.signal, signal),
         }),
       ),
-    sendMessage: (message, options) =>
+    sendMessage: <TDetails>(
+      message: PiCustomMessage<TDetails>,
+      options?: Parameters<PiHostOperations['sendMessage']>[1],
+    ) =>
       hostTry('sendMessage', () =>
         api.sendMessage(
           {
@@ -143,22 +158,33 @@ function createPiHostValue(api: ExtensionAPI): PiHostValue {
           options,
         ),
       ),
-    sendUserMessage: (content, options) =>
+    sendUserMessage: (
+      content: Parameters<PiHostOperations['sendUserMessage']>[0],
+      options?: Parameters<PiHostOperations['sendUserMessage']>[1],
+    ) =>
       hostTry('sendUserMessage', () =>
         api.sendUserMessage(typeof content === 'string' ? content : [...content], options),
       ),
-    appendEntry: (customType, data) => hostTry('appendEntry', () => api.appendEntry(customType, data)),
-    setSessionName: (name) => hostTry('setSessionName', () => api.setSessionName(name)),
+    appendEntry: (customType: string, data?: Parameters<PiHostOperations['appendEntry']>[1]) =>
+      hostTry('appendEntry', () => api.appendEntry(customType, data)),
+    setSessionName: (name: string) => hostTry('setSessionName', () => api.setSessionName(name)),
     getSessionName: () => hostTry('getSessionName', () => api.getSessionName()),
-    setLabel: (entryId, label) => hostTry('setLabel', () => api.setLabel(entryId, label)),
+    setLabel: (entryId: string, label: Parameters<PiHostOperations['setLabel']>[1]) =>
+      hostTry('setLabel', () => api.setLabel(entryId, label)),
     getActiveTools: () => hostTry('getActiveTools', () => api.getActiveTools()),
     getAllTools: () => hostTry('getAllTools', () => api.getAllTools()),
-    setActiveTools: (toolNames) => hostTry('setActiveTools', () => api.setActiveTools([...toolNames])),
-    getFlag: (name) => hostTry('getFlag', () => api.getFlag(name)),
-    setModel: (model) => hostTryPromise('setModel', () => api.setModel(model)),
+    setActiveTools: (toolNames: readonly string[]) =>
+      hostTry('setActiveTools', () => api.setActiveTools([...toolNames])),
+    getFlag: (name: string) => hostTry('getFlag', () => api.getFlag(name)),
+    setModel: (model: Parameters<PiHostOperations['setModel']>[0]) =>
+      hostTryPromise('setModel', () => api.setModel(model)),
     getThinkingLevel: () => hostTry('getThinkingLevel', () => api.getThinkingLevel()),
-    setThinkingLevel: (level) => hostTry('setThinkingLevel', () => api.setThinkingLevel(level)),
-    registerProvider: (provider, config) =>
+    setThinkingLevel: (level: Parameters<PiHostOperations['setThinkingLevel']>[0]) =>
+      hostTry('setThinkingLevel', () => api.setThinkingLevel(level)),
+    registerProvider: (
+      provider: Parameters<PiHostOperations['registerProvider']>[0],
+      config?: Parameters<PiHostOperations['registerProvider']>[1],
+    ) =>
       hostTry('registerProvider', () => {
         if (typeof provider === 'string') {
           api.registerProvider(provider, config ?? {})
@@ -166,12 +192,13 @@ function createPiHostValue(api: ExtensionAPI): PiHostValue {
           api.registerProvider(provider)
         }
       }),
-    unregisterProvider: (name) => hostTry('unregisterProvider', () => api.unregisterProvider(name)),
+    unregisterProvider: (name: string) => hostTry('unregisterProvider', () => api.unregisterProvider(name)),
     events: {
-      emit: (channel, data) => hostTry('events.emit', () => api.events.emit(channel, data)),
-      on: (channel, handler) =>
+      emit: (channel: string, data: Parameters<PiHostOperations['events']['emit']>[1]) =>
+        hostTry('events.emit', () => api.events.emit(channel, data)),
+      on: (channel: string, handler: Parameters<PiHostOperations['events']['on']>[1]) =>
         hostTry('events.on', () => hostTry('events.unsubscribe', api.events.on(channel, handler))),
-      onScoped: (channel, handler) =>
+      onScoped: (channel: string, handler: Parameters<PiHostOperations['events']['onScoped']>[1]) =>
         Effect.acquireRelease(
           hostTry('events.on', () => api.events.on(channel, handler)),
           (unsubscribe) => Effect.ignore(hostTry('events.unsubscribe', unsubscribe)),
@@ -182,39 +209,51 @@ function createPiHostValue(api: ExtensionAPI): PiHostValue {
 
 function createUiPort(ui: ExtensionUIContext): PiUiPort {
   return {
-    select: (title, options, dialog) => ui.select(title, [...options], dialog),
-    confirm: (title, message, dialog) => ui.confirm(title, message, dialog),
-    input: (title, placeholder, dialog) => ui.input(title, placeholder, dialog),
-    notify: (message, type) => ui.notify(message, type),
-    onTerminalInput: (handler) => ui.onTerminalInput(handler),
-    setStatus: (key, text) => ui.setStatus(key, text),
-    setWorkingMessage: (message) => ui.setWorkingMessage(message),
-    setWorkingVisible: (visible) => ui.setWorkingVisible(visible),
-    setWorkingIndicator: (options) =>
+    select: (title: string, options: Parameters<PiUiPort['select']>[1], dialog?: Parameters<PiUiPort['select']>[2]) =>
+      ui.select(title, [...options], dialog),
+    confirm: (
+      title: string,
+      message: Parameters<PiUiPort['confirm']>[1],
+      dialog?: Parameters<PiUiPort['confirm']>[2],
+    ) => ui.confirm(title, message, dialog),
+    input: (title: string, placeholder?: Parameters<PiUiPort['input']>[1], dialog?: Parameters<PiUiPort['input']>[2]) =>
+      ui.input(title, placeholder, dialog),
+    notify: (message: string, type?: Parameters<PiUiPort['notify']>[1]) => ui.notify(message, type),
+    onTerminalInput: (handler: Parameters<PiUiPort['onTerminalInput']>[0]) => ui.onTerminalInput(handler),
+    setStatus: (key: string, text: Parameters<PiUiPort['setStatus']>[1]) => ui.setStatus(key, text),
+    setWorkingMessage: (message: string | undefined) => ui.setWorkingMessage(message),
+    setWorkingVisible: (visible: boolean) => ui.setWorkingVisible(visible),
+    setWorkingIndicator: (options: Parameters<PiUiPort['setWorkingIndicator']>[0]) =>
       ui.setWorkingIndicator(
         options ? { ...options, frames: options.frames ? [...options.frames] : undefined } : undefined,
       ),
-    setWidget: (key, content, options) =>
+    setWidget: (
+      key: string,
+      content: Parameters<PiUiPort['setWidget']>[1],
+      options?: Parameters<PiUiPort['setWidget']>[2],
+    ) =>
       typeof content === 'function'
         ? ui.setWidget(key, content, options)
         : ui.setWidget(key, content ? [...content] : undefined, options),
-    setFooter: (factory) => ui.setFooter(factory),
-    setHeader: (factory) => ui.setHeader(factory),
-    setTitle: (title) => ui.setTitle(title),
-    custom: (factory, options) => hostTryPromise('custom', () => ui.custom(factory, options)),
-    pasteToEditor: (text) => ui.pasteToEditor(text),
-    setEditorText: (text) => ui.setEditorText(text),
+    setFooter: (factory: Parameters<PiUiPort['setFooter']>[0]) => ui.setFooter(factory),
+    setHeader: (factory: Parameters<PiUiPort['setHeader']>[0]) => ui.setHeader(factory),
+    setTitle: (title: string) => ui.setTitle(title),
+    custom: <A>(factory: PiCustomFactory<A>, options?: Parameters<PiUiPort['custom']>[1]) =>
+      hostTryPromise('custom', () => ui.custom(factory, options)),
+    pasteToEditor: (text: string) => ui.pasteToEditor(text),
+    setEditorText: (text: string) => ui.setEditorText(text),
     getEditorText: () => ui.getEditorText(),
-    editor: (title, prefill) => ui.editor(title, prefill),
-    addAutocompleteProvider: (factory) => ui.addAutocompleteProvider(factory),
-    setEditorComponent: (factory) => ui.setEditorComponent(factory),
+    editor: (title: string, prefill?: Parameters<PiUiPort['editor']>[1]) => ui.editor(title, prefill),
+    addAutocompleteProvider: (factory: Parameters<PiUiPort['addAutocompleteProvider']>[0]) =>
+      ui.addAutocompleteProvider(factory),
+    setEditorComponent: (factory: Parameters<PiUiPort['setEditorComponent']>[0]) => ui.setEditorComponent(factory),
     getEditorComponent: () => ui.getEditorComponent(),
     theme: ui.theme,
     getAllThemes: () => ui.getAllThemes(),
-    getTheme: (name) => ui.getTheme(name),
-    setTheme: (theme) => ui.setTheme(theme),
+    getTheme: (name: string) => ui.getTheme(name),
+    setTheme: (theme: Parameters<PiUiPort['setTheme']>[0]) => ui.setTheme(theme),
     getToolsExpanded: () => ui.getToolsExpanded(),
-    setToolsExpanded: (expanded) => ui.setToolsExpanded(expanded),
+    setToolsExpanded: (expanded: boolean) => ui.setToolsExpanded(expanded),
   }
 }
 
@@ -271,11 +310,18 @@ function baseContext(raw: ExtensionContext): PiContextValue {
     contextUsage: () => hostTry('contextUsage', () => raw.getContextUsage()),
     abort: () => hostTry('abort', () => raw.abort()),
     shutdown: () => hostTry('shutdown', () => raw.shutdown()),
-    compact: (options) => hostTry('compact', () => raw.compact(options)),
+    compact: (options: Parameters<PiContextValue['compact']>[0]) => hostTry('compact', () => raw.compact(options)),
     systemPrompt: () => hostTry('systemPrompt', () => raw.getSystemPrompt()),
   }
 }
 
+/**
+ * Creates UI operations that respect the invocation's UI availability and execution mode.
+ * Interactive operations fail with `PiUiUnavailableError` when the required UI mode is unavailable.
+ * @param context Invocation values that describe the Pi mode, UI availability, and abort signal.
+ * @param ui Functions that call the underlying Pi UI.
+ * @returns Effect-based UI operations for the invocation.
+ */
 function createPiUiService(context: PiContextValue, ui: PiUiPort): PiUiService {
   const unavailable = (operation: string): Effect.Effect<never, PiUiUnavailableError> =>
     Effect.fail(
@@ -304,59 +350,76 @@ function createPiUiService(context: PiContextValue, ui: PiUiPort): PiUiService {
   })
 
   return {
-    select: (title, options, dialog) =>
+    select: (
+      title: string,
+      options: Parameters<PiUiService['select']>[1],
+      dialog?: Parameters<PiUiService['select']>[2],
+    ) =>
       requireUI(
         'select',
         promise('select', (signal) => ui.select(title, options, dialogOptions(dialog, signal))),
       ),
-    confirm: (title, message, dialog) =>
+    confirm: (
+      title: string,
+      message: Parameters<PiUiService['confirm']>[1],
+      dialog?: Parameters<PiUiService['confirm']>[2],
+    ) =>
       requireUI(
         'confirm',
         promise('confirm', (signal) => ui.confirm(title, message, dialogOptions(dialog, signal))),
       ),
-    input: (title, placeholder, dialog) =>
+    input: (
+      title: string,
+      placeholder?: Parameters<PiUiService['input']>[1],
+      dialog?: Parameters<PiUiService['input']>[2],
+    ) =>
       requireUI(
         'input',
         promise('input', (signal) => ui.input(title, placeholder, dialogOptions(dialog, signal))),
       ),
-    notify: (message, type) =>
+    notify: (message: string, type?: Parameters<PiUiService['notify']>[1]) =>
       context.hasUI ? sync('notify', () => ui.notify(message, type)) : Effect.succeed(undefined),
-    onTerminalInput: (handler) =>
+    onTerminalInput: (handler: Parameters<PiUiService['onTerminalInput']>[0]) =>
       requireTui(
         'onTerminalInput',
         sync('onTerminalInput', () => ui.onTerminalInput(handler)),
       ),
-    setStatus: (key, text) =>
+    setStatus: (key: string, text: Parameters<PiUiService['setStatus']>[1]) =>
       context.hasUI ? sync('setStatus', () => ui.setStatus(key, text)) : Effect.succeed(undefined),
-    setWorkingMessage: (message) =>
+    setWorkingMessage: (message: string | undefined) =>
       context.hasUI ? sync('setWorkingMessage', () => ui.setWorkingMessage(message)) : Effect.succeed(undefined),
-    setWorkingVisible: (visible) =>
+    setWorkingVisible: (visible: boolean) =>
       context.hasUI ? sync('setWorkingVisible', () => ui.setWorkingVisible(visible)) : Effect.succeed(undefined),
-    setWorkingIndicator: (options) =>
+    setWorkingIndicator: (options: Parameters<PiUiService['setWorkingIndicator']>[0]) =>
       context.hasUI ? sync('setWorkingIndicator', () => ui.setWorkingIndicator(options)) : Effect.succeed(undefined),
-    setWidget: (key, content, options) =>
-      context.hasUI ? sync('setWidget', () => ui.setWidget(key, content, options)) : Effect.succeed(undefined),
-    setFooter: (factory) =>
+    setWidget: (
+      key: string,
+      content: Parameters<PiUiService['setWidget']>[1],
+      options?: Parameters<PiUiService['setWidget']>[2],
+    ) => (context.hasUI ? sync('setWidget', () => ui.setWidget(key, content, options)) : Effect.succeed(undefined)),
+    setFooter: (factory: Parameters<PiUiService['setFooter']>[0]) =>
       context.hasUI ? sync('setFooter', () => ui.setFooter(factory)) : Effect.succeed(undefined),
-    setHeader: (factory) =>
+    setHeader: (factory: Parameters<PiUiService['setHeader']>[0]) =>
       context.hasUI ? sync('setHeader', () => ui.setHeader(factory)) : Effect.succeed(undefined),
-    setTitle: (title) => (context.hasUI ? sync('setTitle', () => ui.setTitle(title)) : Effect.succeed(undefined)),
-    custom: (factory, options) => requireTui('custom', ui.custom(factory, options).pipe(Effect.map(Option.some))),
-    pasteToEditor: (text) =>
+    setTitle: (title: string) =>
+      context.hasUI ? sync('setTitle', () => ui.setTitle(title)) : Effect.succeed(undefined),
+    custom: <A>(factory: PiCustomFactory<A>, options?: Parameters<PiUiService['custom']>[1]) =>
+      requireTui('custom', ui.custom(factory, options).pipe(Effect.map(Option.some))),
+    pasteToEditor: (text: string) =>
       context.hasUI ? sync('pasteToEditor', () => ui.pasteToEditor(text)) : Effect.succeed(undefined),
-    setEditorText: (text) =>
+    setEditorText: (text: string) =>
       context.hasUI ? sync('setEditorText', () => ui.setEditorText(text)) : Effect.succeed(undefined),
     getEditorText: () => sync('getEditorText', () => ui.getEditorText()),
-    editor: (title, prefill) =>
+    editor: (title: string, prefill?: Parameters<PiUiService['editor']>[1]) =>
       requireTui(
         'editor',
         promise('editor', () => ui.editor(title, prefill)),
       ),
-    addAutocompleteProvider: (factory) =>
+    addAutocompleteProvider: (factory: Parameters<PiUiService['addAutocompleteProvider']>[0]) =>
       context.hasUI
         ? sync('addAutocompleteProvider', () => ui.addAutocompleteProvider(factory))
         : Effect.succeed(undefined),
-    setEditorComponent: (factory) =>
+    setEditorComponent: (factory: Parameters<PiUiService['setEditorComponent']>[0]) =>
       requireTui(
         'setEditorComponent',
         sync('setEditorComponent', () => ui.setEditorComponent(factory)),
@@ -364,23 +427,30 @@ function createPiUiService(context: PiContextValue, ui: PiUiPort): PiUiService {
     getEditorComponent: () => sync('getEditorComponent', () => ui.getEditorComponent()),
     theme: () => sync('theme', () => ui.theme),
     getAllThemes: () => sync('getAllThemes', () => ui.getAllThemes()),
-    getTheme: (name) => sync('getTheme', () => ui.getTheme(name)),
-    setTheme: (theme) => sync('setTheme', () => ui.setTheme(theme)),
+    getTheme: (name: string) => sync('getTheme', () => ui.getTheme(name)),
+    setTheme: (theme: Parameters<PiUiService['setTheme']>[0]) => sync('setTheme', () => ui.setTheme(theme)),
     getToolsExpandedValue: () => ui.getToolsExpanded(),
     getToolsExpanded: () => sync('getToolsExpanded', () => ui.getToolsExpanded()),
-    setToolsExpanded: (expanded) => sync('setToolsExpanded', () => ui.setToolsExpanded(expanded)),
+    setToolsExpanded: (expanded: boolean) => sync('setToolsExpanded', () => ui.setToolsExpanded(expanded)),
   }
 }
 
 function createFacade(
   stable: PiStableFacade,
-  host: PiHostValue,
+  host: PiHostOperations,
   context: PiContextValue,
   session: PiSessionContextValue,
   command: PiCommandContextValue,
   tool: PiToolContextValue,
   rawUi: PiUiPort,
-) {
+): PiStableFacade & {
+  context: PiContextValue
+  sessionContext: PiSessionContextValue
+  commandContext: PiCommandContextValue
+  toolContext: PiToolContextValue
+  session: ReturnType<typeof createPiSessionService>
+  ui: PiUiService
+} {
   const ui = createPiUiService(context, rawUi)
   return {
     ...stable,
@@ -429,7 +499,8 @@ type Invocation = {
   readonly pi: ReturnType<typeof createFacade>
 }
 
-type InvocationRequirements = PiHost | PiStableServices
+type InvocationRequirements = PiHostService | PiStableServices
+/** Effect that creates an invocation value from the current Pi host context. */
 type InvocationEffect = Effect.Effect<Invocation, PiHostError, InvocationRequirements>
 
 type Invoke<Services> = <A, E>(
@@ -438,7 +509,10 @@ type Invoke<Services> = <A, E>(
   signals?: readonly (AbortSignal | undefined)[],
 ) => Promise<A>
 
-function provideInvocation<A, E, Requirements>(program: Effect.Effect<A, E, Requirements>, invocation: Invocation) {
+function provideInvocation<A, E, Requirements>(
+  program: Effect.Effect<A, E, Requirements>,
+  invocation: Invocation,
+): Effect.Effect<A, E, Exclude<Requirements, PiInvocationServices>> {
   return program.pipe(
     Effect.provideService(Pi, invocation.pi),
     Effect.provideService(PiContext, invocation.context),
@@ -447,15 +521,15 @@ function provideInvocation<A, E, Requirements>(program: Effect.Effect<A, E, Requ
     Effect.provideService(PiToolContext, invocation.tool),
     Effect.provideService(PiSession, invocation.pi.session),
     Effect.provideService(PiUi, invocation.pi.ui),
-  )
+  ) as Effect.Effect<A, E, Exclude<Requirements, PiInvocationServices>>
 }
 
 const getRuntimeServices = Effect.fnUntraced(function* (): Effect.fn.Return<
-  { readonly host: PiHostValue; readonly stable: PiStableFacade },
+  { readonly host: PiHostOperations; readonly stable: PiStableFacade },
   never,
   InvocationRequirements
 > {
-  const host = yield* PiHost
+  const host = yield* PiHostService
   return {
     host,
     stable: {
@@ -488,7 +562,7 @@ const createInvocation = Effect.fnUntraced(function* <Services>(
   return yield* hostTry('invocation', () => {
     const runNested: Invoke<Services> =
       invoke ??
-      (async () =>
+      (async <A, _E>(): Promise<A> =>
         Promise.reject(
           new PiRuntimeDisposedError({ operation: 'nested', message: 'Nested invocation is unavailable.' }),
         ))
@@ -517,13 +591,13 @@ function commandContext<Services>(
     session,
     systemPromptOptions: () => hostTry('systemPromptOptions', () => raw.getSystemPromptOptions()),
     waitForIdle: () => hostTryPromise('waitForIdle', () => raw.waitForIdle()),
-    newSession: (options) => {
+    newSession: (options: PiSessionChangeOptions | undefined) => {
       const setup = options?.setup
       return hostTryPromise('newSession', () =>
         raw.newSession({
           parentSession: options?.parentSession,
           setup: setup
-            ? async (manager) =>
+            ? async (manager: SessionManager) =>
                 invoke(
                   Effect.flatMap(sessionContextFromManager(manager), (session) => setup(session)),
                   createInvocation(raw, raw, undefined, invoke),
@@ -533,13 +607,13 @@ function commandContext<Services>(
         }),
       )
     },
-    fork: (entryId, options) => {
+    fork: (entryId: string, options?: Parameters<PiCommandContextValue['fork']>[1]) => {
       const withSession = options?.withSession
       return hostTryPromise('fork', () =>
         raw.fork(entryId, {
           position: options?.position,
           withSession: withSession
-            ? async (replacement) =>
+            ? async (replacement: PiReplacedSessionContext) =>
                 invoke(
                   Effect.gen(function* () {
                     const context = yield* PiCommandContext
@@ -553,13 +627,14 @@ function commandContext<Services>(
         }),
       )
     },
-    navigateTree: (targetId, options) => hostTryPromise('navigateTree', () => raw.navigateTree(targetId, options)),
-    switchSession: (sessionPath, options) => {
+    navigateTree: (targetId: string, options?: Parameters<PiCommandContextValue['navigateTree']>[1]) =>
+      hostTryPromise('navigateTree', () => raw.navigateTree(targetId, options)),
+    switchSession: (sessionPath: string, options?: Parameters<PiCommandContextValue['switchSession']>[1]) => {
       const withSession = options?.withSession
       return hostTryPromise('switchSession', () =>
         raw.switchSession(sessionPath, {
           withSession: withSession
-            ? async (replacement) =>
+            ? async (replacement: PiReplacedSessionContext) =>
                 invoke(
                   Effect.gen(function* () {
                     const context = yield* PiCommandContext
@@ -614,11 +689,11 @@ function toolContext(
     toolCallId: tool.toolCallId,
     params: tool.params,
     toolSignal: tool.signal,
-    onUpdate: (update) => {
+    onUpdate: (update: Parameters<NonNullable<PiToolContextValue['onUpdate']>>[0]) => {
       if (!tool.onUpdate) return Effect.succeed(undefined)
       return Effect.try({
         try: () => tool.onUpdate?.(update),
-        catch: (cause) =>
+        catch: (cause: unknown) =>
           new PiToolError({ tool: tool.toolCallId, operation: 'onUpdate', message: piCauseMessage(cause), cause }),
       })
     },
@@ -644,7 +719,7 @@ function neutralResult(name: PiEventName): unknown {
   }
 }
 
-function trustInvocation(host: PiHostValue, stable: PiStableFacade, raw: ProjectTrustContext): Invocation {
+function trustInvocation(host: PiHostOperations, stable: PiStableFacade, raw: ProjectTrustContext): Invocation {
   const context: PiContextValue = {
     mode: raw.mode,
     hasUI: raw.hasUI,
@@ -666,7 +741,8 @@ function trustInvocation(host: PiHostValue, stable: PiStableFacade, raw: Project
   const tool = unavailableToolContext(context, session)
   const ui: PiUiPort = {
     ...emptyUiPort(raw.mode),
-    select: (title, options, dialog) => raw.ui.select(title, [...options], dialog),
+    select: (title: string, options: Parameters<PiUiPort['select']>[1], dialog?: Parameters<PiUiPort['select']>[2]) =>
+      raw.ui.select(title, [...options], dialog),
     confirm: raw.ui.confirm,
     input: raw.ui.input,
     notify: raw.ui.notify,
@@ -690,7 +766,7 @@ function registerEventHandler<Services, Failure>(
   })
 }
 
-function bootstrapInvocation(host: PiHostValue, stable: PiStableFacade): InvocationEffect {
+function bootstrapInvocation(host: PiHostOperations, stable: PiStableFacade): InvocationEffect {
   const context = emptyInvocationContext()
   const session = emptySessionContext()
   const command = unavailableCommandContext(context, session)
@@ -706,21 +782,25 @@ function bootstrapInvocation(host: PiHostValue, stable: PiStableFacade): Invocat
 
 async function installPiRuntime<Services, Failure>(
   api: ExtensionAPI,
-  host: PiHostValue,
-  hostLayer: Layer.Layer<PiHost, never, never>,
-  stableLayer: Layer.Layer<PiStableServices, never, PiHost>,
+  host: PiHostOperations,
+  hostLayer: Layer.Layer<PiHostService, never, never>,
+  stableLayer: Layer.Layer<PiStableServices, never, PiHostService>,
   plugin: PiPlugin<Services, Failure>,
 ): Promise<void> {
   const baseLayer = stableLayer.pipe(Layer.provideMerge(hostLayer))
   const installRuntime = async <RegistrationServices>(
-    runtime: PiManagedRuntime<RegistrationServices | PiStableServices | PiHost, Failure>,
+    runtime: PiManagedRuntime<RegistrationServices | PiStableServices | PiHostService, Failure>,
     effect: (
       registrations: PiRegistrationContext<RegistrationServices, Failure>,
     ) => Effect.Effect<void, Failure | PiRegistrationError, RegistrationServices | PiStableServices>,
   ): Promise<void> => {
     const shutdownHandlers: Array<PiEventCallback<RegistrationServices, Failure>> = []
     let shutdownPromise: Promise<void> | undefined
-    const run: Invoke<RegistrationServices | PiServices> = async (program, invocation, signals = []) =>
+    const run: Invoke<RegistrationServices | PiServices> = async <A, E>(
+      program: Effect.Effect<A, E, RegistrationServices | PiServices>,
+      invocation: InvocationEffect,
+      signals: readonly (AbortSignal | undefined)[] = [],
+    ): Promise<A> =>
       runtime.run(invocation.pipe(Effect.flatMap((current) => provideInvocation(program, current))), signals)
     const { stable } = await runtime.run(getRuntimeServices())
     type HostEventContext = ExtensionContext | ProjectTrustContext
@@ -767,7 +847,7 @@ async function installPiRuntime<Services, Failure>(
           })()
           return shutdownPromise
         }),
-      catch: (cause) =>
+      catch: (cause: unknown) =>
         new PiRegistrationError({
           registration: 'event:session_shutdown',
           message: piCauseMessage(cause),
@@ -777,7 +857,11 @@ async function installPiRuntime<Services, Failure>(
 
     const registries = createPiRegistries<RegistrationServices, Failure>({
       events: {
-        register: (name, handler, policy) => {
+        register: (
+          name: PiEventName,
+          handler: PiEventCallback<RegistrationServices, Failure>,
+          policy: PiFailurePolicy,
+        ) => {
           if (name === 'session_shutdown') {
             shutdownHandlers.push(handler)
             return
@@ -788,12 +872,15 @@ async function installPiRuntime<Services, Failure>(
         },
       },
       commands: {
-        register: (name, definition) => {
+        register: (
+          name: string,
+          definition: Parameters<PiRegistrationContext<RegistrationServices, Failure>['commands']['register']>[1],
+        ) => {
           const getArgumentCompletions = definition.getArgumentCompletions
           api.registerCommand(name, {
             description: definition.description,
             getArgumentCompletions: getArgumentCompletions
-              ? (prefix) => {
+              ? (prefix: string) => {
                   if (runtime.isClosing()) return Promise.resolve(null)
                   return run(
                     Effect.suspend(() => getArgumentCompletions(prefix)),
@@ -802,7 +889,7 @@ async function installPiRuntime<Services, Failure>(
                   ).then((items) => (items === null ? null : [...items]))
                 }
               : undefined,
-            handler: (args, context) => {
+            handler: (args: string, context: ExtensionCommandContext) => {
               if (runtime.isClosing()) return Promise.resolve()
               return run(
                 Effect.suspend(() => definition.handler(args)),
@@ -814,10 +901,13 @@ async function installPiRuntime<Services, Failure>(
         },
       },
       shortcuts: {
-        register: (shortcut, definition) =>
+        register: (
+          shortcut: Parameters<PiRegistrationContext<RegistrationServices, Failure>['shortcuts']['register']>[0],
+          definition: Parameters<PiRegistrationContext<RegistrationServices, Failure>['shortcuts']['register']>[1],
+        ) =>
           api.registerShortcut(shortcut, {
             description: definition.description,
-            handler: (context) => {
+            handler: (context: ExtensionContext) => {
               if (runtime.isClosing()) return Promise.resolve()
               return run(
                 Effect.suspend(() => definition.handler()),
@@ -827,13 +917,26 @@ async function installPiRuntime<Services, Failure>(
             },
           }),
       },
-      flags: { register: (name, definition) => api.registerFlag(name, definition) },
+      flags: {
+        register: (
+          name: string,
+          definition: Parameters<PiRegistrationContext<RegistrationServices, Failure>['flags']['register']>[1],
+        ) => api.registerFlag(name, definition),
+      },
       tools: {
-        register: (definition) => api.registerTool(toPiTool(definition, run)),
+        register: <Params extends TSchema, Details>(
+          definition: EffectToolDefinition<Params, RegistrationServices | PiServices, Failure, Details>,
+        ) => api.registerTool(toPiTool(definition, run)),
       },
       renderers: {
-        registerMessage: (customType, renderer) => api.registerMessageRenderer(customType, renderer),
-        registerEntry: (customType, renderer) => api.registerEntryRenderer(customType, renderer),
+        registerMessage: (
+          customType: string,
+          renderer: Parameters<PiRegistrationContext<RegistrationServices, Failure>['renderers']['message']>[1],
+        ) => api.registerMessageRenderer(customType, renderer),
+        registerEntry: (
+          customType: string,
+          renderer: Parameters<PiRegistrationContext<RegistrationServices, Failure>['renderers']['entry']>[1],
+        ) => api.registerEntryRenderer(customType, renderer),
       },
     })
 
@@ -855,15 +958,20 @@ async function installPiRuntime<Services, Failure>(
   }
 }
 
+/**
+ * Creates a Pi extension factory that provides host services and installs the plugin runtime.
+ * @param plugin Plugin definition to install.
+ * @returns Extension factory that Pi can load.
+ */
 function installPiPlugin<Services, Failure>(plugin: PiPlugin<Services, Failure>): ExtensionFactory {
-  return async (api) => {
-    const host = createPiHostValue(api)
-    const hostLayer = Layer.succeed(PiHost, host)
-    const stableLayer: Layer.Layer<PiStableServices, never, PiHost> = Layer.mergeAll(
-      Layer.effect(PiMessages, Effect.map(PiHost, createPiMessagesService)),
-      Layer.effect(PiTools, Effect.map(PiHost, createPiToolsService)),
-      Layer.effect(PiFlags, Effect.map(PiHost, createPiFlagsService)),
-      Layer.effect(PiProcess, Effect.map(PiHost, createPiProcessService)),
+  return async (api: ExtensionAPI) => {
+    const host = createPiHostOperations(api)
+    const hostLayer = Layer.succeed(PiHostService, host)
+    const stableLayer: Layer.Layer<PiStableServices, never, PiHostService> = Layer.mergeAll(
+      Layer.effect(PiMessages, Effect.map(PiHostService, createPiMessagesService)),
+      Layer.effect(PiTools, Effect.map(PiHostService, createPiToolsService)),
+      Layer.effect(PiFlags, Effect.map(PiHostService, createPiFlagsService)),
+      Layer.effect(PiProcess, Effect.map(PiHostService, createPiProcessService)),
     )
     await installPiRuntime(api, host, hostLayer, stableLayer, plugin)
   }

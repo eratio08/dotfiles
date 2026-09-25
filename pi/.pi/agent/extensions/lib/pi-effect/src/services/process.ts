@@ -1,5 +1,10 @@
-import type { PiHostValue, PiProcessService } from '../services.ts'
+import type { PiHostOperations, PiProcessService } from '../services.ts'
 
-const createPiProcessService = (host: PiHostValue): PiProcessService => ({ exec: host.exec })
+/**
+ * Creates process execution operations backed by the Pi host.
+ * @param host Low-level Pi operations that run processes.
+ * @returns The Pi process service.
+ */
+const createPiProcessService = (host: PiHostOperations): PiProcessService => ({ exec: host.exec })
 
 export { createPiProcessService }
