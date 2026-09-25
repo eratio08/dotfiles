@@ -27,6 +27,9 @@ interface CodeModeDeadline {
   readonly dispose: () => void
 }
 
+/**
+ * Creates a runner that validates and evaluates programs using host services from the Effect environment.
+ */
 function createProgramRunner<R, E>(): ProgramRunner<R, E> {
   const jiti = createCodeModeJiti()
   const hostService = ProgramHost<R, E>()
@@ -75,7 +78,7 @@ function createProgramRunner<R, E>(): ProgramRunner<R, E> {
       if (importError !== undefined) return yield* Effect.fail(importError)
       const transformed = yield* Effect.try({
         try: () => transformCodeModeProgram(jiti, definition, code, filename),
-        catch: (cause) =>
+        catch: (cause: unknown) =>
           createProgramFailure({
             _tag: 'transform',
             operation: 'transform',
@@ -117,7 +120,7 @@ function createProgramRunner<R, E>(): ProgramRunner<R, E> {
           structuredClone(result)
           return result
         },
-        catch: (cause) =>
+        catch: (cause: unknown) =>
           createProgramFailure({
             _tag: 'serialize',
             operation: 'result',
@@ -138,7 +141,7 @@ function createProgramRunner<R, E>(): ProgramRunner<R, E> {
               deadline.signal,
               deadline.remainingTimeoutMs,
             ),
-          catch: (cause) => mapCodeModeCause(cause, deadline, options.timeoutMs, 'invoke'),
+          catch: (cause: unknown) => mapCodeModeCause(cause, deadline, options.timeoutMs, 'invoke'),
         })
       }
 

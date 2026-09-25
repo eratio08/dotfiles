@@ -4,11 +4,11 @@ import { ProgramHost } from '../src/contract.ts'
 import { createCodeModeRequestQueue } from '../src/request-queue.ts'
 
 describe('code mode request queue', () => {
-  test('runs host calls in offer order', async () => {
+  test('should run host calls in offer order given queued invocations', async () => {
     //given
     const events: string[] = []
     const host: ProgramHost<never, never> = {
-      invoke: (method) =>
+      invoke: (method: string) =>
         Effect.promise(async () => {
           events.push(`${method}:start`)
           await Promise.resolve()
@@ -39,10 +39,10 @@ describe('code mode request queue', () => {
     expect(events).toEqual(['first:start', 'first:end', 'second:start', 'second:end'])
   })
 
-  test('keeps processing requests when a host throws before returning an Effect', async () => {
+  test('should process later requests given a host that throws before returning an Effect', async () => {
     //given
     const host: ProgramHost<never, never> = {
-      invoke: (method) => {
+      invoke: (method: string) => {
         if (method === 'throws') throw new Error('Host failed before returning an Effect.')
         return Effect.succeed(method)
       },
@@ -71,7 +71,7 @@ describe('code mode request queue', () => {
     await expect(result).resolves.toEqual([expect.objectContaining({ _tag: 'invoke', operation: 'throws' }), 'next'])
   })
 
-  test('rejects a call when its signal aborts', async () => {
+  test('should reject the call given its signal aborts', async () => {
     //given
     const controller = new AbortController()
     const host: ProgramHost<never, never> = {
@@ -103,7 +103,7 @@ describe('code mode request queue', () => {
     expect(result).toBe('rejected')
   })
 
-  test('interrupts the active host call when the scope closes', async () => {
+  test('should interrupt the active host call given the scope closes', async () => {
     //given
     let interrupted = false
     let resolveStarted: () => void = () => undefined
@@ -147,7 +147,7 @@ describe('code mode request queue', () => {
     expect(interrupted).toBe(true)
   })
 
-  test('rejects invocations after the scope closes', async () => {
+  test('should reject invocations given the scope is closed', async () => {
     //given
     const host: ProgramHost<never, never> = {
       invoke: () => Effect.never,
@@ -172,7 +172,7 @@ describe('code mode request queue', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'cancellation', operation: 'queue' })
   })
 
-  test('rejects pending calls when the scope closes', async () => {
+  test('should reject pending calls given the scope closes', async () => {
     //given
     const host: ProgramHost<never, never> = {
       invoke: () => Effect.never,

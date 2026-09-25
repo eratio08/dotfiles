@@ -7,7 +7,7 @@ import * as Output from '@eratio/pi-codemode-core/output'
 import { Effect, Layer, ManagedRuntime } from 'effect'
 
 describe('package exports', () => {
-  test('loads the root and output entry points', () => {
+  test('should load the root and output entry points given package imports', () => {
     expect(typeof Core.ProgramHost).toBe('function')
     expect(typeof Core.createProgramRunner).toBe('function')
     expect(typeof Core.createProgramFailure).toBe('function')
@@ -16,7 +16,7 @@ describe('package exports', () => {
     expect(Object.keys(Output).filter((name) => name.includes('CodeMode'))).toEqual([])
   })
 
-  test('resolves the root and output entry points for CommonJS consumers', () => {
+  test('should resolve the entry points given a CommonJS consumer', () => {
     //given
     const packageRequire = createRequire(import.meta.url)
     const entries = ['@eratio/pi-codemode-core', '@eratio/pi-codemode-core/output']
@@ -28,7 +28,7 @@ describe('package exports', () => {
     expect(entryNames).toEqual(['index.js', 'output.js'])
   })
 
-  test('bundles declaration entry points', () => {
+  test('should emit declaration entry points given a package build', () => {
     //given
     const distUrl = new URL('../dist/', import.meta.url)
 
@@ -40,7 +40,7 @@ describe('package exports', () => {
     expect(emittedFiles).toContain('output.d.ts')
   })
 
-  test('runs a worker from the bundled root entry point', async () => {
+  test('should run a worker given the bundled root entry point', async () => {
     //given
     const definition = {
       apiName: 'WorkerApi',

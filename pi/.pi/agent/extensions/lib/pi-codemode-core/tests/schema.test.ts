@@ -23,7 +23,7 @@ const definition = {
 }
 
 describe('code mode schemas', () => {
-  test('accepts a valid public definition', () => {
+  test('should accept a public definition given valid data', () => {
     //given
     const value = definition
 
@@ -34,7 +34,7 @@ describe('code mode schemas', () => {
     expect(error).toBeUndefined()
   })
 
-  test('accepts valid run options', () => {
+  test('should accept run options given valid data', () => {
     //given
     const value = { cwd: '/tmp', filenamePrefix: 'schema', timeoutMs: 1000, execution: 'worker' as const }
 
@@ -45,7 +45,7 @@ describe('code mode schemas', () => {
     expect(error).toBeUndefined()
   })
 
-  test('preserves the public definition validation message', () => {
+  test('should preserve the definition validation message given an invalid definition', () => {
     //given
     const value = { ...definition, methods: [] }
 
@@ -60,7 +60,7 @@ describe('code mode schemas', () => {
     })
   })
 
-  test('preserves the public options validation message', () => {
+  test('should preserve the options validation message given invalid run options', () => {
     //given
     const value = { cwd: '/tmp', filenamePrefix: 'schema', timeoutMs: 0 }
 
@@ -75,7 +75,7 @@ describe('code mode schemas', () => {
     })
   })
 
-  test('accepts every built-in failure tag and rejects unknown tags', () => {
+  test('should accept built-in tags and reject unknown tags given failure values', () => {
     //given
     const tags = [
       'validation',
@@ -100,7 +100,7 @@ describe('code mode schemas', () => {
     expect(() => decode([...values, { _tag: 'unknown', operation: 'test', message: 'failure' }])).toThrow()
   })
 
-  test('accepts a structured-cloneable failure wire value', () => {
+  test('should accept failure wire data given structured-cloneable values', () => {
     //given
     const value = { _tag: 'custom', operation: 'test', message: 'failure', cause: { retryable: false } }
     const decode = Schema.decodeUnknownSync(CodeModeFailureWireValueSchema)
@@ -112,7 +112,7 @@ describe('code mode schemas', () => {
     expect(decoded).toEqual(value)
   })
 
-  test('maps malformed failure wire values to deserialize failures', () => {
+  test('should return a deserialize failure given malformed failure wire data', () => {
     //given
     const value = {
       kind: 'failure',
@@ -126,7 +126,7 @@ describe('code mode schemas', () => {
     expect(decoded).toMatchObject({ _tag: 'deserialize', operation: 'deserialize' })
   })
 
-  test('accepts recursive wire values and rejects non-wire values', () => {
+  test('should accept recursive wire values and reject invalid values given schema decoding', () => {
     //given
     const value = { nested: [1, 'two', null, { enabled: true }], count: 2n }
     const decode = Schema.decodeUnknownSync(CodeModeWireValueSchema)
@@ -139,7 +139,7 @@ describe('code mode schemas', () => {
     expect(() => decode({ value: Symbol('not-wire') })).toThrow()
   })
 
-  test('validates a host error envelope', () => {
+  test('should validate the host error envelope given valid data', () => {
     //given
     const value = { type: 'code-mode-host-error' as const, value: { code: 'FAILED' } }
     const decode = Schema.decodeUnknownSync(CodeModeHostErrorEnvelopeSchema)
@@ -151,7 +151,7 @@ describe('code mode schemas', () => {
     expect(decoded).toEqual(value)
   })
 
-  test('validates an encoded host error envelope', () => {
+  test('should validate the encoded host error envelope given valid data', () => {
     //given
     const value = { type: 'code-mode-host-error' as const, value: { code: 'FAILED' } }
     const decode = Schema.decodeUnknownSync(CodeModeEncodedHostErrorSchema)
@@ -164,7 +164,7 @@ describe('code mode schemas', () => {
     expect(() => decode({ ...value, value: () => undefined })).toThrow()
   })
 
-  test('requires worker response values and errors to match the status flag', () => {
+  test('should match response data to the status flag given worker messages', () => {
     //given
     const responses = [
       {
@@ -206,7 +206,7 @@ describe('code mode schemas', () => {
     expect(accepted).toEqual([true, false, true, false, true, false, true, false])
   })
 
-  test('maps a worker failure without error data to deserialize', () => {
+  test('should return a deserialize failure given a worker failure without error data', () => {
     //given
     const decode = Schema.decodeUnknownSync(CodeModeWorkerFailureMessageSchema)
 
@@ -217,7 +217,7 @@ describe('code mode schemas', () => {
     expect(deserializeProgramError(decoded.error)).toMatchObject({ _tag: 'deserialize' })
   })
 
-  test('validates serializable worker messages', () => {
+  test('should validate worker messages given serializable data', () => {
     //given
     const value = { type: 'async-call' as const, id: 1, method: 'read', args: ['value'] }
     const decode = Schema.decodeUnknownSync(CodeModeWorkerMessageSchema)

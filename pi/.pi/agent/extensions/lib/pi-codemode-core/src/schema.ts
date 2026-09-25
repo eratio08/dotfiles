@@ -1,6 +1,9 @@
 import { Schema } from 'effect'
 import type { ProgramDefinition, ProgramMethod, ProgramRunOptions, ProgramWireValue } from './contract.ts'
 
+/**
+ * Defines the serializable fields used to send a program failure across the worker boundary.
+ */
 type ProgramFailureWireValue = {
   readonly _tag: string
   readonly operation: string
@@ -10,11 +13,17 @@ type ProgramFailureWireValue = {
   readonly stack?: string
 }
 
+/**
+ * Defines the host-error shape sent through the worker protocol.
+ */
 type CodeModeHostErrorEnvelope = {
   readonly type: 'code-mode-host-error'
   readonly value: unknown
 }
 
+/**
+ * Defines exception data with a message and optional name and stack.
+ */
 type CodeModeExceptionData = {
   readonly message: string
   readonly name?: string
@@ -35,12 +44,12 @@ const codeModeOptionsTimeoutMessage = 'The code mode timeout must be a positive 
 const codeModeOptionsExecutionMessage = 'The code mode execution must be worker or in-process.'
 const codeModeSourceMessage = 'The code mode source must be a non-empty string.'
 
-const createCodeModeNonEmptyStringSchema = (message: string) =>
+const createCodeModeNonEmptyStringSchema = (message: string): Schema.Codec<string> =>
   Schema.String.annotate({ message }).pipe(
     Schema.check(Schema.makeFilter((value) => value.trim().length > 0 || message, undefined, true)),
   )
 
-const createCodeModePositiveFiniteNumberSchema = (message: string) =>
+const createCodeModePositiveFiniteNumberSchema = (message: string): Schema.Codec<number> =>
   Schema.Finite.annotate({ message }).pipe(Schema.check(Schema.isGreaterThan(0, { message })))
 
 const CodeModeMethodSchema = Schema.Struct({
@@ -363,6 +372,9 @@ const CodeModeExceptionMessageSchema = Schema.Struct({
   message: Schema.String,
 })
 
+/**
+ * Returns the first line of a schema error or the fallback for other causes.
+ */
 function getCodeModeSchemaFailureMessage(cause: unknown, fallbackMessage: string): string {
   if (!Schema.isSchemaError(cause)) return fallbackMessage
   return cause.message.split('\n', 1)[0] ?? fallbackMessage

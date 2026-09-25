@@ -59,8 +59,8 @@ const taggedHostFailureSchema = Schema.Struct({
 })
 
 const hostErrorCodec: ProgramHostErrorCodec<HostFailure> = {
-  encode: (failure) => ({ code: failure.code, message: failure.message }),
-  decode: (value) => {
+  encode: (failure: HostFailure) => ({ code: failure.code, message: failure.message }),
+  decode: (value: ProgramWireValue) => {
     if (typeof value !== 'object' || value === null || Array.isArray(value))
       throw new TypeError('Invalid host failure.')
     const record = value as { readonly code?: ProgramWireValue; readonly message?: ProgramWireValue }
@@ -71,12 +71,13 @@ const hostErrorCodec: ProgramHostErrorCodec<HostFailure> = {
 }
 
 describe('code mode core', () => {
-  test('runs a worker evaluation with an Effect host', async () => {
+  test('should run the program in a worker given an Effect host', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const host: ProgramHost<never, never> = {
-      invoke: (method, args) => Effect.succeed(method === 'wait' ? String(args[0]).length : undefined),
-      invokeSync: (method, args) => (method === 'add' ? Number(args[0]) + 1 : undefined),
+      invoke: (method: string, args: readonly unknown[]) =>
+        Effect.succeed(method === 'wait' ? String(args[0]).length : undefined),
+      invokeSync: (method: string, args: readonly unknown[]) => (method === 'add' ? Number(args[0]) + 1 : undefined),
     }
 
     //when
@@ -94,7 +95,7 @@ describe('code mode core', () => {
     expect(result).toBe(3)
   })
 
-  test('uses the host provided for each evaluation', async () => {
+  test('should use the supplied host given multiple evaluations', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const firstHost: ProgramHost<never, never> = {
@@ -131,7 +132,7 @@ describe('code mode core', () => {
     await expect(result).resolves.toEqual([1, 2])
   })
 
-  test('preserves host Effect requirements', async () => {
+  test('should preserve host Effect requirements given an Effect-based host', async () => {
     //given
     const core = createProgramRunner<HostDependencyRequirement, never>()
     const host: ProgramHost<HostDependencyRequirement, never> = {
@@ -158,7 +159,7 @@ describe('code mode core', () => {
     await expect(result).resolves.toBe('provided')
   })
 
-  test('maps an invalid definition to a validation failure', async () => {
+  test('should return a validation failure given an invalid definition', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const invalidDefinition = { ...definition, methods: [] }
@@ -178,13 +179,13 @@ describe('code mode core', () => {
     })
   })
 
-  test('reuses a caller-owned runtime for multiple evaluations', async () => {
+  test('should reuse a caller-owned runtime given multiple evaluations', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const runtime = ManagedRuntime.make(Layer.empty)
     const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
-      invokeSync: (_method, args) => Number(args[0]) + 1,
+      invokeSync: (_method: string, args: readonly unknown[]) => Number(args[0]) + 1,
     }
 
     //when
@@ -202,7 +203,7 @@ describe('code mode core', () => {
     expect(results).toEqual([2, 3])
   })
 
-  test('rejects external imports before worker creation', async () => {
+  test('should reject external imports before worker creation given a program with an import', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const host: ProgramHost<never, never> = {
@@ -219,12 +220,12 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'validation', operation: 'import' })
   })
 
-  test('uses the explicit in-process execution mode', async () => {
+  test('should use in-process execution given the in-process option', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
-      invokeSync: (_method, args) => Number(args[0]) + 1,
+      invokeSync: (_method: string, args: readonly unknown[]) => Number(args[0]) + 1,
     }
 
     //when
@@ -239,7 +240,7 @@ describe('code mode core', () => {
     expect(result).toBe(3)
   })
 
-  test('returns a typed cancellation failure', async () => {
+  test('should return a cancellation failure given an already-aborted signal', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const controller = new AbortController()
@@ -258,7 +259,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'cancellation' })
   })
 
-  test('uses the Effect clock to measure evaluation deadlines', async () => {
+  test('should measure evaluation deadlines with the Effect clock given a test clock', async () => {
     //given
     let monotonicTime = 0n
     const readMonotonicTime = (): bigint => {
@@ -293,7 +294,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'timeout' })
   })
 
-  test('keeps an already-aborted caller signal ahead of the clock deadline', async () => {
+  test('should report cancellation before timeout given an already-aborted signal', async () => {
     //given
     let monotonicTime = 0n
     const readMonotonicTime = (): bigint => {
@@ -334,7 +335,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'cancellation' })
   })
 
-  test('terminates a worker after a timeout', async () => {
+  test('should terminate the worker given an evaluation timeout', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const host: ProgramHost<never, never> = {
@@ -354,7 +355,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'timeout' })
   })
 
-  test('times out a Promise that never settles', async () => {
+  test('should time out the program given a Promise that never settles', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const host: ProgramHost<never, never> = {
@@ -374,7 +375,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'timeout' })
   })
 
-  test('interrupts a worker evaluation through the caller runtime', async () => {
+  test('should interrupt a worker evaluation given caller runtime cancellation', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const fiber = Effect.runFork(
@@ -396,7 +397,7 @@ describe('code mode core', () => {
     await expect(Effect.runPromise(joined)).rejects.toBeDefined()
   })
 
-  test('cancels an in-process Promise while it is pending', async () => {
+  test('should cancel in-process execution given a pending Promise and an aborted signal', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const controller = new AbortController()
@@ -420,7 +421,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'cancellation' })
   })
 
-  test('cancels a worker while an Effect host call is pending', async () => {
+  test('should cancel worker execution given a pending host Effect', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const controller = new AbortController()
@@ -443,7 +444,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'cancellation' })
   })
 
-  test('returns an invoke failure when a host throws before returning an Effect', async () => {
+  test('should return an invoke failure given a host that throws before returning an Effect', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const host: ProgramHost<never, never> = {
@@ -470,7 +471,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'invoke', operation: 'wait' })
   })
 
-  test('preserves ProgramFailure host failures in worker mode', async () => {
+  test('should preserve ProgramFailure host failures given worker execution', async () => {
     //given
     const failure = createProgramFailure({ _tag: 'host', operation: 'wait', message: 'Host failed.' })
     const core = createProgramRunner<never, typeof failure>()
@@ -494,7 +495,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toEqual(failure)
   })
 
-  test('preserves custom host failures in worker mode with a codec', async () => {
+  test('should preserve custom host failures given worker execution with a codec', async () => {
     //given
     const failure: HostFailure = { code: 'HOST_FAILED', message: 'Host failed.' }
     const core = createProgramRunner<never, HostFailure>()
@@ -519,7 +520,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toEqual(failure)
   })
 
-  test('round trips tagged host failures through their error codec', async () => {
+  test('should round-trip tagged host failures given an error codec', async () => {
     //given
     const failure: TaggedHostFailure = {
       _tag: 'HostMissing',
@@ -529,11 +530,11 @@ describe('code mode core', () => {
     }
     const codecCalls = { encode: 0, decode: 0 }
     const errorCodec: ProgramHostErrorCodec<TaggedHostFailure> = {
-      encode: (error) => {
+      encode: (error: TaggedHostFailure) => {
         codecCalls.encode += 1
         return { ...error }
       },
-      decode: (value) => {
+      decode: (value: ProgramWireValue) => {
         codecCalls.decode += 1
         return Schema.decodeUnknownSync(taggedHostFailureSchema)(value)
       },
@@ -561,7 +562,7 @@ describe('code mode core', () => {
     expect(codecCalls).toEqual({ encode: 1, decode: 1 })
   })
 
-  test('exposes tagged host failures as encoded data when worker code catches them', async () => {
+  test('should expose encoded data given worker code catches a tagged host failure', async () => {
     //given
     const failure: TaggedHostFailure = {
       _tag: 'HostMissing',
@@ -571,11 +572,11 @@ describe('code mode core', () => {
     }
     const codecCalls = { encode: 0, decode: 0 }
     const errorCodec: ProgramHostErrorCodec<TaggedHostFailure> = {
-      encode: (error) => {
+      encode: (error: TaggedHostFailure) => {
         codecCalls.encode += 1
         return { ...error }
       },
-      decode: (value) => {
+      decode: (value: ProgramWireValue) => {
         codecCalls.decode += 1
         return Schema.decodeUnknownSync(taggedHostFailureSchema)(value)
       },
@@ -603,7 +604,7 @@ describe('code mode core', () => {
     expect(codecCalls).toEqual({ encode: 1, decode: 0 })
   })
 
-  test('exposes the encoded host error when worker code catches it', async () => {
+  test('should expose the encoded host error given worker code catches it', async () => {
     //given
     const failure: HostFailure = { code: 'HOST_FAILED', message: 'Host failed.' }
     const core = createProgramRunner<never, HostFailure>()
@@ -628,7 +629,7 @@ describe('code mode core', () => {
     expect(result).toEqual({ type: 'code-mode-host-error', value: failure })
   })
 
-  test('preserves custom host failures in in-process mode without a codec', async () => {
+  test('should preserve custom host failures given in-process execution without a codec', async () => {
     //given
     const failure: HostFailure = { code: 'HOST_FAILED', message: 'Host failed.' }
     const core = createProgramRunner<never, HostFailure>()
@@ -649,7 +650,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toEqual(failure)
   })
 
-  test('rejects a custom worker host failure when its codec is missing', async () => {
+  test('should reject a custom host failure given worker execution without a codec', async () => {
     //given
     const failure: HostFailure = { code: 'HOST_FAILED', message: 'Host failed.' }
     const core = createProgramRunner<never, HostFailure>()
@@ -673,7 +674,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'serialize', operation: 'host-error' })
   })
 
-  test('returns a failure when a host error codec cannot encode', async () => {
+  test('should return a serialization failure given a host error codec that cannot encode', async () => {
     //given
     const failure: HostFailure = { code: 'HOST_FAILED', message: 'Host failed.' }
     const core = createProgramRunner<never, HostFailure>()
@@ -703,7 +704,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'serialize', operation: 'host-error' })
   })
 
-  test('returns a failure when a host error codec cannot decode', async () => {
+  test('should return a deserialization failure given a host error codec that cannot decode', async () => {
     //given
     const failure: HostFailure = { code: 'HOST_FAILED', message: 'Host failed.' }
     const core = createProgramRunner<never, HostFailure>()
@@ -733,7 +734,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'deserialize', operation: 'host-error' })
   })
 
-  test('turns thrown non-error values into code mode failures', async () => {
+  test('should convert thrown non-Error values to failures given program execution', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const host: ProgramHost<never, never> = {
@@ -750,7 +751,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'invoke', message: 'bad value' })
   })
 
-  test('preserves ordinary exception details', async () => {
+  test('should preserve exception details given a thrown Error', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const host: ProgramHost<never, never> = {
@@ -767,7 +768,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'invoke', name: 'TypeError', message: 'bad value' })
   })
 
-  test('returns a typed failure for a non-cloneable result', async () => {
+  test('should return a serialization failure given a non-cloneable result', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const host: ProgramHost<never, never> = {
@@ -782,7 +783,7 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'serialize' })
   })
 
-  test('returns a typed failure for non-cloneable sync arguments', async () => {
+  test('should return a serialization failure given non-cloneable synchronous arguments', async () => {
     //given
     const core = createProgramRunner<never, never>()
     const host: ProgramHost<never, never> = {

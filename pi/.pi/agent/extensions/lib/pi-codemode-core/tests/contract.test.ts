@@ -12,7 +12,7 @@ const definition = {
 }
 
 describe('code mode contracts', () => {
-  test('rejects empty source configuration', () => {
+  test('should reject an empty source configuration given a definition with no methods', () => {
     //given
     const invalid = { ...definition, methods: [] }
 
@@ -23,7 +23,7 @@ describe('code mode contracts', () => {
     expect(error).toMatchObject({ _tag: 'validation', operation: 'definition' })
   })
 
-  test('rejects invalid timeout configuration', () => {
+  test('should reject invalid timeout configuration given a zero timeout', () => {
     //given
     const invalid = { cwd: '/tmp', filenamePrefix: 'test', timeoutMs: 0 }
 
@@ -34,7 +34,7 @@ describe('code mode contracts', () => {
     expect(error).toMatchObject({ _tag: 'validation', operation: 'options' })
   })
 
-  test('round trips tagged failures across worker transport', () => {
+  test('should preserve tagged failures given worker transport', () => {
     //given
     const failure = createProgramFailure({
       _tag: 'invoke',
@@ -51,7 +51,7 @@ describe('code mode contracts', () => {
     expect(isProgramFailure(decoded)).toBe(true)
   })
 
-  test('preserves ordinary exception data in transport form', () => {
+  test('should preserve exception data given worker transport', () => {
     //given
     const error = new TypeError('bad value')
 
@@ -62,7 +62,7 @@ describe('code mode contracts', () => {
     expect(decoded).toMatchObject({ _tag: 'invoke', name: 'TypeError', message: 'bad value' })
   })
 
-  test('turns malformed worker errors into deserialize failures', () => {
+  test('should return a deserialize failure given malformed worker data', () => {
     //given
     const malformed = { kind: 'failure', failure: { _tag: 'invoke' } } as unknown as WorkerError
 

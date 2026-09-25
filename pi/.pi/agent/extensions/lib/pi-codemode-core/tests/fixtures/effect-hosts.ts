@@ -138,7 +138,7 @@ function createOpenSrcFixture(): OpenSrcFixture {
     },
     host: {
       invoke,
-      invokeSync: (method) => {
+      invokeSync: (method: string) => {
         if (method !== 'list') throw createFixtureFailure(method, 'The OpenSrc fixture sync method is not available.')
         return [...sources.keys()]
       },
@@ -165,7 +165,7 @@ function createTodoFixture(): TodoFixture {
     items,
     committed: () => isCommitted,
     rolledBack: () => isRolledBack,
-    add: (text) => {
+    add: (text: string) => {
       items.push(text)
       return items.length
     },
@@ -189,12 +189,12 @@ function createTodoFixture(): TodoFixture {
       examples: [],
     },
     host: {
-      invoke: (method, args, signal) =>
+      invoke: (method: string, args: readonly unknown[], signal: AbortSignal) =>
         runFixtureAction(signal, method, () => {
           if (method !== 'add') throw createFixtureFailure(method, 'The todo fixture async method is not available.')
           return transaction.add(requireFixtureString(method, args[0]))
         }),
-      invokeSync: (method) => {
+      invokeSync: (method: string) => {
         if (method !== 'count') throw createFixtureFailure(method, 'The todo fixture sync method is not available.')
         return items.length
       },

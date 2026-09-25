@@ -144,7 +144,7 @@ const runCodeModeHostRequest = Effect.fnUntraced(function* <R, E>(
   const host = yield* ProgramHost<R, E>()
   const effect = yield* Effect.try({
     try: () => host.invoke(request.method, request.args, request.signal),
-    catch: (cause) =>
+    catch: (cause: unknown) =>
       createProgramFailure({
         _tag: 'invoke',
         operation: request.method,

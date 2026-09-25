@@ -19,7 +19,7 @@ const definition = {
 }
 
 describe('code mode VM', () => {
-  test('loads declarations and invokes a synchronous default program', async () => {
+  test('should compile and run a synchronous default program given API declarations', async () => {
     //given
     const jiti = createCodeModeJiti()
     const filename = createCodeModeFilename('/tmp', 'example', 1)
@@ -42,7 +42,7 @@ describe('code mode VM', () => {
     expect(result).toBe(5)
   })
 
-  test('awaits asynchronous API methods', async () => {
+  test('should await asynchronous API methods given an asynchronous program', async () => {
     //given
     const jiti = createCodeModeJiti()
     const filename = createCodeModeFilename('/tmp', 'example', 2)
@@ -61,7 +61,7 @@ describe('code mode VM', () => {
     expect(result).toBe('done:ok')
   })
 
-  test('rejects a Promise from a synchronous method', async () => {
+  test('should reject a Promise result given a synchronous method', async () => {
     //given
     const jiti = createCodeModeJiti()
     const filename = createCodeModeFilename('/tmp', 'example', 3)
@@ -84,7 +84,7 @@ describe('code mode VM', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'transport', operation: 'add' })
   })
 
-  test('rejects a missing default export', async () => {
+  test('should reject the program given a missing default export', async () => {
     //given
     const jiti = createCodeModeJiti()
     const filename = createCodeModeFilename('/tmp', 'example', 4)
@@ -102,7 +102,7 @@ describe('code mode VM', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'validation', operation: 'default-export' })
   })
 
-  test('does not expose host globals or undeclared methods', async () => {
+  test('should hide host globals and undeclared methods given program execution', async () => {
     //given
     const jiti = createCodeModeJiti()
     const filename = createCodeModeFilename('/tmp', 'example', 5)
@@ -125,7 +125,7 @@ describe('code mode VM', () => {
     await expect(result).resolves.toEqual([undefined, undefined, undefined])
   })
 
-  test('rejects static and dynamic imports', async () => {
+  test('should reject static and dynamic imports given program source', async () => {
     //given
     const jiti = createCodeModeJiti()
     const api = createCodeModeApi(

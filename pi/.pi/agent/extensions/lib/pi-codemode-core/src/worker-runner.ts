@@ -42,7 +42,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
   const queue = yield* CodeModeRequestQueueService
   const invokeSync: CodeModeSyncInvoker =
     host.invokeSync ??
-    ((method) => {
+    ((method: string): unknown => {
       throw createProgramFailure({
         _tag: 'invoke',
         operation: method,
@@ -58,7 +58,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
           const workerOptions = createCodeModeWorkerOptions()
           return new Worker(workerUrl, workerOptions)
         },
-        catch: (cause) =>
+        catch: (cause: unknown) =>
           createProgramFailure({
             _tag: 'worker',
             operation: 'start',
@@ -415,7 +415,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
     (worker) =>
       Effect.tryPromise({
         try: () => worker.terminate(),
-        catch: (cause) =>
+        catch: (cause: unknown) =>
           createProgramFailure({
             _tag: 'worker',
             operation: 'terminate',

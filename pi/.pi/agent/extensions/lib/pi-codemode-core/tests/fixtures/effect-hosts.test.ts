@@ -11,7 +11,7 @@ const options = {
 }
 
 describe('Effect host fixtures', () => {
-  test('runs the code-mode fixture', async () => {
+  test('should run the code-mode fixture given its Effect host', async () => {
     //given
     const fixture = createCodeModeFixture()
     const core = createProgramRunner<never, ProgramFailure>()
@@ -30,7 +30,7 @@ describe('Effect host fixtures', () => {
     expect(fixture.signals.every((signal) => signal instanceof AbortSignal)).toBe(true)
   })
 
-  test('runs the OpenSrc fixture', async () => {
+  test('should run the OpenSrc fixture given its host', async () => {
     //given
     const fixture = createOpenSrcFixture()
     const core = createProgramRunner<never, ProgramFailure>()
@@ -49,7 +49,7 @@ describe('Effect host fixtures', () => {
     expect(fixture.maxConcurrentMutations()).toBe(1)
   })
 
-  test('runs the todo fixture', async () => {
+  test('should run the todo fixture given its host', async () => {
     //given
     const fixture = createTodoFixture()
     const core = createProgramRunner<never, ProgramFailure>()

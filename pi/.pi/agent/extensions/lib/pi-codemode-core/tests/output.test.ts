@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { formatValue, serializeOutput, truncateOutput } from '../src/output.ts'
 
 describe('code mode output', () => {
-  test('formats primitive and JSON values', () => {
+  test('should format primitive and JSON values given supported input', () => {
     //given
     const values = [undefined, null, 'text', { answer: 42 }]
 
@@ -13,7 +13,7 @@ describe('code mode output', () => {
     expect(formatted).toEqual(['undefined', 'null', 'text', '{\n  "answer": 42\n}'])
   })
 
-  test('falls back to string for circular values', () => {
+  test('should fall back to string conversion given a circular value', () => {
     //given
     const value: Record<string, unknown> = {}
     value.self = value
@@ -25,7 +25,7 @@ describe('code mode output', () => {
     expect(output).toBe('[object Object]')
   })
 
-  test('truncates output within byte and line limits', () => {
+  test('should enforce byte and line limits given oversized output', () => {
     //given
     const value = 'one\ntwo\nthree'
 
@@ -38,7 +38,7 @@ describe('code mode output', () => {
     expect(result.output.split('\n').length).toBeLessThanOrEqual(2)
   })
 
-  test('keeps the truncation notice inside a small byte limit', () => {
+  test('should keep the truncation notice within the byte limit given a small output budget', () => {
     //given
     const value = 'long output'
 

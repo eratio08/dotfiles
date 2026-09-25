@@ -15,6 +15,9 @@ import {
   CodeModeWorkerHostErrorValueSchema,
 } from './schema.ts'
 
+/**
+ * Lists the tags used to classify code-mode validation, execution, worker, and serialization failures.
+ */
 type ProgramFailureTag =
   | 'validation'
   | 'transform'
@@ -36,32 +39,50 @@ type ProgramFailureData<Tag extends string> = {
   readonly stack?: string
 }
 
+/**
+ * Represents a tagged, branded failure produced by code-mode validation or execution.
+ */
 type ProgramFailure<Tag extends string = ProgramFailureTag> = Tag extends unknown ? ProgramFailureData<Tag> : never
 
+/**
+ * Defines the fields accepted by `createProgramFailure` before it adds its marker.
+ */
 type ProgramFailureFields<Tag extends string = string> = ProgramFailureData<Tag>
 
 const codeModeEncodedHostErrorMarker = Symbol('CodeModeEncodedHostError')
 const codeModeHostErrorMarker = Symbol('CodeModeHostError')
 const codeModeFailureMarker = Symbol('CodeModeFailure')
 
+/**
+ * Represents a branded wrapper for a typed host error raised during program API invocation.
+ */
 interface CodeModeHostError<E> {
   readonly type: 'code-mode-host-error'
   readonly value: E
   readonly [codeModeHostErrorMarker]: true
 }
 
+/**
+ * Represents a branded host error encoded for transfer across a worker boundary.
+ */
 interface CodeModeEncodedHostError {
   readonly type: 'code-mode-host-error'
   readonly value: ProgramWireValue
   readonly [codeModeEncodedHostErrorMarker]: true
 }
 
+/**
+ * Creates a branded, tagged program failure from its fields.
+ */
 function createProgramFailure<const Tag extends string>(fields: ProgramFailureFields<Tag>): ProgramFailure<Tag> {
   const failure = { ...fields } as ProgramFailure<Tag>
   Object.defineProperty(failure, codeModeFailureMarker, { value: true })
   return failure
 }
 
+/**
+ * Narrows a value to a branded `ProgramFailure` after marker and schema checks.
+ */
 function isProgramFailure(value: unknown): value is ProgramFailure {
   if (value === null || typeof value !== 'object') return false
   try {
@@ -82,14 +103,23 @@ function isProgramFailure(value: unknown): value is ProgramFailure {
   }
 }
 
+/**
+ * Wraps a typed host error so the runner can distinguish it from program failures.
+ */
 function createCodeModeHostError<E>(value: E): CodeModeHostError<E> {
   return { type: 'code-mode-host-error', value, [codeModeHostErrorMarker]: true }
 }
 
+/**
+ * Wraps a wire-safe host error for transfer from a worker to the host.
+ */
 function createCodeModeEncodedHostError(value: ProgramWireValue): CodeModeEncodedHostError {
   return { type: 'code-mode-host-error', value, [codeModeEncodedHostErrorMarker]: true }
 }
 
+/**
+ * Narrows a value to a typed host-error wrapper created by this library.
+ */
 function isCodeModeHostError<E>(value: unknown): value is CodeModeHostError<E> {
   try {
     Schema.decodeUnknownSync(CodeModeHostErrorEnvelopeSchema)(value)
@@ -99,6 +129,9 @@ function isCodeModeHostError<E>(value: unknown): value is CodeModeHostError<E> {
   return (value as CodeModeHostError<E>)[codeModeHostErrorMarker] === true
 }
 
+/**
+ * Narrows a value to a branded host-error wrapper with an encoded wire value.
+ */
 function isCodeModeEncodedHostError(value: unknown): value is CodeModeEncodedHostError {
   try {
     Schema.decodeUnknownSync(CodeModeEncodedHostErrorSchema)(value)
@@ -108,6 +141,9 @@ function isCodeModeEncodedHostError(value: unknown): value is CodeModeEncodedHos
   return (value as CodeModeEncodedHostError)[codeModeEncodedHostErrorMarker] === true
 }
 
+/**
+ * Encodes program and host errors into the worker protocol, using a codec for typed host errors.
+ */
 function serializeProgramError<E>(cause: unknown, codec?: ProgramHostErrorCodec<E>): WorkerError {
   if (isCodeModeEncodedHostError(cause)) return { kind: 'host', value: cause.value }
   if (isCodeModeHostError<E>(cause)) {
@@ -151,6 +187,9 @@ function serializeProgramError<E>(cause: unknown, codec?: ProgramHostErrorCodec<
   return { kind: 'exception', name: 'Error', message: String(cause) }
 }
 
+/**
+ * Decodes a worker host error with the codec or returns a program failure if decoding fails.
+ */
 function deserializeCodeModeHostError<E>(
   error: unknown,
   codec: ProgramHostErrorCodec<E> | undefined,
@@ -196,6 +235,9 @@ function deserializeCodeModeHostError<E>(
   }
 }
 
+/**
+ * Decodes a worker host-error payload or converts invalid data to a program failure.
+ */
 function deserializeCodeModeWorkerError(error: unknown): ProgramFailure<string> | CodeModeEncodedHostError {
   try {
     const decoded = Schema.decodeUnknownSync(CodeModeWorkerHostErrorValueSchema)(error)
@@ -216,6 +258,9 @@ function deserializeCodeModeWorkerError(error: unknown): ProgramFailure<string> 
   }
 }
 
+/**
+ * Decodes a worker error payload as a program failure or, with a codec, a typed host error.
+ */
 function deserializeProgramError(error: unknown): ProgramFailure<string>
 function deserializeProgramError<E>(
   error: unknown,
@@ -287,6 +332,9 @@ function cloneCodeModeCause(value: unknown): ProgramWireValue {
   return String(value)
 }
 
+/**
+ * Narrows a value to `ProgramWireValue` after schema validation.
+ */
 function isCodeModeWireValue(value: unknown): value is ProgramWireValue {
   try {
     Schema.decodeUnknownSync(CodeModeWireValueSchema)(value)

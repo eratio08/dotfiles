@@ -18,15 +18,16 @@ const definition = {
 }
 
 describe('code mode worker', () => {
-  test('evaluates sync and async host calls', async () => {
+  test('should evaluate synchronous and asynchronous host calls given a worker program', async () => {
     //given
     const jiti = createCodeModeJiti()
     const filename = createCodeModeFilename('/tmp', 'worker', 1)
     const source = ['export default async (api: ExampleApi) => api.add(await api.wait("ok"))'].join('')
     const code = transformCodeModeProgram(jiti, definition, source, filename)
     const host: ProgramHost<never, never> = {
-      invoke: (method, args) => Effect.succeed(method === 'wait' ? String(args[0]).length : undefined),
-      invokeSync: (method, args) => (method === 'add' ? Number(args[0]) + 1 : undefined),
+      invoke: (method: string, args: readonly unknown[]) =>
+        Effect.succeed(method === 'wait' ? String(args[0]).length : undefined),
+      invokeSync: (method: string, args: readonly unknown[]) => (method === 'add' ? Number(args[0]) + 1 : undefined),
     }
     const signal = new AbortController().signal
 
@@ -58,7 +59,7 @@ describe('code mode worker', () => {
     expect(result).toBe(3)
   })
 
-  test('fails a worker sync call when the host has no sync method', async () => {
+  test('should fail a synchronous host call given no host sync method', async () => {
     //given
     const jiti = createCodeModeJiti()
     const filename = createCodeModeFilename('/tmp', 'worker-missing-sync', 1)
@@ -96,7 +97,7 @@ describe('code mode worker', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'invoke', operation: 'add' })
   })
 
-  test('ignores worker termination failures after a successful evaluation', async () => {
+  test('should preserve the result given worker termination fails after evaluation', async () => {
     //given
     const jiti = createCodeModeJiti()
     const filename = createCodeModeFilename('/tmp', 'worker-termination', 1)
@@ -144,7 +145,7 @@ describe('code mode worker', () => {
     expect(result).toBe(3)
   })
 
-  test('stops a loop that starts after an awaited host call', async () => {
+  test('should stop execution given a loop starts after an awaited host call', async () => {
     //given
     const jiti = createCodeModeJiti()
     const filename = createCodeModeFilename('/tmp', 'worker-loop', 1)

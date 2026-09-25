@@ -1,8 +1,14 @@
+/**
+ * Sets the maximum UTF-8 byte and line counts for formatted output.
+ */
 interface OutputLimits {
   readonly maxBytes: number
   readonly maxLines: number
 }
 
+/**
+ * Contains formatted output text and whether the output was truncated.
+ */
 interface SerializedOutput {
   readonly output: string
   readonly truncated: boolean
@@ -10,11 +16,17 @@ interface SerializedOutput {
 
 const TRUNCATION_NOTICE = '... output truncated ...'
 
+/**
+ * Formats a value and truncates it to the configured byte and line limits.
+ */
 function serializeOutput(value: unknown, limits: OutputLimits): SerializedOutput {
   const output = formatValue(value)
   return truncateOutput(output, limits)
 }
 
+/**
+ * Formats values for display, with string, JSON, and fallback handling.
+ */
 function formatValue(value: unknown): string {
   if (value === undefined) return 'undefined'
   if (value === null) return 'null'
@@ -27,6 +39,9 @@ function formatValue(value: unknown): string {
   }
 }
 
+/**
+ * Applies byte and line limits and adds a notice when the output is truncated.
+ */
 function truncateOutput(output: string, limits: OutputLimits): SerializedOutput {
   const maxBytes = normalizeLimit(limits.maxBytes)
   const maxLines = normalizeLimit(limits.maxLines)

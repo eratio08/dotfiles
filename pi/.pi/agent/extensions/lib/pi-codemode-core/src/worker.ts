@@ -16,6 +16,9 @@ interface CodeModePendingCall {
   readonly reject: (cause: unknown) => void
 }
 
+/**
+ * Registers the worker message handler that evaluates one program and posts its result or failure.
+ */
 function runCodeModeWorker(): void {
   if (parentPort === null) return
   parentPort.once('message', (message: unknown) => {
