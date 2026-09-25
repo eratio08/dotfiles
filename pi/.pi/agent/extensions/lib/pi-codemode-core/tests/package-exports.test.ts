@@ -2,15 +2,18 @@ import { describe, expect, test } from 'bun:test'
 import { readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { basename } from 'node:path'
-import { CodeModeEffectHost, createCodeModeCore } from '@eratio/pi-codemode-core'
-import { serializeCodeModeOutput } from '@eratio/pi-codemode-core/output'
+import * as Core from '@eratio/pi-codemode-core'
+import * as Output from '@eratio/pi-codemode-core/output'
 import { Effect, Layer, ManagedRuntime } from 'effect'
 
 describe('package exports', () => {
   test('loads the root and output entry points', () => {
-    expect(typeof CodeModeEffectHost).toBe('function')
-    expect(typeof createCodeModeCore).toBe('function')
-    expect(typeof serializeCodeModeOutput).toBe('function')
+    expect(typeof Core.ProgramHost).toBe('function')
+    expect(typeof Core.createProgramRunner).toBe('function')
+    expect(typeof Core.createProgramFailure).toBe('function')
+    expect(typeof Output.serializeOutput).toBe('function')
+    expect(Object.keys(Core).filter((name) => name.includes('CodeMode'))).toEqual([])
+    expect(Object.keys(Output).filter((name) => name.includes('CodeMode'))).toEqual([])
   })
 
   test('resolves the root and output entry points for CommonJS consumers', () => {
@@ -49,8 +52,8 @@ describe('package exports', () => {
     const host = {
       invoke: (_method: string, _args: readonly unknown[]) => Effect.succeed('bundled'),
     }
-    const core = createCodeModeCore<never, never>()
-    const runtime = ManagedRuntime.make(Layer.succeed(CodeModeEffectHost<never, never>(), host))
+    const core = Core.createProgramRunner<never, never>()
+    const runtime = ManagedRuntime.make(Layer.succeed(Core.ProgramHost<never, never>(), host))
     const evaluation = core.evaluate(definition, 'export default async (api: WorkerApi) => api.value()', {
       cwd: process.cwd(),
       filenamePrefix: 'bundle-test',

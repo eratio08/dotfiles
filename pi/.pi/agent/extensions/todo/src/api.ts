@@ -12,9 +12,19 @@ import {
   type TodoShowOptions,
   TodoShowOptionsSchema,
 } from './model.ts'
-import { cloneTodos, TodoUpdateError } from './state.ts'
+import { cloneTodos, getTodoCounts, TodoUpdateError } from './state.ts'
 import { getNextTodo, reevaluateTodoStates, validateTodoContent, validateTodoGraph } from './state-engine.ts'
 import type { TodoTransactionDraft } from './store.ts'
+
+interface TodoCompleteResult {
+  readonly completed: Todo
+  readonly remaining: {
+    readonly pending: number
+    readonly inProgress: number
+    readonly blocked: number
+  }
+  readonly allDone: boolean
+}
 
 interface TodoApi {
   help(): string
@@ -22,7 +32,7 @@ interface TodoApi {
   update(id: TodoId, patch: TodoPatch): Promise<Todo>
   show(options?: TodoShowOptions): Promise<readonly Todo[]>
   next(): Promise<Todo>
-  complete(): Promise<Todo>
+  complete(): Promise<TodoCompleteResult>
   omit(id: TodoId): Promise<Todo>
   restore(id: TodoId): Promise<Todo>
   clear(): Promise<{ readonly cleared: number }>
@@ -295,7 +305,7 @@ function createTodoApi({ draft, signal, onMutation, onShow }: TodoApiOptions): T
     return promiseResult(tryTodoApi(() => cloneTodos([started.success])[0] as Todo))
   }
 
-  const complete = (): Promise<Todo> => {
+  const complete = (): Promise<TodoCompleteResult> => {
     const aborted = assertNotAborted(signal)
     if (Result.isFailure(aborted)) return promiseResult(aborted)
     const currentResult = tryTodoApi(() => draft.snapshot())
@@ -312,7 +322,18 @@ function createTodoApi({ draft, signal, onMutation, onShow }: TodoApiOptions): T
     if (Result.isFailure(mutation)) return promiseResult(mutation)
     const completed = findTodo(nextResult.success, active.id)
     if (Result.isFailure(completed)) return promiseResult(completed)
-    return promiseResult(tryTodoApi(() => cloneTodos([completed.success])[0] as Todo))
+    const counts = getTodoCounts(nextResult.success)
+    return promiseResult(
+      tryTodoApi(() => ({
+        completed: cloneTodos([completed.success])[0] as Todo,
+        remaining: {
+          pending: counts.pending,
+          inProgress: counts.inProgress,
+          blocked: counts.blocked,
+        },
+        allDone: counts.open === 0,
+      })),
+    )
   }
 
   const omit = (id: unknown): Promise<Todo> => {
@@ -387,4 +408,4 @@ function createTodoApi({ draft, signal, onMutation, onShow }: TodoApiOptions): T
   return { help: () => TODO_API_HELP, add, update, show, next, complete, omit, restore, clear }
 }
 
-export { createTodoApi, type TodoApi }
+export { createTodoApi, type TodoApi, type TodoCompleteResult }

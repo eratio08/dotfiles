@@ -30,6 +30,8 @@ test('returns the todo API reference on demand', () => {
   assert.match(help, /status defaults to \['in_progress', 'pending'\]/)
   assert.match(help, /limit defaults to 5/)
   assert.match(help, /includeDetails option defaults to false/)
+  assert.match(help, /interface TodoCompleteResult/)
+  assert.match(help, /allDone is true only when no pending, in-progress, or blocked tasks remain/)
   assert.match(help, /sorted by ID in ascending order/)
 })
 
@@ -94,15 +96,49 @@ test('starts and completes tasks without automatically starting the next task', 
   const api = createTodoApi({ draft })
   const first = await api.add({ content: 'first task' })
   const second = await api.add({ content: 'second task', dependsOn: [first.id] })
+  const active = await api.next()
 
   //when
-  const active = await api.next()
-  const completed = await api.complete()
+  const completion = await api.complete()
 
   //then
   assert.equal(active.id, first.id)
-  assert.equal(completed.status, 'completed')
+  assert.equal(completion.completed.status, 'completed')
   assert.equal(snapshot().find((todo) => todo.id === second.id)?.status, 'pending')
+})
+
+test('returns the completed task and remaining task counts', async () => {
+  //given
+  const { draft } = createDraft()
+  const api = createTodoApi({ draft })
+  await api.add({ content: 'active task' })
+  const active = await api.next()
+  const pending = await api.add({ content: 'pending task' })
+  await api.add({ content: 'blocked task', dependsOn: [pending.id] })
+
+  //when
+  const result = await api.complete()
+
+  //then
+  assert.equal(result.completed.id, active.id)
+  assert.equal(result.completed.status, 'completed')
+  assert.deepEqual(result.remaining, { pending: 1, inProgress: 0, blocked: 1 })
+  assert.equal(result.allDone, false)
+})
+
+test('reports allDone when no pending, in-progress, or blocked tasks remain', async () => {
+  //given
+  const { draft } = createDraft()
+  const api = createTodoApi({ draft })
+  await api.add({ content: 'only task' })
+  await api.next()
+
+  //when
+  const result = await api.complete()
+
+  //then
+  assert.deepEqual(result.remaining, { pending: 0, inProgress: 0, blocked: 0 })
+  assert.equal(result.allDone, true)
 })
 
 test('rejects next when a task is already active', async () => {
@@ -210,7 +246,7 @@ test('defaults show to pending and in-progress tasks in ID order', async () => {
   await api.add({ content: 'second' })
   await api.add({ content: 'third' })
   await api.next()
-  const completed = await api.complete()
+  const completion = await api.complete()
   await api.next()
   const expectedIds = snapshot()
     .filter((todo) => todo.status === 'in_progress' || todo.status === 'pending')
@@ -226,7 +262,7 @@ test('defaults show to pending and in-progress tasks in ID order', async () => {
     expectedIds,
   )
   assert.equal(
-    shown.some((todo) => todo.id === completed.id),
+    shown.some((todo) => todo.id === completion.completed.id),
     false,
   )
   assert.ok(shown.some((todo) => todo.status === 'in_progress'))
@@ -241,12 +277,12 @@ test('filters by any status in the supplied array', async () => {
   await api.add({ content: 'second' })
   await api.add({ content: 'third' })
   await api.next()
-  const completed = await api.complete()
+  const completion = await api.complete()
   const inProgress = await api.next()
   const pendingIds = snapshot()
     .filter((todo) => todo.status === 'pending')
     .map((todo) => todo.id)
-  const expectedIds = [completed.id, ...pendingIds].sort((left, right) => left.localeCompare(right))
+  const expectedIds = [completion.completed.id, ...pendingIds].sort((left, right) => left.localeCompare(right))
 
   //when
   const selected = await api.show({ status: ['pending', 'completed'] })

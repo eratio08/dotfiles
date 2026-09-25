@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { formatCodeModeValue, serializeCodeModeOutput, truncateCodeModeOutput } from '../src/output.ts'
+import { formatValue, serializeOutput, truncateOutput } from '../src/output.ts'
 
 describe('code mode output', () => {
   test('formats primitive and JSON values', () => {
@@ -7,7 +7,7 @@ describe('code mode output', () => {
     const values = [undefined, null, 'text', { answer: 42 }]
 
     //when
-    const formatted = values.map((value) => formatCodeModeValue(value))
+    const formatted = values.map((value) => formatValue(value))
 
     //then
     expect(formatted).toEqual(['undefined', 'null', 'text', '{\n  "answer": 42\n}'])
@@ -19,7 +19,7 @@ describe('code mode output', () => {
     value.self = value
 
     //when
-    const output = formatCodeModeValue(value)
+    const output = formatValue(value)
 
     //then
     expect(output).toBe('[object Object]')
@@ -30,7 +30,7 @@ describe('code mode output', () => {
     const value = 'one\ntwo\nthree'
 
     //when
-    const result = serializeCodeModeOutput(value, { maxBytes: 30, maxLines: 2 })
+    const result = serializeOutput(value, { maxBytes: 30, maxLines: 2 })
 
     //then
     expect(result.truncated).toBe(true)
@@ -43,7 +43,7 @@ describe('code mode output', () => {
     const value = 'long output'
 
     //when
-    const result = truncateCodeModeOutput(value, { maxBytes: 5, maxLines: 1 })
+    const result = truncateOutput(value, { maxBytes: 5, maxLines: 1 })
 
     //then
     expect(result).toEqual({ output: '... o', truncated: true })

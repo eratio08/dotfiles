@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
-import type { CodeModeFailure } from '../../src/index.ts'
-import { CodeModeEffectHost, createCodeModeCore } from '../../src/index.ts'
+import type { ProgramFailure as CodeModeFailure } from '../../src/index.ts'
+import { ProgramHost as CodeModeEffectHost, createProgramRunner as createCodeModeCore } from '../../src/index.ts'
 import { createCodeModeFixture, createOpenSrcFixture, createTodoFixture } from './effect-hosts.ts'
 
 const options = {

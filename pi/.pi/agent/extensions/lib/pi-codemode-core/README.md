@@ -41,14 +41,14 @@ await runtime.dispose()
 
 ## API
 
-### `createCodeModeCore<R, E>()`
+### `createProgramRunner<R, E>()`
 
-Creates a `CodeModeCore<R, E>`.
+Creates a `ProgramRunner<R, E>`.
 Call `core.evaluate(definition, source, options)` to run a program.
-The returned Effect produces the program result and can fail with `CodeModeFailure` or a host error of type `E`.
+The returned Effect produces the program result and can fail with `ProgramFailure` or a host error of type `E`.
 `R` describes the Effect services required by the host.
 
-### `CodeModeDefinition`
+### `ProgramDefinition`
 
 A definition describes the API available to a program:
 - `apiName` names the TypeScript type used by the program's `api` argument.
@@ -59,7 +59,7 @@ A definition describes the API available to a program:
 
 Each method has a `name` and a `kind` of `'sync'` or `'async'`.
 
-### `CodeModeEffectHost<R, E>()`
+### `ProgramHost<R, E>()`
 
 Returns the Effect service key used to provide the host.
 The host provides `invoke` for asynchronous methods and can provide `invokeSync` for synchronous methods.
@@ -67,7 +67,7 @@ The host provides `invoke` for asynchronous methods and can provide `invokeSync`
 `invokeSync(method, args)` returns a method value directly.
 Optionally set `errorCodec` with `encode` and `decode` functions for host errors of type `E`.
 
-### `CodeModeRunOptions`
+### `ProgramRunOptions`
 
 - `cwd` sets the working directory.
 - `filenamePrefix` sets the evaluated program's filename prefix.
@@ -75,26 +75,26 @@ Optionally set `errorCodec` with `encode` and `decode` functions for host errors
 - `signal` accepts an optional `AbortSignal` for cancellation.
 - `execution` selects `'worker'` or `'in-process'` execution and defaults to `'worker'`.
 
-### `CodeModeFailure`
+### `ProgramFailure`
 
-`CodeModeFailure` is the evaluator's error type.
-Use `isCodeModeFailure(value)` to narrow a caught value to `CodeModeFailure`.
+`ProgramFailure` is the evaluator's error type.
+Use `isProgramFailure(value)` to narrow a caught value to `ProgramFailure`.
 
 ### Output formatting
 
 Import output helpers from `@eratio/pi-codemode-core/output`:
 
 ```ts
-import { serializeCodeModeOutput } from '@eratio/pi-codemode-core/output'
+import { serializeOutput } from '@eratio/pi-codemode-core/output'
 
 const value = { total: 3 }
-const output = serializeCodeModeOutput(value, { maxBytes: 8_000, maxLines: 100 })
+const output = serializeOutput(value, { maxBytes: 8_000, maxLines: 100 })
 ```
 
-`serializeCodeModeOutput` formats a value and applies the byte and line limits.
+`serializeOutput` formats a value and applies the byte and line limits.
 `output.output` contains the formatted text, and `output.truncated` reports whether the limits changed it.
-`formatCodeModeValue` formats a value as display text.
-`truncateCodeModeOutput` applies limits to formatted text.
-`CodeModeOutputLimits` sets `maxBytes` and `maxLines`.
-`CodeModeSerializedOutput` contains the output text and truncation flag.
-`CODE_MODE_TRUNCATION_NOTICE` contains the notice used for truncated output.
+`formatValue` formats a value as display text.
+`truncateOutput` applies limits to formatted text.
+`OutputLimits` sets `maxBytes` and `maxLines`.
+`SerializedOutput` contains the output text and truncation flag.
+`TRUNCATION_NOTICE` contains the notice used for truncated output.

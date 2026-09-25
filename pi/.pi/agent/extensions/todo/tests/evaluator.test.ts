@@ -21,10 +21,14 @@ const api: TodoApi = {
     dependsOn: [],
   }),
   complete: async () => ({
-    id: '018f0000-0000-7000-8000-000000000001',
-    content: 'done',
-    status: 'completed',
-    dependsOn: [],
+    completed: {
+      id: '018f0000-0000-7000-8000-000000000001',
+      content: 'done',
+      status: 'completed',
+      dependsOn: [],
+    },
+    remaining: { pending: 0, inProgress: 0, blocked: 0 },
+    allDone: true,
   }),
   omit: async (id) => ({ id, content: 'omitted', status: 'omitted', dependsOn: [] }),
   restore: async (id) => ({ id, content: 'restored', status: 'pending', dependsOn: [] }),

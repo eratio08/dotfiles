@@ -14,13 +14,13 @@ The runner tool uses the configured `toolName`.
 
 ```ts
 import type { CodeModeFailure } from '@eratio/pi-codemode-core'
-import { createCodeModeTool, defineCodeModeMethod, PiExtension } from '@eratio08/pi-effect-codemode'
+import { createTool, defineMethod, PiExtension } from '@eratio08/pi-effect-codemode'
 import { Effect } from 'effect'
 import { Type } from 'typebox'
 
 const addParameters = Type.Object({ title: Type.String() })
 
-const tool = createCodeModeTool<never, never>({
+const tool = createTool<never, never>({
   toolName: 'tasks',
   description: 'Manage task records.',
   timeoutMs: 30_000,
@@ -28,7 +28,7 @@ const tool = createCodeModeTool<never, never>({
   typeDeclarations: 'type Task = { id: string; title: string }',
   examples: ['export default async (api: tasksApi) => api.add({ title: "Review" })'],
   methods: {
-    add: defineCodeModeMethod({
+    add: defineMethod({
       description: 'Create a task record.',
       signature: '(params: { title: string }): Promise<Task>',
       parameters: addParameters,
@@ -129,11 +129,11 @@ Parameter schema:
 `parameters` is the TypeBox schema for the method's single argument, and the SDK checks it before it runs the handler.
 Omit `parameters` and use `()` in `signature` when a method takes no arguments.
 The handler receives the validated parameter value, the current `AbortSignal`, and the run context as its third argument.
-The context type is the third generic for `defineCodeModeMethod` and defaults to `void`.
+The context type is the third generic for `defineMethod` and defaults to `void`.
 The handler returns an Effect, so it can use the services and typed failures that the SDK generics declare.
 
 ### Scope one tool run
-Set the third generic for `createCodeModeTool` when methods need one context shared by every call in a program.
+Set the third generic for `createTool` when methods need one context shared by every call in a program.
 A non-`void` context requires `withRun`.
 Set `withRun` to wrap the complete program run, including output formatting, and pass the context to `run(context)`. The callback also receives the active tool signal when one is available.
 The SDK passes that context to every method handler in the run.

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Schema } from 'effect'
 import { validateCodeModeDefinition, validateCodeModeRunOptions } from '../src/contract.ts'
-import { deserializeCodeModeError } from '../src/index.ts'
+import { deserializeProgramError as deserializeCodeModeError } from '../src/index.ts'
 import {
   CodeModeAsyncResponseSchema,
   CodeModeEncodedHostErrorSchema,

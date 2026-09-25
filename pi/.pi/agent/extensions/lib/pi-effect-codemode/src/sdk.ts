@@ -11,15 +11,15 @@ import {
 } from '@earendil-works/pi-coding-agent'
 import { type Component, Container, Text } from '@earendil-works/pi-tui'
 import {
-  type CodeModeDefinition,
-  CodeModeEffectHost,
-  type CodeModeFailure,
-  type CodeModeHostErrorCodec,
-  type CodeModeRunOptions,
-  createCodeModeCore,
-  createCodeModeFailure,
+  type ProgramFailure as CodeModeFailure,
+  createProgramRunner as createCore,
+  createProgramFailure as createFailure,
+  type ProgramHostErrorCodec as HostErrorCodec,
+  type ProgramDefinition,
+  ProgramHost,
+  type ProgramRunOptions as RunOptions,
 } from '@eratio/pi-codemode-core'
-import { type CodeModeOutputLimits, formatCodeModeValue } from '@eratio/pi-codemode-core/output'
+import { formatValue, type OutputLimits } from '@eratio/pi-codemode-core/output'
 import {
   type EffectToolDefinition,
   type PiRegistrationError,
@@ -31,7 +31,7 @@ import { Effect } from 'effect'
 import { type Static, type TSchema, Type } from 'typebox'
 import { Check } from 'typebox/value'
 
-interface CodeModeMethodDefinition<Params extends TSchema | undefined, Services, Failure, RunContext = void> {
+interface MethodDefinition<Params extends TSchema | undefined, Services, Failure, RunContext = void> {
   readonly description: string
   readonly signature: string
   readonly parameters?: Params
@@ -42,7 +42,7 @@ interface CodeModeMethodDefinition<Params extends TSchema | undefined, Services,
   ) => Effect.Effect<unknown, Failure, Services>
 }
 
-type CodeModeMethodInput<Services, Failure, RunContext = void> = {
+type MethodInput<Services, Failure, RunContext = void> = {
   readonly description: string
   readonly signature: string
   readonly parameters?: TSchema
@@ -53,7 +53,7 @@ type CodeModeMethodInput<Services, Failure, RunContext = void> = {
   ) => Effect.Effect<unknown, Failure, Services>
 }
 
-interface CodeModeToolOutputDetails {
+interface ToolOutputDetails {
   readonly truncated: boolean
   readonly outputBytes: number
   readonly outputLines: number
@@ -63,39 +63,39 @@ interface CodeModeToolOutputDetails {
   readonly operations?: Readonly<Record<string, number>>
 }
 
-interface CodeModeToolDefinition<Services, Failure, RunContext = void> {
+interface ToolDefinition<Services, Failure, RunContext = void> {
   readonly toolName: string
   readonly label?: string
   readonly description: string
-  readonly methods: Readonly<Record<string, CodeModeMethodInput<Services, Failure, RunContext>>>
+  readonly methods: Readonly<Record<string, MethodInput<Services, Failure, RunContext>>>
   readonly typeDeclarations?: string
   readonly examples?: readonly string[]
   readonly timeoutMs: number
-  readonly outputLimits?: Partial<CodeModeOutputLimits>
-  readonly execution?: CodeModeRunOptions['execution']
-  readonly errorCodec?: CodeModeHostErrorCodec<CodeModeFailure | Failure>
+  readonly outputLimits?: Partial<OutputLimits>
+  readonly execution?: RunOptions['execution']
+  readonly errorCodec?: HostErrorCodec<CodeModeFailure | Failure>
   readonly withRun?: (
     run: (
       runContext: RunContext,
-    ) => Effect.Effect<PiToolResult<CodeModeToolOutputDetails>, CodeModeFailure | Failure, Services>,
+    ) => Effect.Effect<PiToolResult<ToolOutputDetails>, CodeModeFailure | Failure, Services>,
     signal: AbortSignal | undefined,
-  ) => Effect.Effect<PiToolResult<CodeModeToolOutputDetails>, CodeModeFailure | Failure, Services>
+  ) => Effect.Effect<PiToolResult<ToolOutputDetails>, CodeModeFailure | Failure, Services>
 }
 
-interface CodeModeTool<Services, Failure> {
+interface RegisteredTool<Services, Failure> {
   readonly toolName: string
   readonly register: (
     registry: PiToolRegistry<Services, CodeModeFailure | Failure>,
   ) => Effect.Effect<void, PiRegistrationError>
 }
 
-function createCodeModeToolOutput(
+function createToolOutput(
   value: unknown,
-  outputLimits: CodeModeOutputLimits,
+  outputLimits: OutputLimits,
   operations: Readonly<Record<string, number>>,
   toolSignal?: AbortSignal,
-): Effect.Effect<PiToolResult<CodeModeToolOutputDetails>, CodeModeFailure> {
-  const fullOutput = formatCodeModeValue(value)
+): Effect.Effect<PiToolResult<ToolOutputDetails>, CodeModeFailure> {
+  const fullOutput = formatValue(value)
   const truncation = truncateHead(fullOutput, outputLimits)
   const details = {
     truncated: truncation.truncated,
@@ -124,7 +124,7 @@ function createCodeModeToolOutput(
         return outputPath
       },
       catch: (cause) =>
-        createCodeModeFailure({
+        createFailure({
           _tag: toolSignal?.aborted ? 'cancellation' : 'serialize',
           operation: 'output',
           message: toolSignal?.aborted
@@ -147,9 +147,9 @@ function createCodeModeToolOutput(
   })
 }
 
-function createCodeModeRenderers<Params extends TSchema>(
+function createToolRenderers<Params extends TSchema>(
   toolLabel: string,
-): Pick<EffectToolDefinition<Params, never, never, CodeModeToolOutputDetails>, 'renderCall' | 'renderResult'> {
+): Pick<EffectToolDefinition<Params, never, never, ToolOutputDetails>, 'renderCall' | 'renderResult'> {
   type RendererState = {
     call?: Text
     callText?: string
@@ -169,7 +169,7 @@ function createCodeModeRenderers<Params extends TSchema>(
     },
     renderResult: (result, { expanded, isPartial }, theme, context): Component => {
       if (isPartial) return new Text(theme.fg('warning', 'Running...'), 0, 0)
-      const details = result.details as CodeModeToolOutputDetails | undefined
+      const details = result.details as ToolOutputDetails | undefined
       const output = result.content
         .map((item) => (item.type === 'text' ? item.text : ''))
         .filter(Boolean)
@@ -205,33 +205,33 @@ function createCodeModeRenderers<Params extends TSchema>(
   }
 }
 
-function defineCodeModeMethod<
+function defineMethod<
   Params extends TSchema | undefined = undefined,
   Services = never,
   Failure = never,
   RunContext = void,
 >(
-  method: CodeModeMethodDefinition<Params, Services, Failure, RunContext>,
-): CodeModeMethodDefinition<Params, Services, Failure, RunContext> {
+  method: MethodDefinition<Params, Services, Failure, RunContext>,
+): MethodDefinition<Params, Services, Failure, RunContext> {
   return method
 }
 
-function createCodeModeTool<Services = never, Failure = never>(
-  options: CodeModeToolDefinition<Services, Failure>,
-): CodeModeTool<Services, Failure>
-function createCodeModeTool<Services, Failure, RunContext>(
-  options: CodeModeToolDefinition<Services, Failure, RunContext> & {
-    readonly withRun: NonNullable<CodeModeToolDefinition<Services, Failure, RunContext>['withRun']>
+function createTool<Services = never, Failure = never>(
+  options: ToolDefinition<Services, Failure>,
+): RegisteredTool<Services, Failure>
+function createTool<Services, Failure, RunContext>(
+  options: ToolDefinition<Services, Failure, RunContext> & {
+    readonly withRun: NonNullable<ToolDefinition<Services, Failure, RunContext>['withRun']>
   },
-): CodeModeTool<Services, Failure>
-function createCodeModeTool<Services = never, Failure = never, RunContext = void>(
-  options: CodeModeToolDefinition<Services, Failure, RunContext>,
-): CodeModeTool<Services, Failure> {
+): RegisteredTool<Services, Failure>
+function createTool<Services = never, Failure = never, RunContext = void>(
+  options: ToolDefinition<Services, Failure, RunContext>,
+): RegisteredTool<Services, Failure> {
   const methodEntries = Object.entries(options.methods)
   if (methodEntries.length === 0) throw new TypeError('At least one operation is required.')
   if (Object.hasOwn(options.methods, 'help')) throw new TypeError('The method name "help" is reserved.')
 
-  const outputLimits: CodeModeOutputLimits = {
+  const outputLimits: OutputLimits = {
     maxBytes: options.outputLimits?.maxBytes ?? DEFAULT_MAX_BYTES,
     maxLines: options.outputLimits?.maxLines ?? DEFAULT_MAX_LINES,
   }
@@ -285,15 +285,15 @@ API type: \`${apiName}\`.
 Program type: \`${programName}\`.
 
 Call \`api.help("operation")\` for an operation signature and parameter schema.${exampleHelp}`
-  const codeModeDefinition: CodeModeDefinition = {
+  const definition: ProgramDefinition = {
     apiName,
     programName,
     declarations,
     methods: [{ name: 'help', kind: 'sync' }, ...methodEntries.map(([name]) => ({ name, kind: 'async' as const }))],
     examples: options.examples ?? [],
   }
-  const codeModeCore = createCodeModeCore<Services, CodeModeFailure | Failure>()
-  const codeModeHost = CodeModeEffectHost<Services, CodeModeFailure | Failure>()
+  const core = createCore<Services, CodeModeFailure | Failure>()
+  const hostService = ProgramHost<Services, CodeModeFailure | Failure>()
   const host = {
     invoke: (
       methodName: string,
@@ -304,7 +304,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
       const method = Object.hasOwn(options.methods, methodName) ? options.methods[methodName] : undefined
       if (method === undefined) {
         return Effect.fail(
-          createCodeModeFailure({
+          createFailure({
             _tag: 'validation',
             operation: methodName,
             message: `The operation ${methodName} is not defined.`,
@@ -314,7 +314,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
       if (method.parameters === undefined) {
         if (args.length !== 0) {
           return Effect.fail(
-            createCodeModeFailure({
+            createFailure({
               _tag: 'validation',
               operation: methodName,
               message: `The operation ${methodName} does not accept parameters.`,
@@ -325,7 +325,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
       }
       if (args.length !== 1 || !Check(method.parameters, args[0])) {
         return Effect.fail(
-          createCodeModeFailure({
+          createFailure({
             _tag: 'validation',
             operation: methodName,
             message: `The parameters for operation ${methodName} are invalid.`,
@@ -340,19 +340,19 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
         if (args.length === 1 && typeof args[0] === 'string') {
           const operationHelp = methodHelp.get(args[0])
           if (operationHelp !== undefined) return operationHelp
-          throw createCodeModeFailure({
+          throw createFailure({
             _tag: 'validation',
             operation: 'help',
             message: `The operation ${args[0]} is not defined. Available operations: ${methodEntries.map(([name]) => name).join(', ')}.`,
           })
         }
-        throw createCodeModeFailure({
+        throw createFailure({
           _tag: 'validation',
           operation: 'help',
           message: 'The help method accepts no arguments or one method name.',
         })
       }
-      throw createCodeModeFailure({
+      throw createFailure({
         _tag: 'validation',
         operation: methodName,
         message: `The operation ${methodName} is not synchronous.`,
@@ -363,12 +363,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
   const runParameters = Type.Object({
     code: Type.String({ description: 'A TypeScript program that exports a default function.' }),
   })
-  const runTool: EffectToolDefinition<
-    typeof runParameters,
-    Services,
-    CodeModeFailure | Failure,
-    CodeModeToolOutputDetails
-  > = {
+  const runTool: EffectToolDefinition<typeof runParameters, Services, CodeModeFailure | Failure, ToolOutputDetails> = {
     name: options.toolName,
     label: options.label ?? options.toolName,
     description: options.description,
@@ -379,15 +374,15 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
       'Call api.help() to list available operations.',
       'Call api.help("operation") for its signature and parameter schema.',
     ],
-    ...createCodeModeRenderers<typeof runParameters>(options.label ?? options.toolName),
+    ...createToolRenderers<typeof runParameters>(options.label ?? options.toolName),
     execute: ({
       code,
-    }): Effect.Effect<PiToolResult<CodeModeToolOutputDetails>, CodeModeFailure | Failure, Services | PiToolContext> =>
+    }): Effect.Effect<PiToolResult<ToolOutputDetails>, CodeModeFailure | Failure, Services | PiToolContext> =>
       Effect.gen(function* () {
         const context = yield* PiToolContext
         const run = (
           runContext: RunContext,
-        ): Effect.Effect<PiToolResult<CodeModeToolOutputDetails>, CodeModeFailure | Failure, Services> =>
+        ): Effect.Effect<PiToolResult<ToolOutputDetails>, CodeModeFailure | Failure, Services> =>
           Effect.gen(function* () {
             const operations = new Map<string, number>()
             const invocationHost = {
@@ -404,7 +399,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
                   return yield* host.invoke(methodName, args, signal, runContext)
                 }),
             }
-            const runOptions: CodeModeRunOptions = {
+            const runOptions: RunOptions = {
               cwd: context.cwd,
               filenamePrefix: options.toolName,
               timeoutMs: options.timeoutMs,
@@ -412,16 +407,11 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
               ...(options.execution === undefined ? {} : { execution: options.execution }),
             }
             const result = yield* Effect.provideService(
-              codeModeCore.evaluate(codeModeDefinition, code, runOptions),
-              codeModeHost,
+              core.evaluate(definition, code, runOptions),
+              hostService,
               invocationHost,
             )
-            return yield* createCodeModeToolOutput(
-              result,
-              outputLimits,
-              Object.fromEntries(operations),
-              context.toolSignal,
-            )
+            return yield* createToolOutput(result, outputLimits, Object.fromEntries(operations), context.toolSignal)
           })
         return yield* options.withRun === undefined
           ? run(undefined as RunContext)
@@ -441,10 +431,4 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
   }
 }
 
-export {
-  type CodeModeMethodDefinition,
-  type CodeModeTool,
-  type CodeModeToolDefinition,
-  createCodeModeTool,
-  defineCodeModeMethod,
-}
+export { createTool, defineMethod, type MethodDefinition, type RegisteredTool, type ToolDefinition }

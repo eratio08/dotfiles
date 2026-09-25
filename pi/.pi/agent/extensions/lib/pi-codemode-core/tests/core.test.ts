@@ -1,14 +1,18 @@
 import { describe, expect, test } from 'bun:test'
 import { Clock, Context, Effect, Fiber, Layer, ManagedRuntime, Schema } from 'effect'
 import type {
-  CodeModeCore,
-  CodeModeDefinition,
-  CodeModeFailure,
-  CodeModeHostErrorCodec,
-  CodeModeRunOptions,
-  CodeModeWireValue,
+  ProgramRunner as CodeModeCore,
+  ProgramDefinition as CodeModeDefinition,
+  ProgramFailure as CodeModeFailure,
+  ProgramHostErrorCodec as CodeModeHostErrorCodec,
+  ProgramRunOptions as CodeModeRunOptions,
+  ProgramWireValue as CodeModeWireValue,
 } from '../src/index.ts'
-import { CodeModeEffectHost, createCodeModeCore, createCodeModeFailure } from '../src/index.ts'
+import {
+  ProgramHost as CodeModeEffectHost,
+  createProgramRunner as createCodeModeCore,
+  createProgramFailure as createCodeModeFailure,
+} from '../src/index.ts'
 
 const definition: CodeModeDefinition = {
   apiName: 'ExampleApi',

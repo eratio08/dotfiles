@@ -1,6 +1,13 @@
 import { Effect } from 'effect'
-import type { CodeModeDefinition, CodeModeEffectHost, CodeModeFailure } from '../../src/index.ts'
-import { createCodeModeFailure, isCodeModeFailure } from '../../src/index.ts'
+import type {
+  ProgramDefinition as CodeModeDefinition,
+  ProgramHost as CodeModeEffectHost,
+  ProgramFailure as CodeModeFailure,
+} from '../../src/index.ts'
+import {
+  createProgramFailure as createCodeModeFailure,
+  isProgramFailure as isCodeModeFailure,
+} from '../../src/index.ts'
 
 interface CodeModeFixture {
   readonly definition: CodeModeDefinition

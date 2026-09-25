@@ -10,7 +10,7 @@ interface CodeModeSerializedOutput {
 
 const CODE_MODE_TRUNCATION_NOTICE = '... output truncated ...'
 
-function serializeCodeModeOutput(value: unknown, limits: CodeModeOutputLimits): CodeModeSerializedOutput {
+function serializeOutput(value: unknown, limits: CodeModeOutputLimits): CodeModeSerializedOutput {
   const output = formatCodeModeValue(value)
   return truncateCodeModeOutput(output, limits)
 }
@@ -78,10 +78,10 @@ function normalizeLimit(value: number): number {
 }
 
 export {
-  CODE_MODE_TRUNCATION_NOTICE,
-  type CodeModeOutputLimits,
-  type CodeModeSerializedOutput,
-  formatCodeModeValue,
-  serializeCodeModeOutput,
-  truncateCodeModeOutput,
+  CODE_MODE_TRUNCATION_NOTICE as TRUNCATION_NOTICE,
+  type CodeModeOutputLimits as OutputLimits,
+  type CodeModeSerializedOutput as SerializedOutput,
+  formatCodeModeValue as formatValue,
+  serializeOutput,
+  truncateCodeModeOutput as truncateOutput,
 }

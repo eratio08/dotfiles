@@ -11,6 +11,16 @@ interface Todo {
   readonly dependsOn: readonly TodoId[];
 }
 
+interface TodoCompleteResult {
+  readonly completed: Todo;
+  readonly remaining: {
+    readonly pending: number;
+    readonly inProgress: number;
+    readonly blocked: number;
+  };
+  readonly allDone: boolean;
+}
+
 interface TodoInput {
   readonly content: string;
   readonly details?: string;
@@ -35,7 +45,7 @@ interface TodoApi {
   update(id: TodoId, patch: TodoPatch): Promise<Todo>;
   show(options?: TodoShowOptions): Promise<readonly Todo[]>;
   next(): Promise<Todo>;
-  complete(): Promise<Todo>;
+  complete(): Promise<TodoCompleteResult>;
   omit(id: TodoId): Promise<Todo>;
   restore(id: TodoId): Promise<Todo>;
   clear(): Promise<{ readonly cleared: number }>;
@@ -56,6 +66,8 @@ const TODO_API_HELP = `# todo API reference
 
 Use todo only for non-trivial work with three or more tasks.
 ${TODO_CODE_TYPES}
+complete() returns the completed task and remaining counts for pending, in-progress, and blocked tasks.
+allDone is true only when no pending, in-progress, or blocked tasks remain.
 Create a dependency before the task that depends on it and await mutation calls in order.
 Use show() to inspect tasks.
 If status is omitted and IDs are absent, null, or empty, status defaults to ['in_progress', 'pending'].

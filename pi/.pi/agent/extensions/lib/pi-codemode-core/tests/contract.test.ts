@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import { validateCodeModeDefinition, validateCodeModeRunOptions } from '../src/contract.ts'
 import {
-  createCodeModeFailure,
-  deserializeCodeModeError,
-  isCodeModeFailure,
-  serializeCodeModeError,
+  createProgramFailure as createCodeModeFailure,
+  deserializeProgramError as deserializeCodeModeError,
+  isProgramFailure as isCodeModeFailure,
+  serializeProgramError as serializeCodeModeError,
 } from '../src/index.ts'
 import type { CodeModeWorkerError } from '../src/protocol.ts'
 

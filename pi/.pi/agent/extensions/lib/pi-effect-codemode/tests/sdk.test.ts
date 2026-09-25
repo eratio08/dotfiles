@@ -3,17 +3,11 @@ import assert from 'node:assert/strict'
 import { readFile, rm } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { initTheme } from '@earendil-works/pi-coding-agent'
-import type { CodeModeFailure } from '@eratio/pi-codemode-core'
+import type { ProgramFailure as CodeModeFailure } from '@eratio/pi-codemode-core'
 import { installFakePlugin } from '@eratio08/pi-effect/testing'
 import { Effect } from 'effect'
 import { Type } from 'typebox'
-import {
-  type CodeModeMethodDefinition,
-  type CodeModeTool,
-  createCodeModeTool,
-  defineCodeModeMethod,
-  PiExtension,
-} from '../dist/index.js'
+import { createTool, defineMethod, type MethodDefinition, PiExtension, type RegisteredTool } from '../dist/index.js'
 
 type TextToolResult = {
   readonly content: readonly { readonly type: string; readonly text?: string }[]
@@ -27,25 +21,24 @@ type TextToolResult = {
 const echoParameters = Type.Object({ text: Type.String() })
 
 const createEchoTool = (
-  execute: CodeModeMethodDefinition<typeof echoParameters, never, never>['execute'] = ({ text }) =>
-    Effect.succeed(text),
+  execute: MethodDefinition<typeof echoParameters, never, never>['execute'] = ({ text }) => Effect.succeed(text),
   outputLimits?: { readonly maxBytes?: number; readonly maxLines?: number },
   toolName = 'echo',
-): CodeModeTool<never, never> =>
-  createCodeModeTool({
+): RegisteredTool<never, never> =>
+  createTool({
     toolName,
     description: 'Run TypeScript against the echo API.',
     timeoutMs: 10_000,
     outputLimits: outputLimits ?? { maxBytes: 1_000, maxLines: 40 },
     typeDeclarations: 'type EchoInput = { text: string }',
     methods: {
-      echo: defineCodeModeMethod({
+      echo: defineMethod({
         description: 'Return the supplied text.',
         signature: '(input: EchoInput): Promise<string>',
         parameters: echoParameters,
         execute,
       }),
-      uppercase: defineCodeModeMethod({
+      uppercase: defineMethod({
         description: 'Convert the supplied text to uppercase.',
         signature: '(input: EchoInput): Promise<string>',
         parameters: echoParameters,
@@ -54,7 +47,7 @@ const createEchoTool = (
     },
   })
 
-const installCodeModeTool = async (tool: CodeModeTool<never, never>) =>
+const installTool = async (tool: RegisteredTool<never, never>) =>
   installFakePlugin(
     PiExtension.install(
       PiExtension.define<CodeModeFailure>({
@@ -65,7 +58,7 @@ const installCodeModeTool = async (tool: CodeModeTool<never, never>) =>
   )
 
 const invokeConcurrentRuns = async (
-  extension: Awaited<ReturnType<typeof installCodeModeTool>>,
+  extension: Awaited<ReturnType<typeof installTool>>,
 ): Promise<[TextToolResult, TextToolResult]> => {
   const results = await Promise.all([
     extension.invokeTool('echo', 'echo-count-call', {
@@ -80,7 +73,7 @@ const invokeConcurrentRuns = async (
 
 test('help exposes generated types, while prompt guidance uses help discovery', async () => {
   //given
-  const extension = await installCodeModeTool(createEchoTool(undefined, undefined, 'echo-tool'))
+  const extension = await installTool(createEchoTool(undefined, undefined, 'echo-tool'))
   const tool = extension.tools.get('echo-tool')
   assert.ok(tool)
   const promptGuidelines = tool.promptGuidelines?.join('\n') ?? ''
@@ -100,7 +93,7 @@ test('help exposes generated types, while prompt guidance uses help discovery', 
 
 test('operation help returns details for one method', async () => {
   //given
-  const extension = await installCodeModeTool(createEchoTool())
+  const extension = await installTool(createEchoTool())
 
   //when
   const result = (await extension.invokeTool('echo', 'help-call', {
@@ -118,7 +111,7 @@ test('operation help returns details for one method', async () => {
 
 test('help without an operation returns an overview', async () => {
   //given
-  const extension = await installCodeModeTool(createEchoTool())
+  const extension = await installTool(createEchoTool())
 
   //when
   const result = (await extension.invokeTool('echo', 'help-api-call', {
@@ -135,7 +128,7 @@ test('help without an operation returns an overview', async () => {
 
 test('operation help rejects unknown method names', async () => {
   //given
-  const extension = await installCodeModeTool(createEchoTool())
+  const extension = await installTool(createEchoTool())
 
   //when
   const invocation = extension.invokeTool('echo', 'unknown-help-call', {
@@ -148,7 +141,7 @@ test('operation help rejects unknown method names', async () => {
 
 test('the runner does not register a separate help tool', async () => {
   //given
-  const extension = await installCodeModeTool(createEchoTool())
+  const extension = await installTool(createEchoTool())
 
   //when
   const invocation = extension.invokeTool('echo_help', 'separate-help-call', {})
@@ -159,7 +152,7 @@ test('the runner does not register a separate help tool', async () => {
 
 test('truncated output points to a file that contains the full result', async () => {
   //given
-  const extension = await installCodeModeTool(createEchoTool(undefined, { maxBytes: 100, maxLines: 5 }))
+  const extension = await installTool(createEchoTool(undefined, { maxBytes: 100, maxLines: 5 }))
 
   //when
   const result = (await extension.invokeTool('echo', 'long-call', {
@@ -182,7 +175,7 @@ test('truncated output points to a file that contains the full result', async ()
 test('the run tool executes a method and returns its value', async () => {
   //given
   const called: string[] = []
-  const extension = await installCodeModeTool(
+  const extension = await installTool(
     createEchoTool(({ text }) =>
       Effect.sync(() => {
         called.push(text)
@@ -206,13 +199,13 @@ test('a run scope passes one context to each method call', async () => {
   //given
   const runContext = { prefix: 'scoped:' }
   const contexts: (typeof runContext)[] = []
-  const tool = createCodeModeTool<never, never, typeof runContext>({
+  const tool = createTool<never, never, typeof runContext>({
     toolName: 'scoped',
     description: 'Run TypeScript against a scoped API.',
     timeoutMs: 10_000,
     typeDeclarations: 'type EchoInput = { text: string }',
     methods: {
-      echo: defineCodeModeMethod<typeof echoParameters, never, never, typeof runContext>({
+      echo: defineMethod<typeof echoParameters, never, never, typeof runContext>({
         description: 'Return the supplied text with the run prefix.',
         signature: '(input: EchoInput): Promise<string>',
         parameters: echoParameters,
@@ -230,7 +223,7 @@ test('a run scope passes one context to each method call', async () => {
         return result
       }),
   })
-  const extension = await installCodeModeTool(tool)
+  const extension = await installTool(tool)
 
   //when
   const result = (await extension.invokeTool('scoped', 'scoped-run-context-call', {
@@ -248,7 +241,7 @@ test('a run scope passes one context to each method call', async () => {
 test('the run tool rejects invalid method parameters before execution', async () => {
   //given
   const called: string[] = []
-  const extension = await installCodeModeTool(
+  const extension = await installTool(
     createEchoTool(({ text }) =>
       Effect.sync(() => {
         called.push(text)
@@ -269,7 +262,7 @@ test('the run tool rejects invalid method parameters before execution', async ()
 
 test('the run tool records repeated operation calls', async () => {
   //given
-  const extension = await installCodeModeTool(createEchoTool())
+  const extension = await installTool(createEchoTool())
 
   //when
   const result = (await extension.invokeTool('echo', 'operation-count-call', {
@@ -282,7 +275,7 @@ test('the run tool records repeated operation calls', async () => {
 
 test('operation counts stay separate across concurrent runs', async () => {
   //given
-  const extension = await installCodeModeTool(createEchoTool())
+  const extension = await installTool(createEchoTool())
 
   //when
   const results = await invokeConcurrentRuns(extension)
@@ -294,7 +287,7 @@ test('operation counts stay separate across concurrent runs', async () => {
 
 test('collapsed rendering shows the operation summary on one line', async () => {
   //given
-  const extension = await installCodeModeTool(createEchoTool())
+  const extension = await installTool(createEchoTool())
   initTheme('dark')
   const tool = extension.tools.get('echo')
   assert.ok(tool)
@@ -346,7 +339,7 @@ test('collapsed rendering shows the operation summary on one line', async () => 
 
 test('expanded rendering shows the submitted code and result', async () => {
   //given
-  const extension = await installCodeModeTool(createEchoTool())
+  const extension = await installTool(createEchoTool())
   const tool = extension.tools.get('echo')
   assert.ok(tool)
   assert.ok(tool.renderCall)
