@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Schema } from 'effect'
-import { validateCodeModeDefinition, validateCodeModeRunOptions } from '../src/contract.ts'
-import { deserializeProgramError as deserializeCodeModeError } from '../src/index.ts'
+import { validateProgramDefinition, validateProgramRunOptions } from '../src/contract.ts'
+import { deserializeProgramError } from '../src/index.ts'
 import {
   CodeModeAsyncResponseSchema,
   CodeModeEncodedHostErrorSchema,
@@ -28,7 +28,7 @@ describe('code mode schemas', () => {
     const value = definition
 
     //when
-    const error = validateCodeModeDefinition(value)
+    const error = validateProgramDefinition(value)
 
     //then
     expect(error).toBeUndefined()
@@ -39,7 +39,7 @@ describe('code mode schemas', () => {
     const value = { cwd: '/tmp', filenamePrefix: 'schema', timeoutMs: 1000, execution: 'worker' as const }
 
     //when
-    const error = validateCodeModeRunOptions(value)
+    const error = validateProgramRunOptions(value)
 
     //then
     expect(error).toBeUndefined()
@@ -50,7 +50,7 @@ describe('code mode schemas', () => {
     const value = { ...definition, methods: [] }
 
     //when
-    const error = validateCodeModeDefinition(value)
+    const error = validateProgramDefinition(value)
 
     //then
     expect(error).toEqual({
@@ -65,7 +65,7 @@ describe('code mode schemas', () => {
     const value = { cwd: '/tmp', filenamePrefix: 'schema', timeoutMs: 0 }
 
     //when
-    const error = validateCodeModeRunOptions(value)
+    const error = validateProgramRunOptions(value)
 
     //then
     expect(error).toEqual({
@@ -120,7 +120,7 @@ describe('code mode schemas', () => {
     }
 
     //when
-    const decoded = deserializeCodeModeError(value)
+    const decoded = deserializeProgramError(value)
 
     //then
     expect(decoded).toMatchObject({ _tag: 'deserialize', operation: 'deserialize' })
@@ -214,7 +214,7 @@ describe('code mode schemas', () => {
     const decoded = decode({ type: 'error' })
 
     //then
-    expect(deserializeCodeModeError(decoded.error)).toMatchObject({ _tag: 'deserialize' })
+    expect(deserializeProgramError(decoded.error)).toMatchObject({ _tag: 'deserialize' })
   })
 
   test('validates serializable worker messages', () => {

@@ -1,8 +1,8 @@
 import { Cause, Context, Effect, Exit, Fiber, Queue, Result } from 'effect'
 import type { Scope } from 'effect/Scope'
-import type { CodeModeEffectHostRequirement } from './contract.ts'
-import { CodeModeEffectHost } from './contract.ts'
-import { type CodeModeFailure, createCodeModeFailure, createCodeModeHostError, isCodeModeFailure } from './failure.ts'
+import type { ProgramHostRequirement } from './contract.ts'
+import { ProgramHost } from './contract.ts'
+import { createCodeModeHostError, createProgramFailure, isProgramFailure, type ProgramFailure } from './failure.ts'
 
 /** Handles asynchronous host calls for one code mode evaluation. */
 interface CodeModeRequestQueue {
@@ -36,7 +36,7 @@ interface CodeModeQueuedRequest {
 const createCodeModeRequestQueue = Effect.fnUntraced(function* <R, E>(): Effect.fn.Return<
   CodeModeRequestQueue,
   never,
-  R | CodeModeEffectHostRequirement<R, E> | Scope
+  R | ProgramHostRequirement<R, E> | Scope
 > {
   const requests = yield* Queue.unbounded<CodeModeQueuedRequest>()
   const pending = new Set<CodeModeQueuedRequest>()
@@ -58,9 +58,7 @@ const createCodeModeRequestQueue = Effect.fnUntraced(function* <R, E>(): Effect.
             else {
               const error = Cause.findError(exit.cause)
               if (Result.isSuccess(error))
-                request.reject(
-                  isCodeModeFailure(error.success) ? error.success : createCodeModeHostError(error.success),
-                )
+                request.reject(isProgramFailure(error.success) ? error.success : createCodeModeHostError(error.success))
               else request.reject(Cause.squash(exit.cause))
             }
           }
@@ -69,8 +67,8 @@ const createCodeModeRequestQueue = Effect.fnUntraced(function* <R, E>(): Effect.
     ),
   )
 
-  const createCodeModeQueueClosedFailure = (): CodeModeFailure =>
-    createCodeModeFailure({
+  const createCodeModeQueueClosedFailure = (): ProgramFailure =>
+    createProgramFailure({
       _tag: 'cancellation',
       operation: 'queue',
       message: 'The code mode request queue is closed.',
@@ -99,7 +97,7 @@ const createCodeModeRequestQueue = Effect.fnUntraced(function* <R, E>(): Effect.
         if (request.settled) return
         request.settled = true
         reject(
-          createCodeModeFailure({
+          createProgramFailure({
             _tag: 'cancellation',
             operation: method,
             message: 'The code mode call was cancelled.',
@@ -142,12 +140,12 @@ const createCodeModeRequestQueue = Effect.fnUntraced(function* <R, E>(): Effect.
 
 const runCodeModeHostRequest = Effect.fnUntraced(function* <R, E>(
   request: CodeModeQueuedRequest,
-): Effect.fn.Return<unknown, E | CodeModeFailure, R | CodeModeEffectHostRequirement<R, E>> {
-  const host = yield* CodeModeEffectHost<R, E>()
+): Effect.fn.Return<unknown, E | ProgramFailure, R | ProgramHostRequirement<R, E>> {
+  const host = yield* ProgramHost<R, E>()
   const effect = yield* Effect.try({
     try: () => host.invoke(request.method, request.args, request.signal),
     catch: (cause) =>
-      createCodeModeFailure({
+      createProgramFailure({
         _tag: 'invoke',
         operation: request.method,
         message: 'The code mode host failed before returning an Effect.',
@@ -157,12 +155,12 @@ const runCodeModeHostRequest = Effect.fnUntraced(function* <R, E>(
   return yield* Effect.raceFirst(effect, waitForCodeModeAbort(request.signal))
 })
 
-function waitForCodeModeAbort(signal: AbortSignal): Effect.Effect<never, CodeModeFailure> {
+function waitForCodeModeAbort(signal: AbortSignal): Effect.Effect<never, ProgramFailure> {
   return Effect.callback((resume) => {
     const abort = (): void =>
       resume(
         Effect.fail(
-          createCodeModeFailure({
+          createProgramFailure({
             _tag: 'cancellation',
             operation: 'host',
             message: 'The code mode host call was cancelled.',

@@ -1,24 +1,24 @@
 import type { MessagePort } from 'node:worker_threads'
-import type { CodeModeMethod, CodeModeWireValue } from './contract.ts'
-import type { CodeModeFailureWireValue } from './schema.ts'
+import type { ProgramMethod, ProgramWireValue } from './contract.ts'
+import type { ProgramFailureWireValue } from './schema.ts'
 
-type CodeModeWorkerError = CodeModeWorkerFailureValue | CodeModeWorkerExceptionValue | CodeModeWorkerHostErrorValue
+type WorkerError = WorkerFailureValue | WorkerExceptionValue | WorkerHostErrorValue
 
-interface CodeModeWorkerFailureValue {
+interface WorkerFailureValue {
   readonly kind: 'failure'
-  readonly failure: CodeModeFailureWireValue
+  readonly failure: ProgramFailureWireValue
 }
 
-interface CodeModeWorkerExceptionValue {
+interface WorkerExceptionValue {
   readonly kind: 'exception'
   readonly name: string
   readonly message: string
   readonly stack?: string
 }
 
-interface CodeModeWorkerHostErrorValue {
+interface WorkerHostErrorValue {
   readonly kind: 'host'
-  readonly value: CodeModeWireValue
+  readonly value: ProgramWireValue
 }
 
 interface CodeModeWorkerStart {
@@ -27,7 +27,7 @@ interface CodeModeWorkerStart {
   readonly filename: string
   readonly timeoutMs: number
   readonly remainingTimeoutMs: number
-  readonly methods: readonly CodeModeMethod[]
+  readonly methods: readonly ProgramMethod[]
   readonly syncState: SharedArrayBuffer
   readonly syncPort: MessagePort
 }
@@ -57,7 +57,7 @@ interface CodeModeSyncFailureResponse {
   readonly type: 'sync-result'
   readonly id: number
   readonly ok: false
-  readonly error: CodeModeWorkerError
+  readonly error: WorkerError
 }
 
 type CodeModeSyncResponse = CodeModeSyncSuccessResponse | CodeModeSyncFailureResponse
@@ -73,7 +73,7 @@ interface CodeModeAsyncFailureResponse {
   readonly type: 'async-result'
   readonly id: number
   readonly ok: false
-  readonly error: CodeModeWorkerError
+  readonly error: WorkerError
 }
 
 type CodeModeAsyncResponse = CodeModeAsyncSuccessResponse | CodeModeAsyncFailureResponse
@@ -85,7 +85,7 @@ interface CodeModeWorkerResult {
 
 interface CodeModeWorkerFailure {
   readonly type: 'error'
-  readonly error: CodeModeWorkerError
+  readonly error: WorkerError
 }
 
 type CodeModeWorkerMessage = CodeModeSyncRequest | CodeModeAsyncRequest | CodeModeWorkerResult | CodeModeWorkerFailure
@@ -98,12 +98,12 @@ export type {
   CodeModeParentMessage,
   CodeModeSyncRequest,
   CodeModeSyncResponse,
-  CodeModeWorkerError,
-  CodeModeWorkerExceptionValue,
   CodeModeWorkerFailure,
-  CodeModeWorkerFailureValue,
-  CodeModeWorkerHostErrorValue,
   CodeModeWorkerMessage,
   CodeModeWorkerResult,
   CodeModeWorkerStart,
+  WorkerError,
+  WorkerExceptionValue,
+  WorkerFailureValue,
+  WorkerHostErrorValue,
 }

@@ -1,11 +1,11 @@
 import { Schema } from 'effect'
-import type { CodeModeDefinition, CodeModeMethod, CodeModeRunOptions, CodeModeWireValue } from './contract.ts'
+import type { ProgramDefinition, ProgramMethod, ProgramRunOptions, ProgramWireValue } from './contract.ts'
 
-type CodeModeFailureWireValue = {
+type ProgramFailureWireValue = {
   readonly _tag: string
   readonly operation: string
   readonly message: string
-  readonly cause?: CodeModeWireValue
+  readonly cause?: ProgramWireValue
   readonly name?: string
   readonly stack?: string
 }
@@ -61,7 +61,7 @@ const CodeModeMethodSchema = Schema.Struct({
       ),
     ),
     Schema.refine(
-      (value): value is CodeModeMethod => value.name !== undefined && (value.kind === 'sync' || value.kind === 'async'),
+      (value): value is ProgramMethod => value.name !== undefined && (value.kind === 'sync' || value.kind === 'async'),
       { message: codeModeMethodNameMessage },
     ),
   )
@@ -122,7 +122,7 @@ const CodeModeDefinitionSchema = Schema.Struct({
       ),
     ),
     Schema.refine(
-      (value): value is CodeModeDefinition =>
+      (value): value is ProgramDefinition =>
         value.apiName !== undefined &&
         value.programName !== undefined &&
         value.declarations !== undefined &&
@@ -157,7 +157,7 @@ const CodeModeRunOptionsSchema = Schema.Struct({
       Schema.makeFilter((value) => value.timeoutMs !== undefined || codeModeOptionsTimeoutMessage, undefined, true),
     ),
     Schema.refine(
-      (value): value is CodeModeRunOptions =>
+      (value): value is ProgramRunOptions =>
         value.cwd !== undefined && value.filenamePrefix !== undefined && value.timeoutMs !== undefined,
       { message: codeModeOptionsObjectMessage },
     ),
@@ -165,7 +165,7 @@ const CodeModeRunOptionsSchema = Schema.Struct({
 
 const CodeModeSourceSchema = createCodeModeNonEmptyStringSchema(codeModeSourceMessage)
 
-const CodeModeWireValueSchema: Schema.ConstraintDecoder<CodeModeWireValue> = Schema.suspend(() =>
+const CodeModeWireValueSchema: Schema.ConstraintDecoder<ProgramWireValue> = Schema.suspend(() =>
   Schema.Union([
     Schema.Undefined,
     Schema.Null,
@@ -378,7 +378,6 @@ export {
   CodeModeExceptionSchema,
   CodeModeFailureAnySchema,
   CodeModeFailureSchema,
-  type CodeModeFailureWireValue,
   CodeModeFailureWireValueSchema,
   type CodeModeHostErrorEnvelope,
   CodeModeHostErrorEnvelopeSchema,
@@ -400,4 +399,5 @@ export {
   CodeModeWorkerResultSchema,
   CodeModeWorkerStartSchema,
   getCodeModeSchemaFailureMessage,
+  type ProgramFailureWireValue,
 }

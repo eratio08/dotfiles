@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
-import type { ProgramFailure as CodeModeFailure } from '../../src/index.ts'
-import { ProgramHost as CodeModeEffectHost, createProgramRunner as createCodeModeCore } from '../../src/index.ts'
+import type { ProgramFailure } from '../../src/index.ts'
+import { createProgramRunner, ProgramHost } from '../../src/index.ts'
 import { createCodeModeFixture, createOpenSrcFixture, createTodoFixture } from './effect-hosts.ts'
 
 const options = {
@@ -14,13 +14,13 @@ describe('Effect host fixtures', () => {
   test('runs the code-mode fixture', async () => {
     //given
     const fixture = createCodeModeFixture()
-    const core = createCodeModeCore<never, CodeModeFailure>()
+    const core = createProgramRunner<never, ProgramFailure>()
 
     //when
     const result = await Effect.runPromise(
       Effect.provideService(
         core.evaluate(fixture.definition, fixture.source, options),
-        CodeModeEffectHost<never, CodeModeFailure>(),
+        ProgramHost<never, ProgramFailure>(),
         fixture.host,
       ),
     )
@@ -33,13 +33,13 @@ describe('Effect host fixtures', () => {
   test('runs the OpenSrc fixture', async () => {
     //given
     const fixture = createOpenSrcFixture()
-    const core = createCodeModeCore<never, CodeModeFailure>()
+    const core = createProgramRunner<never, ProgramFailure>()
 
     //when
     const result = await Effect.runPromise(
       Effect.provideService(
         core.evaluate(fixture.definition, fixture.source, options),
-        CodeModeEffectHost<never, CodeModeFailure>(),
+        ProgramHost<never, ProgramFailure>(),
         fixture.host,
       ),
     )
@@ -52,13 +52,13 @@ describe('Effect host fixtures', () => {
   test('runs the todo fixture', async () => {
     //given
     const fixture = createTodoFixture()
-    const core = createCodeModeCore<never, CodeModeFailure>()
+    const core = createProgramRunner<never, ProgramFailure>()
 
     //when
     const result = await Effect.runPromise(
       Effect.provideService(
         core.evaluate(fixture.definition, fixture.source, options),
-        CodeModeEffectHost<never, CodeModeFailure>(),
+        ProgramHost<never, ProgramFailure>(),
         fixture.host,
       ),
     )

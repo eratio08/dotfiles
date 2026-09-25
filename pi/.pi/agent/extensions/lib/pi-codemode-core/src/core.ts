@@ -1,8 +1,8 @@
 import { Cause, Clock, Effect, Schema } from 'effect'
 import type { Scope } from 'effect/Scope'
-import type { CodeModeCore, CodeModeDefinition, CodeModeEffectHostRequirement, CodeModeRunOptions } from './contract.ts'
-import { CodeModeEffectHost, findCodeModeMethod } from './contract.ts'
-import { type CodeModeFailure, createCodeModeFailure, isCodeModeFailure, isCodeModeHostError } from './failure.ts'
+import type { ProgramDefinition, ProgramHostRequirement, ProgramRunner, ProgramRunOptions } from './contract.ts'
+import { findProgramMethod, ProgramHost } from './contract.ts'
+import { createProgramFailure, isCodeModeHostError, isProgramFailure, type ProgramFailure } from './failure.ts'
 import { CodeModeRequestQueueService, createCodeModeRequestQueue } from './request-queue.ts'
 import {
   CodeModeDefinitionSchema,
@@ -27,20 +27,20 @@ interface CodeModeDeadline {
   readonly dispose: () => void
 }
 
-function createCodeModeCore<R, E>(): CodeModeCore<R, E> {
+function createProgramRunner<R, E>(): ProgramRunner<R, E> {
   const jiti = createCodeModeJiti()
-  const hostService = CodeModeEffectHost<R, E>()
+  const hostService = ProgramHost<R, E>()
   let evaluationNumber = 0
 
   const evaluate = Effect.fnUntraced(
     function* (
-      definitionInput: CodeModeDefinition,
+      definitionInput: ProgramDefinition,
       codeInput: string,
-      optionsInput: CodeModeRunOptions,
-    ): Effect.fn.Return<unknown, CodeModeFailure | E, R | CodeModeEffectHostRequirement<R, E> | Scope> {
+      optionsInput: ProgramRunOptions,
+    ): Effect.fn.Return<unknown, ProgramFailure | E, R | ProgramHostRequirement<R, E> | Scope> {
       const definition = yield* Schema.decodeUnknownEffect(CodeModeDefinitionSchema)(definitionInput).pipe(
         Effect.mapError((cause) =>
-          createCodeModeFailure({
+          createProgramFailure({
             _tag: 'validation',
             operation: 'definition',
             message: getCodeModeSchemaFailureMessage(cause, 'The code mode definition is invalid.'),
@@ -49,7 +49,7 @@ function createCodeModeCore<R, E>(): CodeModeCore<R, E> {
       )
       const options = yield* Schema.decodeUnknownEffect(CodeModeRunOptionsSchema)(optionsInput).pipe(
         Effect.mapError((cause) =>
-          createCodeModeFailure({
+          createProgramFailure({
             _tag: 'validation',
             operation: 'options',
             message: getCodeModeSchemaFailureMessage(cause, 'The code mode run options are invalid.'),
@@ -58,7 +58,7 @@ function createCodeModeCore<R, E>(): CodeModeCore<R, E> {
       )
       const code = yield* Schema.decodeUnknownEffect(CodeModeSourceSchema)(codeInput).pipe(
         Effect.mapError((cause) =>
-          createCodeModeFailure({
+          createProgramFailure({
             _tag: 'validation',
             operation: 'source',
             message: getCodeModeSchemaFailureMessage(cause, 'The code mode source is invalid.'),
@@ -76,7 +76,7 @@ function createCodeModeCore<R, E>(): CodeModeCore<R, E> {
       const transformed = yield* Effect.try({
         try: () => transformCodeModeProgram(jiti, definition, code, filename),
         catch: (cause) =>
-          createCodeModeFailure({
+          createProgramFailure({
             _tag: 'transform',
             operation: 'transform',
             message: 'The TypeScript program could not be transformed.',
@@ -88,15 +88,15 @@ function createCodeModeCore<R, E>(): CodeModeCore<R, E> {
       const host = yield* hostService
       const queue = yield* createCodeModeRequestQueue<R, E>()
       const invokeSync = (method: string, args: readonly unknown[]): unknown => {
-        const methodDefinition = findCodeModeMethod(definition, method)
+        const methodDefinition = findProgramMethod(definition, method)
         if (methodDefinition === undefined || methodDefinition.kind !== 'sync')
-          throw createCodeModeFailure({
+          throw createProgramFailure({
             _tag: 'validation',
             operation: 'method',
             message: `The code mode method ${method} is not synchronous.`,
           })
         if (host.invokeSync === undefined)
-          throw createCodeModeFailure({
+          throw createProgramFailure({
             _tag: 'invoke',
             operation: method,
             message: `The code mode host does not implement synchronous method ${method}.`,
@@ -118,7 +118,7 @@ function createCodeModeCore<R, E>(): CodeModeCore<R, E> {
           return result
         },
         catch: (cause) =>
-          createCodeModeFailure({
+          createProgramFailure({
             _tag: 'serialize',
             operation: 'result',
             message: 'The code mode result is not structured-cloneable.',
@@ -126,7 +126,7 @@ function createCodeModeCore<R, E>(): CodeModeCore<R, E> {
           }),
       })
 
-      function runInProcess(): Effect.Effect<unknown, CodeModeFailure | E, R> {
+      function runInProcess(): Effect.Effect<unknown, ProgramFailure | E, R> {
         return Effect.tryPromise({
           try: () =>
             runCodeModeVm(
@@ -142,7 +142,7 @@ function createCodeModeCore<R, E>(): CodeModeCore<R, E> {
         })
       }
 
-      function runInWorker(): Effect.Effect<unknown, CodeModeFailure | E, R | CodeModeEffectHostRequirement<R, E>> {
+      function runInWorker(): Effect.Effect<unknown, ProgramFailure | E, R | ProgramHostRequirement<R, E>> {
         return runCodeModeWorkerEvaluation<R, E>(
           definition,
           transformed,
@@ -205,7 +205,7 @@ const createCodeModeDeadline = Effect.fnUntraced(function* (
   )
 })
 
-function getCodeModeDeadlineFailure(deadline: CodeModeDeadline, timeoutMs: number): CodeModeFailure | undefined {
+function getCodeModeDeadlineFailure(deadline: CodeModeDeadline, timeoutMs: number): ProgramFailure | undefined {
   if (deadline.isTimedOut()) return createCodeModeTimeoutFailure(timeoutMs)
   if (deadline.signal.aborted) return createCodeModeCancellationFailure()
   return undefined
@@ -216,12 +216,12 @@ function mapCodeModeCause<E>(
   deadline: CodeModeDeadline,
   timeoutMs: number,
   operation: 'invoke' | 'worker',
-): CodeModeFailure | E {
+): ProgramFailure | E {
   const deadlineFailure = getCodeModeDeadlineFailure(deadline, timeoutMs)
   if (deadlineFailure !== undefined) return deadlineFailure
   if (isCodeModeHostError<E>(cause)) return cause.value
-  if (isCodeModeFailure(cause)) return cause
-  return createCodeModeFailure({
+  if (isProgramFailure(cause)) return cause
+  return createProgramFailure({
     _tag: operation,
     operation,
     message: `The code mode program failed during ${operation}.`,
@@ -230,29 +230,29 @@ function mapCodeModeCause<E>(
 }
 
 function recoverCodeModeCause<E>(
-  cause: Cause.Cause<CodeModeFailure | E>,
+  cause: Cause.Cause<ProgramFailure | E>,
   deadline: CodeModeDeadline,
   timeoutMs: number,
-): Effect.Effect<never, CodeModeFailure | E> {
+): Effect.Effect<never, ProgramFailure | E> {
   if (Cause.hasInterrupts(cause))
     return Effect.fail(getCodeModeDeadlineFailure(deadline, timeoutMs) ?? createCodeModeCancellationFailure())
   return Effect.failCause(cause)
 }
 
-function createCodeModeCancellationFailure(): CodeModeFailure {
-  return createCodeModeFailure({
+function createCodeModeCancellationFailure(): ProgramFailure {
+  return createProgramFailure({
     _tag: 'cancellation',
     operation: 'evaluation',
     message: 'The code mode evaluation was cancelled.',
   })
 }
 
-function createCodeModeTimeoutFailure(timeoutMs: number): CodeModeFailure {
-  return createCodeModeFailure({
+function createCodeModeTimeoutFailure(timeoutMs: number): ProgramFailure {
+  return createProgramFailure({
     _tag: 'timeout',
     operation: 'evaluation',
     message: `The code mode evaluation timed out after ${timeoutMs}ms.`,
   })
 }
 
-export { createCodeModeCore }
+export { createProgramRunner }

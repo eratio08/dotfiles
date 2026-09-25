@@ -1,13 +1,13 @@
 import { MessageChannel, Worker } from 'node:worker_threads'
 import { Effect, Schema } from 'effect'
-import type { CodeModeDefinition, CodeModeEffectHostRequirement } from './contract.ts'
-import { CodeModeEffectHost } from './contract.ts'
+import type { ProgramDefinition, ProgramHostRequirement } from './contract.ts'
+import { ProgramHost } from './contract.ts'
 import type { CodeModeHostError } from './failure.ts'
 import {
-  createCodeModeFailure,
-  deserializeCodeModeError,
+  createProgramFailure,
   deserializeCodeModeHostError,
-  serializeCodeModeError,
+  deserializeProgramError,
+  serializeProgramError,
 } from './failure.ts'
 import type {
   CodeModeAsyncRequest,
@@ -27,7 +27,7 @@ import { type CodeModeSyncInvoker, isCodeModePromiseLike } from './vm.ts'
 
 /** Runs a worker evaluation with host and queue services from the Effect environment. */
 const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
-  definition: CodeModeDefinition,
+  definition: ProgramDefinition,
   code: string,
   filename: string,
   timeoutMs: number,
@@ -36,14 +36,14 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
 ): Effect.fn.Return<
   unknown,
   CodeModeFailureLike | CodeModeHostError<E> | E,
-  R | CodeModeEffectHostRequirement<R, E> | CodeModeRequestQueueRequirement
+  R | ProgramHostRequirement<R, E> | CodeModeRequestQueueRequirement
 > {
-  const host = yield* CodeModeEffectHost<R, E>()
+  const host = yield* ProgramHost<R, E>()
   const queue = yield* CodeModeRequestQueueService
   const invokeSync: CodeModeSyncInvoker =
     host.invokeSync ??
     ((method) => {
-      throw createCodeModeFailure({
+      throw createProgramFailure({
         _tag: 'invoke',
         operation: method,
         message: `The code mode host does not implement synchronous method ${method}.`,
@@ -59,7 +59,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
           return new Worker(workerUrl, workerOptions)
         },
         catch: (cause) =>
-          createCodeModeFailure({
+          createProgramFailure({
             _tag: 'worker',
             operation: 'start',
             message: 'The code mode worker could not start.',
@@ -79,7 +79,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
         } catch (cause) {
           resume(
             Effect.fail(
-              createCodeModeFailure({
+              createProgramFailure({
                 _tag: 'worker',
                 operation: 'start',
                 message: 'The code mode worker resources could not be created.',
@@ -138,8 +138,8 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
                 type: 'sync-result',
                 id: response.id,
                 ok: false,
-                error: serializeCodeModeError(
-                  createCodeModeFailure({
+                error: serializeProgramError(
+                  createProgramFailure({
                     _tag: 'serialize',
                     operation: 'sync-result',
                     message: 'The code mode parent could not serialize a synchronous response.',
@@ -149,7 +149,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
               })
             } catch (postCause) {
               finishFailure(
-                createCodeModeFailure({
+                createProgramFailure({
                   _tag: 'transport',
                   operation: 'sync-result',
                   message: 'The code mode parent could not send a synchronous response.',
@@ -169,7 +169,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
           } catch {
             notifySyncWaiter()
             finishFailure(
-              createCodeModeFailure({
+              createProgramFailure({
                 _tag: 'transport',
                 operation: 'sync-call',
                 message: 'The code mode worker sent an invalid synchronous request.',
@@ -182,8 +182,8 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
               type: 'sync-result',
               id: request.id,
               ok: false,
-              error: serializeCodeModeError(
-                createCodeModeFailure({
+              error: serializeProgramError(
+                createProgramFailure({
                   _tag: 'transport',
                   operation: 'sync-call',
                   message: 'The code mode worker sent a non-monotonic request id.',
@@ -196,14 +196,14 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
           let response: CodeModeSyncResponse
           try {
             if (method === undefined || method.kind !== 'sync')
-              throw createCodeModeFailure({
+              throw createProgramFailure({
                 _tag: 'validation',
                 operation: 'method',
                 message: `The code mode method ${request.method} is not a synchronous method.`,
               })
             const value = invokeSync(request.method, request.args)
             if (isCodeModePromiseLike(value))
-              throw createCodeModeFailure({
+              throw createProgramFailure({
                 _tag: 'transport',
                 operation: request.method,
                 message: `The synchronous code mode method ${request.method} returned a Promise.`,
@@ -214,7 +214,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
               type: 'sync-result',
               id: request.id,
               ok: false,
-              error: serializeCodeModeError(cause, host.errorCodec),
+              error: serializeProgramError(cause, host.errorCodec),
             }
           }
           postSyncResponse(response)
@@ -230,8 +230,8 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
                 type: 'async-result',
                 id: response.id,
                 ok: false,
-                error: serializeCodeModeError(
-                  createCodeModeFailure({
+                error: serializeProgramError(
+                  createProgramFailure({
                     _tag: 'serialize',
                     operation: 'async-result',
                     message: 'The code mode parent could not serialize an asynchronous response.',
@@ -241,7 +241,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
               } satisfies CodeModeAsyncResponse)
             } catch (postCause) {
               finishFailure(
-                createCodeModeFailure({
+                createProgramFailure({
                   _tag: 'transport',
                   operation: 'async-result',
                   message: 'The code mode parent could not send an asynchronous response.',
@@ -258,7 +258,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
             request = Schema.decodeUnknownSync(CodeModeAsyncRequestSchema)(message)
           } catch {
             finishFailure(
-              createCodeModeFailure({
+              createProgramFailure({
                 _tag: 'transport',
                 operation: 'async-call',
                 message: 'The code mode worker sent an invalid asynchronous request.',
@@ -271,8 +271,8 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
               type: 'async-result',
               id: request.id,
               ok: false,
-              error: serializeCodeModeError(
-                createCodeModeFailure({
+              error: serializeProgramError(
+                createProgramFailure({
                   _tag: 'transport',
                   operation: 'async-call',
                   message: 'The code mode worker sent a non-monotonic request id.',
@@ -287,8 +287,8 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
               type: 'async-result',
               id: request.id,
               ok: false,
-              error: serializeCodeModeError(
-                createCodeModeFailure({
+              error: serializeProgramError(
+                createProgramFailure({
                   _tag: 'validation',
                   operation: 'method',
                   message: `The code mode method ${request.method} is not an asynchronous method.`,
@@ -304,7 +304,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
                 type: 'async-result',
                 id: request.id,
                 ok: false,
-                error: serializeCodeModeError(cause, host.errorCodec),
+                error: serializeProgramError(cause, host.errorCodec),
               }),
           )
         }
@@ -326,11 +326,11 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
               finishFailure(
                 decoded.error.kind === 'host'
                   ? deserializeCodeModeHostError(decoded.error, host.errorCodec)
-                  : deserializeCodeModeError(decoded.error),
+                  : deserializeProgramError(decoded.error),
               )
             } else {
               finishFailure(
-                createCodeModeFailure({
+                createProgramFailure({
                   _tag: 'transport',
                   operation: 'worker-message',
                   message: 'The code mode worker sent an unexpected message type.',
@@ -341,11 +341,11 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
           } catch {
             try {
               const decoded = Schema.decodeUnknownSync(CodeModeWorkerFailureMessageSchema)(message)
-              finishFailure(deserializeCodeModeError(decoded.error, host.errorCodec))
+              finishFailure(deserializeProgramError(decoded.error, host.errorCodec))
               return
             } catch {
               finishFailure(
-                createCodeModeFailure({
+                createProgramFailure({
                   _tag: 'transport',
                   operation: 'worker-message',
                   message: 'The code mode worker sent an invalid message.',
@@ -360,7 +360,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
           worker.on('message', handleWorkerMessage)
           worker.on('error', (cause) =>
             finishFailure(
-              createCodeModeFailure({
+              createProgramFailure({
                 _tag: 'worker',
                 operation: 'runtime',
                 message: 'The code mode worker failed.',
@@ -371,7 +371,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
           worker.on('exit', (code) => {
             if (!settled)
               finishFailure(
-                createCodeModeFailure({
+                createProgramFailure({
                   _tag: 'worker',
                   operation: 'exit',
                   message: `The code mode worker exited with code ${code}.`,
@@ -402,7 +402,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
           }
         } catch (cause) {
           finishFailure(
-            createCodeModeFailure({
+            createProgramFailure({
               _tag: 'worker',
               operation: 'start',
               message: 'The worker start message failed.',
@@ -416,7 +416,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
       Effect.tryPromise({
         try: () => worker.terminate(),
         catch: (cause) =>
-          createCodeModeFailure({
+          createProgramFailure({
             _tag: 'worker',
             operation: 'terminate',
             message: 'The code mode worker could not terminate.',
@@ -426,10 +426,10 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
   )
 })
 
-type CodeModeFailureLike = ReturnType<typeof createCodeModeFailure>
+type CodeModeFailureLike = ReturnType<typeof createProgramFailure>
 
 function createCodeModeCancellationFailure(): CodeModeFailureLike {
-  return createCodeModeFailure({
+  return createProgramFailure({
     _tag: 'cancellation',
     operation: 'worker',
     message: 'The code mode evaluation was cancelled.',
@@ -437,7 +437,7 @@ function createCodeModeCancellationFailure(): CodeModeFailureLike {
 }
 
 function createCodeModeTimeoutFailure(timeoutMs: number): CodeModeFailureLike {
-  return createCodeModeFailure({
+  return createProgramFailure({
     _tag: 'timeout',
     operation: 'worker',
     message: `The code mode evaluation timed out after ${timeoutMs}ms.`,

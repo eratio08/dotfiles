@@ -1,12 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { validateCodeModeDefinition, validateCodeModeRunOptions } from '../src/contract.ts'
-import {
-  createProgramFailure as createCodeModeFailure,
-  deserializeProgramError as deserializeCodeModeError,
-  isProgramFailure as isCodeModeFailure,
-  serializeProgramError as serializeCodeModeError,
-} from '../src/index.ts'
-import type { CodeModeWorkerError } from '../src/protocol.ts'
+import { validateProgramDefinition, validateProgramRunOptions } from '../src/contract.ts'
+import { createProgramFailure, deserializeProgramError, isProgramFailure, serializeProgramError } from '../src/index.ts'
+import type { WorkerError } from '../src/protocol.ts'
 
 const definition = {
   apiName: 'ExampleApi',
@@ -22,7 +17,7 @@ describe('code mode contracts', () => {
     const invalid = { ...definition, methods: [] }
 
     //when
-    const error = validateCodeModeDefinition(invalid)
+    const error = validateProgramDefinition(invalid)
 
     //then
     expect(error).toMatchObject({ _tag: 'validation', operation: 'definition' })
@@ -33,7 +28,7 @@ describe('code mode contracts', () => {
     const invalid = { cwd: '/tmp', filenamePrefix: 'test', timeoutMs: 0 }
 
     //when
-    const error = validateCodeModeRunOptions(invalid)
+    const error = validateProgramRunOptions(invalid)
 
     //then
     expect(error).toMatchObject({ _tag: 'validation', operation: 'options' })
@@ -41,7 +36,7 @@ describe('code mode contracts', () => {
 
   test('round trips tagged failures across worker transport', () => {
     //given
-    const failure = createCodeModeFailure({
+    const failure = createProgramFailure({
       _tag: 'invoke',
       operation: 'read',
       message: 'Read failed.',
@@ -49,11 +44,11 @@ describe('code mode contracts', () => {
     })
 
     //when
-    const decoded = deserializeCodeModeError(serializeCodeModeError(failure))
+    const decoded = deserializeProgramError(serializeProgramError(failure))
 
     //then
     expect(decoded).toEqual(failure)
-    expect(isCodeModeFailure(decoded)).toBe(true)
+    expect(isProgramFailure(decoded)).toBe(true)
   })
 
   test('preserves ordinary exception data in transport form', () => {
@@ -61,7 +56,7 @@ describe('code mode contracts', () => {
     const error = new TypeError('bad value')
 
     //when
-    const decoded = deserializeCodeModeError(serializeCodeModeError(error))
+    const decoded = deserializeProgramError(serializeProgramError(error))
 
     //then
     expect(decoded).toMatchObject({ _tag: 'invoke', name: 'TypeError', message: 'bad value' })
@@ -69,10 +64,10 @@ describe('code mode contracts', () => {
 
   test('turns malformed worker errors into deserialize failures', () => {
     //given
-    const malformed = { kind: 'failure', failure: { _tag: 'invoke' } } as unknown as CodeModeWorkerError
+    const malformed = { kind: 'failure', failure: { _tag: 'invoke' } } as unknown as WorkerError
 
     //when
-    const decoded = deserializeCodeModeError(malformed)
+    const decoded = deserializeProgramError(malformed)
 
     //then
     expect(decoded).toMatchObject({ _tag: 'deserialize' })

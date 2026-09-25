@@ -1,32 +1,25 @@
 import { Effect } from 'effect'
-import type {
-  ProgramDefinition as CodeModeDefinition,
-  ProgramHost as CodeModeEffectHost,
-  ProgramFailure as CodeModeFailure,
-} from '../../src/index.ts'
-import {
-  createProgramFailure as createCodeModeFailure,
-  isProgramFailure as isCodeModeFailure,
-} from '../../src/index.ts'
+import type { ProgramDefinition, ProgramFailure, ProgramHost } from '../../src/index.ts'
+import { createProgramFailure, isProgramFailure } from '../../src/index.ts'
 
 interface CodeModeFixture {
-  readonly definition: CodeModeDefinition
-  readonly host: CodeModeEffectHost<never, CodeModeFailure>
+  readonly definition: ProgramDefinition
+  readonly host: ProgramHost<never, ProgramFailure>
   readonly source: string
   readonly signals: AbortSignal[]
 }
 
 interface OpenSrcFixture {
-  readonly definition: CodeModeDefinition
-  readonly host: CodeModeEffectHost<never, CodeModeFailure>
+  readonly definition: ProgramDefinition
+  readonly host: ProgramHost<never, ProgramFailure>
   readonly source: string
   readonly sources: Map<string, string>
   readonly maxConcurrentMutations: () => number
 }
 
 interface TodoFixture {
-  readonly definition: CodeModeDefinition
-  readonly host: CodeModeEffectHost<never, CodeModeFailure>
+  readonly definition: ProgramDefinition
+  readonly host: ProgramHost<never, ProgramFailure>
   readonly source: string
   readonly transaction: TodoTransaction
 }
@@ -47,7 +40,7 @@ function createCodeModeFixture(): CodeModeFixture {
     method: string,
     args: readonly unknown[],
     signal: AbortSignal,
-  ): Effect.Effect<unknown, CodeModeFailure> => {
+  ): Effect.Effect<unknown, ProgramFailure> => {
     signals.push(signal)
     return runFixtureAction(signal, method, () => {
       if (method === 'read') {
@@ -111,7 +104,7 @@ function createOpenSrcFixture(): OpenSrcFixture {
     method: string,
     args: readonly unknown[],
     signal: AbortSignal,
-  ): Effect.Effect<unknown, CodeModeFailure> =>
+  ): Effect.Effect<unknown, ProgramFailure> =>
     runFixtureAction(signal, method, () => {
       if (method === 'read') {
         const name = requireFixtureString(method, args[0])
@@ -211,12 +204,12 @@ function createTodoFixture(): TodoFixture {
   }
 }
 
-function runFixtureAction<T>(signal: AbortSignal, method: string, action: () => T): Effect.Effect<T, CodeModeFailure> {
+function runFixtureAction<T>(signal: AbortSignal, method: string, action: () => T): Effect.Effect<T, ProgramFailure> {
   return Effect.callback((resume) => {
     const abort = (): void =>
       resume(
         Effect.fail(
-          createCodeModeFailure({
+          createProgramFailure({
             _tag: 'cancellation',
             operation: method,
             message: 'The fixture host call was cancelled.',
@@ -235,7 +228,7 @@ function runFixtureAction<T>(signal: AbortSignal, method: string, action: () => 
       resume(Effect.succeed(value))
     } catch (cause) {
       close()
-      resume(Effect.fail(isCodeModeFailure(cause) ? cause : createFixtureFailure(method, String(cause))))
+      resume(Effect.fail(isProgramFailure(cause) ? cause : createFixtureFailure(method, String(cause))))
     }
     return Effect.sync(close)
   })
@@ -246,8 +239,8 @@ function requireFixtureString(method: string, value: unknown): string {
   return value
 }
 
-function createFixtureFailure(operation: string, message: string): CodeModeFailure {
-  return createCodeModeFailure({ _tag: 'validation', operation, message })
+function createFixtureFailure(operation: string, message: string): ProgramFailure {
+  return createProgramFailure({ _tag: 'validation', operation, message })
 }
 
 export {

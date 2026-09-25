@@ -11,13 +11,13 @@ import {
 } from '@earendil-works/pi-coding-agent'
 import { type Component, Container, Text } from '@earendil-works/pi-tui'
 import {
-  type ProgramFailure as CodeModeFailure,
-  createProgramRunner as createCore,
-  createProgramFailure as createFailure,
-  type ProgramHostErrorCodec as HostErrorCodec,
+  createProgramFailure,
+  createProgramRunner,
   type ProgramDefinition,
+  type ProgramFailure,
   ProgramHost,
-  type ProgramRunOptions as RunOptions,
+  type ProgramHostErrorCodec,
+  type ProgramRunOptions,
 } from '@eratio/pi-codemode-core'
 import { formatValue, type OutputLimits } from '@eratio/pi-codemode-core/output'
 import {
@@ -72,20 +72,18 @@ interface ToolDefinition<Services, Failure, RunContext = void> {
   readonly examples?: readonly string[]
   readonly timeoutMs: number
   readonly outputLimits?: Partial<OutputLimits>
-  readonly execution?: RunOptions['execution']
-  readonly errorCodec?: HostErrorCodec<CodeModeFailure | Failure>
+  readonly execution?: ProgramRunOptions['execution']
+  readonly errorCodec?: ProgramHostErrorCodec<ProgramFailure | Failure>
   readonly withRun?: (
-    run: (
-      runContext: RunContext,
-    ) => Effect.Effect<PiToolResult<ToolOutputDetails>, CodeModeFailure | Failure, Services>,
+    run: (runContext: RunContext) => Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services>,
     signal: AbortSignal | undefined,
-  ) => Effect.Effect<PiToolResult<ToolOutputDetails>, CodeModeFailure | Failure, Services>
+  ) => Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services>
 }
 
 interface RegisteredTool<Services, Failure> {
   readonly toolName: string
   readonly register: (
-    registry: PiToolRegistry<Services, CodeModeFailure | Failure>,
+    registry: PiToolRegistry<Services, ProgramFailure | Failure>,
   ) => Effect.Effect<void, PiRegistrationError>
 }
 
@@ -94,7 +92,7 @@ function createToolOutput(
   outputLimits: OutputLimits,
   operations: Readonly<Record<string, number>>,
   toolSignal?: AbortSignal,
-): Effect.Effect<PiToolResult<ToolOutputDetails>, CodeModeFailure> {
+): Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure> {
   const fullOutput = formatValue(value)
   const truncation = truncateHead(fullOutput, outputLimits)
   const details = {
@@ -124,7 +122,7 @@ function createToolOutput(
         return outputPath
       },
       catch: (cause) =>
-        createFailure({
+        createProgramFailure({
           _tag: toolSignal?.aborted ? 'cancellation' : 'serialize',
           operation: 'output',
           message: toolSignal?.aborted
@@ -292,19 +290,19 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
     methods: [{ name: 'help', kind: 'sync' }, ...methodEntries.map(([name]) => ({ name, kind: 'async' as const }))],
     examples: options.examples ?? [],
   }
-  const core = createCore<Services, CodeModeFailure | Failure>()
-  const hostService = ProgramHost<Services, CodeModeFailure | Failure>()
+  const core = createProgramRunner<Services, ProgramFailure | Failure>()
+  const hostService = ProgramHost<Services, ProgramFailure | Failure>()
   const host = {
     invoke: (
       methodName: string,
       args: readonly unknown[],
       signal: AbortSignal,
       runContext: RunContext,
-    ): Effect.Effect<unknown, CodeModeFailure | Failure, Services> => {
+    ): Effect.Effect<unknown, ProgramFailure | Failure, Services> => {
       const method = Object.hasOwn(options.methods, methodName) ? options.methods[methodName] : undefined
       if (method === undefined) {
         return Effect.fail(
-          createFailure({
+          createProgramFailure({
             _tag: 'validation',
             operation: methodName,
             message: `The operation ${methodName} is not defined.`,
@@ -314,7 +312,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
       if (method.parameters === undefined) {
         if (args.length !== 0) {
           return Effect.fail(
-            createFailure({
+            createProgramFailure({
               _tag: 'validation',
               operation: methodName,
               message: `The operation ${methodName} does not accept parameters.`,
@@ -325,7 +323,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
       }
       if (args.length !== 1 || !Check(method.parameters, args[0])) {
         return Effect.fail(
-          createFailure({
+          createProgramFailure({
             _tag: 'validation',
             operation: methodName,
             message: `The parameters for operation ${methodName} are invalid.`,
@@ -340,19 +338,19 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
         if (args.length === 1 && typeof args[0] === 'string') {
           const operationHelp = methodHelp.get(args[0])
           if (operationHelp !== undefined) return operationHelp
-          throw createFailure({
+          throw createProgramFailure({
             _tag: 'validation',
             operation: 'help',
             message: `The operation ${args[0]} is not defined. Available operations: ${methodEntries.map(([name]) => name).join(', ')}.`,
           })
         }
-        throw createFailure({
+        throw createProgramFailure({
           _tag: 'validation',
           operation: 'help',
           message: 'The help method accepts no arguments or one method name.',
         })
       }
-      throw createFailure({
+      throw createProgramFailure({
         _tag: 'validation',
         operation: methodName,
         message: `The operation ${methodName} is not synchronous.`,
@@ -363,7 +361,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
   const runParameters = Type.Object({
     code: Type.String({ description: 'A TypeScript program that exports a default function.' }),
   })
-  const runTool: EffectToolDefinition<typeof runParameters, Services, CodeModeFailure | Failure, ToolOutputDetails> = {
+  const runTool: EffectToolDefinition<typeof runParameters, Services, ProgramFailure | Failure, ToolOutputDetails> = {
     name: options.toolName,
     label: options.label ?? options.toolName,
     description: options.description,
@@ -377,12 +375,12 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
     ...createToolRenderers<typeof runParameters>(options.label ?? options.toolName),
     execute: ({
       code,
-    }): Effect.Effect<PiToolResult<ToolOutputDetails>, CodeModeFailure | Failure, Services | PiToolContext> =>
+    }): Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services | PiToolContext> =>
       Effect.gen(function* () {
         const context = yield* PiToolContext
         const run = (
           runContext: RunContext,
-        ): Effect.Effect<PiToolResult<ToolOutputDetails>, CodeModeFailure | Failure, Services> =>
+        ): Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services> =>
           Effect.gen(function* () {
             const operations = new Map<string, number>()
             const invocationHost = {
@@ -391,7 +389,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
                 methodName: string,
                 args: readonly unknown[],
                 signal: AbortSignal,
-              ): Effect.Effect<unknown, CodeModeFailure | Failure, Services> =>
+              ): Effect.Effect<unknown, ProgramFailure | Failure, Services> =>
                 Effect.gen(function* () {
                   yield* Effect.sync(() => {
                     operations.set(methodName, (operations.get(methodName) ?? 0) + 1)
@@ -399,7 +397,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
                   return yield* host.invoke(methodName, args, signal, runContext)
                 }),
             }
-            const runOptions: RunOptions = {
+            const runOptions: ProgramRunOptions = {
               cwd: context.cwd,
               filenamePrefix: options.toolName,
               timeoutMs: options.timeoutMs,
@@ -419,7 +417,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
       }),
   }
   const register = (
-    registry: PiToolRegistry<Services, CodeModeFailure | Failure>,
+    registry: PiToolRegistry<Services, ProgramFailure | Failure>,
   ): Effect.Effect<void, PiRegistrationError> =>
     Effect.gen(function* () {
       yield* registry.register(runTool)

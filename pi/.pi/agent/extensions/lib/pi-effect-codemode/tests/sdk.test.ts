@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile, rm } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { initTheme } from '@earendil-works/pi-coding-agent'
-import type { ProgramFailure as CodeModeFailure } from '@eratio/pi-codemode-core'
+import type { ProgramFailure } from '@eratio/pi-codemode-core'
 import { installFakePlugin } from '@eratio08/pi-effect/testing'
 import { Effect } from 'effect'
 import { Type } from 'typebox'
@@ -50,7 +50,7 @@ const createEchoTool = (
 const installTool = async (tool: RegisteredTool<never, never>) =>
   installFakePlugin(
     PiExtension.install(
-      PiExtension.define<CodeModeFailure>({
+      PiExtension.define<ProgramFailure>({
         id: 'code-mode-sdk-test',
         effect: ({ tools }) => tool.register(tools),
       }),

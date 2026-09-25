@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Worker } from 'node:worker_threads'
 import { Effect } from 'effect'
-import { CodeModeEffectHost } from '../src/contract.ts'
+import { ProgramHost } from '../src/contract.ts'
 import { CodeModeRequestQueueService, createCodeModeRequestQueue } from '../src/request-queue.ts'
 import { createCodeModeFilename, createCodeModeJiti, transformCodeModeProgram } from '../src/vm.ts'
 import { runCodeModeWorkerEvaluation } from '../src/worker-runner.ts'
@@ -24,7 +24,7 @@ describe('code mode worker', () => {
     const filename = createCodeModeFilename('/tmp', 'worker', 1)
     const source = ['export default async (api: ExampleApi) => api.add(await api.wait("ok"))'].join('')
     const code = transformCodeModeProgram(jiti, definition, source, filename)
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: (method, args) => Effect.succeed(method === 'wait' ? String(args[0]).length : undefined),
       invokeSync: (method, args) => (method === 'add' ? Number(args[0]) + 1 : undefined),
     }
@@ -36,7 +36,7 @@ describe('code mode worker', () => {
         Effect.gen(function* () {
           const queue = yield* Effect.provideService(
             createCodeModeRequestQueue<never, never>(),
-            CodeModeEffectHost<never, never>(),
+            ProgramHost<never, never>(),
             host,
           )
           return yield* runCodeModeWorkerEvaluation<never, never>(
@@ -48,7 +48,7 @@ describe('code mode worker', () => {
             signal,
           ).pipe(
             Effect.provideService(CodeModeRequestQueueService, queue),
-            Effect.provideService(CodeModeEffectHost<never, never>(), host),
+            Effect.provideService(ProgramHost<never, never>(), host),
           )
         }),
       ),
@@ -63,7 +63,7 @@ describe('code mode worker', () => {
     const jiti = createCodeModeJiti()
     const filename = createCodeModeFilename('/tmp', 'worker-missing-sync', 1)
     const code = transformCodeModeProgram(jiti, definition, 'export default (api: ExampleApi) => api.add(1)', filename)
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed(undefined),
     }
     const signal = new AbortController().signal
@@ -74,7 +74,7 @@ describe('code mode worker', () => {
         Effect.gen(function* () {
           const queue = yield* Effect.provideService(
             createCodeModeRequestQueue<never, never>(),
-            CodeModeEffectHost<never, never>(),
+            ProgramHost<never, never>(),
             host,
           )
           return yield* runCodeModeWorkerEvaluation<never, never>(
@@ -86,7 +86,7 @@ describe('code mode worker', () => {
             signal,
           ).pipe(
             Effect.provideService(CodeModeRequestQueueService, queue),
-            Effect.provideService(CodeModeEffectHost<never, never>(), host),
+            Effect.provideService(ProgramHost<never, never>(), host),
           )
         }),
       ),
@@ -101,7 +101,7 @@ describe('code mode worker', () => {
     const jiti = createCodeModeJiti()
     const filename = createCodeModeFilename('/tmp', 'worker-termination', 1)
     const code = transformCodeModeProgram(jiti, definition, 'export default () => 3', filename)
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed(undefined),
       invokeSync: () => undefined,
     }
@@ -119,7 +119,7 @@ describe('code mode worker', () => {
           Effect.gen(function* () {
             const queue = yield* Effect.provideService(
               createCodeModeRequestQueue<never, never>(),
-              CodeModeEffectHost<never, never>(),
+              ProgramHost<never, never>(),
               host,
             )
             return yield* runCodeModeWorkerEvaluation<never, never>(
@@ -131,7 +131,7 @@ describe('code mode worker', () => {
               signal,
             ).pipe(
               Effect.provideService(CodeModeRequestQueueService, queue),
-              Effect.provideService(CodeModeEffectHost<never, never>(), host),
+              Effect.provideService(ProgramHost<never, never>(), host),
             )
           }),
         ),
@@ -150,7 +150,7 @@ describe('code mode worker', () => {
     const filename = createCodeModeFilename('/tmp', 'worker-loop', 1)
     const source = ['export default async (api: ExampleApi) => { await api.wait("ok"); while (true) {} }'].join('')
     const code = transformCodeModeProgram(jiti, definition, source, filename)
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: () => undefined,
     }
@@ -162,7 +162,7 @@ describe('code mode worker', () => {
         Effect.gen(function* () {
           const queue = yield* Effect.provideService(
             createCodeModeRequestQueue<never, never>(),
-            CodeModeEffectHost<never, never>(),
+            ProgramHost<never, never>(),
             host,
           )
           return yield* runCodeModeWorkerEvaluation<never, never>(
@@ -174,7 +174,7 @@ describe('code mode worker', () => {
             signal,
           ).pipe(
             Effect.provideService(CodeModeRequestQueueService, queue),
-            Effect.provideService(CodeModeEffectHost<never, never>(), host),
+            Effect.provideService(ProgramHost<never, never>(), host),
           )
         }),
       ),

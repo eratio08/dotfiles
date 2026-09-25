@@ -1,20 +1,16 @@
 import { describe, expect, test } from 'bun:test'
 import { Clock, Context, Effect, Fiber, Layer, ManagedRuntime, Schema } from 'effect'
 import type {
-  ProgramRunner as CodeModeCore,
-  ProgramDefinition as CodeModeDefinition,
-  ProgramFailure as CodeModeFailure,
-  ProgramHostErrorCodec as CodeModeHostErrorCodec,
-  ProgramRunOptions as CodeModeRunOptions,
-  ProgramWireValue as CodeModeWireValue,
+  ProgramDefinition,
+  ProgramFailure,
+  ProgramHostErrorCodec,
+  ProgramRunner,
+  ProgramRunOptions,
+  ProgramWireValue,
 } from '../src/index.ts'
-import {
-  ProgramHost as CodeModeEffectHost,
-  createProgramRunner as createCodeModeCore,
-  createProgramFailure as createCodeModeFailure,
-} from '../src/index.ts'
+import { createProgramFailure, createProgramRunner, ProgramHost } from '../src/index.ts'
 
-const definition: CodeModeDefinition = {
+const definition: ProgramDefinition = {
   apiName: 'ExampleApi',
   programName: 'ExampleProgram',
   declarations: 'type ExampleApi = { add(value: number): number; wait(value: string): Promise<string> }',
@@ -32,13 +28,13 @@ const options = {
 }
 
 const evaluateWithHost = <R, E>(
-  core: CodeModeCore<R, E>,
-  definition: CodeModeDefinition,
-  host: CodeModeEffectHost<R, E>,
+  core: ProgramRunner<R, E>,
+  definition: ProgramDefinition,
+  host: ProgramHost<R, E>,
   code: string,
-  runOptions: CodeModeRunOptions,
-): Effect.Effect<unknown, CodeModeFailure | E, R> =>
-  Effect.provideService(core.evaluate(definition, code, runOptions), CodeModeEffectHost<R, E>(), host)
+  runOptions: ProgramRunOptions,
+): Effect.Effect<unknown, ProgramFailure | E, R> =>
+  Effect.provideService(core.evaluate(definition, code, runOptions), ProgramHost<R, E>(), host)
 
 const HostDependency = Context.Service<{ readonly value: string }>('code-mode-core/TestHostDependency')
 type HostDependencyRequirement = Context.Service.Identifier<typeof HostDependency>
@@ -62,12 +58,12 @@ const taggedHostFailureSchema = Schema.Struct({
   code: Schema.Number,
 })
 
-const hostErrorCodec: CodeModeHostErrorCodec<HostFailure> = {
+const hostErrorCodec: ProgramHostErrorCodec<HostFailure> = {
   encode: (failure) => ({ code: failure.code, message: failure.message }),
   decode: (value) => {
     if (typeof value !== 'object' || value === null || Array.isArray(value))
       throw new TypeError('Invalid host failure.')
-    const record = value as { readonly code?: CodeModeWireValue; readonly message?: CodeModeWireValue }
+    const record = value as { readonly code?: ProgramWireValue; readonly message?: ProgramWireValue }
     if (typeof record.code !== 'string' || typeof record.message !== 'string')
       throw new TypeError('Invalid host failure.')
     return { code: record.code, message: record.message }
@@ -77,8 +73,8 @@ const hostErrorCodec: CodeModeHostErrorCodec<HostFailure> = {
 describe('code mode core', () => {
   test('runs a worker evaluation with an Effect host', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
-    const host: CodeModeEffectHost<never, never> = {
+    const core = createProgramRunner<never, never>()
+    const host: ProgramHost<never, never> = {
       invoke: (method, args) => Effect.succeed(method === 'wait' ? String(args[0]).length : undefined),
       invokeSync: (method, args) => (method === 'add' ? Number(args[0]) + 1 : undefined),
     }
@@ -100,12 +96,12 @@ describe('code mode core', () => {
 
   test('uses the host provided for each evaluation', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
-    const firstHost: CodeModeEffectHost<never, never> = {
+    const core = createProgramRunner<never, never>()
+    const firstHost: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('unused'),
       invokeSync: () => 1,
     }
-    const secondHost: CodeModeEffectHost<never, never> = {
+    const secondHost: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('unused'),
       invokeSync: () => 2,
     }
@@ -137,8 +133,8 @@ describe('code mode core', () => {
 
   test('preserves host Effect requirements', async () => {
     //given
-    const core = createCodeModeCore<HostDependencyRequirement, never>()
-    const host: CodeModeEffectHost<HostDependencyRequirement, never> = {
+    const core = createProgramRunner<HostDependencyRequirement, never>()
+    const host: ProgramHost<HostDependencyRequirement, never> = {
       invoke: () => Effect.map(HostDependency, ({ value }) => value),
       invokeSync: () => 1,
     }
@@ -164,9 +160,9 @@ describe('code mode core', () => {
 
   test('maps an invalid definition to a validation failure', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
+    const core = createProgramRunner<never, never>()
     const invalidDefinition = { ...definition, methods: [] }
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: () => 1,
     }
@@ -184,9 +180,9 @@ describe('code mode core', () => {
 
   test('reuses a caller-owned runtime for multiple evaluations', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
+    const core = createProgramRunner<never, never>()
     const runtime = ManagedRuntime.make(Layer.empty)
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: (_method, args) => Number(args[0]) + 1,
     }
@@ -208,8 +204,8 @@ describe('code mode core', () => {
 
   test('rejects external imports before worker creation', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
-    const host: CodeModeEffectHost<never, never> = {
+    const core = createProgramRunner<never, never>()
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: () => 1,
     }
@@ -225,8 +221,8 @@ describe('code mode core', () => {
 
   test('uses the explicit in-process execution mode', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
-    const host: CodeModeEffectHost<never, never> = {
+    const core = createProgramRunner<never, never>()
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: (_method, args) => Number(args[0]) + 1,
     }
@@ -245,10 +241,10 @@ describe('code mode core', () => {
 
   test('returns a typed cancellation failure', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
+    const core = createProgramRunner<never, never>()
     const controller = new AbortController()
     controller.abort()
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: () => 1,
     }
@@ -279,8 +275,8 @@ describe('code mode core', () => {
       monotonicTimeNanos: Effect.sync(readMonotonicTime),
       sleep: () => Effect.void,
     }
-    const core = createCodeModeCore<never, never>()
-    const host: CodeModeEffectHost<never, never> = {
+    const core = createProgramRunner<never, never>()
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: () => 1,
     }
@@ -314,10 +310,10 @@ describe('code mode core', () => {
       monotonicTimeNanos: Effect.sync(readMonotonicTime),
       sleep: () => Effect.void,
     }
-    const core = createCodeModeCore<never, never>()
+    const core = createProgramRunner<never, never>()
     const controller = new AbortController()
     controller.abort()
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: () => 1,
     }
@@ -340,8 +336,8 @@ describe('code mode core', () => {
 
   test('terminates a worker after a timeout', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
-    const host: CodeModeEffectHost<never, never> = {
+    const core = createProgramRunner<never, never>()
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: () => 1,
     }
@@ -360,8 +356,8 @@ describe('code mode core', () => {
 
   test('times out a Promise that never settles', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
-    const host: CodeModeEffectHost<never, never> = {
+    const core = createProgramRunner<never, never>()
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: () => 1,
     }
@@ -380,7 +376,7 @@ describe('code mode core', () => {
 
   test('interrupts a worker evaluation through the caller runtime', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
+    const core = createProgramRunner<never, never>()
     const fiber = Effect.runFork(
       evaluateWithHost(
         core,
@@ -402,9 +398,9 @@ describe('code mode core', () => {
 
   test('cancels an in-process Promise while it is pending', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
+    const core = createProgramRunner<never, never>()
     const controller = new AbortController()
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: () => 1,
     }
@@ -426,9 +422,9 @@ describe('code mode core', () => {
 
   test('cancels a worker while an Effect host call is pending', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
+    const core = createProgramRunner<never, never>()
     const controller = new AbortController()
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.never,
       invokeSync: () => 1,
     }
@@ -449,8 +445,8 @@ describe('code mode core', () => {
 
   test('returns an invoke failure when a host throws before returning an Effect', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
-    const host: CodeModeEffectHost<never, never> = {
+    const core = createProgramRunner<never, never>()
+    const host: ProgramHost<never, never> = {
       invoke: () => {
         throw new Error('Host failed before returning an Effect.')
       },
@@ -474,11 +470,11 @@ describe('code mode core', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'invoke', operation: 'wait' })
   })
 
-  test('preserves CodeModeFailure host failures in worker mode', async () => {
+  test('preserves ProgramFailure host failures in worker mode', async () => {
     //given
-    const failure = createCodeModeFailure({ _tag: 'host', operation: 'wait', message: 'Host failed.' })
-    const core = createCodeModeCore<never, typeof failure>()
-    const host: CodeModeEffectHost<never, typeof failure> = {
+    const failure = createProgramFailure({ _tag: 'host', operation: 'wait', message: 'Host failed.' })
+    const core = createProgramRunner<never, typeof failure>()
+    const host: ProgramHost<never, typeof failure> = {
       invoke: () => Effect.fail(failure),
       invokeSync: () => 1,
     }
@@ -501,8 +497,8 @@ describe('code mode core', () => {
   test('preserves custom host failures in worker mode with a codec', async () => {
     //given
     const failure: HostFailure = { code: 'HOST_FAILED', message: 'Host failed.' }
-    const core = createCodeModeCore<never, HostFailure>()
-    const host: CodeModeEffectHost<never, HostFailure> = {
+    const core = createProgramRunner<never, HostFailure>()
+    const host: ProgramHost<never, HostFailure> = {
       errorCodec: hostErrorCodec,
       invoke: () => Effect.fail(failure),
       invokeSync: () => 1,
@@ -532,7 +528,7 @@ describe('code mode core', () => {
       code: 42,
     }
     const codecCalls = { encode: 0, decode: 0 }
-    const errorCodec: CodeModeHostErrorCodec<TaggedHostFailure> = {
+    const errorCodec: ProgramHostErrorCodec<TaggedHostFailure> = {
       encode: (error) => {
         codecCalls.encode += 1
         return { ...error }
@@ -542,8 +538,8 @@ describe('code mode core', () => {
         return Schema.decodeUnknownSync(taggedHostFailureSchema)(value)
       },
     }
-    const core = createCodeModeCore<never, TaggedHostFailure>()
-    const host: CodeModeEffectHost<never, TaggedHostFailure> = {
+    const core = createProgramRunner<never, TaggedHostFailure>()
+    const host: ProgramHost<never, TaggedHostFailure> = {
       errorCodec,
       invoke: () => Effect.fail(failure),
       invokeSync: () => 1,
@@ -574,7 +570,7 @@ describe('code mode core', () => {
       code: 42,
     }
     const codecCalls = { encode: 0, decode: 0 }
-    const errorCodec: CodeModeHostErrorCodec<TaggedHostFailure> = {
+    const errorCodec: ProgramHostErrorCodec<TaggedHostFailure> = {
       encode: (error) => {
         codecCalls.encode += 1
         return { ...error }
@@ -584,8 +580,8 @@ describe('code mode core', () => {
         return Schema.decodeUnknownSync(taggedHostFailureSchema)(value)
       },
     }
-    const core = createCodeModeCore<never, TaggedHostFailure>()
-    const host: CodeModeEffectHost<never, TaggedHostFailure> = {
+    const core = createProgramRunner<never, TaggedHostFailure>()
+    const host: ProgramHost<never, TaggedHostFailure> = {
       errorCodec,
       invoke: () => Effect.fail(failure),
       invokeSync: () => 1,
@@ -610,8 +606,8 @@ describe('code mode core', () => {
   test('exposes the encoded host error when worker code catches it', async () => {
     //given
     const failure: HostFailure = { code: 'HOST_FAILED', message: 'Host failed.' }
-    const core = createCodeModeCore<never, HostFailure>()
-    const host: CodeModeEffectHost<never, HostFailure> = {
+    const core = createProgramRunner<never, HostFailure>()
+    const host: ProgramHost<never, HostFailure> = {
       errorCodec: hostErrorCodec,
       invoke: () => Effect.fail(failure),
       invokeSync: () => 1,
@@ -635,8 +631,8 @@ describe('code mode core', () => {
   test('preserves custom host failures in in-process mode without a codec', async () => {
     //given
     const failure: HostFailure = { code: 'HOST_FAILED', message: 'Host failed.' }
-    const core = createCodeModeCore<never, HostFailure>()
-    const host: CodeModeEffectHost<never, HostFailure> = {
+    const core = createProgramRunner<never, HostFailure>()
+    const host: ProgramHost<never, HostFailure> = {
       invoke: () => Effect.fail(failure),
       invokeSync: () => 1,
     }
@@ -656,8 +652,8 @@ describe('code mode core', () => {
   test('rejects a custom worker host failure when its codec is missing', async () => {
     //given
     const failure: HostFailure = { code: 'HOST_FAILED', message: 'Host failed.' }
-    const core = createCodeModeCore<never, HostFailure>()
-    const host: CodeModeEffectHost<never, HostFailure> = {
+    const core = createProgramRunner<never, HostFailure>()
+    const host: ProgramHost<never, HostFailure> = {
       invoke: () => Effect.fail(failure),
       invokeSync: () => 1,
     }
@@ -680,8 +676,8 @@ describe('code mode core', () => {
   test('returns a failure when a host error codec cannot encode', async () => {
     //given
     const failure: HostFailure = { code: 'HOST_FAILED', message: 'Host failed.' }
-    const core = createCodeModeCore<never, HostFailure>()
-    const host: CodeModeEffectHost<never, HostFailure> = {
+    const core = createProgramRunner<never, HostFailure>()
+    const host: ProgramHost<never, HostFailure> = {
       errorCodec: {
         ...hostErrorCodec,
         encode: () => {
@@ -710,8 +706,8 @@ describe('code mode core', () => {
   test('returns a failure when a host error codec cannot decode', async () => {
     //given
     const failure: HostFailure = { code: 'HOST_FAILED', message: 'Host failed.' }
-    const core = createCodeModeCore<never, HostFailure>()
-    const host: CodeModeEffectHost<never, HostFailure> = {
+    const core = createProgramRunner<never, HostFailure>()
+    const host: ProgramHost<never, HostFailure> = {
       errorCodec: {
         ...hostErrorCodec,
         decode: () => {
@@ -739,8 +735,8 @@ describe('code mode core', () => {
 
   test('turns thrown non-error values into code mode failures', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
-    const host: CodeModeEffectHost<never, never> = {
+    const core = createProgramRunner<never, never>()
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: () => 1,
     }
@@ -756,8 +752,8 @@ describe('code mode core', () => {
 
   test('preserves ordinary exception details', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
-    const host: CodeModeEffectHost<never, never> = {
+    const core = createProgramRunner<never, never>()
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: () => 1,
     }
@@ -773,8 +769,8 @@ describe('code mode core', () => {
 
   test('returns a typed failure for a non-cloneable result', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
-    const host: CodeModeEffectHost<never, never> = {
+    const core = createProgramRunner<never, never>()
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: () => 1,
     }
@@ -788,8 +784,8 @@ describe('code mode core', () => {
 
   test('returns a typed failure for non-cloneable sync arguments', async () => {
     //given
-    const core = createCodeModeCore<never, never>()
-    const host: CodeModeEffectHost<never, never> = {
+    const core = createProgramRunner<never, never>()
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: () => 1,
     }

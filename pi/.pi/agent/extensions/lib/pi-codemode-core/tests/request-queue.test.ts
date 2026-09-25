@@ -1,13 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
-import { CodeModeEffectHost } from '../src/contract.ts'
+import { ProgramHost } from '../src/contract.ts'
 import { createCodeModeRequestQueue } from '../src/request-queue.ts'
 
 describe('code mode request queue', () => {
   test('runs host calls in offer order', async () => {
     //given
     const events: string[] = []
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: (method) =>
         Effect.promise(async () => {
           events.push(`${method}:start`)
@@ -24,7 +24,7 @@ describe('code mode request queue', () => {
         Effect.gen(function* () {
           const queue = yield* Effect.provideService(
             createCodeModeRequestQueue<never, never>(),
-            CodeModeEffectHost<never, never>(),
+            ProgramHost<never, never>(),
             host,
           )
           const first = queue.invoke('first', [], signal)
@@ -41,7 +41,7 @@ describe('code mode request queue', () => {
 
   test('keeps processing requests when a host throws before returning an Effect', async () => {
     //given
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: (method) => {
         if (method === 'throws') throw new Error('Host failed before returning an Effect.')
         return Effect.succeed(method)
@@ -52,7 +52,7 @@ describe('code mode request queue', () => {
       Effect.gen(function* () {
         const queue = yield* Effect.provideService(
           createCodeModeRequestQueue<never, never>(),
-          CodeModeEffectHost<never, never>(),
+          ProgramHost<never, never>(),
           host,
         )
         const failed = queue.invoke('throws', [], signal).then(
@@ -74,7 +74,7 @@ describe('code mode request queue', () => {
   test('rejects a call when its signal aborts', async () => {
     //given
     const controller = new AbortController()
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.never,
     }
 
@@ -84,7 +84,7 @@ describe('code mode request queue', () => {
         Effect.gen(function* () {
           const queue = yield* Effect.provideService(
             createCodeModeRequestQueue<never, never>(),
-            CodeModeEffectHost<never, never>(),
+            ProgramHost<never, never>(),
             host,
           )
           const promise = queue.invoke('slow', [], controller.signal)
@@ -110,7 +110,7 @@ describe('code mode request queue', () => {
     const started = new Promise<void>((resolve) => {
       resolveStarted = resolve
     })
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: () => {
         resolveStarted()
         return Effect.never.pipe(
@@ -131,7 +131,7 @@ describe('code mode request queue', () => {
         Effect.gen(function* () {
           const queue = yield* Effect.provideService(
             createCodeModeRequestQueue<never, never>(),
-            CodeModeEffectHost<never, never>(),
+            ProgramHost<never, never>(),
             host,
           )
           request = queue.invoke('active', [], signal)
@@ -149,7 +149,7 @@ describe('code mode request queue', () => {
 
   test('rejects invocations after the scope closes', async () => {
     //given
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.never,
     }
     const signal = new AbortController().signal
@@ -158,7 +158,7 @@ describe('code mode request queue', () => {
         Effect.gen(function* () {
           return yield* Effect.provideService(
             createCodeModeRequestQueue<never, never>(),
-            CodeModeEffectHost<never, never>(),
+            ProgramHost<never, never>(),
             host,
           )
         }),
@@ -174,7 +174,7 @@ describe('code mode request queue', () => {
 
   test('rejects pending calls when the scope closes', async () => {
     //given
-    const host: CodeModeEffectHost<never, never> = {
+    const host: ProgramHost<never, never> = {
       invoke: () => Effect.never,
     }
     const signal = new AbortController().signal
@@ -185,7 +185,7 @@ describe('code mode request queue', () => {
         Effect.gen(function* () {
           const queue = yield* Effect.provideService(
             createCodeModeRequestQueue<never, never>(),
-            CodeModeEffectHost<never, never>(),
+            ProgramHost<never, never>(),
             host,
           )
           return queue.invoke('closed', [], signal)

@@ -1,53 +1,51 @@
 import { Context, type Effect, Schema } from 'effect'
-import { type CodeModeFailure, createCodeModeFailure } from './failure.ts'
+import { createProgramFailure, type ProgramFailure } from './failure.ts'
 import { CodeModeDefinitionSchema, CodeModeRunOptionsSchema, getCodeModeSchemaFailureMessage } from './schema.ts'
 
-interface CodeModeMethod {
+interface ProgramMethod {
   readonly name: string
   readonly kind: 'sync' | 'async'
 }
 
-type CodeModeWireValue =
+type ProgramWireValue =
   | undefined
   | null
   | boolean
   | number
   | bigint
   | string
-  | readonly CodeModeWireValue[]
-  | { readonly [key: string]: CodeModeWireValue }
+  | readonly ProgramWireValue[]
+  | { readonly [key: string]: ProgramWireValue }
 
-interface CodeModeHostErrorCodec<E> {
-  readonly encode: (error: E) => CodeModeWireValue
-  readonly decode: (value: CodeModeWireValue) => E
+interface ProgramHostErrorCodec<E> {
+  readonly encode: (error: E) => ProgramWireValue
+  readonly decode: (value: ProgramWireValue) => E
 }
 
-interface CodeModeDefinition {
+interface ProgramDefinition {
   readonly apiName: string
   readonly programName: string
   readonly declarations: string
-  readonly methods: readonly CodeModeMethod[]
+  readonly methods: readonly ProgramMethod[]
   readonly examples: readonly string[]
 }
 
-declare const codeModeEffectHostTag: unique symbol
+declare const programHostTag: unique symbol
 
-interface CodeModeEffectHostRequirement<R, E> {
-  readonly [codeModeEffectHostTag]: readonly [R, E]
+interface ProgramHostRequirement<R, E> {
+  readonly [programHostTag]: readonly [R, E]
 }
 
-interface CodeModeEffectHost<R, E> {
+interface ProgramHost<R, E> {
   readonly invoke: (method: string, args: readonly unknown[], signal: AbortSignal) => Effect.Effect<unknown, E, R>
   readonly invokeSync?: (method: string, args: readonly unknown[]) => unknown
-  readonly errorCodec?: CodeModeHostErrorCodec<E>
+  readonly errorCodec?: ProgramHostErrorCodec<E>
 }
 
-const CodeModeEffectHost = <R, E>(): Context.Service<CodeModeEffectHostRequirement<R, E>, CodeModeEffectHost<R, E>> =>
-  Context.Service<CodeModeEffectHostRequirement<R, E>, CodeModeEffectHost<R, E>>(
-    '@eratio/pi-codemode-core/CodeModeEffectHost',
-  )
+const ProgramHost = <R, E>(): Context.Service<ProgramHostRequirement<R, E>, ProgramHost<R, E>> =>
+  Context.Service<ProgramHostRequirement<R, E>, ProgramHost<R, E>>('@eratio/pi-codemode-core/CodeModeEffectHost')
 
-interface CodeModeRunOptions {
+interface ProgramRunOptions {
   readonly cwd: string
   readonly filenamePrefix: string
   readonly timeoutMs: number
@@ -55,20 +53,20 @@ interface CodeModeRunOptions {
   readonly execution?: 'worker' | 'in-process'
 }
 
-interface CodeModeCore<R, E> {
+interface ProgramRunner<R, E> {
   readonly evaluate: (
-    definition: CodeModeDefinition,
+    definition: ProgramDefinition,
     code: string,
-    options: CodeModeRunOptions,
-  ) => Effect.Effect<unknown, CodeModeFailure | E, R | CodeModeEffectHostRequirement<R, E>>
+    options: ProgramRunOptions,
+  ) => Effect.Effect<unknown, ProgramFailure | E, R | ProgramHostRequirement<R, E>>
 }
 
-function validateCodeModeDefinition(value: unknown): CodeModeFailure | undefined {
+function validateProgramDefinition(value: unknown): ProgramFailure | undefined {
   try {
     Schema.decodeUnknownSync(CodeModeDefinitionSchema)(value)
     return undefined
   } catch (cause) {
-    return createCodeModeFailure({
+    return createProgramFailure({
       _tag: 'validation',
       operation: 'definition',
       message: getCodeModeSchemaFailureMessage(cause, 'The code mode definition is invalid.'),
@@ -76,12 +74,12 @@ function validateCodeModeDefinition(value: unknown): CodeModeFailure | undefined
   }
 }
 
-function validateCodeModeRunOptions(value: unknown): CodeModeFailure | undefined {
+function validateProgramRunOptions(value: unknown): ProgramFailure | undefined {
   try {
     Schema.decodeUnknownSync(CodeModeRunOptionsSchema)(value)
     return undefined
   } catch (cause) {
-    return createCodeModeFailure({
+    return createProgramFailure({
       _tag: 'validation',
       operation: 'options',
       message: getCodeModeSchemaFailureMessage(cause, 'The code mode run options are invalid.'),
@@ -89,20 +87,20 @@ function validateCodeModeRunOptions(value: unknown): CodeModeFailure | undefined
   }
 }
 
-function findCodeModeMethod(definition: CodeModeDefinition, method: string): CodeModeMethod | undefined {
+function findProgramMethod(definition: ProgramDefinition, method: string): ProgramMethod | undefined {
   return definition.methods.find((candidate) => candidate.name === method)
 }
 
 export {
-  type CodeModeCore,
-  type CodeModeDefinition,
-  CodeModeEffectHost,
-  type CodeModeEffectHostRequirement,
-  type CodeModeHostErrorCodec,
-  type CodeModeMethod,
-  type CodeModeRunOptions,
-  type CodeModeWireValue,
-  findCodeModeMethod,
-  validateCodeModeDefinition,
-  validateCodeModeRunOptions,
+  findProgramMethod,
+  type ProgramDefinition,
+  ProgramHost,
+  type ProgramHostErrorCodec,
+  type ProgramHostRequirement,
+  type ProgramMethod,
+  type ProgramRunner,
+  type ProgramRunOptions,
+  type ProgramWireValue,
+  validateProgramDefinition,
+  validateProgramRunOptions,
 }

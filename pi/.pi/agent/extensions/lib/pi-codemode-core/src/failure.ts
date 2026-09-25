@@ -1,7 +1,7 @@
 import { Schema } from 'effect'
-import type { CodeModeHostErrorCodec, CodeModeWireValue } from './contract.ts'
-import type { CodeModeWorkerError } from './protocol.ts'
-import type { CodeModeFailureWireValue } from './schema.ts'
+import type { ProgramHostErrorCodec, ProgramWireValue } from './contract.ts'
+import type { WorkerError } from './protocol.ts'
+import type { ProgramFailureWireValue } from './schema.ts'
 import {
   CodeModeEncodedHostErrorSchema,
   CodeModeFailureAnySchema,
@@ -15,7 +15,7 @@ import {
   CodeModeWorkerHostErrorValueSchema,
 } from './schema.ts'
 
-type CodeModeFailureTag =
+type ProgramFailureTag =
   | 'validation'
   | 'transform'
   | 'compile'
@@ -27,7 +27,7 @@ type CodeModeFailureTag =
   | 'deserialize'
   | 'serialize'
 
-type CodeModeFailureData<Tag extends string> = {
+type ProgramFailureData<Tag extends string> = {
   readonly _tag: Tag
   readonly operation: string
   readonly message: string
@@ -36,9 +36,9 @@ type CodeModeFailureData<Tag extends string> = {
   readonly stack?: string
 }
 
-type CodeModeFailure<Tag extends string = CodeModeFailureTag> = Tag extends unknown ? CodeModeFailureData<Tag> : never
+type ProgramFailure<Tag extends string = ProgramFailureTag> = Tag extends unknown ? ProgramFailureData<Tag> : never
 
-type CodeModeFailureFields<Tag extends string = string> = CodeModeFailureData<Tag>
+type ProgramFailureFields<Tag extends string = string> = ProgramFailureData<Tag>
 
 const codeModeEncodedHostErrorMarker = Symbol('CodeModeEncodedHostError')
 const codeModeHostErrorMarker = Symbol('CodeModeHostError')
@@ -52,17 +52,17 @@ interface CodeModeHostError<E> {
 
 interface CodeModeEncodedHostError {
   readonly type: 'code-mode-host-error'
-  readonly value: CodeModeWireValue
+  readonly value: ProgramWireValue
   readonly [codeModeEncodedHostErrorMarker]: true
 }
 
-function createCodeModeFailure<const Tag extends string>(fields: CodeModeFailureFields<Tag>): CodeModeFailure<Tag> {
-  const failure = { ...fields } as CodeModeFailure<Tag>
+function createProgramFailure<const Tag extends string>(fields: ProgramFailureFields<Tag>): ProgramFailure<Tag> {
+  const failure = { ...fields } as ProgramFailure<Tag>
   Object.defineProperty(failure, codeModeFailureMarker, { value: true })
   return failure
 }
 
-function isCodeModeFailure(value: unknown): value is CodeModeFailure {
+function isProgramFailure(value: unknown): value is ProgramFailure {
   if (value === null || typeof value !== 'object') return false
   try {
     if (Reflect.get(value, codeModeFailureMarker) !== true) return false
@@ -86,7 +86,7 @@ function createCodeModeHostError<E>(value: E): CodeModeHostError<E> {
   return { type: 'code-mode-host-error', value, [codeModeHostErrorMarker]: true }
 }
 
-function createCodeModeEncodedHostError(value: CodeModeWireValue): CodeModeEncodedHostError {
+function createCodeModeEncodedHostError(value: ProgramWireValue): CodeModeEncodedHostError {
   return { type: 'code-mode-host-error', value, [codeModeEncodedHostErrorMarker]: true }
 }
 
@@ -108,12 +108,12 @@ function isCodeModeEncodedHostError(value: unknown): value is CodeModeEncodedHos
   return (value as CodeModeEncodedHostError)[codeModeEncodedHostErrorMarker] === true
 }
 
-function serializeCodeModeError<E>(cause: unknown, codec?: CodeModeHostErrorCodec<E>): CodeModeWorkerError {
+function serializeProgramError<E>(cause: unknown, codec?: ProgramHostErrorCodec<E>): WorkerError {
   if (isCodeModeEncodedHostError(cause)) return { kind: 'host', value: cause.value }
   if (isCodeModeHostError<E>(cause)) {
     if (codec === undefined)
-      return serializeCodeModeError(
-        createCodeModeFailure({
+      return serializeProgramError(
+        createProgramFailure({
           _tag: 'serialize',
           operation: 'host-error',
           message: 'The code mode host error codec is required for worker execution.',
@@ -124,8 +124,8 @@ function serializeCodeModeError<E>(cause: unknown, codec?: CodeModeHostErrorCode
       if (!isCodeModeWireValue(value)) throw new TypeError('The host error codec returned a non-wire value.')
       return { kind: 'host', value }
     } catch (codecCause) {
-      return serializeCodeModeError(
-        createCodeModeFailure({
+      return serializeProgramError(
+        createProgramFailure({
           _tag: 'serialize',
           operation: 'host-error',
           message: 'The code mode host error codec could not encode the host failure.',
@@ -134,7 +134,7 @@ function serializeCodeModeError<E>(cause: unknown, codec?: CodeModeHostErrorCode
       )
     }
   }
-  if (isCodeModeFailure(cause)) {
+  if (isProgramFailure(cause)) {
     const failure = Schema.decodeUnknownSync(CodeModeFailureWireValueSchema)({
       _tag: cause._tag,
       operation: cause.operation,
@@ -153,13 +153,13 @@ function serializeCodeModeError<E>(cause: unknown, codec?: CodeModeHostErrorCode
 
 function deserializeCodeModeHostError<E>(
   error: unknown,
-  codec: CodeModeHostErrorCodec<E> | undefined,
-): CodeModeFailure<string> | CodeModeHostError<E> {
+  codec: ProgramHostErrorCodec<E> | undefined,
+): ProgramFailure<string> | CodeModeHostError<E> {
   let shape: { readonly kind: 'host'; readonly value: unknown }
   try {
     shape = Schema.decodeUnknownSync(CodeModeWorkerHostErrorShapeSchema)(error)
   } catch {
-    return createCodeModeFailure({
+    return createProgramFailure({
       _tag: 'deserialize',
       operation: 'host-error',
       message: 'The code mode worker returned an invalid host error.',
@@ -167,11 +167,11 @@ function deserializeCodeModeHostError<E>(
     })
   }
 
-  let decoded: { readonly kind: 'host'; readonly value: CodeModeWireValue }
+  let decoded: { readonly kind: 'host'; readonly value: ProgramWireValue }
   try {
     decoded = Schema.decodeUnknownSync(CodeModeWorkerHostErrorValueSchema)(shape)
   } catch {
-    return createCodeModeFailure({
+    return createProgramFailure({
       _tag: 'deserialize',
       operation: 'host-error',
       message: 'The code mode worker returned a non-wire host error.',
@@ -179,7 +179,7 @@ function deserializeCodeModeHostError<E>(
     })
   }
   if (codec === undefined)
-    return createCodeModeFailure({
+    return createProgramFailure({
       _tag: 'deserialize',
       operation: 'host-error',
       message: 'The code mode host error codec is required to decode a worker failure.',
@@ -187,7 +187,7 @@ function deserializeCodeModeHostError<E>(
   try {
     return createCodeModeHostError(codec.decode(decoded.value))
   } catch (cause) {
-    return createCodeModeFailure({
+    return createProgramFailure({
       _tag: 'deserialize',
       operation: 'host-error',
       message: 'The code mode host error codec could not decode the host failure.',
@@ -196,7 +196,7 @@ function deserializeCodeModeHostError<E>(
   }
 }
 
-function deserializeCodeModeWorkerError(error: unknown): CodeModeFailure<string> | CodeModeEncodedHostError {
+function deserializeCodeModeWorkerError(error: unknown): ProgramFailure<string> | CodeModeEncodedHostError {
   try {
     const decoded = Schema.decodeUnknownSync(CodeModeWorkerHostErrorValueSchema)(error)
     return createCodeModeEncodedHostError(decoded.value)
@@ -205,9 +205,9 @@ function deserializeCodeModeWorkerError(error: unknown): CodeModeFailure<string>
     try {
       shape = Schema.decodeUnknownSync(CodeModeWorkerHostErrorShapeSchema)(error)
     } catch {
-      return deserializeCodeModeError(error)
+      return deserializeProgramError(error)
     }
-    return createCodeModeFailure({
+    return createProgramFailure({
       _tag: 'deserialize',
       operation: 'host-error',
       message: 'The code mode worker returned a non-wire host error.',
@@ -216,14 +216,14 @@ function deserializeCodeModeWorkerError(error: unknown): CodeModeFailure<string>
   }
 }
 
-function deserializeCodeModeError(error: unknown): CodeModeFailure<string>
-function deserializeCodeModeError<E>(
+function deserializeProgramError(error: unknown): ProgramFailure<string>
+function deserializeProgramError<E>(
   error: unknown,
-  codec: CodeModeHostErrorCodec<E> | undefined,
-): CodeModeFailure<string> | E
-function deserializeCodeModeError<E>(error: unknown, codec: CodeModeHostErrorCodec<E>): CodeModeFailure<string> | E
-function deserializeCodeModeError<E>(error: unknown, codec?: CodeModeHostErrorCodec<E>): CodeModeFailure<string> | E {
-  let decoded: CodeModeWorkerError
+  codec: ProgramHostErrorCodec<E> | undefined,
+): ProgramFailure<string> | E
+function deserializeProgramError<E>(error: unknown, codec: ProgramHostErrorCodec<E>): ProgramFailure<string> | E
+function deserializeProgramError<E>(error: unknown, codec?: ProgramHostErrorCodec<E>): ProgramFailure<string> | E {
+  let decoded: WorkerError
   try {
     decoded = Schema.decodeUnknownSync(CodeModeWorkerErrorSchema)(error)
   } catch {
@@ -231,21 +231,21 @@ function deserializeCodeModeError<E>(error: unknown, codec?: CodeModeHostErrorCo
     try {
       kind = Schema.decodeUnknownSync(CodeModeWorkerErrorKindSchema)(error)
     } catch {
-      return createCodeModeFailure({
+      return createProgramFailure({
         _tag: 'deserialize',
         operation: 'deserialize',
         message: 'The code mode worker returned an unknown error.',
       })
     }
-    if (kind.kind === 'host') return deserializeCodeModeHostError(error, codec) as CodeModeFailure<string> | E
+    if (kind.kind === 'host') return deserializeCodeModeHostError(error, codec) as ProgramFailure<string> | E
     if (kind.kind === 'failure')
-      return createCodeModeFailure({
+      return createProgramFailure({
         _tag: 'deserialize',
         operation: 'deserialize',
         message: 'The code mode worker returned an invalid failure.',
         cause: error,
       })
-    return createCodeModeFailure({
+    return createProgramFailure({
       _tag: 'deserialize',
       operation: 'deserialize',
       message: 'The code mode worker returned invalid error data.',
@@ -258,7 +258,7 @@ function deserializeCodeModeError<E>(error: unknown, codec?: CodeModeHostErrorCo
     return isCodeModeHostError<E>(hostError) ? hostError.value : hostError
   }
   if (decoded.kind === 'failure')
-    return createCodeModeFailure({
+    return createProgramFailure({
       _tag: decoded.failure._tag,
       operation: decoded.failure.operation,
       message: decoded.failure.message,
@@ -266,7 +266,7 @@ function deserializeCodeModeError<E>(error: unknown, codec?: CodeModeHostErrorCo
       name: decoded.failure.name,
       stack: decoded.failure.stack,
     })
-  return createCodeModeFailure({
+  return createProgramFailure({
     _tag: 'invoke',
     operation: 'evaluate',
     message: decoded.message,
@@ -276,7 +276,7 @@ function deserializeCodeModeError<E>(error: unknown, codec?: CodeModeHostErrorCo
   })
 }
 
-function cloneCodeModeCause(value: unknown): CodeModeWireValue {
+function cloneCodeModeCause(value: unknown): ProgramWireValue {
   if (value === undefined) return undefined
   try {
     const cloned = structuredClone(value)
@@ -287,7 +287,7 @@ function cloneCodeModeCause(value: unknown): CodeModeWireValue {
   return String(value)
 }
 
-function isCodeModeWireValue(value: unknown): value is CodeModeWireValue {
+function isCodeModeWireValue(value: unknown): value is ProgramWireValue {
   try {
     Schema.decodeUnknownSync(CodeModeWireValueSchema)(value)
     return true
@@ -298,20 +298,20 @@ function isCodeModeWireValue(value: unknown): value is CodeModeWireValue {
 
 export {
   type CodeModeEncodedHostError,
-  type CodeModeFailure,
-  type CodeModeFailureFields,
-  type CodeModeFailureTag,
-  type CodeModeFailureWireValue,
   type CodeModeHostError,
   createCodeModeEncodedHostError,
-  createCodeModeFailure,
   createCodeModeHostError,
-  deserializeCodeModeError,
+  createProgramFailure,
   deserializeCodeModeHostError,
   deserializeCodeModeWorkerError,
+  deserializeProgramError,
   isCodeModeEncodedHostError,
-  isCodeModeFailure,
   isCodeModeHostError,
   isCodeModeWireValue,
-  serializeCodeModeError,
+  isProgramFailure,
+  type ProgramFailure,
+  type ProgramFailureFields,
+  type ProgramFailureTag,
+  type ProgramFailureWireValue,
+  serializeProgramError,
 }

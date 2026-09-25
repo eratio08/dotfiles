@@ -1,6 +1,6 @@
 import { isMainThread, MessagePort, parentPort, receiveMessageOnPort } from 'node:worker_threads'
 import { Schema } from 'effect'
-import { createCodeModeFailure, deserializeCodeModeWorkerError, serializeCodeModeError } from './failure.ts'
+import { createProgramFailure, deserializeCodeModeWorkerError, serializeProgramError } from './failure.ts'
 import type {
   CodeModeAsyncResponse,
   CodeModeSyncRequest,
@@ -22,7 +22,7 @@ function runCodeModeWorker(): void {
     const start = decodeCodeModeWorkerStart(message)
     if (start === undefined) {
       postCodeModeWorkerError(
-        createCodeModeFailure({
+        createProgramFailure({
           _tag: 'transport',
           operation: 'start',
           message: 'The code mode worker received an invalid start message.',
@@ -51,7 +51,7 @@ function createCodeModeWorkerApi(
     } catch {
       for (const call of pending.values())
         call.reject(
-          createCodeModeFailure({
+          createProgramFailure({
             _tag: 'transport',
             operation: 'async-response',
             message: 'The code mode worker received an invalid response type.',
@@ -64,7 +64,7 @@ function createCodeModeWorkerApi(
     if (call === undefined) {
       for (const pendingCall of pending.values())
         pendingCall.reject(
-          createCodeModeFailure({
+          createProgramFailure({
             _tag: 'transport',
             operation: 'async-response',
             message: 'The code mode worker received an unknown response id.',
@@ -85,7 +85,7 @@ function createCodeModeWorkerApi(
     try {
       start.syncPort.postMessage({ type: 'sync-call', id, method, args } satisfies CodeModeSyncRequest)
     } catch (cause) {
-      throw createCodeModeFailure({
+      throw createProgramFailure({
         _tag: 'serialize',
         operation: 'sync-call',
         message: 'The code mode worker could not send a synchronous call.',
@@ -99,14 +99,14 @@ function createCodeModeWorkerApi(
         try {
           message = Schema.decodeUnknownSync(CodeModeSyncResponseSchema)(response.message)
         } catch {
-          throw createCodeModeFailure({
+          throw createProgramFailure({
             _tag: 'transport',
             operation: 'sync-response',
             message: 'The code mode worker received an invalid synchronous response.',
           })
         }
         if (message.id !== id)
-          throw createCodeModeFailure({
+          throw createProgramFailure({
             _tag: 'transport',
             operation: 'sync-response',
             message: 'The code mode worker received an invalid synchronous response.',
@@ -128,7 +128,7 @@ function createCodeModeWorkerApi(
       } catch (cause) {
         pending.delete(id)
         reject(
-          createCodeModeFailure({
+          createProgramFailure({
             _tag: 'serialize',
             operation: 'async-call',
             message: 'The code mode worker could not send an asynchronous call.',
@@ -147,7 +147,7 @@ function postCodeModeWorkerResult(value: unknown): void {
     parentPort?.postMessage({ type: 'result', value } satisfies CodeModeWorkerMessage)
   } catch (cause) {
     postCodeModeWorkerError(
-      createCodeModeFailure({
+      createProgramFailure({
         _tag: 'serialize',
         operation: 'result',
         message: 'The code mode worker could not serialize its result.',
@@ -159,7 +159,7 @@ function postCodeModeWorkerResult(value: unknown): void {
 
 function postCodeModeWorkerError(cause: unknown): void {
   try {
-    parentPort?.postMessage({ type: 'error', error: serializeCodeModeError(cause) } satisfies CodeModeWorkerMessage)
+    parentPort?.postMessage({ type: 'error', error: serializeProgramError(cause) } satisfies CodeModeWorkerMessage)
   } catch (postCause) {
     try {
       parentPort?.postMessage({
