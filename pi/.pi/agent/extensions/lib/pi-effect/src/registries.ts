@@ -151,10 +151,10 @@ interface PiFlagRegistrationPort {
 }
 
 /** Host registration port for Effect tools. */
-interface PiToolRegistrationPort<Services, Failure> {
+interface PiToolRegistrationPort<Services> {
   /** Registers an Effect tool definition with the host. */
-  readonly register: <Params extends TSchema, Details>(
-    definition: EffectToolDefinition<Params, Services | PiServices, Failure, Details>,
+  readonly register: <Params extends TSchema, ToolServices extends Services | PiServices, ToolFailure, Details>(
+    definition: EffectToolDefinition<Params, ToolServices, ToolFailure, Details>,
   ) => void
 }
 
@@ -201,10 +201,10 @@ interface PiFlagRegistry {
 }
 
 /** Effect API for registering tools that run as Effects. */
-interface PiToolRegistry<Services, Failure = PiExtensionError> {
+interface PiToolRegistry<Services> {
   /** Registers a tool and returns an Effect that fails if registration fails. */
-  readonly register: <Params extends TSchema, Details>(
-    definition: EffectToolDefinition<Params, Services | PiServices, Failure, Details>,
+  readonly register: <Params extends TSchema, ToolServices extends Services | PiServices, ToolFailure, Details>(
+    definition: EffectToolDefinition<Params, ToolServices, ToolFailure, Details>,
   ) => Effect.Effect<void, PiRegistrationError>
 }
 
@@ -227,7 +227,7 @@ interface PiRegistrationContext<Services, Failure = PiExtensionError> {
   /** Flags registered by this plugin. */
   readonly flags: PiFlagRegistry
   /** Effect tools registered by this plugin. */
-  readonly tools: PiToolRegistry<Services, Failure>
+  readonly tools: PiToolRegistry<Services>
   /** Custom message and session-entry renderers registered by this plugin. */
   readonly renderers: PiRendererRegistry
 }
@@ -290,7 +290,7 @@ function createPiRegistries<Services, Failure = PiExtensionError>(ports: {
   readonly commands: PiCommandRegistrationPort<Services, Failure>
   readonly shortcuts: PiShortcutRegistrationPort<Services, Failure>
   readonly flags: PiFlagRegistrationPort
-  readonly tools: PiToolRegistrationPort<Services, Failure>
+  readonly tools: PiToolRegistrationPort<Services>
   readonly renderers: PiRendererRegistrationPort
 }): PiRegistrationContext<Services, Failure> {
   const events: PiEventRegistry<Services, Failure> = {
@@ -321,9 +321,9 @@ function createPiRegistries<Services, Failure = PiExtensionError>(ports: {
         ports.flags.register(name, Schema.decodeUnknownSync(PiFlagDefinitionSchema)(definition)),
       ),
   }
-  const tools: PiToolRegistry<Services, Failure> = {
-    register: <Params extends TSchema, Details>(
-      definition: EffectToolDefinition<Params, Services | PiServices, Failure, Details>,
+  const tools: PiToolRegistry<Services> = {
+    register: <Params extends TSchema, ToolServices extends Services | PiServices, ToolFailure, Details>(
+      definition: EffectToolDefinition<Params, ToolServices, ToolFailure, Details>,
     ) => registerEffect(`tool:${definition.name}`, () => ports.tools.register(definition)),
   }
   const renderers: PiRendererRegistry = {

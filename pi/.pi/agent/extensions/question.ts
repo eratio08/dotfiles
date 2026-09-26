@@ -347,7 +347,7 @@ class QuestionComponent implements Component, Focusable {
 			return;
 		}
 
-		if (!this.singleQuestionFlow && (this.keybindings.matches(data, "tui.input.tab") || data === "l" || data === "L")) {
+		if (!this.singleQuestionFlow && this.keybindings.matches(data, "tui.input.tab")) {
 			this.moveTab(1);
 			this.tui.requestRender();
 			return;
@@ -366,13 +366,13 @@ class QuestionComponent implements Component, Focusable {
 			return;
 		}
 
-		if (this.keybindings.matches(data, "tui.select.up") || data === "k" || data === "K") {
+		if (this.keybindings.matches(data, "tui.select.up")) {
 			this.moveSelection(-1);
 			this.tui.requestRender();
 			return;
 		}
 
-		if (this.keybindings.matches(data, "tui.select.down") || data === "j" || data === "J") {
+		if (this.keybindings.matches(data, "tui.select.down")) {
 			this.moveSelection(1);
 			this.tui.requestRender();
 			return;

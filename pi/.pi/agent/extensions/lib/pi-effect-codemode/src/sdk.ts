@@ -52,7 +52,7 @@ interface MethodDefinition<
       : undefined,
     signal: AbortSignal,
     runContext: RunContext,
-  ) => Effect.Effect<unknown, Failure, Services>
+  ) => Effect.Effect<unknown, Failure, Services | PiServices>
 }
 
 type MethodInput<Services, Failure, RunContext = void> = {
@@ -64,7 +64,7 @@ type MethodInput<Services, Failure, RunContext = void> = {
     params: never,
     signal: AbortSignal,
     runContext: RunContext,
-  ) => Effect.Effect<unknown, Failure, Services>
+  ) => Effect.Effect<unknown, Failure, Services | PiServices>
 }
 
 interface ToolOutputDetails {
@@ -92,16 +92,16 @@ interface ToolDefinition<Services, Failure, RunContext = void> {
   readonly execution?: ProgramRunOptions['execution']
   readonly errorCodec?: ProgramHostErrorCodec<ProgramFailure | Failure>
   readonly withRun?: (
-    run: (runContext: RunContext) => Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services>,
+    run: (
+      runContext: RunContext,
+    ) => Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services | PiServices>,
     signal: AbortSignal | undefined,
   ) => Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services | PiServices>
 }
 
-interface RegisteredTool<Services, Failure> {
+interface RegisteredTool<Services, _Failure> {
   readonly toolName: string
-  readonly register: (
-    registry: PiToolRegistry<Services, ProgramFailure | Failure>,
-  ) => Effect.Effect<void, PiRegistrationError>
+  readonly register: (registry: PiToolRegistry<Services>) => Effect.Effect<void, PiRegistrationError>
 }
 
 function createToolOutput(
@@ -201,7 +201,7 @@ function createToolRenderers<Params extends TSchema>(
       const summary =
         Object.entries(details?.operations ?? {})
           .map(([operation, count]) => `${operation}: ${count}`)
-          .join(', ') || 'no operations'
+          .join(' · ') || 'no operations'
       const state = (context.state ?? {}) as RendererState
       state.hasResult = true
       state.summary = summary
@@ -319,15 +319,15 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
     methods: [{ name: 'help', kind: 'sync' }, ...methodEntries.map(([name]) => ({ name, kind: 'async' as const }))],
     examples: options.examples ?? [],
   }
-  const core = createProgramRunner<Services, ProgramFailure | Failure>()
-  const hostService = ProgramHost<Services, ProgramFailure | Failure>()
+  const core = createProgramRunner<Services | PiServices, ProgramFailure | Failure>()
+  const hostService = ProgramHost<Services | PiServices, ProgramFailure | Failure>()
   const host = {
     invoke: (
       methodName: string,
       args: readonly unknown[],
       signal: AbortSignal,
       runContext: RunContext,
-    ): Effect.Effect<unknown, ProgramFailure | Failure, Services> => {
+    ): Effect.Effect<unknown, ProgramFailure | Failure, Services | PiServices> => {
       const method = Object.hasOwn(options.methods, methodName) ? options.methods[methodName] : undefined
       if (method === undefined) {
         return Effect.fail(
@@ -428,7 +428,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
         const context = yield* PiToolContext
         const run = (
           runContext: RunContext,
-        ): Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services> =>
+        ): Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services | PiServices> =>
           Effect.gen(function* () {
             const operations = new Map<string, number>()
             const invocationHost = {
@@ -437,7 +437,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
                 methodName: string,
                 args: readonly unknown[],
                 signal: AbortSignal,
-              ): Effect.Effect<unknown, ProgramFailure | Failure, Services> =>
+              ): Effect.Effect<unknown, ProgramFailure | Failure, Services | PiServices> =>
                 Effect.gen(function* () {
                   yield* Effect.sync(() => {
                     operations.set(methodName, (operations.get(methodName) ?? 0) + 1)
@@ -464,9 +464,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
           : options.withRun(run, context.toolSignal)
       }),
   }
-  const register = (
-    registry: PiToolRegistry<Services, ProgramFailure | Failure>,
-  ): Effect.Effect<void, PiRegistrationError> =>
+  const register = (registry: PiToolRegistry<Services>): Effect.Effect<void, PiRegistrationError> =>
     Effect.gen(function* () {
       yield* registry.register(runTool)
     })

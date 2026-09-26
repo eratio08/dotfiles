@@ -155,6 +155,8 @@ The handler receives the validated parameter value, the current `AbortSignal`, a
 Use `Type.Tuple([...])` when the method accepts multiple positional arguments, and type the handler's first parameter as that tuple.
 The context type is the third generic for `defineMethod` and defaults to `void`.
 The handler returns an Effect, so it can use the services and typed failures that the SDK generics declare.
+The `Services` generic lists additional service requirements.
+Pi runtime services are available to method handlers and the `withRun` callback without listing them in that generic.
 
 ### Scope one tool run
 Set the third generic for `createTool` when methods need one context shared by every call in a program.

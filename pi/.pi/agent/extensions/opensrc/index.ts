@@ -1,4 +1,4 @@
-import { type PiExtensionError, type PiProcess, type PiRegistrationContext, PiToolContext } from '@eratio/pi-effect'
+import { type PiExtensionError, type PiRegistrationContext, PiToolContext } from '@eratio/pi-effect'
 import { createTool, PiExtension } from '@eratio/pi-effect-codemode'
 import { Effect } from 'effect'
 import { OPENSRC_CODE_TYPES } from './src/core/code-mode.ts'
@@ -8,15 +8,13 @@ import { createOpensrcApi, type OpensrcApiService } from './src/effects/opensrc-
 import { resolveOpensrcConfig } from './src/effects/opensrc-cli.ts'
 import { createCallLayer } from './src/effects/runtime.ts'
 
-type OpenSrcWithRun = NonNullable<
-  Parameters<typeof createTool<PiToolContext | PiProcess, OpensrcFailure, OpensrcApiService>>[0]['withRun']
->
+type OpenSrcWithRun = NonNullable<Parameters<typeof createTool<never, OpensrcFailure, OpensrcApiService>>[0]['withRun']>
 
-const opensrcTool = createTool<PiToolContext | PiProcess, OpensrcFailure, OpensrcApiService>({
+const opensrcTool = createTool<never, OpensrcFailure, OpensrcApiService>({
   toolName: 'opensrc',
   label: 'OpenSrc',
   description:
-    'Fetch and inspect package and repository source. Batch dependent calls in one program. If you know a source spec and file path, call `fetch` then `read` directly; use `resolve` or `files` only to discover an unknown spec or path. Call `api.help("operation")` when you need a signature and parameter schema. Use `source.name` after `fetch`. Catch OpenSrc host failures as `OpensrcHostError` and read their typed value.',
+    'Fetch and inspect package and repository source. Batch dependent calls in one program. If you know a source spec and file path, call `fetch` then `read` directly; use `resolve` or `files` only to discover an unknown spec or path. Call `api.help("operation")` when you need a signature and parameter schema. Use `source.name` after `fetch`.',
   methods: opensrcMethods,
   typeDeclarations: OPENSRC_CODE_TYPES,
   examples: [
@@ -53,9 +51,7 @@ const opensrcTool = createTool<PiToolContext | PiProcess, OpensrcFailure, Opensr
 
 const opensrcPlugin = PiExtension.define({
   id: 'opensrc',
-  // PiEffect provides run services at execution, but the SDK registry type omits them.
-  effect: (registrations: PiRegistrationContext<never, PiExtensionError>) =>
-    opensrcTool.register(registrations.tools as unknown as Parameters<typeof opensrcTool.register>[0]),
+  effect: (registrations: PiRegistrationContext<never, PiExtensionError>) => opensrcTool.register(registrations.tools),
 })
 
 const opensrcExtension = PiExtension.install(opensrcPlugin)

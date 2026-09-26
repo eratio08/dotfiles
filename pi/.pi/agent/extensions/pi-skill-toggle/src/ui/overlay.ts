@@ -1,3 +1,4 @@
+import { keyHint } from '@earendil-works/pi-coding-agent'
 import { Key, matchesKey } from '@earendil-works/pi-tui'
 import type { PiHostError, PiTheme, PiTui, PiUiService, PiUiUnavailableError } from '@eratio08/pi-effect'
 import { Effect, Option } from 'effect'
@@ -8,6 +9,12 @@ import { filterSkills, modeLabel, toggleMode } from './view-model.ts'
 
 type SkillToggleTui = PiTui
 type SkillToggleTheme = PiTheme
+type SkillToggleKeybindings = {
+  matches(
+    data: string,
+    keybinding: 'tui.select.cancel' | 'tui.select.up' | 'tui.select.down' | 'tui.editor.deleteCharBackward',
+  ): boolean
+}
 
 function showSkillToggleUi(
   ui: PiUiService,
@@ -18,15 +25,18 @@ function showSkillToggleUi(
   never
 > {
   return ui
-    .custom<SkillToggleUiResult>((tui, theme, _keybindings, done) => new SkillToggleOverlay(tui, theme, skills, done), {
-      overlay: true,
-      overlayOptions: {
-        anchor: 'center',
-        width: '92%',
-        maxHeight: '88%',
-        minWidth: 86,
+    .custom<SkillToggleUiResult>(
+      (tui, theme, keybindings, done) => new SkillToggleOverlay(tui, theme, skills, keybindings, done),
+      {
+        overlay: true,
+        overlayOptions: {
+          anchor: 'center',
+          width: '92%',
+          maxHeight: '88%',
+          minWidth: 86,
+        },
       },
-    })
+    )
     .pipe(Effect.map((result) => Option.getOrElse(result, () => ({ action: 'cancel' as const, drafts: [] }))))
 }
 
@@ -39,13 +49,14 @@ class SkillToggleOverlay {
     private readonly tui: SkillToggleTui,
     private readonly theme: SkillToggleTheme,
     private readonly skills: SkillRecord[],
+    private readonly keybindings: SkillToggleKeybindings,
     private readonly done: (result: SkillToggleUiResult) => void,
   ) {
     for (const skill of skills) this.desired.set(skill.id, skill.mode)
   }
 
   handleInput(data: string): void {
-    if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl('c'))) {
+    if (this.keybindings.matches(data, 'tui.select.cancel')) {
       this.done({ action: 'cancel', drafts: this.getDrafts() })
       return
     }
@@ -55,12 +66,12 @@ class SkillToggleOverlay {
       return
     }
 
-    if (matchesKey(data, Key.up)) {
+    if (this.keybindings.matches(data, 'tui.select.up')) {
       this.moveSelection(-1)
       return
     }
 
-    if (matchesKey(data, Key.down)) {
+    if (this.keybindings.matches(data, 'tui.select.down')) {
       this.moveSelection(1)
       return
     }
@@ -74,7 +85,7 @@ class SkillToggleOverlay {
       return
     }
 
-    if (matchesKey(data, Key.backspace)) {
+    if (this.keybindings.matches(data, 'tui.editor.deleteCharBackward')) {
       if (this.search.length > 0) {
         this.search = Array.from(this.search).slice(0, -1).join('')
         this.selectedIndex = 0
@@ -114,10 +125,13 @@ class SkillToggleOverlay {
     const footer = [
       frameLine(
         this.theme,
-        this.theme.fg('dim', 'type search • ↑↓ move • space toggle • ctrl+s apply + reload'),
+        this.theme.fg(
+          'dim',
+          `type search • ${keyHint('tui.select.up', 'move up')} • ${keyHint('tui.select.down', 'move down')} • space toggle • ctrl+s apply + reload`,
+        ),
         innerWidth,
       ),
-      frameLine(this.theme, this.theme.fg('dim', 'esc cancel'), innerWidth),
+      frameLine(this.theme, this.theme.fg('dim', keyHint('tui.select.cancel', 'cancel')), innerWidth),
     ]
 
     return [
@@ -292,4 +306,4 @@ function visibleLength(input: string): number {
   return input.replace(ANSI_COLOR_RE, '').length
 }
 
-export { showSkillToggleUi }
+export { SkillToggleOverlay, showSkillToggleUi }

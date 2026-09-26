@@ -4,6 +4,7 @@ import { readFile, rm } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { initTheme } from '@earendil-works/pi-coding-agent'
 import type { ProgramFailure } from '@eratio/pi-codemode-core'
+import { PiToolContext as PiToolContextService } from '@eratio/pi-effect'
 import { installFakePlugin } from '@eratio/pi-effect/testing'
 import { Effect } from 'effect'
 import { Type } from 'typebox'
@@ -71,7 +72,7 @@ const createEchoTool = (
     },
   })
 
-const installTool = async (tool: RegisteredTool<never, never>) =>
+const installTool = async <Services, Failure>(tool: RegisteredTool<Services, Failure>) =>
   installFakePlugin(
     PiExtension.install(
       PiExtension.define<ProgramFailure>({
@@ -80,6 +81,37 @@ const installTool = async (tool: RegisteredTool<never, never>) =>
       }),
     ),
   )
+
+test('should register a tool with Pi services given a custom execution failure type', async () => {
+  //given
+  const tool = createTool<never, { readonly _tag: 'ToolFailure' }>({
+    toolName: 'pi-service-tool',
+    description: 'Run TypeScript with Pi services.',
+    timeoutMs: 10_000,
+    withRun: (run) =>
+      Effect.gen(function* () {
+        yield* PiToolContextService
+        return yield* run(undefined)
+      }),
+    methods: {
+      inspect: defineMethod({
+        description: 'Read the current tool context.',
+        signature: '(): Promise<string>',
+        execute: () =>
+          Effect.gen(function* () {
+            yield* PiToolContextService
+            return 'available'
+          }),
+      }),
+    },
+  })
+
+  //when
+  const extension = await installTool(tool)
+
+  //then
+  assert.ok(extension.tools.get('pi-service-tool'))
+})
 
 test('should pass the execution mode given a registered Pi tool', async () => {
   //given
@@ -510,7 +542,7 @@ test('should show the operation summary on one line given collapsed rendering', 
       outputLines: 1,
       totalBytes: 5,
       totalLines: 1,
-      operations: { echo: 2 },
+      operations: { echo: 2, uppercase: 1 },
     },
   } as never
 
@@ -521,7 +553,7 @@ test('should show the operation summary on one line given collapsed rendering', 
   assert.deepEqual(rendered.render(120), [])
   const callLines = call.render(120)
   assert.equal(callLines.length, 1)
-  assert.match(callLines[0] ?? '', /echo: 2/)
+  assert.match(callLines[0] ?? '', /echo: 2 · uppercase: 1/)
   assert.match(callLines[0] ?? '', /to expand/)
   assert.doesNotMatch(callLines.join('\n'), /export default|hello/)
 })

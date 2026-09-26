@@ -76,6 +76,10 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
     bold: (text) => text,
     strikethrough: (text) => text,
   }
+  const keybindings = {
+    matches: () => false,
+    getKeys: () => ['escape', 'ctrl+c'],
+  }
   const pi = {
     on(event: string, handler: EventHandler) {
       events.set(event, handler)
@@ -146,7 +150,7 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
       },
       async custom(factory: (tui: unknown, theme: Theme, keybindings: unknown, done: () => void) => unknown) {
         if (options.customError !== undefined) throw options.customError
-        customView = factory(undefined, theme, undefined, () => {}) as Renderable
+        customView = factory(undefined, theme, keybindings, () => {}) as Renderable
         return undefined
       },
     },

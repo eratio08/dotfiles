@@ -1,4 +1,4 @@
-import { matchesKey, truncateToWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui'
+import { truncateToWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui'
 import {
   createTool,
   defineMethod,
@@ -97,21 +97,28 @@ function isApprovedPlanSubmission(event: {
   return Result.isSuccess(decodeApprovedPlanSubmissionDetails(event.details))
 }
 
+type TodoCancelKeybindings = {
+  matches(data: string, keybinding: 'tui.select.cancel'): boolean
+  getKeys(keybinding: 'tui.select.cancel'): string[]
+}
+
 class TodoViewer {
   private cachedWidth?: number
   private cachedLines?: string[]
   private readonly todos: readonly Todo[]
   private readonly theme: PiTheme
+  private readonly keybindings: TodoCancelKeybindings
   private readonly onClose: () => void
 
-  constructor(todos: readonly Todo[], theme: PiTheme, onClose: () => void) {
+  constructor(todos: readonly Todo[], theme: PiTheme, keybindings: TodoCancelKeybindings, onClose: () => void) {
     this.todos = todos
     this.theme = theme
+    this.keybindings = keybindings
     this.onClose = onClose
   }
 
   handleInput(data: string): void {
-    if (matchesKey(data, 'escape') || matchesKey(data, 'ctrl+c')) this.onClose()
+    if (this.keybindings.matches(data, 'tui.select.cancel')) this.onClose()
   }
 
   render(width: number): string[] {
@@ -131,7 +138,11 @@ class TodoViewer {
       }
     }
 
-    lines.push('', truncateToWidth(`  ${this.theme.fg('dim', 'Press Escape to close')}`, width), '')
+    const cancelKeys = this.keybindings.getKeys('tui.select.cancel')
+    if (cancelKeys.length > 0) {
+      const closeHint = `Press ${cancelKeys.join(' or ')} to close`
+      lines.push('', truncateToWidth(`  ${this.theme.fg('dim', closeHint)}`, width), '')
+    }
     this.cachedWidth = width
     this.cachedLines = lines
     return lines
@@ -258,7 +269,7 @@ const todoUiLayer: Layer.Layer<TodoUi, never, never> = Layer.succeed(
       Effect.gen(function* () {
         const ui = yield* PiUi
         yield* ui
-          .custom<void>((_tui, theme, _keybindings, done) => new TodoViewer(todos, theme, () => done()))
+          .custom<void>((_tui, theme, keybindings, done) => new TodoViewer(todos, theme, keybindings, () => done()))
           .pipe(
             Effect.mapError((cause) => todoHostError('show', cause)),
             Effect.asVoid,
@@ -436,4 +447,4 @@ const todoPlugin = PiExtension.define<TodoServices, TodoToolFailure>({
 
 const todoExtension = PiExtension.install(todoPlugin)
 
-export { todoExtension as default }
+export { TodoViewer, todoExtension as default }

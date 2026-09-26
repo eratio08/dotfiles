@@ -924,8 +924,13 @@ async function installPiRuntime<Services, Failure>(
         ) => api.registerFlag(name, definition),
       },
       tools: {
-        register: <Params extends TSchema, Details>(
-          definition: EffectToolDefinition<Params, RegistrationServices | PiServices, Failure, Details>,
+        register: <
+          Params extends TSchema,
+          ToolServices extends RegistrationServices | PiServices,
+          ToolFailure,
+          Details,
+        >(
+          definition: EffectToolDefinition<Params, ToolServices, ToolFailure, Details>,
         ) => api.registerTool(toPiTool(definition, run)),
       },
       renderers: {
@@ -977,9 +982,15 @@ function installPiPlugin<Services, Failure>(plugin: PiPlugin<Services, Failure>)
   }
 }
 
-function toPiTool<Params extends TSchema, Services, Failure, Details>(
-  definition: EffectToolDefinition<Params, Services | PiServices, Failure, Details>,
-  run: Invoke<Services | PiServices>,
+function toPiTool<
+  Params extends TSchema,
+  RuntimeServices,
+  ToolServices extends RuntimeServices | PiServices,
+  Failure,
+  Details,
+>(
+  definition: EffectToolDefinition<Params, ToolServices, Failure, Details>,
+  run: Invoke<RuntimeServices>,
 ): ToolDefinition<Params, Details> {
   return {
     ...definition,
