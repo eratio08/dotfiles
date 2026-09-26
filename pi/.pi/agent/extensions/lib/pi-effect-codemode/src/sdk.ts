@@ -33,6 +33,15 @@ import { Effect } from 'effect'
 import { type Static, type TSchema, Type } from 'typebox'
 import { Check } from 'typebox/value'
 
+/**
+ * Defines one method that a submitted TypeScript program can call.
+ *
+ * @typeParam Params - The TypeBox schema for the method arguments, or `undefined` for no arguments.
+ * @typeParam Services - Additional Effect services required by the method handler.
+ * @typeParam Failure - The typed failure returned by the method handler.
+ * @typeParam RunContext - The context shared by method calls during one program run.
+ * @typeParam OptionalParameters - Whether a schema-backed argument can be omitted.
+ */
 type MethodDefinition<
   Params extends TSchema | undefined,
   Services,
@@ -40,10 +49,25 @@ type MethodDefinition<
   RunContext = void,
   OptionalParameters extends boolean = false,
 > = {
+  /** Shows this text in the overall operation list and in `api.help("method")`. */
   readonly description: string
+  /** Adds this call signature to the generated API type and the operation-help heading. */
   readonly signature: string
+  /** Validates arguments before handler execution and adds the schema to operation help. Omit it for no arguments. */
   readonly parameters?: Params
+  /**
+   * Allows a schema-backed single argument to be omitted or passed as `undefined`.
+   * The handler receives `undefined` in either case.
+   */
   readonly optionalParameters?: Params extends TSchema ? OptionalParameters : never
+  /**
+   * Runs after parameter validation and returns the method's Effect.
+   *
+   * @param params - Validated arguments, or `undefined` for no arguments or an omitted optional argument.
+   * @param signal - Abort signal for the active tool call.
+   * @param runContext - Context shared by method calls in the submitted program.
+   * @returns Effect that returns the method result and declares its failure and service requirements.
+   */
   readonly execute: (
     params: Params extends TSchema
       ? OptionalParameters extends true
@@ -77,20 +101,60 @@ type ToolOutputDetails = {
   readonly operations?: Readonly<Record<string, number>>
 }
 
+/**
+ * Configures a Pi tool that runs submitted TypeScript against Effect-backed methods.
+ *
+ * @typeParam Services - Additional Effect services required by method handlers and `withRun`.
+ * @typeParam Failure - Typed failures returned by method handlers and `withRun`.
+ * @typeParam RunContext - Context created by `withRun` and passed to each method handler. Defaults to `void`.
+ *
+ * @remarks
+ * At least one method is required, and `help` is reserved for the generated API reference.
+ * A non-`void` `RunContext` requires `withRun`.
+ */
 type ToolDefinition<Services, Failure, RunContext = void> = {
+  /**
+   * Names the registered Pi tool and appears in help headings and generated API/program types.
+   * It also prefixes evaluation file names.
+   */
   readonly toolName: string
+  /** Sets the label in Pi's tool call and result views. Defaults to `toolName`. */
   readonly label?: string
+  /** Sets the Pi tool description and the text in the overall `api.help()` response. */
   readonly description: string
+  /** Sets the prompt hint for Pi. The default names the configured `toolName` API. */
   readonly promptSnippet?: string
+  /** Replaces the default instructions Pi shows for calls to this tool. */
   readonly promptGuidelines?: readonly string[]
+  /** Defines the operations exposed in the generated API, listed in help, and dispatched to handlers. */
   readonly methods: Readonly<Record<string, MethodInput<Services, Failure, RunContext>>>
+  /** Adds declarations to the generated program API and includes them in operation-specific help. */
   readonly typeDeclarations?: string
+  /**
+   * Lists code examples in an Examples section of the overall `api.help()` response.
+   * These examples do not appear in `api.help("method")` responses.
+   */
   readonly examples?: readonly string[]
+  /** Sets the deadline for each submitted-program evaluation, in milliseconds. */
   readonly timeoutMs: number
+  /**
+   * Sets output byte and line limits; unspecified values use Pi's defaults.
+   * Truncated output is saved to a temporary file.
+   */
   readonly outputLimits?: Partial<OutputLimits>
+  /** Selects whether Pi schedules this tool sequentially or in parallel. */
   readonly executionMode?: ToolExecutionMode
+  /** Selects how the code runner evaluates submitted code. The default uses a worker; `in-process` uses the host process. */
   readonly execution?: ProgramRunOptions['execution']
+  /** Lets worker execution preserve custom method failures across worker transport. */
   readonly errorCodec?: ProgramHostErrorCodec<ProgramFailure | Failure>
+  /**
+   * Wraps the full program run, including output formatting, and supplies its shared context.
+   *
+   * @param run - Runs the program with a context that is passed to every method handler.
+   * @param signal - Active tool cancellation signal, or `undefined` when it is unavailable.
+   * @returns Effect for the wrapped program run.
+   */
   readonly withRun?: (
     run: (
       runContext: RunContext,
@@ -99,8 +163,21 @@ type ToolDefinition<Services, Failure, RunContext = void> = {
   ) => Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services | PiServices>
 }
 
+/**
+ * A tool created by `createTool`, ready to register with a Pi tool registry.
+ *
+ * @typeParam Services - Additional Effect services required by the tool's method handlers.
+ * @typeParam _Failure - The typed failure associated with the tool's method handlers.
+ */
 type RegisteredTool<Services, _Failure> = {
+  /** Name Pi uses to identify the registered tool. */
   readonly toolName: string
+  /**
+   * Registers the tool with a Pi registry.
+   *
+   * @param registry - Registry that receives the tool.
+   * @returns Effect that completes registration or fails with `PiRegistrationError`.
+   */
   readonly register: (registry: PiToolRegistry<Services>) => Effect.Effect<void, PiRegistrationError>
 }
 
@@ -235,6 +312,20 @@ function createToolRenderers<Params extends TSchema>(
   }
 }
 
+/**
+ * Returns a method definition unchanged and preserves its inferred types.
+ *
+ * @typeParam Params - The TypeBox schema for the method arguments, or `undefined` for no arguments.
+ * @typeParam Services - Additional Effect services required by the method handler.
+ * @typeParam Failure - The typed failure returned by the method handler.
+ * @typeParam RunContext - The context passed to the method handler during each program run.
+ * @param method - The method definition to preserve.
+ * @returns The same method definition.
+ *
+ * @remarks
+ * This helper performs no runtime validation.
+ * Set `optionalParameters` to `true` when a schema-backed single argument is optional.
+ */
 function defineMethod<Params extends TSchema, Services = never, Failure = never, RunContext = void>(
   method: MethodDefinition<Params, Services, Failure, RunContext, true> & { readonly optionalParameters: true },
 ): MethodDefinition<Params, Services, Failure, RunContext, true>
@@ -258,6 +349,21 @@ function defineMethod<
   return method
 }
 
+/**
+ * Creates a Pi tool that runs submitted TypeScript against the configured methods.
+ *
+ * @typeParam Services - Additional Effect services required by method handlers and `withRun`.
+ * @typeParam Failure - Typed failures returned by method handlers and `withRun`.
+ * @typeParam RunContext - Context shared by method calls in one program run. Defaults to `void`.
+ * @param options - Tool configuration that controls generated help, validation, execution, and metadata.
+ * @returns A registration handle. Pi registers the tool when its `register` effect runs.
+ * @throws TypeError - If `methods` is empty or includes the reserved `help` name.
+ *
+ * @remarks
+ * A non-`void` `RunContext` requires `options.withRun`.
+ * Pi runtime services are available to handlers and `withRun` without adding them to `Services`.
+ * The SDK validates schema-backed arguments before it calls a method handler.
+ */
 function createTool<Services = never, Failure = never>(
   options: ToolDefinition<Services, Failure>,
 ): RegisteredTool<Services, Failure>
