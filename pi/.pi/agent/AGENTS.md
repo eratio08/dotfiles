@@ -1,32 +1,27 @@
 ## Ripwire
-* Call these exact MCP tools before blind `grep` or whole-file reads.
-* Orient on a task: call `ripwire_for` with `path` and `task`.
-  Paste symbol and file names from the issue verbatim.
-  Named mentions get anchored.
-* Handle one task: call `ripwire_explore` with `path`, `task`, and optional `budget_tokens`.
-  Before parallel agents, set `partition=N`, then read each returned `lanes[].execution`.
-* Handle a stack trace or build error: call `ripwire_from_trace` with the raw `trace` text.
-  If the trace is in a file, use the default Pi `read` tool first.
-  Paste the error; do not paraphrase it into a query.
-* Find who calls X: call `ripwire_find_referencing_symbols` with `symbol`.
-  To check whether X is safe to change, call `ripwire_impact` for the transitive blast radius and `ripwire_uses` for every read, write, and import site.
-* Apply a whole-symbol edit without a whole-file read: call `ripwire_replace_symbol_body` with `path`, `symbol`, and complete `new_body`.
-  For insertion, call `ripwire_insert_before_symbol` or `ripwire_insert_after_symbol`.
-  Use the returned receipt; do not re-read the whole file.
-  For a contract check without an edit, call `ripwire_edit_check`.
-* Before writing a new function, class, or helper, call `ripwire_exemplar` with the task or `kind`.
-  Reuse the repository's best existing pattern.
-* Before calling work done, call `ripwire_quality_delta`.
-  Then call `ripwire_situational_awareness` to get `tests_to_run`, and run those tests with the default Pi `bash` tool.
-  No `ripwire_test_gate` MCP tool is exposed.
-* Treat `counts_floor` as a floor, not a total.
-  A zero means “none found”, never “none exists”.
-* Do not open a file that you have not located first.
-  Use `ripwire_for` or `ripwire_grep`, then use the default Pi `read` tool on the paths they return.
-* Do not read a whole file to understand one symbol.
-  Call `ripwire_find_symbol`, then call `ripwire_fetch_body` with its returned handle.
-* Do not fan reads across several files to learn one thing.
-  Call `ripwire_explore` once for the task.
+Reach for it BEFORE blind grep + whole-file reads.
+- Orient on a task: `mcp({ tool: "ripwire_for", args: '{"path":"<dir>","task":"<task in words>"}' })` — ranked, quality-annotated signatures.
+  Paste symbol/file names from the issue verbatim; named mentions get anchored.
+- One task: `mcp({ tool: "ripwire_explore", args: '{"path":"<dir>","task":"<task>","legend":"compact"}' })`; before parallel agents, set `"partition":N` in args (2–16), then read `lanes[].execution`.
+- Have a stack trace / build error: `mcp({ tool: "ripwire_from_trace", args: '{"path":"<dir>","trace":"<raw trace text>","legend":"compact"}' })` — paste the error in trace, do not paraphrase it into a query.
+  If the trace is in a file, use Pi `read` first and pass the file text.
+- Who calls X: `mcp({ tool: "ripwire_find_referencing_symbols", args: '{"path":"<dir>","symbol":"SYM"}' })` (direct callers).
+  "Is it safe to change X?" needs the full blast radius: `mcp({ tool: "ripwire_impact", args: '{"path":"<dir>","symbol":"SYM","legend":"compact"}' })` (transitive) plus `mcp({ tool: "ripwire_uses", args: '{"path":"<dir>","symbol":"SYM","legend":"compact"}' })` (statically resolvable read/write/import sites).
+- Apply a whole-symbol edit without a whole-file Read: `mcp({ tool: "ripwire_replace_symbol_body", args: '{"path":"<dir>","symbol":"SYM","new_body":"<complete definition>"}' })` (or use `ripwire_insert_before_symbol` / `ripwire_insert_after_symbol` with symbol and text).
+  The receipt carries the `post-edit` span, `edit_check`, and `tests_to_run` by default.
+  Use the receipt, do not re-read the file.
+  `mcp({ tool: "ripwire_edit_check", args: '{"path":"<dir>","symbol":"SYM","legend":"compact"}' })` is for a contract question without an edit in hand.
+- Before writing a new fn/class/helper: `mcp({ tool: "ripwire_exemplar", args: '{"path":"<dir>","task":"<what you are writing>","legend":"compact"}' })` — pass kind instead of task if you know the kind.
+  Duplicates are born on small tasks.
+- Before calling work done: `mcp({ tool: "ripwire_quality_delta", args: '{"path":"<dir>"}' })` (what you made worse), then `mcp({ tool: "ripwire_situational_awareness", args: '{"path":"<dir>"}' })` for `tests_to_run`.
+  Run the returned test commands with Pi `bash`.
+- Trust notes: counts marked `counts_floor` are floors, not totals; a zero means "none found", never "none exists".
+- For tools that accept legend, use "compact" for terse definitions of the attributes present.
+  Use "full" when a definition's reasoning is needed: a term you do not recognize, a floor or cap you need explained, or a map a human will read.
+
+ - Do NOT open a file you have not located first: use `ripwire_for` or `ripwire_grep`, then read what it names.
+ - Do NOT read a whole file to understand one symbol: call `ripwire_find_symbol`, then `ripwire_fetch_body` with its returned handle for the body and callee signatures.
+ - Do NOT fan reads across several files to learn one thing: call `ripwire_explore` with path, task, and legend: "compact" once.
 
 ## General
 - Use the `ast-grep` tool for structural code search and transformation.
