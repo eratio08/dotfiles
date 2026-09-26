@@ -30,7 +30,7 @@ type CodeModeSyncInvoker = (method: string, args: readonly unknown[]) => unknown
  */
 type CodeModeAsyncInvoker = (method: string, args: readonly unknown[]) => Promise<unknown>
 
-interface CodeModeVmModule {
+type CodeModeVmModule = {
   exports: {
     default?: unknown
   }

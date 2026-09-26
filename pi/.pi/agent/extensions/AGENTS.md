@@ -43,41 +43,13 @@ Use this configuration in every extension:
 ```json
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 2,
-    "lineWidth": 120
-  },
-  "javascript": {
-    "formatter": {
-      "quoteStyle": "single",
-      "semicolons": "asNeeded",
-      "trailingCommas": "all"
-    }
-  },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "preset": "recommended",
-      "nursery": {
-        "useExplicitType": "error"
-      }
-    }
-  },
-  "assist": {
-    "actions": {
-      "source": {
-        "organizeImports": "on"
-      }
-    }
-  }
+  "extends": ["../biome.json"]
 }
 ```
 
-Add `"check": "biome check ."` to each extension's `scripts`.
-Keep an existing type-check script when you add the Biome check script.
+Add `"check": "biome check ."` and `"check:fix": "biome check --write ."` to each extension's `scripts`.
 Add `@biomejs/biome` to each extension's `devDependencies`.
+You must never change biome configurations without being explicitly asked to.
 Use Bun to install dependencies and update `bun.lock`.
 Run `bun run check` in every extension before you finish.
 Fix all Biome formatter and linter errors before you finish.

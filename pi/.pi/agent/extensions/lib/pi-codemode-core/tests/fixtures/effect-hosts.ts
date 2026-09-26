@@ -2,14 +2,14 @@ import { Effect } from 'effect'
 import type { ProgramDefinition, ProgramFailure, ProgramHost } from '../../src/index.ts'
 import { createProgramFailure, isProgramFailure } from '../../src/index.ts'
 
-interface CodeModeFixture {
+type CodeModeFixture = {
   readonly definition: ProgramDefinition
   readonly host: ProgramHost<never, ProgramFailure>
   readonly source: string
   readonly signals: AbortSignal[]
 }
 
-interface OpenSrcFixture {
+type OpenSrcFixture = {
   readonly definition: ProgramDefinition
   readonly host: ProgramHost<never, ProgramFailure>
   readonly source: string
@@ -17,14 +17,14 @@ interface OpenSrcFixture {
   readonly maxConcurrentMutations: () => number
 }
 
-interface TodoFixture {
+type TodoFixture = {
   readonly definition: ProgramDefinition
   readonly host: ProgramHost<never, ProgramFailure>
   readonly source: string
   readonly transaction: TodoTransaction
 }
 
-interface TodoTransaction {
+type TodoTransaction = {
   readonly items: string[]
   readonly committed: () => boolean
   readonly rolledBack: () => boolean

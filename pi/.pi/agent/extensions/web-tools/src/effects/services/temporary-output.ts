@@ -17,7 +17,7 @@ class WebToolsFilesystemError extends Schema.TaggedError<WebToolsFilesystemError
   cause: Schema.optional(WebToolsFilesystemCause),
 }) {}
 
-interface WebToolsTemporaryOutputService {
+type WebToolsTemporaryOutputService = {
   readonly writeOutput: (prefix: string, content: string) => Effect.Effect<string, WebToolsFilesystemError>
 }
 
@@ -25,11 +25,7 @@ class WebToolsTemporaryOutput extends Context.Service<WebToolsTemporaryOutput, W
   'web-tools/WebToolsTemporaryOutput',
 ) {}
 
-interface TemporaryOutputWrite {
-  readonly prefix: string
-  readonly content: string
-  readonly path: string
-}
+type TemporaryOutputWrite = { readonly prefix: string; readonly content: string; readonly path: string }
 
 function temporaryOutputError(operation: string, path: string, cause: unknown): WebToolsFilesystemError {
   const causeDetails: WebToolsFilesystemCause | undefined = Predicate.isError(cause)

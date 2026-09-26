@@ -13,13 +13,13 @@ const SEARCH_TYPE_VALUES = ['auto', 'fast', 'deep'] as const
 
 type WebSearchProvider = (typeof PROVIDER_VALUES)[number]
 
-interface WebSearchEnvironment {
+type WebSearchEnvironment = {
   readonly EXA_API_KEY?: string
   readonly PARALLEL_API_KEY?: string
   readonly PI_WEBSEARCH_PROVIDER?: string
 }
 
-interface WebSearchDetails {
+type WebSearchDetails = {
   provider: WebSearchProvider
   query: string
   lineCount: number
@@ -28,7 +28,7 @@ interface WebSearchDetails {
   fullOutputPath?: string
 }
 
-interface WebSearchInput {
+type WebSearchInput = {
   query: string
   numResults?: number
   livecrawl?: (typeof LIVECRAWL_VALUES)[number]
@@ -36,10 +36,7 @@ interface WebSearchInput {
   contextMaxCharacters?: number
 }
 
-interface WebSearchResult {
-  content: [{ type: 'text'; text: string }]
-  details: WebSearchDetails
-}
+type WebSearchResult = { content: [{ type: 'text'; text: string }]; details: WebSearchDetails }
 
 function exaUrl(apiKey: string | undefined): string {
   if (!apiKey) return EXA_URL

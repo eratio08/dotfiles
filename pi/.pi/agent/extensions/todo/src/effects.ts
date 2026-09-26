@@ -62,6 +62,11 @@ type TodoRunContext = {
 type TodoRunServices = TodoEffectsRequirements | TodoEffects
 
 type TodoToolRun = NonNullable<ToolDefinition<TodoRunServices, TodoUiError, TodoRunContext>['withRun']>
+type TodoRunValue =
+  ReturnType<Parameters<TodoToolRun>[0]> extends Effect.Effect<infer Value, infer _Failure, infer _Services>
+    ? Value
+    : never
+
 type TodoRunFailure =
   ReturnType<Parameters<TodoToolRun>[0]> extends Effect.Effect<unknown, infer Failure, infer _Services>
     ? Failure
@@ -126,8 +131,8 @@ function transactTodo<A, R>(
 
     const before = yield* store.snapshot
     const outcome = yield* Effect.match(store.transact(run, signal), {
-      onFailure: (error) => ({ error }),
-      onSuccess: (result) => ({ result }),
+      onFailure: (error: TodoUpdateError) => ({ error }),
+      onSuccess: (result: TodoTransactionResult<A>) => ({ result }),
     })
     if ('error' in outcome) {
       return yield* Effect.fail(
@@ -146,13 +151,13 @@ function transactTodo<A, R>(
           session.appendEntry(TODO_STATE_ENTRY, { todos: cloneTodos(outcome.result.todos) }),
         ),
         {
-          onFailure: (error) => ({ error }),
+          onFailure: (error: TodoUiError) => ({ error }),
           onSuccess: () => ({ success: true as const }),
         },
       )
       if ('error' in persisted) {
         const rollback = yield* Effect.match(store.replace(before), {
-          onFailure: (error) => ({ error }),
+          onFailure: (error: TodoUpdateError) => ({ error }),
           onSuccess: () => ({ success: true as const }),
         })
         if ('error' in rollback) {
@@ -187,7 +192,7 @@ const suspendTracking = Effect.fnUntraced(function* (): Effect.fn.Return<void, T
         tools.replaceActive(activeTools.filter((toolName) => toolName !== TODO_TOOL_NAME)),
       ),
       {
-        onFailure: (error) => ({ error }),
+        onFailure: (error: TodoUiError) => ({ error }),
         onSuccess: () => ({ success: true as const }),
       },
     )
@@ -212,7 +217,7 @@ const resumeTracking = Effect.fnUntraced(function* (): Effect.fn.Return<void, To
       const updated = yield* Effect.match(
         mapTodoEffect('set-active-tools', tools.replaceActive([...activeTools, TODO_TOOL_NAME])),
         {
-          onFailure: (error) => ({ error }),
+          onFailure: (error: TodoUiError) => ({ error }),
           onSuccess: () => ({ success: true as const }),
         },
       )
@@ -267,7 +272,7 @@ const requestPlannotatorPhase = Effect.fn('requestPlannotatorPhase')(function* (
     requestId: randomUUID(),
     action: 'plan-mode',
     payload: { mode: 'status' },
-    respond: (response) => {
+    respond: (response: PlannotatorStatusResponse) => {
       if (!active) return
       if (responseResolver === undefined) {
         earlyResponse = response
@@ -278,7 +283,7 @@ const requestPlannotatorPhase = Effect.fn('requestPlannotatorPhase')(function* (
     },
   }
   const responseEffect = Effect.tryPromise<unknown | undefined, TodoUiError>({
-    try: (signal) =>
+    try: (signal: AbortSignal) =>
       new Promise<unknown | undefined>((resolve) => {
         let settled = false
         let timeout: ReturnType<typeof setTimeout> | undefined
@@ -300,7 +305,7 @@ const requestPlannotatorPhase = Effect.fn('requestPlannotatorPhase')(function* (
         if (hasEarlyResponse) finish(earlyResponse)
         else timeout = setTimeout(() => finish(undefined), PLANNOTATOR_REQUEST_TIMEOUT_MS)
       }),
-    catch: (cause) => todoHostError('await-plannotator-response', cause),
+    catch: (cause: unknown) => todoHostError('await-plannotator-response', cause),
   })
   const response = yield* pi.events.emit(PLANNOTATOR_REQUEST_CHANNEL, request).pipe(
     Effect.mapError((cause) => todoHostError('emit-plannotator-request', cause)),
@@ -345,8 +350,8 @@ const syncFromSession = Effect.fn('syncFromSession')(function* (
   let todos = restored
   if (carried.length > 0) {
     const replacement = yield* Effect.match(store.replace(carried), {
-      onFailure: (error) => ({ error }),
-      onSuccess: (value) => ({ value }),
+      onFailure: (error: TodoUpdateError) => ({ error }),
+      onSuccess: (value: readonly Todo[]) => ({ value }),
     })
     if ('error' in replacement) {
       return yield* Effect.fail(
@@ -364,13 +369,13 @@ const syncFromSession = Effect.fn('syncFromSession')(function* (
     const persisted = yield* Effect.match(
       mapTodoEffect('append-entry', session.appendEntry(TODO_STATE_ENTRY, { todos: cloneTodos(carried) })),
       {
-        onFailure: (error) => ({ error }),
+        onFailure: (error: TodoUiError) => ({ error }),
         onSuccess: () => ({ success: true as const }),
       },
     )
     if ('error' in persisted) {
       const rollback = yield* Effect.match(store.replace(restored), {
-        onFailure: (error) => ({ error }),
+        onFailure: (error: TodoUpdateError) => ({ error }),
         onSuccess: () => ({ success: true as const }),
       })
       if ('error' in rollback) {
@@ -387,7 +392,7 @@ const syncFromSession = Effect.fn('syncFromSession')(function* (
   yield* scheduleSessionPhaseSync()
 })
 
-const withTodoRun: TodoToolRun = (run, signal) =>
+const withTodoRun: TodoToolRun = (run: Parameters<TodoToolRun>[0], signal: Parameters<TodoToolRun>[1]) =>
   Effect.gen(function* () {
     let runFailure: TodoRunFailure | undefined
     const outcome = yield* Effect.match(
@@ -405,8 +410,8 @@ const withTodoRun: TodoToolRun = (run, signal) =>
         'execute',
       ),
       {
-        onFailure: (error) => ({ error }),
-        onSuccess: (result) => ({ result }),
+        onFailure: (error: TodoUiError) => ({ error }),
+        onSuccess: (result: TodoTransactionResult<TodoRunValue>) => ({ result }),
       },
     )
     if ('error' in outcome) {
@@ -435,7 +440,7 @@ const clearTodos = Effect.fn('clearTodos')(function* (
       const api = createTodoApi({ draft, signal: transactionSignal })
       return Effect.tryPromise({
         try: () => api.clear(),
-        catch: (cause) =>
+        catch: (cause: unknown) =>
           cause instanceof TodoUpdateError
             ? cause
             : new TodoUpdateError({ message: cause instanceof Error ? cause.message : String(cause), cause }),

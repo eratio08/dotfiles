@@ -4,7 +4,7 @@ import { Context, Effect, Layer } from 'effect'
 import type { OpensrcFailure, PiExecutionRequest, PiExecutionResult } from '../core/model.ts'
 import { createOpensrcFailure } from '../core/model.ts'
 
-interface PiHostService {
+type PiHostService = {
   readonly exec: (request: PiExecutionRequest) => Effect.Effect<PiExecutionResult, OpensrcFailure>
 }
 

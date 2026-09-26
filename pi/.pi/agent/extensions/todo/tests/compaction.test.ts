@@ -4,6 +4,7 @@ import { visibleWidth } from '@earendil-works/pi-tui'
 import { PiToolError } from '@eratio/pi-effect-codemode'
 import todoExtension from '../index.ts'
 import { TodoUiError } from '../src/effects.ts'
+import type { Todo } from '../src/model.ts'
 import { extractLatestTodoSnapshot, TODO_STATE_ENTRY } from '../src/state.ts'
 
 type EventHandler = (event: unknown, ctx: unknown) => Promise<unknown> | unknown
@@ -53,7 +54,27 @@ type HarnessOptions = {
   toolsExpanded?: boolean
 }
 
-function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = {}) {
+type Harness = {
+  ready: Promise<unknown>
+  ctx: Record<string, unknown>
+  events: Map<string, EventHandler>
+  sentMessages: SentMessage[]
+  activeTools: string[]
+  widgets: Map<string, string[] | undefined>
+  notifications: string[]
+  notificationLevels: Array<string | undefined>
+  customView: () => Renderable | undefined
+  appendedEntries: unknown[]
+  registeredToolNames: string[]
+  theme: Theme
+  readonly registeredTool: RegisteredTool | undefined
+  registeredCommand(name: string): RegisteredCommand | undefined
+  setToolsExpanded(expanded: boolean): void
+  setPhase(next: Phase | undefined): void
+  replaceBranch(next: readonly unknown[]): void
+}
+
+function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = {}): Harness {
   const events = new Map<string, EventHandler>()
   const sentMessages: SentMessage[] = []
   const activeTools = ['read', 'todo', 'write']
@@ -72,23 +93,23 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
     if (options.failure?.operation === operation) throw options.failure.error
   }
   const theme: Theme = {
-    fg: (_color, text) => text,
-    bold: (text) => text,
-    strikethrough: (text) => text,
+    fg: (_color: string, text: string): string => text,
+    bold: (text: string): string => text,
+    strikethrough: (text: string): string => text,
   }
   const keybindings = {
-    matches: () => false,
-    getKeys: () => ['escape', 'ctrl+c'],
+    matches: (): boolean => false,
+    getKeys: (): string[] => ['escape', 'ctrl+c'],
   }
   const pi = {
-    on(event: string, handler: EventHandler) {
+    on(event: string, handler: EventHandler): void {
       events.set(event, handler)
     },
-    registerTool(tool: RegisteredTool) {
+    registerTool(tool: RegisteredTool): void {
       if (tool.name) registeredToolNames.push(tool.name)
       registeredTool = tool
     },
-    appendEntry(customType: string, data: unknown) {
+    appendEntry(customType: string, data: unknown): void {
       fail('appendEntry')
       const entry = {
         type: 'custom',
@@ -101,30 +122,30 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
       sessionEntries.push(entry)
       appendedEntries.push(entry)
     },
-    registerCommand(name: string, command: RegisteredCommand) {
+    registerCommand(name: string, command: RegisteredCommand): void {
       registeredCommands.set(name, command)
     },
-    sendMessage(message: SentMessage['message'], options: SentMessage['options']) {
+    sendMessage(message: SentMessage['message'], options: SentMessage['options']): void {
       fail('sendMessage')
       sentMessages.push({ message, options })
     },
-    getActiveTools() {
+    getActiveTools(): string[] {
       fail('getActiveTools')
       return [...activeTools]
     },
-    setActiveTools(next: string[]) {
+    setActiveTools(next: string[]): void {
       fail('setActiveTools')
       activeTools.splice(0, activeTools.length, ...next)
       options.onSetActiveTools?.()
     },
     events: {
-      emit(channel: string, request: { respond: (response: unknown) => void }) {
+      emit(channel: string, request: { respond: (response: unknown) => void }): void {
         fail('emit')
         if (channel !== 'plannotator:request') return
         const response = phaseResponses.shift()
         const responsePhase = response?.phase ?? phase
         if (!responsePhase) return
-        const respond = () => request.respond({ status: 'handled', result: { phase: responsePhase } })
+        const respond = (): void => request.respond({ status: 'handled', result: { phase: responsePhase } })
         if (response?.delayMs === undefined) respond()
         else setTimeout(respond, response.delayMs)
       },
@@ -136,45 +157,47 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
     mode: 'tui',
     ui: {
       theme,
-      setWidget(key: string, content: string[] | undefined) {
+      setWidget(key: string, content: string[] | undefined): void {
         widgets.set(key, content)
       },
-      notify(message: string, level?: string) {
+      notify(message: string, level?: string): void {
         fail('notify')
         notifications.push(message)
         notificationLevels.push(level)
       },
-      getToolsExpanded() {
+      getToolsExpanded(): boolean {
         fail('getToolsExpanded')
         return options.toolsExpanded ?? false
       },
-      async custom(factory: (tui: unknown, theme: Theme, keybindings: unknown, done: () => void) => unknown) {
+      async custom(
+        factory: (tui: unknown, theme: Theme, keybindings: unknown, done: () => void) => unknown,
+      ): Promise<undefined> {
         if (options.customError !== undefined) throw options.customError
         customView = factory(undefined, theme, keybindings, () => {}) as Renderable
         return undefined
       },
     },
-    isIdle: () => {
+    isIdle: (): boolean => {
       fail('isIdle')
       return idle
     },
     sessionManager: {
-      getCwd: () => '/tmp',
-      getSessionId: () => 'test-session',
-      getSessionFile: () => undefined,
-      getSessionDir: () => '/tmp',
-      getLeafId: () => null,
-      getLeafEntry: () => undefined,
-      getEntries: () => sessionEntries,
-      getTree: () => [],
-      getEntry: () => undefined,
-      getBranch: () => {
+      getCwd: (): string => '/tmp',
+      getSessionId: (): string => 'test-session',
+      getSessionFile: (): undefined => undefined,
+      getSessionDir: (): string => '/tmp',
+      getLeafId: (): null => null,
+      getLeafEntry: (): undefined => undefined,
+      getEntries: (): unknown[] => sessionEntries,
+      getTree: (): unknown[] => [],
+      getEntry: (): undefined => undefined,
+      getBranch: (): unknown[] => {
         fail('getBranch')
         return sessionEntries
       },
-      buildContextEntries: () => [],
-      getLabel: () => undefined,
-      getSessionName: () => undefined,
+      buildContextEntries: (): unknown[] => [],
+      getLabel: (): undefined => undefined,
+      getSessionName: (): undefined => undefined,
     },
     signal: undefined,
   }
@@ -190,23 +213,23 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
     widgets,
     notifications,
     notificationLevels,
-    customView: () => customView,
+    customView: (): Renderable | undefined => customView,
     appendedEntries,
     registeredToolNames,
     theme,
-    get registeredTool() {
+    get registeredTool(): RegisteredTool | undefined {
       return registeredTool
     },
-    registeredCommand(name: string) {
+    registeredCommand(name: string): RegisteredCommand | undefined {
       return registeredCommands.get(name)
     },
     setToolsExpanded(expanded: boolean): void {
       options.toolsExpanded = expanded
     },
-    setPhase(next: 'idle' | 'planning' | 'executing' | undefined) {
+    setPhase(next: Phase | undefined): void {
       phase = next
     },
-    replaceBranch(next: readonly unknown[]) {
+    replaceBranch(next: readonly unknown[]): void {
       sessionEntries.splice(0, sessionEntries.length, ...next)
     },
   }
@@ -214,7 +237,11 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
 
 const firstId = '018f0000-0000-7000-8000-000000000001'
 const secondId = '018f0000-0001-7000-8000-000000000002'
-const branchWithTodos = [
+const branchWithTodos: {
+  type: 'custom'
+  customType: typeof TODO_STATE_ENTRY
+  data: { todos: Todo[] }
+}[] = [
   {
     type: 'custom',
     customType: TODO_STATE_ENTRY,

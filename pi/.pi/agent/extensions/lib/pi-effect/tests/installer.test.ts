@@ -4,7 +4,7 @@ import { Effect } from 'effect'
 import { PiExtension } from '../src/plugin.ts'
 
 function fakeContext(): ExtensionContext {
-  const sessionManager = {
+  const sessionManager: Partial<ExtensionContext['sessionManager']> = {
     getCwd: () => '/tmp',
     getSessionId: () => 'session',
     getSessionFile: () => undefined,
@@ -19,7 +19,7 @@ function fakeContext(): ExtensionContext {
     getTree: () => [],
     getSessionName: () => undefined,
   }
-  const ui = {
+  const ui: Partial<ExtensionContext['ui']> = {
     select: async () => undefined,
     confirm: async () => false,
     input: async () => undefined,
@@ -33,7 +33,7 @@ function fakeContext(): ExtensionContext {
     setFooter: () => undefined,
     setHeader: () => undefined,
     setTitle: () => undefined,
-    custom: async () => undefined,
+    custom: (async (): Promise<undefined> => undefined) as ExtensionContext['ui']['custom'],
     pasteToEditor: () => undefined,
     setEditorText: () => undefined,
     getEditorText: () => '',
@@ -73,10 +73,10 @@ function fakeContext(): ExtensionContext {
 function fakeApi(
   callbacks: Map<string, (event: unknown, context: ExtensionContext) => Promise<unknown>>,
 ): ExtensionAPI {
-  const api = {
-    on: (name: string, callback: (event: unknown, context: ExtensionContext) => Promise<unknown>) => {
+  const api: Partial<ExtensionAPI> = {
+    on: ((name: string, callback: (event: unknown, context: ExtensionContext) => Promise<unknown>): void => {
       callbacks.set(name, callback)
-    },
+    }) as ExtensionAPI['on'],
     registerTool: () => undefined,
     registerCommand: () => undefined,
     registerShortcut: () => undefined,
@@ -89,7 +89,7 @@ function fakeApi(
     setSessionName: () => undefined,
     getSessionName: () => undefined,
     setLabel: () => undefined,
-    exec: async () => ({ stdout: '', stderr: '', code: 0 }),
+    exec: async () => ({ stdout: '', stderr: '', code: 0, killed: false }),
     getActiveTools: () => [],
     getAllTools: () => [],
     setActiveTools: () => undefined,

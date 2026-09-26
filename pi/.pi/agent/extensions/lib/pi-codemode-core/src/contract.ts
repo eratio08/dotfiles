@@ -5,7 +5,7 @@ import { CodeModeDefinitionSchema, CodeModeRunOptionsSchema, getCodeModeSchemaFa
 /**
  * Describes a host method and whether a code-mode program invokes it synchronously or asynchronously.
  */
-interface ProgramMethod {
+type ProgramMethod = {
   readonly name: string
   readonly kind: 'sync' | 'async'
 }
@@ -26,7 +26,7 @@ type ProgramWireValue =
 /**
  * Encodes and decodes typed host errors as values that can cross the worker boundary.
  */
-interface ProgramHostErrorCodec<E> {
+type ProgramHostErrorCodec<E> = {
   readonly encode: (error: E) => ProgramWireValue
   readonly decode: (value: ProgramWireValue) => E
 }
@@ -34,7 +34,7 @@ interface ProgramHostErrorCodec<E> {
 /**
  * Declares the API type, host methods, and examples available to a code-mode program.
  */
-interface ProgramDefinition {
+type ProgramDefinition = {
   readonly apiName: string
   readonly programName: string
   readonly declarations: string
@@ -47,14 +47,14 @@ declare const programHostTag: unique symbol
 /**
  * Marks the Effect environment as requiring the typed program-host service.
  */
-interface ProgramHostRequirement<R, E> {
+type ProgramHostRequirement<R, E> = {
   readonly [programHostTag]: readonly [R, E]
 }
 
 /**
  * Defines the host operations and optional error codec available to a program runner.
  */
-interface ProgramHost<R, E> {
+type ProgramHost<R, E> = {
   readonly invoke: (method: string, args: readonly unknown[], signal: AbortSignal) => Effect.Effect<unknown, E, R>
   readonly invokeSync?: (method: string, args: readonly unknown[]) => unknown
   readonly errorCodec?: ProgramHostErrorCodec<E>
@@ -69,7 +69,7 @@ const ProgramHost = <R, E>(): Context.Service<ProgramHostRequirement<R, E>, Prog
 /**
  * Configures paths, timeout, cancellation, and execution mode for one evaluation.
  */
-interface ProgramRunOptions {
+type ProgramRunOptions = {
   readonly cwd: string
   readonly filenamePrefix: string
   readonly timeoutMs: number
@@ -80,7 +80,7 @@ interface ProgramRunOptions {
 /**
  * Exposes the Effect operation that evaluates a program against a definition and options.
  */
-interface ProgramRunner<R, E> {
+type ProgramRunner<R, E> = {
   readonly evaluate: (
     definition: ProgramDefinition,
     code: string,

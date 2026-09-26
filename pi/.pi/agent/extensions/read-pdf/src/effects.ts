@@ -4,7 +4,7 @@ import { Effect } from 'effect'
 import { FileSystem, type FileSystemError } from './services/fs.ts'
 import { type PdfExtractionError, PdfExtractor } from './services/pdf.ts'
 
-interface PdfReaderDetails {
+type PdfReaderDetails = {
   path: string
   pages: number
   markdownBytes: number
@@ -12,10 +12,7 @@ interface PdfReaderDetails {
   fullOutputPath?: string
 }
 
-interface PdfReaderResult {
-  text: string
-  details: PdfReaderDetails
-}
+type PdfReaderResult = { text: string; details: PdfReaderDetails }
 
 function pagesToMarkdown(pages: readonly string[]): string {
   return pages

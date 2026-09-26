@@ -33,13 +33,13 @@ import { Effect } from 'effect'
 import { type Static, type TSchema, Type } from 'typebox'
 import { Check } from 'typebox/value'
 
-interface MethodDefinition<
+type MethodDefinition<
   Params extends TSchema | undefined,
   Services,
   Failure,
   RunContext = void,
   OptionalParameters extends boolean = false,
-> {
+> = {
   readonly description: string
   readonly signature: string
   readonly parameters?: Params
@@ -67,7 +67,7 @@ type MethodInput<Services, Failure, RunContext = void> = {
   ) => Effect.Effect<unknown, Failure, Services | PiServices>
 }
 
-interface ToolOutputDetails {
+type ToolOutputDetails = {
   readonly truncated: boolean
   readonly outputBytes: number
   readonly outputLines: number
@@ -77,7 +77,7 @@ interface ToolOutputDetails {
   readonly operations?: Readonly<Record<string, number>>
 }
 
-interface ToolDefinition<Services, Failure, RunContext = void> {
+type ToolDefinition<Services, Failure, RunContext = void> = {
   readonly toolName: string
   readonly label?: string
   readonly description: string
@@ -99,7 +99,7 @@ interface ToolDefinition<Services, Failure, RunContext = void> {
   ) => Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services | PiServices>
 }
 
-interface RegisteredTool<Services, _Failure> {
+type RegisteredTool<Services, _Failure> = {
   readonly toolName: string
   readonly register: (registry: PiToolRegistry<Services>) => Effect.Effect<void, PiRegistrationError>
 }
@@ -129,7 +129,7 @@ function createToolOutput(
 
   return Effect.gen(function* () {
     const fullOutputPath = yield* Effect.tryPromise({
-      try: async (effectSignal) => {
+      try: async (effectSignal: AbortSignal) => {
         const signal = toolSignal === undefined ? effectSignal : AbortSignal.any([toolSignal, effectSignal])
         const tempDirectory = await mkdtemp(join(tmpdir(), 'pi-effect-codemode-'))
         const outputPath = join(tempDirectory, 'output.txt')
@@ -138,7 +138,7 @@ function createToolOutput(
         })
         return outputPath
       },
-      catch: (cause) =>
+      catch: (cause: unknown) =>
         createProgramFailure({
           _tag: toolSignal?.aborted ? 'cancellation' : 'serialize',
           operation: 'output',
@@ -171,8 +171,18 @@ function createToolRenderers<Params extends TSchema>(
     hasResult?: boolean
     summary?: string
   }
+  type RenderCallParameters = Parameters<
+    NonNullable<EffectToolDefinition<Params, never, never, ToolOutputDetails>['renderCall']>
+  >
+  type RenderResultParameters = Parameters<
+    NonNullable<EffectToolDefinition<Params, never, never, ToolOutputDetails>['renderResult']>
+  >
   return {
-    renderCall: (_args, theme, context): Component => {
+    renderCall: (
+      _args: RenderCallParameters[0],
+      theme: RenderCallParameters[1],
+      context: RenderCallParameters[2],
+    ): Component => {
       const state = (context.state ?? {}) as RendererState
       const text = (context.lastComponent as Text | undefined) ?? new Text('', 0, 0)
       state.call = text
@@ -182,7 +192,12 @@ function createToolRenderers<Params extends TSchema>(
       text.setText(`${state.callText}${summary}${hint}`)
       return text
     },
-    renderResult: (result, { expanded, isPartial }, theme, context): Component => {
+    renderResult: (
+      result: RenderResultParameters[0],
+      { expanded, isPartial }: RenderResultParameters[1],
+      theme: RenderResultParameters[2],
+      context: RenderResultParameters[3],
+    ): Component => {
       if (isPartial) return new Text(theme.fg('warning', 'Running...'), 0, 0)
       const details = result.details as ToolOutputDetails | undefined
       const output = result.content
@@ -419,7 +434,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
     ...createToolRenderers<typeof runParameters>(options.label ?? options.toolName),
     execute: ({
       code,
-    }): Effect.Effect<
+    }: Static<typeof runParameters>): Effect.Effect<
       PiToolResult<ToolOutputDetails>,
       ProgramFailure | Failure,
       Services | PiServices | PiToolContext

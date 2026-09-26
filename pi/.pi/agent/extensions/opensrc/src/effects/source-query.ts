@@ -190,7 +190,7 @@ function normalizeAstMatchesInterruptible(
   })
 }
 
-interface GrepContext {
+type GrepContext = {
   readonly maxResults: number
   readonly expression: RegExp
   readonly include: string | undefined
@@ -303,7 +303,7 @@ function ensureQueryActiveEffect(signal: AbortSignal): Effect.Effect<void, Opens
     : Effect.void
 }
 
-interface MutableTreeNode {
+type MutableTreeNode = {
   readonly name: string
   readonly type: 'file' | 'directory'
   readonly children: Map<string, MutableTreeNode>

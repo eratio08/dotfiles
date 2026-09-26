@@ -42,7 +42,7 @@ class WebToolsHttpResponseTooLargeError extends Schema.TaggedError<WebToolsHttpR
   },
 ) {}
 
-interface WebToolsHttpService {
+type WebToolsHttpService = {
   readonly request: (
     url: string,
     init: RequestInit,

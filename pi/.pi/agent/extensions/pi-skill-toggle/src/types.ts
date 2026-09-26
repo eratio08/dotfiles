@@ -7,20 +7,13 @@ type SkillSource =
   | { kind: 'project-legacy'; root: string }
   | { kind: 'unknown'; root: string }
 
-interface LocatedSkillFile {
-  filePath: string
-  source: SkillSource
-  editable: boolean
-}
+type LocatedSkillFile = { filePath: string; source: SkillSource; editable: boolean }
 
 type SkillDiagnosticSeverity = 'info' | 'warning' | 'error'
 
-interface SkillDiagnostic {
-  severity: SkillDiagnosticSeverity
-  message: string
-}
+type SkillDiagnostic = { severity: SkillDiagnosticSeverity; message: string }
 
-interface SkillRecord {
+type SkillRecord = {
   id: string
   name: string
   description: string
@@ -32,12 +25,9 @@ interface SkillRecord {
   diagnostics: SkillDiagnostic[]
 }
 
-interface SkillDraft {
-  skill: SkillRecord
-  desiredMode: SkillInvocationMode
-}
+type SkillDraft = { skill: SkillRecord; desiredMode: SkillInvocationMode }
 
-interface FrontmatterDocument {
+type FrontmatterDocument = {
   raw: string
   hasFrontmatter: boolean
   frontmatterStart: number
@@ -49,12 +39,9 @@ interface FrontmatterDocument {
   lineEnding: '\n' | '\r\n'
 }
 
-interface FrontmatterPatch {
-  oldText: string
-  newText: string
-}
+type FrontmatterPatch = { oldText: string; newText: string }
 
-interface SkillChange {
+type SkillChange = {
   skill: SkillRecord
   filePath: string
   from: SkillInvocationMode
@@ -62,16 +49,13 @@ interface SkillChange {
   patch: FrontmatterPatch
 }
 
-interface ApplyResult {
+type ApplyResult = {
   applied: SkillChange[]
   skipped: Array<{ skill: SkillRecord; reason: string }>
   errors: Array<{ skill?: SkillRecord; message: string }>
 }
 
-interface SkillToggleUiResult {
-  action: 'apply' | 'cancel'
-  drafts: SkillDraft[]
-}
+type SkillToggleUiResult = { action: 'apply' | 'cancel'; drafts: SkillDraft[] }
 
 export type {
   ApplyResult,

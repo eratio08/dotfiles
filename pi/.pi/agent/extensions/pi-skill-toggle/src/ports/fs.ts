@@ -3,18 +3,14 @@ import fs from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { Context, Effect, Layer, Schema } from 'effect'
 
-interface DirectoryEntry {
+type DirectoryEntry = {
   readonly name: string
   readonly isDirectory: boolean
   readonly isFile: boolean
   readonly isSymbolicLink: boolean
 }
 
-interface FileStats {
-  readonly isDirectory: boolean
-  readonly isFile: boolean
-  readonly mode: number
-}
+type FileStats = { readonly isDirectory: boolean; readonly isFile: boolean; readonly mode: number }
 
 class FileSystemError extends Schema.TaggedError<FileSystemError>()('FileSystemError', {
   operation: Schema.String,

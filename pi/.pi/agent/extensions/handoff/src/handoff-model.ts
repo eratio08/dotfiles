@@ -3,11 +3,7 @@ const HANDOFF_MODEL_APPLIED_ENTRY = 'handoff-model-applied'
 
 type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
-interface HandoffModelState {
-  provider: string
-  modelId: string
-  thinkingLevel: ThinkingLevel
-}
+type HandoffModelState = { provider: string; modelId: string; thinkingLevel: ThinkingLevel }
 
 const THINKING_LEVELS: readonly ThinkingLevel[] = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
 

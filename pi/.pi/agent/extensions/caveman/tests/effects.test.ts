@@ -15,12 +15,9 @@ type CommandHandler = (args: string, ctx: ExtensionContext) => Promise<unknown>
 type AppendEntry = (customType: string, data?: unknown) => void
 type SendUserMessage = (content: string, options?: MessageOptions) => void
 
-interface PiOverrides {
-  appendEntry?: AppendEntry
-  sendUserMessage?: SendUserMessage
-}
+type PiOverrides = { appendEntry?: AppendEntry; sendUserMessage?: SendUserMessage }
 
-interface TestHarness {
+type TestHarness = {
   pi: ExtensionAPI
   events: Map<string, EventHandler>
   commands: Map<string, CommandHandler>
@@ -28,14 +25,9 @@ interface TestHarness {
   messages: Array<{ content: string; options?: MessageOptions }>
 }
 
-interface ContextOptions {
-  entries?: readonly unknown[]
-  hasUI?: boolean
-  idle?: boolean
-  throwOnUi?: boolean
-}
+type ContextOptions = { entries?: readonly unknown[]; hasUI?: boolean; idle?: boolean; throwOnUi?: boolean }
 
-interface ContextFixture {
+type ContextFixture = {
   ctx: ExtensionContext
   statuses: Array<{ key: string; text: string | undefined }>
   notifications: Array<{ message: string; type: string | undefined }>

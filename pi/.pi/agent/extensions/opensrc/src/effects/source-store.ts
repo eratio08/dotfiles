@@ -4,13 +4,13 @@ import { createOpensrcFailure } from '../core/model.ts'
 import { OpenSrcCli } from './opensrc-cli.ts'
 import { normalizeSources } from './source-index.ts'
 
-interface SourceStoreMutation<A> {
+type SourceStoreMutation<A> = {
   readonly before: readonly Source[]
   readonly after: readonly Source[]
   readonly value: A
 }
 
-interface SourceStoreService {
+type SourceStoreService = {
   readonly current: () => readonly Source[]
   readonly load: () => Effect.Effect<readonly Source[], OpensrcFailure>
   readonly refresh: () => Effect.Effect<readonly Source[], OpensrcFailure>

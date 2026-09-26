@@ -20,7 +20,7 @@ import {
 } from './vm.ts'
 import { runCodeModeWorkerEvaluation } from './worker-runner.ts'
 
-interface CodeModeDeadline {
+type CodeModeDeadline = {
   readonly remainingTimeoutMs: () => number
   readonly signal: AbortSignal
   readonly isTimedOut: () => boolean

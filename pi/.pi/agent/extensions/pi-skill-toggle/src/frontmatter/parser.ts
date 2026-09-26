@@ -1,8 +1,6 @@
 import type { FrontmatterDocument } from '../types.ts'
 
-interface FrontmatterCodec {
-  parse(raw: string): FrontmatterDocument
-}
+type FrontmatterCodec = { parse(raw: string): FrontmatterDocument }
 
 class SimpleFrontmatterCodec implements FrontmatterCodec {
   parse(raw: string): FrontmatterDocument {

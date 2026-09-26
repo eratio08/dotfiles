@@ -56,7 +56,7 @@ const codeModeFailureMarker = Symbol('CodeModeFailure')
 /**
  * Represents a branded wrapper for a typed host error raised during program API invocation.
  */
-interface CodeModeHostError<E> {
+type CodeModeHostError<E> = {
   readonly type: 'code-mode-host-error'
   readonly value: E
   readonly [codeModeHostErrorMarker]: true
@@ -65,7 +65,7 @@ interface CodeModeHostError<E> {
 /**
  * Represents a branded host error encoded for transfer across a worker boundary.
  */
-interface CodeModeEncodedHostError {
+type CodeModeEncodedHostError = {
   readonly type: 'code-mode-host-error'
   readonly value: ProgramWireValue
   readonly [codeModeEncodedHostErrorMarker]: true

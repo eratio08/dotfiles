@@ -11,7 +11,7 @@ import {
 import { WebSearchConfig, type WebSearchEnvironment } from '../src/effects/services/websearch-config.ts'
 import { runWebSearch, WebSearchParseError, WebSearchResponseError } from '../src/effects/websearch.ts'
 
-interface JsonRpcBody {
+type JsonRpcBody = {
   params: {
     name: string
     arguments: Record<string, unknown>

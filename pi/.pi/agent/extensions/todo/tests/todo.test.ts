@@ -10,6 +10,7 @@ import {
   getTodoCounts,
   getTodoHandoffSnapshot,
   summarizeTodos,
+  type TodoUpdateError,
   todoDescriptionLines,
 } from '../src/state.ts'
 import { TodoStore } from '../src/store.ts'
@@ -189,7 +190,7 @@ test('should serialize store restore and reject invalid replacement without chan
       const store = yield* TodoStore
       yield* store.restore([sessionEntry(initial)])
       const rejected = yield* Effect.match(store.replace([todo(firstId, 'invalid', 'pending', [secondId])]), {
-        onFailure: (error) => ({ kind: 'error' as const, message: error.message }),
+        onFailure: (error: TodoUpdateError) => ({ kind: 'error' as const, message: error.message }),
         onSuccess: () => ({ kind: 'success' as const }),
       })
       return { rejected, snapshot: yield* store.snapshot }

@@ -16,7 +16,7 @@ import { cloneTodos, getTodoCounts, TodoUpdateError } from './state.ts'
 import { getNextTodo, reevaluateTodoStates, validateTodoContent, validateTodoGraph } from './state-engine.ts'
 import type { TodoTransactionDraft } from './store.ts'
 
-interface TodoCompleteResult {
+type TodoCompleteResult = {
   readonly completed: Todo
   readonly remaining: {
     readonly pending: number
@@ -26,7 +26,7 @@ interface TodoCompleteResult {
   readonly allDone: boolean
 }
 
-interface TodoApi {
+type TodoApi = {
   help(): string
   add(input: TodoInput): Promise<Todo>
   update(id: TodoId, patch: TodoPatch): Promise<Todo>
@@ -41,7 +41,7 @@ interface TodoApi {
 type TodoMutation = 'added' | 'updated' | 'started' | 'completed' | 'omitted' | 'restored' | 'cleared'
 type TodoResult<A> = Result.Result<A, TodoUpdateError>
 
-interface TodoApiOptions {
+type TodoApiOptions = {
   readonly draft: TodoTransactionDraft
   readonly signal?: AbortSignal
   readonly onMutation?: (operation: TodoMutation, count?: number) => void

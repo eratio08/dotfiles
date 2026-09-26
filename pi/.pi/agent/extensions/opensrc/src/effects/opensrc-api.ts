@@ -31,7 +31,7 @@ import { buildTreeInterruptible, grepFilesInterruptible, normalizeAstMatchesInte
 import { parseSourceSpec, parseSourceSpecEffect } from './source-spec.ts'
 import { SourceStore } from './source-store.ts'
 
-interface AstParserService {
+type AstParserService = {
   readonly find: (
     source: string,
     file: string,
@@ -46,7 +46,7 @@ class AstParser extends Context.Service<AstParser, AstParserService>()('opensrc/
 
 type ApiEffect<A> = Effect.Effect<A, OpensrcFailure>
 
-interface OpensrcApiService {
+type OpensrcApiService = {
   readonly list: () => ApiEffect<readonly Source[]>
   readonly has: (name: string, version?: string) => ApiEffect<boolean>
   readonly get: (name: string) => ApiEffect<Source | undefined>

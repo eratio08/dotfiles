@@ -2,7 +2,7 @@ import { Result, Schema } from 'effect'
 import { TODO_STATE_ENTRY, TODO_STATUSES, type Todo, type TodoStatus, TodoStatusSchema } from './model.ts'
 import { cloneTodos, getNextTodo, isOpenTodo, reevaluateTodoStates, validateTodoGraph } from './state-engine.ts'
 
-interface TodoCounts {
+type TodoCounts = {
   total: number
   pending: number
   inProgress: number

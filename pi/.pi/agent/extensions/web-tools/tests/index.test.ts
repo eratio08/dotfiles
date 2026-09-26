@@ -2,13 +2,11 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import webToolsExtension from '../index.ts'
 
-interface RegisteredTool {
-  name: string
-}
+type RegisteredTool = { name: string }
 
 type ExtensionHandler = (event: unknown) => unknown
 
-interface TestExtensionApi {
+type TestExtensionApi = {
   tools: RegisteredTool[]
   handlers: Map<string, ExtensionHandler[]>
   registerTool(tool: RegisteredTool): void

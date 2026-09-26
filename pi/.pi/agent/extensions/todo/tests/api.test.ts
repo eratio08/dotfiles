@@ -5,11 +5,13 @@ import type { Todo } from '../src/model.ts'
 import { cloneTodos } from '../src/state-engine.ts'
 import type { TodoTransactionDraft } from '../src/store.ts'
 
+type TodoMutation = Parameters<NonNullable<Parameters<typeof createTodoApi>[0]['onMutation']>>[0]
+
 function createDraft(initial: readonly Todo[] = []): { draft: TodoTransactionDraft; snapshot: () => Todo[] } {
   let todos = cloneTodos(initial)
   const draft: TodoTransactionDraft = {
     snapshot: () => cloneTodos(todos),
-    replace: (next) => {
+    replace: (next: readonly Todo[]) => {
       todos = cloneTodos(next)
     },
   }
@@ -57,7 +59,7 @@ test('should report successful mutations without counting reads or failures give
   const mutations: Array<{ operation: string; count: number }> = []
   const api = createTodoApi({
     draft,
-    onMutation: (operation, count = 1) => mutations.push({ operation, count }),
+    onMutation: (operation: TodoMutation, count: number = 1) => mutations.push({ operation, count }),
   })
 
   //when
@@ -147,7 +149,7 @@ test('should reject next given an active task', async () => {
   const mutations: Array<{ operation: string; count: number }> = []
   const api = createTodoApi({
     draft,
-    onMutation: (operation, count = 1) => mutations.push({ operation, count }),
+    onMutation: (operation: TodoMutation, count: number = 1) => mutations.push({ operation, count }),
   })
   const active = await api.add({ content: 'active task' })
   await api.add({ content: 'ready task' })

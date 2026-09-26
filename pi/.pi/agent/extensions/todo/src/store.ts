@@ -2,28 +2,20 @@ import { Context, Effect, Layer, Ref, Semaphore } from 'effect'
 import { cloneTodos, extractLatestTodoSnapshot, type Todo, TodoUpdateError } from './state.ts'
 import { validateTodoGraph } from './state-engine.ts'
 
-interface TodoStoreState {
+type TodoStoreState = {
   readonly todos: readonly Todo[]
   readonly suspended: boolean
   readonly wasActiveBeforeSuspend: boolean
 }
 
-interface TodoTransactionDraft {
+type TodoTransactionDraft = {
   readonly snapshot: () => readonly Todo[]
   readonly replace: (todos: readonly Todo[]) => void
 }
 
-interface TodoTransactionResult<A> {
-  readonly value: A
-  readonly todos: readonly Todo[]
-  readonly changed: boolean
-}
+type TodoTransactionResult<A> = { readonly value: A; readonly todos: readonly Todo[]; readonly changed: boolean }
 
-interface TodoResumeResult {
-  resumed: boolean
-  wasActiveBeforeSuspend: boolean
-  todos: readonly Todo[]
-}
+type TodoResumeResult = { resumed: boolean; wasActiveBeforeSuspend: boolean; todos: readonly Todo[] }
 
 function snapshotKey(todos: readonly Todo[]): string {
   return JSON.stringify(todos)
@@ -98,7 +90,7 @@ class TodoStore extends Context.Service<
             let draftTodos = cloneTodos(before)
             const draft: TodoTransactionDraft = {
               snapshot: () => cloneTodos(draftTodos),
-              replace: (todos) => {
+              replace: (todos: readonly Todo[]) => {
                 draftTodos = cloneTodos(todos)
               },
             }
@@ -113,7 +105,7 @@ class TodoStore extends Context.Service<
             const transactionSignal = controller.signal
             const transaction = Effect.try({
               try: () => run(draft, transactionSignal),
-              catch: (cause) =>
+              catch: (cause: unknown) =>
                 new TodoUpdateError({
                   message: cause instanceof Error ? cause.message : String(cause),
                   cause,
@@ -142,7 +134,7 @@ class TodoStore extends Context.Service<
 
       const isSuspended = withLock(Ref.get(state).pipe(Effect.map((value) => value.suspended)))
 
-      const suspend = (wasActiveBeforeSuspend: boolean) =>
+      const suspend = (wasActiveBeforeSuspend: boolean): Effect.Effect<boolean> =>
         withLock(
           Ref.modify(state, (value) =>
             value.suspended ? [false, value] : [true, { ...value, suspended: true, wasActiveBeforeSuspend }],

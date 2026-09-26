@@ -7,13 +7,11 @@ type PatchOperation =
   | { type: 'update'; path: string; chunks: PatchChunk[]; moveTo?: string; diff: string }
   | { type: 'delete'; path: string; diff: string }
 
-interface PatchChunk {
-  lines: string[]
-}
+type PatchChunk = { lines: string[] }
 
 type FileLock = <T>(path: string, action: () => Promise<T>) => Promise<T>
 
-interface AppliedFile {
+type AppliedFile = {
   type: PatchOperation['type'] | 'move'
   path: string
   destination?: string
@@ -22,7 +20,7 @@ interface AppliedFile {
   diff: string
 }
 
-interface PreparedOperation {
+type PreparedOperation = {
   type: PatchOperation['type']
   path: string
   destination?: string

@@ -24,7 +24,7 @@ test('should release a semaphore permit given an interrupted waiting tool operat
     setLabel: () => Effect.succeed(undefined),
     getActiveTools: () => Effect.succeed([]),
     getAllTools: () => Effect.succeed([]),
-    setActiveTools: (toolNames) =>
+    setActiveTools: (toolNames: Parameters<PiHostOperations['setActiveTools']>[0]) =>
       Effect.suspend(() => {
         calls.push([...toolNames])
         if (toolNames[0] === 'first') {

@@ -11,7 +11,7 @@ import type {
 import { CodeModeAsyncResponseSchema, CodeModeSyncResponseSchema, CodeModeWorkerStartSchema } from './schema.ts'
 import { createCodeModeApi, runCodeModeVm } from './vm.ts'
 
-interface CodeModePendingCall {
+type CodeModePendingCall = {
   readonly resolve: (value: unknown) => void
   readonly reject: (cause: unknown) => void
 }

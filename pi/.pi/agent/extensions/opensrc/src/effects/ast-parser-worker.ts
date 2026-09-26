@@ -3,7 +3,7 @@ import { Lang, parse, pattern } from '@ast-grep/napi'
 import type { RawAstMatch } from '../core/model.ts'
 import { decodeOpensrcFailure } from './failure.ts'
 
-interface AstParserWorkerRequest {
+type AstParserWorkerRequest = {
   readonly type: 'parse'
   readonly source: string
   readonly file: string
@@ -13,12 +13,9 @@ interface AstParserWorkerRequest {
   readonly limit: number
 }
 
-interface AstParserWorkerResult {
-  readonly type: 'result'
-  readonly matches: readonly RawAstMatch[]
-}
+type AstParserWorkerResult = { readonly type: 'result'; readonly matches: readonly RawAstMatch[] }
 
-interface AstParserWorkerFailure {
+type AstParserWorkerFailure = {
   readonly type: 'error'
   readonly name: string
   readonly message: string

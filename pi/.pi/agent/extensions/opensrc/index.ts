@@ -14,7 +14,7 @@ const opensrcTool = createTool<never, OpensrcFailure, OpensrcApiService>({
   toolName: 'opensrc',
   label: 'OpenSrc',
   description:
-    'Fetch and inspect package and repository source. Batch dependent calls in one program. If you know a source spec and file path, call `fetch` then `read` directly; use `resolve` or `files` only to discover an unknown spec or path. Call `api.help("operation")` when you need a signature and parameter schema. Use `source.name` after `fetch`.',
+    'Fetch and inspect package and repository source. Batch dependent calls in one program. If you know a source spec and file path, call `fetch` then `read` directly; use `resolve` or `files` only to discover an unknown spec or path. Call `api.help("<operation>")` when you need a signature and parameter schema. Use `source.name` after `fetch`.',
   methods: opensrcMethods,
   typeDeclarations: OPENSRC_CODE_TYPES,
   examples: [

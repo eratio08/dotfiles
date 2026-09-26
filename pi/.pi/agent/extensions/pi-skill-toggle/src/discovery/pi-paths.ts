@@ -2,11 +2,7 @@ import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { SkillSource } from '../types.ts'
 
-interface SkillRoot {
-  path: string
-  source: SkillSource
-  includeRootMarkdownFiles: boolean
-}
+type SkillRoot = { path: string; source: SkillSource; includeRootMarkdownFiles: boolean }
 
 function homeDirectory(): string {
   return process.env.HOME?.trim() || homedir()

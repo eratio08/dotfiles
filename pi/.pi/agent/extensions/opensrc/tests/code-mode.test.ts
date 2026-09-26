@@ -91,7 +91,7 @@ describe('opensrc code mode', () => {
     expect(help.overview).toContain('Batch dependent calls in one program.')
     expect(help.overview).toContain('`fetch` then `read` directly')
     expect(help.overview).toContain('`resolve` or `files` only to discover an unknown spec or path')
-    expect(help.overview).toContain('`api.help("operation")` when you need a signature and parameter schema')
+    expect(help.overview).toContain('`api.help("<operation>")` when you need a signature and parameter schema')
     for (const method of [
       'list',
       'has',

@@ -6,7 +6,7 @@ import { PiRuntimeDisposedError } from './errors.ts'
 type PiRuntimeLayer<Services, LayerError = never> = Layer.Layer<Services, LayerError, never>
 
 /** Managed Effect runtime with abort-signal support and an explicit shutdown phase. */
-interface PiManagedRuntime<Services, _LayerError = never> {
+type PiManagedRuntime<Services, _LayerError = never> = {
   /** Runs a program unless shutdown has begun and combines its abort signals.
    * Rejects with `PiRuntimeDisposedError` after `beginShutdown`.
    */

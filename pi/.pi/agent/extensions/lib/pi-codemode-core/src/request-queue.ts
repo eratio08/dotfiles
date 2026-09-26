@@ -5,14 +5,14 @@ import { ProgramHost } from './contract.ts'
 import { createCodeModeHostError, createProgramFailure, isProgramFailure, type ProgramFailure } from './failure.ts'
 
 /** Handles asynchronous host calls for one code mode evaluation. */
-interface CodeModeRequestQueue {
+type CodeModeRequestQueue = {
   readonly invoke: (method: string, args: readonly unknown[], signal: AbortSignal) => Promise<unknown>
 }
 
 declare const codeModeRequestQueueTag: unique symbol
 
 /** Marks effects that require the request queue scoped to one evaluation. */
-interface CodeModeRequestQueueRequirement {
+type CodeModeRequestQueueRequirement = {
   readonly [codeModeRequestQueueTag]: CodeModeRequestQueue
 }
 
@@ -21,7 +21,7 @@ const CodeModeRequestQueueService = Context.Service<CodeModeRequestQueueRequirem
   '@eratio/pi-codemode-core/CodeModeRequestQueue',
 )
 
-interface CodeModeQueuedRequest {
+type CodeModeQueuedRequest = {
   readonly method: string
   readonly args: readonly unknown[]
   readonly signal: AbortSignal

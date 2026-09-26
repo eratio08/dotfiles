@@ -2,7 +2,13 @@
   "name": "pi-agent-extensions",
   "private": true,
   "workspaces": ["*", "lib/*"],
+  "overrides": {
+    "undici": "^8.9.0"
+  },
   "scripts": {
-    "setup": "bun install --filter './lib/*' --frozen-lockfile && bun run --filter './lib/*' build && bun install --filter './*' --frozen-lockfile"
+    "check": "bun run --filter '*' check",
+    "setup": "bun install --filter './lib/*' --frozen-lockfile && bun run --filter './lib/*' build && bun install --filter './*' --frozen-lockfile",
+    "test": "bun run --filter '*' test",
+    "typecheck": "bun run --filter '*' --if-present typecheck"
   }
 }

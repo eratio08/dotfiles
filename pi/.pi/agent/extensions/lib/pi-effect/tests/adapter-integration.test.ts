@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
-import type { ExtensionContext, ProjectTrustContext } from '@earendil-works/pi-coding-agent'
+import type { ExtensionAPI, ExtensionContext, ProjectTrustContext } from '@earendil-works/pi-coding-agent'
 import { Context, Effect, Layer, Schema } from 'effect'
-import { Type } from 'typebox'
+import { type Static, Type } from 'typebox'
 import {
   Pi,
   PiCommandContext,
@@ -11,8 +11,10 @@ import {
   PiHostService,
   PiMessages,
   PiProcess,
+  type PiRegistrationContext,
   PiRegistrationError,
   PiSessionContext,
+  type PiSessionContextValue,
   PiToolContext,
   PiToolError,
   type PiToolResult,
@@ -37,7 +39,7 @@ test('should preserve event results and provide the current invocation context g
   let systemPromptOptions: unknown
   const plugin = PiExtension.define({
     id: 'tests/event-result',
-    effect: (registrations) =>
+    effect: (registrations: PiRegistrationContext<never>) =>
       registrations.events.on('input', (event) =>
         Effect.gen(function* () {
           cwd = (yield* PiContext).cwd
@@ -65,7 +67,7 @@ test('should accept void effects given a side-effect-only event handler', async 
   let handled = false
   const plugin = PiExtension.define({
     id: 'tests/void-event-result',
-    effect: (registrations) =>
+    effect: (registrations: PiRegistrationContext<never>) =>
       registrations.events.on('session_start', () =>
         Effect.sync(() => {
           handled = true
@@ -89,7 +91,7 @@ test('should map invocation context read failures to PiHostError given a failing
   //given
   const plugin = PiExtension.define({
     id: 'tests/context-read-failure',
-    effect: ({ events }) =>
+    effect: ({ events }: PiRegistrationContext<never>) =>
       events.on(
         'session_start',
         () =>
@@ -124,7 +126,7 @@ test('should map command system-prompt option failures to PiHostError given a fa
   //given
   const plugin = PiExtension.define({
     id: 'tests/system-prompt-options-read-failure',
-    effect: (registrations) =>
+    effect: (registrations: PiRegistrationContext<never>) =>
       registrations.commands.register('test-command', {
         handler: () =>
           Effect.gen(function* () {
@@ -157,7 +159,7 @@ test('should map session snapshot failures to PiHostError given a failing sessio
   //given
   const plugin = PiExtension.define({
     id: 'tests/session-snapshot-failure',
-    effect: ({ events }) =>
+    effect: ({ events }: PiRegistrationContext<never>) =>
       events.on(
         'session_start',
         () =>
@@ -195,7 +197,7 @@ test('should map session context read failures to PiHostError given a failing co
   //given
   const plugin = PiExtension.define({
     id: 'tests/session-context-read-failure',
-    effect: ({ events }) =>
+    effect: ({ events }: PiRegistrationContext<never>) =>
       events.on(
         'session_start',
         () =>
@@ -237,7 +239,7 @@ test('should keep host services stable given multiple invocation contexts', asyn
   const eventMessages: unknown[] = []
   const plugin = PiExtension.define({
     id: 'tests/stable-services',
-    effect: ({ events }) =>
+    effect: ({ events }: PiRegistrationContext<never>) =>
       Effect.gen(function* () {
         setupMessages = yield* PiMessages
         yield* events.on('session_start', () =>
@@ -268,12 +270,12 @@ test('should model the Pi event bus given Effect operations', async () => {
   const received: unknown[] = []
   const plugin = PiExtension.define({
     id: 'tests/effect-event-bus',
-    effect: ({ events }) =>
+    effect: ({ events }: PiRegistrationContext<never>) =>
       Effect.gen(function* () {
         yield* events.on('session_start', () =>
           Effect.gen(function* () {
             const pi = yield* Pi
-            const unsubscribe = yield* pi.events.on('custom', (data) => received.push(data))
+            const unsubscribe = yield* pi.events.on('custom', (data: unknown) => received.push(data))
             yield* pi.events.emit('custom', { value: 1 })
             yield* unsubscribe
             yield* pi.events.emit('custom', { value: 2 })
@@ -296,13 +298,13 @@ test('should clean up event bus subscriptions given a closed scope', async () =>
   const received: unknown[] = []
   const plugin = PiExtension.define({
     id: 'tests/scoped-event-bus',
-    effect: ({ events }) =>
+    effect: ({ events }: PiRegistrationContext<never>) =>
       events.on('session_start', () =>
         Effect.gen(function* () {
           const pi = yield* Pi
           yield* Effect.scoped(
             Effect.gen(function* () {
-              yield* pi.events.onScoped('custom', (data) => received.push(data))
+              yield* pi.events.onScoped('custom', (data: unknown) => received.push(data))
               yield* pi.events.emit('custom', { value: 1 })
             }),
           )
@@ -324,7 +326,7 @@ test('should map event bus failures to PiHostError given a failed host operation
   //given
   const plugin = PiExtension.define({
     id: 'tests/effect-event-bus-failure',
-    effect: ({ events }) =>
+    effect: ({ events }: PiRegistrationContext<never>) =>
       events.on(
         'session_start',
         () =>
@@ -336,7 +338,7 @@ test('should map event bus failures to PiHostError given a failed host operation
       ),
   })
   const fake = await installFakePlugin(PiExtension.install(plugin))
-  fake.api.events.emit = () => {
+  fake.api.events.emit = (): never => {
     throw new Error('event bus failed')
   }
 
@@ -355,7 +357,7 @@ test('should return a typed error given an unsupported custom UI operation', asy
   //given
   const plugin = PiExtension.define({
     id: 'tests/trust-ui-custom',
-    effect: ({ events }) =>
+    effect: ({ events }: PiRegistrationContext<never>) =>
       events.on(
         'project_trust',
         () =>
@@ -394,7 +396,7 @@ test('should apply neutral and fail-closed policies given configured event polic
   //given
   const plugin = PiExtension.define({
     id: 'tests/event-failures',
-    effect: (registrations) =>
+    effect: (registrations: PiRegistrationContext<never>) =>
       Effect.gen(function* () {
         yield* registrations.events.on('input', () =>
           Effect.fail(
@@ -437,7 +439,7 @@ test('should capture event handler construction failures given a synchronous thr
   //given
   const plugin = PiExtension.define({
     id: 'tests/sync-handler-throw',
-    effect: ({ events }) =>
+    effect: ({ events }: PiRegistrationContext<never>) =>
       events.on('session_start', () => {
         throw new Error('handler construction failed')
       }),
@@ -456,7 +458,7 @@ test('should register boolean and string flags given Pi host overloads', async (
   //given
   const plugin = PiExtension.define({
     id: 'tests/flags',
-    effect: ({ flags }) =>
+    effect: ({ flags }: PiRegistrationContext<never>) =>
       Effect.gen(function* () {
         yield* flags.register('enabled', { type: 'boolean', default: true })
         yield* flags.register('profile', { type: 'string', default: 'default' })
@@ -477,7 +479,7 @@ test('should reject malformed flag definitions given package-owned flags', async
   //given
   const plugin = PiExtension.define({
     id: 'tests/invalid-flag',
-    effect: ({ flags }) =>
+    effect: ({ flags }: PiRegistrationContext<never>) =>
       Effect.gen(function* () {
         // @ts-expect-error The runtime schema must reject this JavaScript input.
         yield* flags.register('broken', { type: 'boolean', default: 'yes' })
@@ -497,7 +499,7 @@ test('should provide tool identity, progress updates, and a final result given t
   const Params = Type.Object({ query: Type.String() })
   const plugin = PiExtension.define({
     id: 'tests/tool',
-    effect: (registrations) =>
+    effect: (registrations: PiRegistrationContext<never>) =>
       registrations.tools.register({
         name: 'test-tool',
         label: 'Test tool',
@@ -506,7 +508,7 @@ test('should provide tool identity, progress updates, and a final result given t
         promptGuidelines: ['Use test-tool for tests.'],
         parameters: Params,
         executionMode: 'sequential',
-        execute: (params) =>
+        execute: (params: Static<typeof Params>) =>
           Effect.gen(function* () {
             const tool = yield* PiToolContext
             yield* tool.onUpdate({ content: [{ type: 'text', text: `working:${params.query}` }] })
@@ -520,9 +522,16 @@ test('should provide tool identity, progress updates, and a final result given t
   const fake = await installFakePlugin(PiExtension.install(plugin))
 
   //when
-  const result = await fake.invokeTool('test-tool', 'call-1', { query: 'search' }, undefined, undefined, (update) => {
-    updates.push(update)
-  })
+  const result = await fake.invokeTool(
+    'test-tool',
+    'call-1',
+    { query: 'search' },
+    undefined,
+    undefined,
+    (update: unknown) => {
+      updates.push(update)
+    },
+  )
   await shutdown(fake)
 
   //then
@@ -537,7 +546,7 @@ test('should return a typed error given unavailable UI capabilities', async () =
   //given
   const plugin = PiExtension.define({
     id: 'tests/ui-guard',
-    effect: (registrations) =>
+    effect: (registrations: PiRegistrationContext<never>) =>
       registrations.events.on('agent_start', () =>
         Effect.gen(function* () {
           const ui = yield* PiUi
@@ -565,7 +574,7 @@ test('should map tools-expanded UI read failures to PiHostError given a failed U
   //given
   const plugin = PiExtension.define({
     id: 'tests/ui-tools-expanded-failure',
-    effect: ({ events }) =>
+    effect: ({ events }: PiRegistrationContext<never>) =>
       events.on(
         'session_start',
         () =>
@@ -607,7 +616,7 @@ test('should forward Effect cancellation to host promises given AbortSignal supp
   let hostCancelled = false
   const plugin = PiExtension.define({
     id: 'tests/host-promise-cancellation',
-    effect: ({ events }) =>
+    effect: ({ events }: PiRegistrationContext<never>) =>
       events.on(
         'session_start',
         () =>
@@ -619,8 +628,12 @@ test('should forward Effect cancellation to host promises given AbortSignal supp
       ),
   })
   const fake = await installFakePlugin(PiExtension.install(plugin))
-  fake.api.exec = (_command, _args, options) =>
-    new Promise((resolve) => {
+  fake.api.exec = (
+    _command: Parameters<ExtensionAPI['exec']>[0],
+    _args: Parameters<ExtensionAPI['exec']>[1],
+    options: Parameters<ExtensionAPI['exec']>[2],
+  ): ReturnType<ExtensionAPI['exec']> =>
+    new Promise<Awaited<ReturnType<ExtensionAPI['exec']>>>((resolve): void => {
       hostSignal = options?.signal
       if (hostSignal) {
         hostSignal.addEventListener(
@@ -666,10 +679,10 @@ test('should release the runtime scope given a failed shutdown registration', as
         }),
       ),
     ),
-    effect: () => Effect.succeed(undefined),
+    effect: (): Effect.Effect<void> => Effect.succeed(undefined),
   })
   const fake = createFakeExtensionApi()
-  fake.api.on = () => {
+  fake.api.on = (): never => {
     throw new Error('session shutdown registration failed')
   }
 
@@ -689,7 +702,7 @@ test('should preserve plugin layer construction failures given a failed layer bu
   const plugin = PiExtension.define<ScopedProbe, LayerFailure>({
     id: 'tests/layer-failure',
     layer: Layer.effect(ScopedProbe, Effect.fail(new LayerFailure())),
-    effect: () => Effect.succeed(undefined),
+    effect: (): Effect.Effect<void> => Effect.succeed(undefined),
   })
 
   //when
@@ -717,7 +730,7 @@ test('should run command completions and dispose a scoped layer once given repea
         )
       }),
     ),
-    effect: (registrations) =>
+    effect: (registrations: PiRegistrationContext<ScopedProbe>) =>
       registrations.commands.register('test-command', {
         getArgumentCompletions: () => Effect.succeed([{ value: 'alpha', label: 'alpha' }]),
         handler: () =>
@@ -725,7 +738,7 @@ test('should run command completions and dispose a scoped layer once given repea
             const command = yield* PiCommandContext
             systemPromptOptions = yield* command.systemPromptOptions()
             yield* command.newSession({
-              setup: (session) =>
+              setup: (session: PiSessionContextValue) =>
                 Effect.sync(() => {
                   replacementCwd = session.cwd
                 }),

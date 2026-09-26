@@ -179,7 +179,7 @@ test('should pass the Effect cancellation signal and prevent a late commit given
                 { once: true },
               )
             }),
-          catch: (cause) => new TodoUpdateError({ message: String(cause), cause }),
+          catch: (cause: unknown) => new TodoUpdateError({ message: String(cause), cause }),
         }),
       )
     }),

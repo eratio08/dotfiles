@@ -2,7 +2,7 @@ type SourceType = 'npm' | 'pypi' | 'crates' | 'repo'
 
 type PackageSourceType = Exclude<SourceType, 'repo'>
 
-interface Source {
+type Source = {
   readonly type: SourceType
   readonly name: string
   readonly version: string
@@ -10,7 +10,7 @@ interface Source {
   readonly fetchedAt: string
 }
 
-interface SourceIndexRecord {
+type SourceIndexRecord = {
   readonly name: string
   readonly version: string
   readonly path: string
@@ -20,31 +20,20 @@ interface SourceIndexRecord {
   readonly type?: SourceType
 }
 
-interface SourceIndex {
-  readonly packages?: readonly SourceIndexRecord[]
-  readonly repos?: readonly SourceIndexRecord[]
-}
+type SourceIndex = { readonly packages?: readonly SourceIndexRecord[]; readonly repos?: readonly SourceIndexRecord[] }
 
-interface FileEntry {
+type FileEntry = {
   readonly path: string
   readonly type: 'file' | 'directory'
   readonly size: number
   readonly modifiedAt?: string
 }
 
-interface TreeNode {
-  readonly name: string
-  readonly type: 'file' | 'directory'
-  readonly children?: readonly TreeNode[]
-}
+type TreeNode = { readonly name: string; readonly type: 'file' | 'directory'; readonly children?: readonly TreeNode[] }
 
-interface SourcePosition {
-  readonly line: number
-  readonly column: number
-  readonly offset: number
-}
+type SourcePosition = { readonly line: number; readonly column: number; readonly offset: number }
 
-interface GrepResult {
+type GrepResult = {
   readonly source: string
   readonly file: string
   readonly line: number
@@ -52,7 +41,7 @@ interface GrepResult {
   readonly text: string
 }
 
-interface AstGrepMatch {
+type AstGrepMatch = {
   readonly source: string
   readonly file: string
   readonly text: string
@@ -63,7 +52,7 @@ interface AstGrepMatch {
   readonly metavars: Readonly<Record<string, string>>
 }
 
-interface ParsedSpec {
+type ParsedSpec = {
   readonly type: SourceType
   readonly name: string
   readonly version?: string
@@ -71,17 +60,11 @@ interface ParsedSpec {
   readonly repository?: string
 }
 
-interface FetchedSource {
-  readonly source: Source
-  readonly alreadyExists: boolean
-}
+type FetchedSource = { readonly source: Source; readonly alreadyExists: boolean }
 
-interface RemoveResult {
-  readonly success: true
-  readonly removed: readonly string[]
-}
+type RemoveResult = { readonly success: true; readonly removed: readonly string[] }
 
-interface CleanOptions {
+type CleanOptions = {
   readonly packages?: boolean
   readonly repos?: boolean
   readonly npm?: boolean
@@ -89,22 +72,11 @@ interface CleanOptions {
   readonly crates?: boolean
 }
 
-interface TreeOptions {
-  readonly depth?: number
-  readonly pattern?: string
-}
+type TreeOptions = { readonly depth?: number; readonly pattern?: string }
 
-interface GrepOptions {
-  readonly sources?: readonly string[]
-  readonly include?: string
-  readonly maxResults?: number
-}
+type GrepOptions = { readonly sources?: readonly string[]; readonly include?: string; readonly maxResults?: number }
 
-interface AstGrepOptions {
-  readonly glob?: string
-  readonly lang?: string | readonly string[]
-  readonly limit?: number
-}
+type AstGrepOptions = { readonly glob?: string; readonly lang?: string | readonly string[]; readonly limit?: number }
 
 type OpensrcFailureTag =
   | 'validation'
@@ -117,7 +89,7 @@ type OpensrcFailureTag =
   | 'code-evaluation'
   | 'runtime'
 
-interface OpensrcFailureFields {
+type OpensrcFailureFields = {
   readonly _tag: OpensrcFailureTag
   readonly operation: string
   readonly message: string
@@ -142,32 +114,29 @@ function createOpensrcFailure(fields: OpensrcFailureFields): OpensrcFailure {
   return new OpensrcFailure(fields)
 }
 
-interface SourceDiff {
+type SourceDiff = {
   readonly added: readonly Source[]
   readonly removed: readonly Source[]
   readonly unchanged: readonly Source[]
 }
 
-interface PiExecutionResult {
+type PiExecutionResult = {
   readonly stdout: string
   readonly stderr: string
   readonly code: number
   readonly killed: boolean
 }
 
-interface PiExecutionRequest {
+type PiExecutionRequest = {
   readonly command: string
   readonly args: readonly string[]
   readonly cwd?: string
   readonly environment: Readonly<Record<string, string | undefined>>
 }
 
-interface SourceFile {
-  readonly path: string
-  readonly content: string
-}
+type SourceFile = { readonly path: string; readonly content: string }
 
-interface RawAstMatch {
+type RawAstMatch = {
   readonly source?: string
   readonly file: string
   readonly text: string
@@ -176,7 +145,7 @@ interface RawAstMatch {
   readonly metavars?: Readonly<Record<string, string>>
 }
 
-interface CliCommandPlan {
+type CliCommandPlan = {
   readonly operation: 'fetch' | 'list' | 'remove' | 'clean' | 'version'
   readonly args: readonly string[]
 }

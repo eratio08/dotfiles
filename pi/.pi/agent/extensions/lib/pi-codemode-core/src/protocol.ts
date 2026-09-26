@@ -4,24 +4,24 @@ import type { ProgramFailureWireValue } from './schema.ts'
 
 type WorkerError = WorkerFailureValue | WorkerExceptionValue | WorkerHostErrorValue
 
-interface WorkerFailureValue {
+type WorkerFailureValue = {
   readonly kind: 'failure'
   readonly failure: ProgramFailureWireValue
 }
 
-interface WorkerExceptionValue {
+type WorkerExceptionValue = {
   readonly kind: 'exception'
   readonly name: string
   readonly message: string
   readonly stack?: string
 }
 
-interface WorkerHostErrorValue {
+type WorkerHostErrorValue = {
   readonly kind: 'host'
   readonly value: ProgramWireValue
 }
 
-interface CodeModeWorkerStart {
+type CodeModeWorkerStart = {
   readonly type: 'start'
   readonly code: string
   readonly filename: string
@@ -32,28 +32,28 @@ interface CodeModeWorkerStart {
   readonly syncPort: MessagePort
 }
 
-interface CodeModeSyncRequest {
+type CodeModeSyncRequest = {
   readonly type: 'sync-call'
   readonly id: number
   readonly method: string
   readonly args: readonly unknown[]
 }
 
-interface CodeModeAsyncRequest {
+type CodeModeAsyncRequest = {
   readonly type: 'async-call'
   readonly id: number
   readonly method: string
   readonly args: readonly unknown[]
 }
 
-interface CodeModeSyncSuccessResponse {
+type CodeModeSyncSuccessResponse = {
   readonly type: 'sync-result'
   readonly id: number
   readonly ok: true
   readonly value: unknown
 }
 
-interface CodeModeSyncFailureResponse {
+type CodeModeSyncFailureResponse = {
   readonly type: 'sync-result'
   readonly id: number
   readonly ok: false
@@ -62,14 +62,14 @@ interface CodeModeSyncFailureResponse {
 
 type CodeModeSyncResponse = CodeModeSyncSuccessResponse | CodeModeSyncFailureResponse
 
-interface CodeModeAsyncSuccessResponse {
+type CodeModeAsyncSuccessResponse = {
   readonly type: 'async-result'
   readonly id: number
   readonly ok: true
   readonly value: unknown
 }
 
-interface CodeModeAsyncFailureResponse {
+type CodeModeAsyncFailureResponse = {
   readonly type: 'async-result'
   readonly id: number
   readonly ok: false
@@ -78,12 +78,12 @@ interface CodeModeAsyncFailureResponse {
 
 type CodeModeAsyncResponse = CodeModeAsyncSuccessResponse | CodeModeAsyncFailureResponse
 
-interface CodeModeWorkerResult {
+type CodeModeWorkerResult = {
   readonly type: 'result'
   readonly value: unknown
 }
 
-interface CodeModeWorkerFailure {
+type CodeModeWorkerFailure = {
   readonly type: 'error'
   readonly error: WorkerError
 }

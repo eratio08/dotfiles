@@ -16,9 +16,7 @@ const parameters = Type.Object({
   patchText: Type.String({ description: 'OpenCode-style patch text enclosed by *** Begin Patch and *** End Patch' }),
 })
 
-interface ApplyPatchDetails {
-  files: AppliedFile[]
-}
+type ApplyPatchDetails = { files: AppliedFile[] }
 
 type ApplyPatchRenderContext = Parameters<
   NonNullable<ToolDefinition<typeof parameters, ApplyPatchDetails>['renderCall']>

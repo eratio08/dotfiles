@@ -1,10 +1,7 @@
 import { Context, Effect, Layer, Schema } from 'effect'
 import { extractText } from 'unpdf'
 
-interface PdfExtraction {
-  readonly pages: readonly string[]
-  readonly totalPages: number
-}
+type PdfExtraction = { readonly pages: readonly string[]; readonly totalPages: number }
 
 class PdfExtractionError extends Schema.TaggedError<PdfExtractionError>()('PdfExtractionError', {
   cause: Schema.Unknown,

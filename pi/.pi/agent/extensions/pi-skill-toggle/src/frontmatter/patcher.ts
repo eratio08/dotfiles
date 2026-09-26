@@ -3,7 +3,7 @@ import type { FrontmatterDocument, FrontmatterPatch, SkillInvocationMode } from 
 const DISABLE_KEY = 'disable-model-invocation'
 const DISABLE_KEY_RE = /^\s*disable-model-invocation\s*:/
 
-interface FrontmatterPatcher {
+type FrontmatterPatcher = {
   patchInvocationMode(doc: FrontmatterDocument, desiredMode: SkillInvocationMode): FrontmatterPatch
 }
 

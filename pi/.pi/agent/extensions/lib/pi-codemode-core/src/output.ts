@@ -1,7 +1,7 @@
 /**
  * Sets the maximum UTF-8 byte and line counts for formatted output.
  */
-interface OutputLimits {
+type OutputLimits = {
   readonly maxBytes: number
   readonly maxLines: number
 }
@@ -9,7 +9,7 @@ interface OutputLimits {
 /**
  * Contains formatted output text and whether the output was truncated.
  */
-interface SerializedOutput {
+type SerializedOutput = {
   readonly output: string
   readonly truncated: boolean
 }

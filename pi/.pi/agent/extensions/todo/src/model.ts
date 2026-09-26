@@ -6,7 +6,7 @@ const TODO_ID_PATTERN = /^(?:[0-9a-f]{8}|[0-9a-f]{12})-[0-9a-f]{4}-[0-9a-f]{4}-[
 
 const TodoIdSchema = Schema.String.check(Schema.isPattern(TODO_ID_PATTERN))
 const TodoStatusSchema = Schema.Literals(TODO_STATUSES)
-const TodoContentSchema = Schema.String
+const TodoContentSchema: typeof Schema.String = Schema.String
 const TodoDataSchema = Schema.Struct({
   id: TodoIdSchema,
   content: TodoContentSchema,

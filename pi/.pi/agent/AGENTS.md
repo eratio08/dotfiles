@@ -38,6 +38,7 @@
 - Never guess. Always read up on facts when unsure.
 - Follow principals of the book `A Philosophy of Software Design` from John Ousterhout.
 - Use vertical space to separate logical units in logic.
+- Never roll back changes not done by yourself without explicit consent.
 
 ## Markdown
 - In Markdown and pull request descriptions always use `ASD-STE100 Simplified Technical English`.

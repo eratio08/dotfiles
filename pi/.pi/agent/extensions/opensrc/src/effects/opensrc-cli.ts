@@ -15,13 +15,13 @@ const DEFAULT_OPENSRC_BIN = resolve(
   'bin/opensrc.js',
 )
 
-interface OpensrcConfig {
+type OpensrcConfig = {
   readonly bin: string
   readonly home: string
   readonly environment: Readonly<Record<string, string | undefined>>
 }
 
-interface OpenSrcCliService {
+type OpenSrcCliService = {
   readonly preflight: () => Effect.Effect<void, OpensrcFailure>
   readonly list: () => Effect.Effect<SourceIndex, OpensrcFailure>
   readonly fetch: (specs: readonly string[], cwd: string) => Effect.Effect<void, OpensrcFailure>

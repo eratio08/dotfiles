@@ -4,10 +4,10 @@ import { readFile, rm } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { initTheme } from '@earendil-works/pi-coding-agent'
 import type { ProgramFailure } from '@eratio/pi-codemode-core'
-import { PiToolContext as PiToolContextService } from '@eratio/pi-effect'
+import { type PiRegistrationContext, PiToolContext as PiToolContextService } from '@eratio/pi-effect'
 import { installFakePlugin } from '@eratio/pi-effect/testing'
 import { Effect } from 'effect'
-import { Type } from 'typebox'
+import { type Static, Type } from 'typebox'
 import {
   createTool,
   defineMethod,
@@ -29,6 +29,10 @@ type TextToolResult = {
 const echoParameters = Type.Object({ text: Type.String() })
 const tupleParameters = Type.Tuple([Type.String(), Type.String()])
 
+type ToolRun<Services, Failure, RunContext = void> = Parameters<
+  NonNullable<Parameters<typeof createTool<Services, Failure, RunContext>>[0]['withRun']>
+>[0]
+
 const optionalEchoTool = createTool({
   toolName: 'optional-echo',
   description: 'Run TypeScript against an API with an optional argument.',
@@ -40,13 +44,15 @@ const optionalEchoTool = createTool({
       signature: '(input?: EchoInput): Promise<string>',
       parameters: echoParameters,
       optionalParameters: true,
-      execute: (input) => Effect.succeed(input?.text ?? 'empty'),
+      execute: (input: Static<typeof echoParameters> | undefined) => Effect.succeed(input?.text ?? 'empty'),
     }),
   },
 })
 
 const createEchoTool = (
-  execute: MethodDefinition<typeof echoParameters, never, never>['execute'] = ({ text }) => Effect.succeed(text),
+  execute: MethodDefinition<typeof echoParameters, never, never>['execute'] = ({
+    text,
+  }: Static<typeof echoParameters>) => Effect.succeed(text),
   outputLimits?: { readonly maxBytes?: number; readonly maxLines?: number },
   toolName = 'echo',
 ): RegisteredTool<never, never> =>
@@ -67,17 +73,19 @@ const createEchoTool = (
         description: 'Convert the supplied text to uppercase.',
         signature: '(input: EchoInput): Promise<string>',
         parameters: echoParameters,
-        execute: ({ text }) => Effect.succeed(text.toUpperCase()),
+        execute: ({ text }: Static<typeof echoParameters>) => Effect.succeed(text.toUpperCase()),
       }),
     },
   })
 
-const installTool = async <Services, Failure>(tool: RegisteredTool<Services, Failure>) =>
+const installTool = async <Services, Failure>(
+  tool: RegisteredTool<Services, Failure>,
+): ReturnType<typeof installFakePlugin> =>
   installFakePlugin(
     PiExtension.install(
       PiExtension.define<ProgramFailure>({
         id: 'code-mode-sdk-test',
-        effect: ({ tools }) => tool.register(tools),
+        effect: ({ tools }: PiRegistrationContext<never, ProgramFailure>) => tool.register(tools),
       }),
     ),
   )
@@ -88,7 +96,7 @@ test('should register a tool with Pi services given a custom execution failure t
     toolName: 'pi-service-tool',
     description: 'Run TypeScript with Pi services.',
     timeoutMs: 10_000,
-    withRun: (run) =>
+    withRun: (run: ToolRun<never, { readonly _tag: 'ToolFailure' }>) =>
       Effect.gen(function* () {
         yield* PiToolContextService
         return yield* run(undefined)
@@ -176,7 +184,7 @@ test('should validate tuple schemas and pass positional method arguments given v
           description: 'Join two strings.',
           signature: '(left: string, right: string): Promise<string>',
           parameters: tupleParameters,
-          execute: ([left, right]) => Effect.succeed(`${left}:${right}`),
+          execute: ([left, right]: Static<typeof tupleParameters>) => Effect.succeed(`${left}:${right}`),
         }),
       },
     }),
@@ -204,7 +212,7 @@ test('should reject the wrong number of positional method arguments given tuple 
           description: 'Join two strings.',
           signature: '(left: string, right: string): Promise<string>',
           parameters: tupleParameters,
-          execute: ([left, right]) => Effect.succeed(`${left}:${right}`),
+          execute: ([left, right]: Static<typeof tupleParameters>) => Effect.succeed(`${left}:${right}`),
         }),
       },
     }),
@@ -403,14 +411,14 @@ test('should pass one context to each method call given a run scope', async () =
         description: 'Return the supplied text with the run prefix.',
         signature: '(input: EchoInput): Promise<string>',
         parameters: echoParameters,
-        execute: ({ text }, _signal, context) =>
+        execute: ({ text }: Static<typeof echoParameters>, _signal: AbortSignal, context: typeof runContext) =>
           Effect.sync(() => {
             contexts.push(context)
             return `${context.prefix}${text}`
           }),
       }),
     },
-    withRun: (run) =>
+    withRun: (run: ToolRun<never, never, typeof runContext>) =>
       Effect.gen(function* () {
         const result = yield* run(runContext)
         assert.deepEqual(result.details?.operations, { echo: 2 })

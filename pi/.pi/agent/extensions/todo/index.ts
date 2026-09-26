@@ -22,7 +22,14 @@ import {
   TodoUiError,
   todoHostError,
 } from './src/effects.ts'
-import { TODO_ID_PATTERN, TODO_STATUSES } from './src/model.ts'
+import {
+  TODO_ID_PATTERN,
+  TODO_STATUSES,
+  type TodoId,
+  type TodoInput,
+  type TodoPatch,
+  type TodoShowOptions,
+} from './src/model.ts'
 import { getTodoCounts, isOpenTodo, type Todo, type TodoStatus, todoDescriptionLines } from './src/state.ts'
 import { TodoStore } from './src/store.ts'
 
@@ -33,6 +40,10 @@ const decodeApprovedPlanSubmissionDetails = Schema.decodeUnknownResult(
 type TodoServices = TodoEffects | TodoStore | TodoStatusRequestVersion | TodoUi
 type TodoToolErrorCodec = NonNullable<ToolDefinition<TodoServices, TodoUiError, TodoRunContext>['errorCodec']>
 type TodoToolFailure = Parameters<TodoToolErrorCodec['encode']>[0]
+type TodoToolRun = NonNullable<ToolDefinition<TodoServices, TodoUiError, TodoRunContext>['withRun']>
+type TodoPluginRegistrations = Parameters<
+  NonNullable<Parameters<typeof PiExtension.define<TodoServices, TodoToolFailure>>[0]['effect']>
+>[0]
 
 const todoIdParameter = Type.String({ pattern: TODO_ID_PATTERN.source })
 const todoStatusParameter = Type.Union(TODO_STATUSES.map((status) => Type.Literal(status)))
@@ -62,7 +73,7 @@ const todoToolErrorWireSchema = Schema.Struct({
   cause: Schema.optionalKey(Schema.String),
 })
 const todoToolErrorCodec: TodoToolErrorCodec = {
-  encode: (error) => ({
+  encode: (error: TodoToolFailure) => ({
     _tag: error._tag,
     operation: error.operation,
     message: error.message,
@@ -70,7 +81,7 @@ const todoToolErrorCodec: TodoToolErrorCodec = {
       ? {}
       : { cause: error.cause instanceof Error ? error.cause.message : String(error.cause) }),
   }),
-  decode: (value) => {
+  decode: (value: unknown) => {
     const result = Schema.decodeUnknownResult(todoToolErrorWireSchema)(value)
     if (Result.isFailure(result)) throw new TypeError('The Todo tool error payload is invalid.')
     return new TodoUiError({
@@ -84,7 +95,7 @@ const todoToolErrorCodec: TodoToolErrorCodec = {
 function runTodoApiOperation<A>(operation: string, run: () => Promise<A>): Effect.Effect<A, TodoUiError> {
   return Effect.tryPromise({
     try: run,
-    catch: (cause) => todoHostError(operation, cause),
+    catch: (cause: unknown) => todoHostError(operation, cause),
   })
 }
 
@@ -237,7 +248,7 @@ const updateUi = Effect.fnUntraced(function* (
   let toolsExpanded = yield* hostUi.getToolsExpanded().pipe(Effect.mapError((cause) => todoHostError('update', cause)))
   yield* hostUi
     .setWidget('todo', (_tui: PiTui, theme: PiTheme) => ({
-      render(width: number) {
+      render(width: number): string[] {
         toolsExpanded = hostUi.getToolsExpandedValue()
         const visible = unfinished.slice(0, 8)
         const depths = getTodoDepths(todos)
@@ -256,7 +267,7 @@ const updateUi = Effect.fnUntraced(function* (
         if (unfinished.length > 8) lines.push(theme.fg('dim', `… ${unfinished.length - 8} more`))
         return lines
       },
-      invalidate() {},
+      invalidate(): void {},
     }))
     .pipe(Effect.mapError((cause) => todoHostError('update', cause)))
 })
@@ -264,8 +275,8 @@ const updateUi = Effect.fnUntraced(function* (
 const todoUiLayer: Layer.Layer<TodoUi, never, never> = Layer.succeed(
   TodoUi,
   TodoUi.of({
-    update: (todos, suspended) => updateUi(todos, suspended),
-    show: (todos) =>
+    update: (todos: readonly Todo[], suspended?: boolean) => updateUi(todos, suspended),
+    show: (todos: readonly Todo[]) =>
       Effect.gen(function* () {
         const ui = yield* PiUi
         yield* ui
@@ -304,13 +315,15 @@ const todoTool = createTool<TodoServices, TodoUiError, TodoRunContext>({
         'Add a todo to the current plan. Add prerequisites before their dependents, then use their IDs in dependsOn.',
       signature: '(input: TodoInput): Promise<Todo>',
       parameters: addTodoParameters,
-      execute: (input, _signal, context) => runTodoApiOperation('add', () => context.api.add(input)),
+      execute: (input: TodoInput, _signal: AbortSignal | undefined, context: TodoRunContext) =>
+        runTodoApiOperation('add', () => context.api.add(input)),
     }),
     update: defineMethod({
       description: 'Update one todo by ID. Dependency changes are validated atomically.',
       signature: '(id: TodoId, patch: TodoPatch): Promise<Todo>',
       parameters: updateTodoParameters,
-      execute: ([id, patch], _signal, context) => runTodoApiOperation('update', () => context.api.update(id, patch)),
+      execute: ([id, patch]: [TodoId, TodoPatch], _signal: AbortSignal | undefined, context: TodoRunContext) =>
+        runTodoApiOperation('update', () => context.api.update(id, patch)),
     }),
     show: defineMethod({
       description:
@@ -321,39 +334,45 @@ const todoTool = createTool<TodoServices, TodoUiError, TodoRunContext>({
       signature: '(options?: TodoShowOptions): Promise<readonly Todo[]>',
       parameters: showTodoParameters,
       optionalParameters: true,
-      execute: (options, _signal, context) => runTodoApiOperation('show', () => context.api.show(options)),
+      execute: (options: TodoShowOptions | undefined, _signal: AbortSignal | undefined, context: TodoRunContext) =>
+        runTodoApiOperation('show', () => context.api.show(options)),
     }),
     next: defineMethod({
       description: 'Start the next ready todo. Fail if a todo is active or no todo is ready.',
       signature: '(): Promise<Todo>',
-      execute: (_params, _signal, context) => runTodoApiOperation('next', () => context.api.next()),
+      execute: (_params: unknown, _signal: AbortSignal | undefined, context: TodoRunContext) =>
+        runTodoApiOperation('next', () => context.api.next()),
     }),
     complete: defineMethod({
       description:
         'Complete the active todo and return remaining counts. ' +
         'allDone is true only when no pending, in-progress, or blocked todos remain.',
       signature: '(): Promise<TodoCompleteResult>',
-      execute: (_params, _signal, context) => runTodoApiOperation('complete', () => context.api.complete()),
+      execute: (_params: unknown, _signal: AbortSignal | undefined, context: TodoRunContext) =>
+        runTodoApiOperation('complete', () => context.api.complete()),
     }),
     omit: defineMethod({
       description: 'Mark one todo as omitted. Its dependents remain blocked until it is completed.',
       signature: '(id: TodoId): Promise<Todo>',
       parameters: todoIdParameter,
-      execute: (id, _signal, context) => runTodoApiOperation('omit', () => context.api.omit(id)),
+      execute: (id: TodoId, _signal: AbortSignal | undefined, context: TodoRunContext) =>
+        runTodoApiOperation('omit', () => context.api.omit(id)),
     }),
     restore: defineMethod({
       description: 'Restore one omitted todo to a pending or dependency-blocked state.',
       signature: '(id: TodoId): Promise<Todo>',
       parameters: todoIdParameter,
-      execute: (id, _signal, context) => runTodoApiOperation('restore', () => context.api.restore(id)),
+      execute: (id: TodoId, _signal: AbortSignal | undefined, context: TodoRunContext) =>
+        runTodoApiOperation('restore', () => context.api.restore(id)),
     }),
     clear: defineMethod({
       description: 'Clear every todo from the current plan and return the number removed.',
       signature: '(): Promise<{ readonly cleared: number }>',
-      execute: (_params, _signal, context) => runTodoApiOperation('clear', () => context.api.clear()),
+      execute: (_params: unknown, _signal: AbortSignal | undefined, context: TodoRunContext) =>
+        runTodoApiOperation('clear', () => context.api.clear()),
     }),
   },
-  withRun: (run, signal) =>
+  withRun: (run: Parameters<TodoToolRun>[0], signal: Parameters<TodoToolRun>[1]) =>
     Effect.gen(function* () {
       const effects = yield* TodoEffects
       return yield* effects.withRun(run, signal)
@@ -363,7 +382,7 @@ const todoTool = createTool<TodoServices, TodoUiError, TodoRunContext>({
 const todoPlugin = PiExtension.define<TodoServices, TodoToolFailure>({
   id: 'todo',
   layer: todoLayer,
-  effect: (registrations) =>
+  effect: (registrations: TodoPluginRegistrations) =>
     Effect.gen(function* () {
       const effects = yield* TodoEffects
       yield* registrations.events.on('session_start', () => effects.syncFromSession())
@@ -427,7 +446,7 @@ const todoPlugin = PiExtension.define<TodoServices, TodoToolFailure>({
                   .pipe(Effect.mapError((cause) => todoHostError('send-message', cause)))
               }),
               {
-                onFailure: (error) => error,
+                onFailure: (error: TodoUiError) => error,
                 onSuccess: () => undefined,
               },
             )

@@ -9,7 +9,7 @@ const FORMAT_VALUES = ['text', 'markdown', 'html'] as const
 
 type WebFetchFormat = (typeof FORMAT_VALUES)[number]
 
-interface WebFetchDetails {
+type WebFetchDetails = {
   url: string
   host: string
   contentType: string
@@ -21,16 +21,9 @@ interface WebFetchDetails {
   fullOutputPath?: string
 }
 
-interface WebFetchInput {
-  url: string
-  format?: WebFetchFormat
-  timeout?: number
-}
+type WebFetchInput = { url: string; format?: WebFetchFormat; timeout?: number }
 
-interface WebFetchResult {
-  content: [{ type: 'text'; text: string }]
-  details: WebFetchDetails
-}
+type WebFetchResult = { content: [{ type: 'text'; text: string }]; details: WebFetchDetails }
 
 const browserUserAgent =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'

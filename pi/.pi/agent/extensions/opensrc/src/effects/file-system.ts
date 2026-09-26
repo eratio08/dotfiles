@@ -7,7 +7,7 @@ import { filterFileEntries, isContainedPath } from '../core/source-query.ts'
 import { decodeOpensrcFailure } from './failure.ts'
 import { resolveContainedPath } from './source-query.ts'
 
-interface FileSystemService {
+type FileSystemService = {
   readonly list: (
     sourceRoot: string,
     pattern: string | undefined,
