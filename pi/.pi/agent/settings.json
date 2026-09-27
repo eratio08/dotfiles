@@ -61,7 +61,9 @@
     "-skills/dd-monitors/SKILL.md",
     "-skills/dd-pup/SKILL.md",
     "-skills/dd-symdb/SKILL.md",
-    "-skills/dd-triage-flaky-test/SKILL.md"
+    "-skills/dd-triage-flaky-test/SKILL.md",
+    "-skills/tuicr/SKILL.md",
+    "-skills/amazon-bedrock/SKILL.md"
   ],
   "extensions": [
     "-extensions/caveman/index.ts"
