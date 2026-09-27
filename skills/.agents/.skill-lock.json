@@ -1,16 +1,6 @@
 {
   "version": 3,
   "skills": {
-    "ask-matt": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/mattpocock/skills.git",
-      "skillPath": "skills/engineering/ask-matt/SKILL.md",
-      "skillFolderHash": "85f3ba59f22c16de988e36b781ae46d0d9098f94",
-      "pluginName": "mattpocock-skills",
-      "installedAt": "2026-08-05T06:24:01.845Z",
-      "updatedAt": "2026-09-16T06:41:49.290Z"
-    },
     "autofix": {
       "source": "coderabbitai/skills",
       "sourceType": "github",
@@ -228,15 +218,6 @@
       "installedAt": "2026-06-26T05:51:16.143Z",
       "updatedAt": "2026-09-16T18:29:51.898Z"
     },
-    "tuicr": {
-      "source": "agavra/tuicr",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/agavra/tuicr.git",
-      "skillPath": "skills/tuicr/SKILL.md",
-      "skillFolderHash": "e562ca662244ca6908a1733646cccf5c4d36d609",
-      "installedAt": "2026-07-03T12:28:37.605Z",
-      "updatedAt": "2026-09-12T15:08:19.641Z"
-    },
     "wait-what": {
       "source": "mattpocock/skills",
       "sourceType": "github",
@@ -300,18 +281,18 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/humanlayer/skills.git",
       "skillPath": "plugins/show-me/skills/show-me/SKILL.md",
-      "skillFolderHash": "0bdb821a21e793a4f6f82a7078c052154447e5cc",
+      "skillFolderHash": "362200ac2fb3c17b765049444e88de73767e6d08",
       "installedAt": "2026-08-25T07:03:13.391Z",
-      "updatedAt": "2026-08-25T07:03:13.391Z"
+      "updatedAt": "2026-09-27T17:32:06.712Z"
     },
     "archify": {
       "source": "tt-a1i/archify",
       "sourceType": "github",
       "sourceUrl": "https://github.com/tt-a1i/archify.git",
       "skillPath": "archify/SKILL.md",
-      "skillFolderHash": "ffb8258f653b66f5afb8340bf8eb61c7309830ff",
+      "skillFolderHash": "68f9fae4d0b4a17c5cd8cba9682e7306f879d4bb",
       "installedAt": "2026-09-14T06:08:49.137Z",
-      "updatedAt": "2026-09-16T18:40:40.639Z"
+      "updatedAt": "2026-09-27T17:32:13.517Z"
     },
     "claude-handoff": {
       "source": "mattpocock/skills",

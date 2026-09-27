@@ -1,3 +1,7 @@
+---
+name: build-pi-extension
+description: Rules on how to build a pi agent extension. Use when building pi agent extensions.
+---
 ## Runtime and implementation
 
 Use Bun as the runtime, not Node.js.
@@ -6,15 +10,14 @@ Do not use `Bun.*` APIs, Bun-only modules, or Bun-only globals.
 Implement the extension as a Pi-idiomatic TypeScript extension.
 Read the relevant Pi documentation before you write code, especially `docs/extensions.md`, `docs/keybindings.md`, and `docs/tui.md`.
 Use Pi APIs and components when they provide the required behavior.
-Write all extension code in TypeScript.
-Export the default factory function that receives `ExtensionAPI`.
 Use one final explicit export list in every TypeScript file.
 Declare exported values and types without inline `export` keywords, then include them in one `export { ... }` clause at the end of the file, using `type` for type-only exports, such as `export { type Config, connect }`.
 Use `export { name as default }` in the same clause when the module has a default export.
+Export the default factory function that receives `ExtensionAPI`.
 Do not add code comments unless they explain a non-obvious constraint.
 Do not hard-code Pi defaults that users can configure.
 Add return types to all non-test code.
-Only used functions if you need to capture anything, otherwise use functions.
+Prefer functions over closures.
 
 ## Custom tools
 
@@ -22,7 +25,6 @@ Give every custom tool a `promptSnippet`.
 Give every custom tool concise `promptGuidelines` that describe when to use it and its important constraints.
 
 For every custom tool with visible output:
-
 - Return Pi's exact tool result shape with `content` and `details`.
 - Implement `renderResult` when custom presentation is needed.
 - Use the renderer's `expanded` value to show a compact collapsed view and more detail when expanded.
@@ -47,6 +49,7 @@ Use this configuration in every extension:
 }
 ```
 
+The `extends` path must be valid an point to the parent biome.json.
 Add `"check": "biome check ."` and `"check:fix": "biome check --write ."` to each extension's `scripts`.
 Add `@biomejs/biome` to each extension's `devDependencies`.
 You must never change biome configurations without being explicitly asked to.
