@@ -29,18 +29,18 @@
 		"opentofu": {
 			"enabled": true,
 			"type": "local",
-			"command": ["npx", "-y", "@opentofu/opentofu-mcp-server@1.0.0"]
+			"command": ["bunx", "-y", "@opentofu/opentofu-mcp-server@1.0.0"]
 		},
 		"playwright": {
 			"enabled": false,
 			"type": "local",
-			"command": ["npx", "-y", "@playwright/mcp@1.63.0"]
+			"command": ["bunx", "-y", "@playwright/mcp@1.63.0"]
 		},
 		"chrome-devtools": {
 			"enabled": true,
 			"type": "local",
 			"command": [
-				"npx",
+				"bunx",
 				"-y",
 				"chrome-devtools-mcp@1.9.0",
 				"--no-usage-statistics"

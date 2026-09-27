@@ -63,7 +63,12 @@
     "-skills/dd-symdb/SKILL.md",
     "-skills/dd-triage-flaky-test/SKILL.md",
     "-skills/tuicr/SKILL.md",
-    "-skills/amazon-bedrock/SKILL.md"
+    "-skills/amazon-bedrock/SKILL.md",
+    "-skills/loop-me/SKILL.md",
+    "-skills/setup-matt-pocock-skills/SKILL.md",
+    "-skills/to-spec/SKILL.md",
+    "-skills/to-tickets/SKILL.md",
+    "-skills/triage/SKILL.md"
   ],
   "extensions": [
     "-extensions/caveman/index.ts"
