@@ -166,7 +166,7 @@ type PiUiService = {
   readonly setToolsExpanded: (expanded: boolean) => Effect.Effect<void, PiOperationsError>
 }
 
-type PiUiPort = {
+type PiUiAdapter = {
   readonly select: (...args: Parameters<PiUiService['select']>) => Promise<string | undefined>
   readonly confirm: (...args: Parameters<PiUiService['confirm']>) => Promise<boolean>
   readonly input: (...args: Parameters<PiUiService['input']>) => Promise<string | undefined>
@@ -203,57 +203,63 @@ type PiUiPort = {
   readonly setToolsExpanded: (...args: Parameters<PiUiService['setToolsExpanded']>) => void
 }
 
-function createPiUiPort(ui: ExtensionUIContext): PiUiPort {
+function createPiUiAdapter(ui: ExtensionUIContext): PiUiAdapter {
   return {
-    select: (title: string, options: Parameters<PiUiPort['select']>[1], dialog?: Parameters<PiUiPort['select']>[2]) =>
-      ui.select(title, [...options], dialog),
+    select: (
+      title: string,
+      options: Parameters<PiUiAdapter['select']>[1],
+      dialog?: Parameters<PiUiAdapter['select']>[2],
+    ) => ui.select(title, [...options], dialog),
     confirm: (
       title: string,
-      message: Parameters<PiUiPort['confirm']>[1],
-      dialog?: Parameters<PiUiPort['confirm']>[2],
+      message: Parameters<PiUiAdapter['confirm']>[1],
+      dialog?: Parameters<PiUiAdapter['confirm']>[2],
     ) => ui.confirm(title, message, dialog),
-    input: (title: string, placeholder?: Parameters<PiUiPort['input']>[1], dialog?: Parameters<PiUiPort['input']>[2]) =>
-      ui.input(title, placeholder, dialog),
-    notify: (message: string, type?: Parameters<PiUiPort['notify']>[1]) => ui.notify(message, type),
-    onTerminalInput: (handler: Parameters<PiUiPort['onTerminalInput']>[0]) => ui.onTerminalInput(handler),
-    setStatus: (key: string, text: Parameters<PiUiPort['setStatus']>[1]) => ui.setStatus(key, text),
+    input: (
+      title: string,
+      placeholder?: Parameters<PiUiAdapter['input']>[1],
+      dialog?: Parameters<PiUiAdapter['input']>[2],
+    ) => ui.input(title, placeholder, dialog),
+    notify: (message: string, type?: Parameters<PiUiAdapter['notify']>[1]) => ui.notify(message, type),
+    onTerminalInput: (handler: Parameters<PiUiAdapter['onTerminalInput']>[0]) => ui.onTerminalInput(handler),
+    setStatus: (key: string, text: Parameters<PiUiAdapter['setStatus']>[1]) => ui.setStatus(key, text),
     setWorkingMessage: (message: string | undefined) => ui.setWorkingMessage(message),
     setWorkingVisible: (visible: boolean) => ui.setWorkingVisible(visible),
-    setWorkingIndicator: (options: Parameters<PiUiPort['setWorkingIndicator']>[0]) =>
+    setWorkingIndicator: (options: Parameters<PiUiAdapter['setWorkingIndicator']>[0]) =>
       ui.setWorkingIndicator(
         options ? { ...options, frames: options.frames ? [...options.frames] : undefined } : undefined,
       ),
     setWidget: (
       key: string,
-      content: Parameters<PiUiPort['setWidget']>[1],
-      options?: Parameters<PiUiPort['setWidget']>[2],
+      content: Parameters<PiUiAdapter['setWidget']>[1],
+      options?: Parameters<PiUiAdapter['setWidget']>[2],
     ) =>
       typeof content === 'function'
         ? ui.setWidget(key, content, options)
         : ui.setWidget(key, content ? [...content] : undefined, options),
-    setFooter: (factory: Parameters<PiUiPort['setFooter']>[0]) => ui.setFooter(factory),
-    setHeader: (factory: Parameters<PiUiPort['setHeader']>[0]) => ui.setHeader(factory),
+    setFooter: (factory: Parameters<PiUiAdapter['setFooter']>[0]) => ui.setFooter(factory),
+    setHeader: (factory: Parameters<PiUiAdapter['setHeader']>[0]) => ui.setHeader(factory),
     setTitle: (title: string) => ui.setTitle(title),
-    custom: <A>(factory: PiCustomFactory<A>, options?: Parameters<PiUiPort['custom']>[1]) =>
+    custom: <A>(factory: PiCustomFactory<A>, options?: Parameters<PiUiAdapter['custom']>[1]) =>
       piOperationTryPromise('custom', () => ui.custom(factory, options)),
     pasteToEditor: (text: string) => ui.pasteToEditor(text),
     setEditorText: (text: string) => ui.setEditorText(text),
     getEditorText: () => ui.getEditorText(),
-    editor: (title: string, prefill?: Parameters<PiUiPort['editor']>[1]) => ui.editor(title, prefill),
-    addAutocompleteProvider: (factory: Parameters<PiUiPort['addAutocompleteProvider']>[0]) =>
+    editor: (title: string, prefill?: Parameters<PiUiAdapter['editor']>[1]) => ui.editor(title, prefill),
+    addAutocompleteProvider: (factory: Parameters<PiUiAdapter['addAutocompleteProvider']>[0]) =>
       ui.addAutocompleteProvider(factory),
-    setEditorComponent: (factory: Parameters<PiUiPort['setEditorComponent']>[0]) => ui.setEditorComponent(factory),
+    setEditorComponent: (factory: Parameters<PiUiAdapter['setEditorComponent']>[0]) => ui.setEditorComponent(factory),
     getEditorComponent: () => ui.getEditorComponent(),
     theme: ui.theme,
     getAllThemes: () => ui.getAllThemes(),
     getTheme: (name: string) => ui.getTheme(name),
-    setTheme: (theme: Parameters<PiUiPort['setTheme']>[0]) => ui.setTheme(theme),
+    setTheme: (theme: Parameters<PiUiAdapter['setTheme']>[0]) => ui.setTheme(theme),
     getToolsExpanded: () => ui.getToolsExpanded(),
     setToolsExpanded: (expanded: boolean) => ui.setToolsExpanded(expanded),
   }
 }
 
-function emptyPiUiPort(mode: PiMode = 'print'): PiUiPort {
+function emptyPiUiAdapter(mode: PiMode = 'print'): PiUiAdapter {
   return {
     select: async () => undefined,
     confirm: async () => false,
@@ -299,7 +305,7 @@ function emptyPiUiPort(mode: PiMode = 'print'): PiUiPort {
  * @param ui Functions that call the underlying Pi UI.
  * @returns Effect-based UI operations for the invocation.
  */
-function createPiUiService(context: PiContextValue, ui: PiUiPort): PiUiService {
+function createPiUiService(context: PiContextValue, ui: PiUiAdapter): PiUiService {
   const unavailable = (operation: string): Effect.Effect<never, PiUiUnavailableError> =>
     Effect.fail(
       new PiUiUnavailableError({ operation, mode: context.mode, message: `UI is unavailable for ${context.mode}.` }),
@@ -320,9 +326,9 @@ function createPiUiService(context: PiContextValue, ui: PiUiPort): PiUiService {
     evaluate: (signal: AbortSignal) => Promise<A>,
   ): Effect.Effect<A, PiOperationsError> => piOperationTryPromise(operation, evaluate)
   const dialogOptions = (
-    dialog: Parameters<PiUiPort['select']>[2],
+    dialog: Parameters<PiUiAdapter['select']>[2],
     signal: AbortSignal,
-  ): Parameters<PiUiPort['select']>[2] => ({
+  ): Parameters<PiUiAdapter['select']>[2] => ({
     ...dialog,
     signal: combinePiAbortSignals(dialog?.signal, context.signal, signal),
   })
@@ -417,13 +423,13 @@ function createPiUiService(context: PiContextValue, ui: PiUiPort): PiUiService {
 class PiUi extends Context.Service<PiUi, PiUiService>()('pi-effect/PiUi') {}
 
 export {
-  createPiUiPort,
+  createPiUiAdapter,
   createPiUiService,
-  emptyPiUiPort,
+  emptyPiUiAdapter,
   type PiCustomFactory,
   PiUi,
+  type PiUiAdapter,
   type PiUiDialogOptions,
-  type PiUiPort,
   type PiUiService,
   type PiWidgetOptions,
   type PiWorkingIndicatorOptions,

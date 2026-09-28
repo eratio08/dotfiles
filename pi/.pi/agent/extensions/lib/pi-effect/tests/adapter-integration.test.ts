@@ -62,6 +62,34 @@ test('should preserve event results and provide the current invocation context g
   expect(systemPromptOptions).toEqual({ cwd: '/workspace' })
 })
 
+test('should run shutdown handlers in registration order given a shutdown event', async () => {
+  //given
+  const received: number[] = []
+  const plugin = PiExtension.define({
+    id: 'tests/session-shutdown-order',
+    effect: (registrations: PiRegistrationContext<never>) =>
+      Effect.gen(function* () {
+        yield* registrations.events.on('session_shutdown', () =>
+          Effect.sync(() => {
+            received.push(1)
+          }),
+        )
+        yield* registrations.events.on('session_shutdown', () =>
+          Effect.sync(() => {
+            received.push(2)
+          }),
+        )
+      }),
+  })
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+
+  //when
+  await shutdown(fake)
+
+  //then
+  expect(received).toEqual([1, 2])
+})
+
 test('should accept void effects given a side-effect-only event handler', async () => {
   //given
   let handled = false

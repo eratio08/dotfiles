@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Context, Effect, Layer } from 'effect'
-import { PiContext, type PiContextValue, providePiContext } from '../src/context.ts'
+import { PiContext, type PiContextValue } from '../src/context.ts'
 import { PiRuntimeDisposedError } from '../src/errors.ts'
 import { createPiManagedRuntime } from '../src/runtime.ts'
 
@@ -64,8 +64,8 @@ test('should keep invocation contexts isolated given concurrent runtime calls', 
 
   //when
   const values = await Promise.all([
-    runtime.run(providePiContext(readCwd, contextValue('/one'))),
-    runtime.run(providePiContext(readCwd, contextValue('/two'))),
+    runtime.run(Effect.provideService(readCwd, PiContext, contextValue('/one'))),
+    runtime.run(Effect.provideService(readCwd, PiContext, contextValue('/two'))),
   ])
   await runtime.dispose()
 

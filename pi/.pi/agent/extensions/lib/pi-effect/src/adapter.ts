@@ -55,7 +55,14 @@ import {
 } from './registries.ts'
 import { createPiManagedRuntime, type PiManagedRuntime } from './runtime.ts'
 import { createPiToolsService, type EffectToolDefinition, PiTools } from './tools.ts'
-import { createPiUiPort, createPiUiService, emptyPiUiPort, PiUi, type PiUiPort, type PiUiService } from './ui.ts'
+import {
+  createPiUiAdapter,
+  createPiUiService,
+  emptyPiUiAdapter,
+  PiUi,
+  type PiUiAdapter,
+  type PiUiService,
+} from './ui.ts'
 
 type PiToolUpdateHandler = {
   onUpdate(update: unknown): void
@@ -170,7 +177,7 @@ function createFacade(
   session: PiSessionContextValue,
   command: PiCommandContextValue,
   tool: PiToolContextValue,
-  rawUi: PiUiPort,
+  rawUi: PiUiAdapter,
 ): PiStableFacade & {
   context: PiContextValue
   sessionContext: PiSessionContextValue
@@ -303,7 +310,7 @@ const createInvocation = Effect.fnUntraced(function* <Services>(
       session,
       command: commandValue,
       tool: toolValue,
-      pi: createFacade(stable, operations, context, session, commandValue, toolValue, createPiUiPort(raw.ui)),
+      pi: createFacade(stable, operations, context, session, commandValue, toolValue, createPiUiAdapter(raw.ui)),
     }
   })
 })
@@ -471,10 +478,13 @@ function trustInvocation(
   const session = emptySessionContext()
   const command = unavailableCommandContext(context, session)
   const tool = unavailableToolContext(context, session)
-  const ui: PiUiPort = {
-    ...emptyPiUiPort(raw.mode),
-    select: (title: string, options: Parameters<PiUiPort['select']>[1], dialog?: Parameters<PiUiPort['select']>[2]) =>
-      raw.ui.select(title, [...options], dialog),
+  const ui: PiUiAdapter = {
+    ...emptyPiUiAdapter(raw.mode),
+    select: (
+      title: string,
+      options: Parameters<PiUiAdapter['select']>[1],
+      dialog?: Parameters<PiUiAdapter['select']>[2],
+    ) => raw.ui.select(title, [...options], dialog),
     confirm: raw.ui.confirm,
     input: raw.ui.input,
     notify: raw.ui.notify,
@@ -482,12 +492,24 @@ function trustInvocation(
   return { context, session, command, tool, pi: createFacade(stable, operations, context, session, command, tool, ui) }
 }
 
+type PiRuntimeEventContext = ExtensionContext | ProjectTrustContext
+
+type PiRuntimeEventInvocation = {
+  effect: InvocationEffect
+  signal: AbortSignal | undefined
+}
+
+type PiRuntimeEventOn = {
+  (name: 'session_shutdown', callback: (event: unknown, context: ExtensionContext) => Promise<unknown>): void
+  (name: PiEventName, callback: (event: unknown, context: PiRuntimeEventContext | undefined) => Promise<unknown>): void
+}
+
 function registerEventHandler<Services, Failure>(
   name: PiEventName,
   handler: PiEventCallback<Services, Failure>,
   policy: PiFailurePolicy,
   rawEvent: unknown,
-  invocation: { effect: InvocationEffect; signal: AbortSignal | undefined },
+  invocation: PiRuntimeEventInvocation,
   invoke: Invoke<Services | PiServices>,
 ): Promise<unknown> {
   const program = Effect.suspend(() => handler(rawEvent))
@@ -508,8 +530,204 @@ function bootstrapInvocation(operations: PiOperationsService, stable: PiStableFa
     session,
     command,
     tool,
-    pi: createFacade(stable, operations, context, session, command, tool, emptyPiUiPort(context.mode)),
+    pi: createFacade(stable, operations, context, session, command, tool, emptyPiUiAdapter(context.mode)),
   })
+}
+
+type PiRuntimeEventRegistrar<RegistrationServices, Failure> = {
+  readonly events: {
+    readonly register: (
+      name: PiEventName,
+      handler: PiEventCallback<RegistrationServices, Failure>,
+      policy: PiFailurePolicy,
+    ) => void
+  }
+  readonly registerShutdownHandler: Effect.Effect<void, PiRegistrationError>
+}
+
+type PiRuntimeCommandRegistrar<RegistrationServices, Failure> = {
+  readonly register: (
+    name: string,
+    definition: Parameters<PiRegistrationContext<RegistrationServices, Failure>['commands']['register']>[1],
+  ) => void
+}
+
+function createPiRuntimeEventRegistrar<RegistrationServices, Failure>(
+  api: ExtensionAPI,
+  operations: PiOperationsService,
+  stable: PiStableFacade,
+  runtime: PiManagedRuntime<RegistrationServices | PiStableServices | PiOperations, Failure>,
+  run: Invoke<RegistrationServices | PiServices>,
+): PiRuntimeEventRegistrar<RegistrationServices, Failure> {
+  const shutdownHandlers: Array<PiEventCallback<RegistrationServices, Failure>> = []
+  let shutdownPromise: Promise<void> | undefined
+  const rawOn = api.on as PiRuntimeEventOn
+  const eventInvocation = (context: PiRuntimeEventContext | undefined): PiRuntimeEventInvocation =>
+    context === undefined
+      ? { effect: bootstrapInvocation(operations, stable), signal: undefined }
+      : 'sessionManager' in context
+        ? {
+            effect: createInvocation(context, undefined, undefined, run),
+            signal: context.signal,
+          }
+        : {
+            effect: piOperationTry('projectTrustContext', () => trustInvocation(operations, stable, context)),
+            signal: undefined,
+          }
+  const registerShutdownHandler: Effect.Effect<void, PiRegistrationError> = Effect.try({
+    try: () =>
+      rawOn('session_shutdown', async (event, context) => {
+        if (shutdownPromise) return shutdownPromise
+        runtime.beginShutdown()
+        shutdownPromise = (async () => {
+          try {
+            for (const registered of shutdownHandlers) {
+              const invocation = createInvocation(context, undefined, undefined, run)
+              await runtime.runShutdown(
+                invocation.pipe(
+                  Effect.flatMap((current) =>
+                    provideInvocation(
+                      Effect.suspend(() => registered(event)),
+                      current,
+                    ),
+                  ),
+                ),
+                [context.signal],
+              )
+            }
+          } finally {
+            await runtime.dispose()
+          }
+        })()
+        return shutdownPromise
+      }),
+    catch: (cause: unknown) =>
+      new PiRegistrationError({
+        registration: 'event:session_shutdown',
+        message: piCauseMessage(cause),
+        cause,
+      }),
+  })
+  const events = {
+    register: (
+      name: PiEventName,
+      handler: PiEventCallback<RegistrationServices, Failure>,
+      policy: PiFailurePolicy,
+    ): void => {
+      if (name === 'session_shutdown') {
+        shutdownHandlers.push(handler)
+        return
+      }
+      rawOn(name, (event, context) => registerEventHandler(name, handler, policy, event, eventInvocation(context), run))
+    },
+  }
+
+  return { events, registerShutdownHandler }
+}
+
+function createPiRuntimeCommandRegistrar<RegistrationServices, Failure>(
+  api: ExtensionAPI,
+  operations: PiOperationsService,
+  stable: PiStableFacade,
+  runtime: PiManagedRuntime<RegistrationServices | PiStableServices | PiOperations, Failure>,
+  run: Invoke<RegistrationServices | PiServices>,
+): PiRuntimeCommandRegistrar<RegistrationServices, Failure> {
+  return {
+    register: (
+      name: string,
+      definition: Parameters<PiRegistrationContext<RegistrationServices, Failure>['commands']['register']>[1],
+    ): void => {
+      const getArgumentCompletions = definition.getArgumentCompletions
+      api.registerCommand(name, {
+        description: definition.description,
+        getArgumentCompletions: getArgumentCompletions
+          ? (prefix: string) => {
+              if (runtime.isClosing()) return Promise.resolve(null)
+              return run(
+                Effect.suspend(() => getArgumentCompletions(prefix)),
+                bootstrapInvocation(operations, stable),
+                [],
+              ).then((items) => (items === null ? null : [...items]))
+            }
+          : undefined,
+        handler: (args: string, context: ExtensionCommandContext) => {
+          if (runtime.isClosing()) return Promise.resolve()
+          return run(
+            Effect.suspend(() => definition.handler(args)),
+            createInvocation(context, context, undefined, run),
+            [context.signal],
+          )
+        },
+      })
+    },
+  }
+}
+
+async function installPiRuntimeRegistrations<RegistrationServices, Failure>(
+  api: ExtensionAPI,
+  operations: PiOperationsService,
+  runtime: PiManagedRuntime<RegistrationServices | PiStableServices | PiOperations, Failure>,
+  setup: (
+    registrations: PiRegistrationContext<RegistrationServices, Failure>,
+  ) => Effect.Effect<void, Failure | PiRegistrationError, RegistrationServices | PiStableServices>,
+): Promise<void> {
+  const run: Invoke<RegistrationServices | PiServices> = async <A, E>(
+    program: Effect.Effect<A, E, RegistrationServices | PiServices>,
+    invocation: InvocationEffect,
+    signals: readonly (AbortSignal | undefined)[] = [],
+  ): Promise<A> =>
+    runtime.run(invocation.pipe(Effect.flatMap((current) => provideInvocation(program, current))), signals)
+  const { stable } = await runtime.run(getRuntimeServices())
+  const { events, registerShutdownHandler } = createPiRuntimeEventRegistrar(api, operations, stable, runtime, run)
+  const registries = createPiRegistries<RegistrationServices, Failure>({
+    events,
+    commands: createPiRuntimeCommandRegistrar(api, operations, stable, runtime, run),
+    shortcuts: {
+      register: (
+        shortcut: Parameters<PiRegistrationContext<RegistrationServices, Failure>['shortcuts']['register']>[0],
+        definition: Parameters<PiRegistrationContext<RegistrationServices, Failure>['shortcuts']['register']>[1],
+      ) =>
+        api.registerShortcut(shortcut, {
+          description: definition.description,
+          handler: (context: ExtensionContext) => {
+            if (runtime.isClosing()) return Promise.resolve()
+            return run(
+              Effect.suspend(() => definition.handler()),
+              createInvocation(context, undefined, undefined, run),
+              [context.signal],
+            )
+          },
+        }),
+    },
+    flags: {
+      register: (
+        name: string,
+        definition: Parameters<PiRegistrationContext<RegistrationServices, Failure>['flags']['register']>[1],
+      ) => api.registerFlag(name, definition),
+    },
+    tools: {
+      register: <Params extends TSchema, ToolServices extends RegistrationServices | PiServices, ToolFailure, Details>(
+        definition: EffectToolDefinition<Params, ToolServices, ToolFailure, Details>,
+      ) => api.registerTool(toPiTool(definition, run)),
+    },
+    renderers: {
+      registerMessage: (
+        customType: string,
+        renderer: Parameters<PiRegistrationContext<RegistrationServices, Failure>['renderers']['message']>[1],
+      ) => api.registerMessageRenderer(customType, renderer),
+      registerEntry: (
+        customType: string,
+        renderer: Parameters<PiRegistrationContext<RegistrationServices, Failure>['renderers']['entry']>[1],
+      ) => api.registerEntryRenderer(customType, renderer),
+    },
+  })
+
+  try {
+    await runtime.run(registerShutdownHandler.pipe(Effect.flatMap(() => Effect.suspend(() => setup(registries)))))
+  } catch (cause) {
+    await runtime.dispose()
+    throw cause
+  }
 }
 
 async function installPiRuntime<Services, Failure>(
@@ -520,181 +738,16 @@ async function installPiRuntime<Services, Failure>(
   plugin: PiPlugin<Services, Failure>,
 ): Promise<void> {
   const baseLayer = stableLayer.pipe(Layer.provideMerge(operationsLayer))
-  const installRuntime = async <RegistrationServices>(
-    runtime: PiManagedRuntime<RegistrationServices | PiStableServices | PiOperations, Failure>,
-    effect: (
-      registrations: PiRegistrationContext<RegistrationServices, Failure>,
-    ) => Effect.Effect<void, Failure | PiRegistrationError, RegistrationServices | PiStableServices>,
-  ): Promise<void> => {
-    const shutdownHandlers: Array<PiEventCallback<RegistrationServices, Failure>> = []
-    let shutdownPromise: Promise<void> | undefined
-    const run: Invoke<RegistrationServices | PiServices> = async <A, E>(
-      program: Effect.Effect<A, E, RegistrationServices | PiServices>,
-      invocation: InvocationEffect,
-      signals: readonly (AbortSignal | undefined)[] = [],
-    ): Promise<A> =>
-      runtime.run(invocation.pipe(Effect.flatMap((current) => provideInvocation(program, current))), signals)
-    const { stable } = await runtime.run(getRuntimeServices())
-    type PiEventContext = ExtensionContext | ProjectTrustContext
-    type PiEventOn = {
-      (name: 'session_shutdown', callback: (event: unknown, context: ExtensionContext) => Promise<unknown>): void
-      (name: PiEventName, callback: (event: unknown, context: PiEventContext | undefined) => Promise<unknown>): void
-    }
-    const rawOn = api.on as PiEventOn
-    const eventInvocation = (
-      context: PiEventContext | undefined,
-    ): { effect: InvocationEffect; signal: AbortSignal | undefined } =>
-      context === undefined
-        ? { effect: bootstrapInvocation(operations, stable), signal: undefined }
-        : 'sessionManager' in context
-          ? {
-              effect: createInvocation(context, undefined, undefined, run),
-              signal: context.signal,
-            }
-          : {
-              effect: piOperationTry('projectTrustContext', () => trustInvocation(operations, stable, context)),
-              signal: undefined,
-            }
-    const registerShutdownHandler: Effect.Effect<void, PiRegistrationError> = Effect.try({
-      try: () =>
-        rawOn('session_shutdown', async (event, context) => {
-          if (shutdownPromise) return shutdownPromise
-          runtime.beginShutdown()
-          shutdownPromise = (async () => {
-            try {
-              for (const registered of shutdownHandlers) {
-                const invocation = createInvocation(context, undefined, undefined, run)
-                await runtime.runShutdown(
-                  invocation.pipe(
-                    Effect.flatMap((current) =>
-                      provideInvocation(
-                        Effect.suspend(() => registered(event)),
-                        current,
-                      ),
-                    ),
-                  ),
-                  [context.signal],
-                )
-              }
-            } finally {
-              await runtime.dispose()
-            }
-          })()
-          return shutdownPromise
-        }),
-      catch: (cause: unknown) =>
-        new PiRegistrationError({
-          registration: 'event:session_shutdown',
-          message: piCauseMessage(cause),
-          cause,
-        }),
-    })
-
-    const registries = createPiRegistries<RegistrationServices, Failure>({
-      events: {
-        register: (
-          name: PiEventName,
-          handler: PiEventCallback<RegistrationServices, Failure>,
-          policy: PiFailurePolicy,
-        ) => {
-          if (name === 'session_shutdown') {
-            shutdownHandlers.push(handler)
-            return
-          }
-          rawOn(name, (event, context) =>
-            registerEventHandler(name, handler, policy, event, eventInvocation(context), run),
-          )
-        },
-      },
-      commands: {
-        register: (
-          name: string,
-          definition: Parameters<PiRegistrationContext<RegistrationServices, Failure>['commands']['register']>[1],
-        ) => {
-          const getArgumentCompletions = definition.getArgumentCompletions
-          api.registerCommand(name, {
-            description: definition.description,
-            getArgumentCompletions: getArgumentCompletions
-              ? (prefix: string) => {
-                  if (runtime.isClosing()) return Promise.resolve(null)
-                  return run(
-                    Effect.suspend(() => getArgumentCompletions(prefix)),
-                    bootstrapInvocation(operations, stable),
-                    [],
-                  ).then((items) => (items === null ? null : [...items]))
-                }
-              : undefined,
-            handler: (args: string, context: ExtensionCommandContext) => {
-              if (runtime.isClosing()) return Promise.resolve()
-              return run(
-                Effect.suspend(() => definition.handler(args)),
-                createInvocation(context, context, undefined, run),
-                [context.signal],
-              )
-            },
-          })
-        },
-      },
-      shortcuts: {
-        register: (
-          shortcut: Parameters<PiRegistrationContext<RegistrationServices, Failure>['shortcuts']['register']>[0],
-          definition: Parameters<PiRegistrationContext<RegistrationServices, Failure>['shortcuts']['register']>[1],
-        ) =>
-          api.registerShortcut(shortcut, {
-            description: definition.description,
-            handler: (context: ExtensionContext) => {
-              if (runtime.isClosing()) return Promise.resolve()
-              return run(
-                Effect.suspend(() => definition.handler()),
-                createInvocation(context, undefined, undefined, run),
-                [context.signal],
-              )
-            },
-          }),
-      },
-      flags: {
-        register: (
-          name: string,
-          definition: Parameters<PiRegistrationContext<RegistrationServices, Failure>['flags']['register']>[1],
-        ) => api.registerFlag(name, definition),
-      },
-      tools: {
-        register: <
-          Params extends TSchema,
-          ToolServices extends RegistrationServices | PiServices,
-          ToolFailure,
-          Details,
-        >(
-          definition: EffectToolDefinition<Params, ToolServices, ToolFailure, Details>,
-        ) => api.registerTool(toPiTool(definition, run)),
-      },
-      renderers: {
-        registerMessage: (
-          customType: string,
-          renderer: Parameters<PiRegistrationContext<RegistrationServices, Failure>['renderers']['message']>[1],
-        ) => api.registerMessageRenderer(customType, renderer),
-        registerEntry: (
-          customType: string,
-          renderer: Parameters<PiRegistrationContext<RegistrationServices, Failure>['renderers']['entry']>[1],
-        ) => api.registerEntryRenderer(customType, renderer),
-      },
-    })
-
-    try {
-      await runtime.run(registerShutdownHandler.pipe(Effect.flatMap(() => Effect.suspend(() => effect(registries)))))
-    } catch (cause) {
-      await runtime.dispose()
-      throw cause
-    }
-  }
 
   if (plugin.layer !== undefined) {
     const pluginLayer = plugin.layer.pipe(Layer.provide(baseLayer))
     const runtime = createPiManagedRuntime(Layer.merge(pluginLayer, baseLayer))
-    await installRuntime(runtime, (registrations) => plugin.effect(registrations))
+    await installPiRuntimeRegistrations(api, operations, runtime, (registrations) => plugin.effect(registrations))
   } else {
     const runtime = createPiManagedRuntime(baseLayer)
-    await installRuntime<never>(runtime, (registrations) => plugin.effect(registrations))
+    await installPiRuntimeRegistrations<never, Failure>(api, operations, runtime, (registrations) =>
+      plugin.effect(registrations),
+    )
   }
 }
 

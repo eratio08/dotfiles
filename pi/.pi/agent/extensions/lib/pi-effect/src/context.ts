@@ -280,58 +280,6 @@ function combinePiAbortSignals(...signals: PiInvocationSignals): AbortSignal | u
   return controller.signal
 }
 
-/**
- * Provides invocation context to an Effect and removes `PiContext` from its requirements.
- * @param program Effect that requires `PiContext`.
- * @param context Context value provided to the Effect.
- * @returns The same Effect with `PiContext` removed from its requirements.
- */
-function providePiContext<A, E, R>(
-  program: Effect.Effect<A, E, R>,
-  context: PiContextValue,
-): Effect.Effect<A, E, Exclude<R, PiContext>> {
-  return Effect.provideService(program, PiContext, context)
-}
-
-/**
- * Provides session context to an Effect and removes `PiSessionContext` from its requirements.
- * @param program Effect that requires `PiSessionContext`.
- * @param context Session context value provided to the Effect.
- * @returns The same Effect with `PiSessionContext` removed from its requirements.
- */
-function providePiSessionContext<A, E, R>(
-  program: Effect.Effect<A, E, R>,
-  context: PiSessionContextValue,
-): Effect.Effect<A, E, Exclude<R, PiSessionContext>> {
-  return Effect.provideService(program, PiSessionContext, context)
-}
-
-/**
- * Provides command context to an Effect and removes `PiCommandContext` from its requirements.
- * @param program Effect that requires `PiCommandContext`.
- * @param context Command context value provided to the Effect.
- * @returns The same Effect with `PiCommandContext` removed from its requirements.
- */
-function providePiCommandContext<A, E, R>(
-  program: Effect.Effect<A, E, R>,
-  context: PiCommandContextValue,
-): Effect.Effect<A, E, Exclude<R, PiCommandContext>> {
-  return Effect.provideService(program, PiCommandContext, context)
-}
-
-/**
- * Provides tool context to an Effect and removes `PiToolContext` from its requirements.
- * @param program Effect that requires `PiToolContext`.
- * @param context Tool context value provided to the Effect.
- * @returns The same Effect with `PiToolContext` removed from its requirements.
- */
-function providePiToolContext<A, E, R>(
-  program: Effect.Effect<A, E, R>,
-  context: PiToolContextValue,
-): Effect.Effect<A, E, Exclude<R, PiToolContext>> {
-  return Effect.provideService(program, PiToolContext, context)
-}
-
 export {
   combinePiAbortSignals,
   createPiSessionService,
@@ -355,8 +303,4 @@ export {
   type PiToolContextValue,
   type PiToolExecutionMode,
   type PiToolUpdate,
-  providePiCommandContext,
-  providePiContext,
-  providePiSessionContext,
-  providePiToolContext,
 }
