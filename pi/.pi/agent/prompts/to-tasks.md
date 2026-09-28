@@ -42,23 +42,7 @@ Then migrate the call sites over in batches sized by blast radius (per package, 
 Finally contract: delete the old form once no caller remains, in a todo-task blocked by every migrate batch.
 When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify todo-task; green is promised only there.
 
-### 4. Quiz the user
-
-Present the proposed breakdown as a numbered list. For each todo-task, show:
-
-- **Title**: short descriptive name
-- **Blocked by**: which other todo-tasks (if any) must complete first
-- **What it delivers**: the end-to-end behaviour this todo-task makes work
-
-Ask the user:
-
-- Does the granularity feel right? (too coarse / too fine)
-- Are the blocking edges correct: does each todo-task only depend on todo-tasks that genuinely gate it?
-- Should any todo-tasks be merged or split further?
-
-Iterate until the user approves the breakdown.
-
-### 5. Publish the todo-tasks to the todo-tool
+### 4. Publish the todo-tasks to the todo-tool
 
 Publish the approved todo-tasks.
 
