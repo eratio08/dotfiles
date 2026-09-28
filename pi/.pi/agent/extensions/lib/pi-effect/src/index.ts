@@ -1,3 +1,5 @@
+export type { Theme as PiTheme } from '@earendil-works/pi-coding-agent'
+export type { TUI as PiTui } from '@earendil-works/pi-tui'
 /** Error classes returned by Pi operations, registrations, tools, and runtime shutdown. */
 export {
   type PiExtensionError,
@@ -39,8 +41,8 @@ export {
   PiCommandContext,
   PiContext,
   PiFlags,
-  PiOperations,
   PiMessages,
+  PiOperations,
   PiProcess,
   type PiServices,
   PiSession,

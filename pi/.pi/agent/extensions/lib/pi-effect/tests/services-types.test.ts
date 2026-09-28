@@ -1,4 +1,7 @@
 import { test } from 'bun:test'
+import type { Theme } from '@earendil-works/pi-coding-agent'
+import type { TUI } from '@earendil-works/pi-tui'
+import type { PiTheme, PiTui } from '@eratio/pi-effect'
 import { Context, Effect, Layer } from 'effect'
 import type { TSchema } from 'typebox'
 import type { InvocationEffect } from '../src/adapter.ts'
@@ -19,6 +22,8 @@ import type { PiStableServices } from '../src/pi.ts'
 type Assert<T extends true> = T
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false
+type PiThemeMatchesTheme = Assert<Equal<PiTheme, Theme>>
+type PiTuiMatchesTUI = Assert<Equal<PiTui, TUI>>
 type EffectRequirements<T> =
   T extends Effect.Effect<infer _Success, infer _Failure, infer Requirements> ? Requirements : never
 type InvocationHasRuntimeRequirements = Assert<
@@ -86,6 +91,8 @@ export type {
   ContextCannotUseToolCallId,
   ContextCannotUseUi,
   InvocationHasRuntimeRequirements,
+  PiThemeMatchesTheme,
+  PiTuiMatchesTUI,
   ToolHasToolCallId,
   ToolRegistryAcceptsPiServiceSubset,
   ToolRegistryRejectsUnavailableService,

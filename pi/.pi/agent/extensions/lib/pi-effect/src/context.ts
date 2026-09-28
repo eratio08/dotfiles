@@ -236,7 +236,8 @@ function createPiSessionService(operations: PiOperationsService, current: PiSess
     entries: () =>
       Effect.try({
         try: () => current.entries,
-        catch: (cause: unknown) => new PiOperationsError({ operation: 'entries', message: piCauseMessage(cause), cause }),
+        catch: (cause: unknown) =>
+          new PiOperationsError({ operation: 'entries', message: piCauseMessage(cause), cause }),
       }),
     tree: () =>
       Effect.try({

@@ -51,7 +51,12 @@ class PiToolError extends Schema.TaggedError<PiToolError>()('PiToolError', {
 }) {}
 
 /** Union of errors that the Pi Effect adapter can return to extension code. */
-type PiExtensionError = PiOperationsError | PiUiUnavailableError | PiRuntimeDisposedError | PiRegistrationError | PiToolError
+type PiExtensionError =
+  | PiOperationsError
+  | PiUiUnavailableError
+  | PiRuntimeDisposedError
+  | PiRegistrationError
+  | PiToolError
 
 /**
  * Converts an unknown failure cause to a readable message.
@@ -84,8 +89,6 @@ const piOperationTryPromise = Effect.fnUntraced(function* <A>(
 })
 
 export {
-  piOperationTry,
-  piOperationTryPromise,
   type PiExtensionError,
   PiOperationsError,
   PiRegistrationError,
@@ -93,4 +96,6 @@ export {
   PiToolError,
   PiUiUnavailableError,
   piCauseMessage,
+  piOperationTry,
+  piOperationTryPromise,
 }

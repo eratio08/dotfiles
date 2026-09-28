@@ -25,20 +25,20 @@ import {
   type PiToolContextValue,
 } from './context.ts'
 import {
-  piOperationTry,
-  piOperationTryPromise,
   PiOperationsError,
   PiRegistrationError,
   PiRuntimeDisposedError,
   PiToolError,
   piCauseMessage,
+  piOperationTry,
+  piOperationTryPromise,
 } from './errors.ts'
 import { createPiMessagesService, type PiCustomMessage, PiMessages } from './messages.ts'
 import {
   Pi,
-  type PiOperationsService,
-  PiOperations,
   type PiInvocationServices,
+  PiOperations,
+  type PiOperationsService,
   type PiServices,
   type PiStableServices,
 } from './pi.ts'
@@ -157,7 +157,8 @@ function baseContext(raw: ExtensionContext): PiContextValue {
     contextUsage: () => piOperationTry('contextUsage', () => raw.getContextUsage()),
     abort: () => piOperationTry('abort', () => raw.abort()),
     shutdown: () => piOperationTry('shutdown', () => raw.shutdown()),
-    compact: (options: Parameters<PiContextValue['compact']>[0]) => piOperationTry('compact', () => raw.compact(options)),
+    compact: (options: Parameters<PiContextValue['compact']>[0]) =>
+      piOperationTry('compact', () => raw.compact(options)),
     systemPrompt: () => piOperationTry('systemPrompt', () => raw.getSystemPrompt()),
   }
 }
@@ -446,7 +447,11 @@ function neutralResult(name: PiEventName): unknown {
   }
 }
 
-function trustInvocation(operations: PiOperationsService, stable: PiStableFacade, raw: ProjectTrustContext): Invocation {
+function trustInvocation(
+  operations: PiOperationsService,
+  stable: PiStableFacade,
+  raw: ProjectTrustContext,
+): Invocation {
   const context: PiContextValue = {
     mode: raw.mode,
     hasUI: raw.hasUI,
@@ -546,7 +551,10 @@ async function installPiRuntime<Services, Failure>(
               effect: createInvocation(context, undefined, undefined, run),
               signal: context.signal,
             }
-          : { effect: piOperationTry('projectTrustContext', () => trustInvocation(operations, stable, context)), signal: undefined }
+          : {
+              effect: piOperationTry('projectTrustContext', () => trustInvocation(operations, stable, context)),
+              signal: undefined,
+            }
     const registerShutdownHandler: Effect.Effect<void, PiRegistrationError> = Effect.try({
       try: () =>
         rawOn('session_shutdown', async (event, context) => {

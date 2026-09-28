@@ -72,7 +72,10 @@ type PiOperationsService = {
     options?: PiSendMessageOptions,
   ) => Effect.Effect<void, PiOperationsError>
   /** Sends a user message to the current session. */
-  readonly sendUserMessage: (content: PiContent, options?: PiSendUserMessageOptions) => Effect.Effect<void, PiOperationsError>
+  readonly sendUserMessage: (
+    content: PiContent,
+    options?: PiSendUserMessageOptions,
+  ) => Effect.Effect<void, PiOperationsError>
   /** Appends custom data to the session history. */
   readonly appendEntry: <TData>(customType: string, data?: TData) => Effect.Effect<void, PiOperationsError>
   /** Sets the current session name. */
@@ -96,7 +99,10 @@ type PiOperationsService = {
   /** Sets the current thinking level. */
   readonly setThinkingLevel: (level: PiThinkingLevel) => Effect.Effect<void, PiOperationsError>
   /** Registers a model provider with Pi. */
-  readonly registerProvider: (provider: Provider | string, config?: ProviderConfig) => Effect.Effect<void, PiOperationsError>
+  readonly registerProvider: (
+    provider: Provider | string,
+    config?: ProviderConfig,
+  ) => Effect.Effect<void, PiOperationsError>
   /** Removes a registered model provider by name. */
   readonly unregisterProvider: (name: string) => Effect.Effect<void, PiOperationsError>
   /** Event bus for extension-to-extension coordination. */
@@ -160,15 +166,15 @@ export {
   type PiContextValue,
   type PiCustomFactory,
   type PiCustomMessage,
+  type PiEventBus,
   PiFlags,
   type PiFlagsService,
-  type PiEventBus,
-  type PiOperationsService,
-  PiOperations,
   type PiInvocationServices,
   PiMessages,
   type PiMessagesService,
   type PiMode,
+  PiOperations,
+  type PiOperationsService,
   PiProcess,
   type PiProcessService,
   type PiSendMessageOptions,

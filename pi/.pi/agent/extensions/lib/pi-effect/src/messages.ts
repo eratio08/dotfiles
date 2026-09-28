@@ -40,7 +40,10 @@ type PiMessagesService = {
     options?: PiSendMessageOptions,
   ) => Effect.Effect<void, PiOperationsError>
   /** Sends a user message to the current session. */
-  readonly sendUserMessage: (content: PiContent, options?: PiSendUserMessageOptions) => Effect.Effect<void, PiOperationsError>
+  readonly sendUserMessage: (
+    content: PiContent,
+    options?: PiSendUserMessageOptions,
+  ) => Effect.Effect<void, PiOperationsError>
 }
 
 /**

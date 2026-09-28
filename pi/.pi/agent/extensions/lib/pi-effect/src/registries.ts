@@ -344,7 +344,9 @@ function createPiRegistries<Services, Failure = PiExtensionError>(registrars: {
   }
   const renderers: PiRendererRegistry = {
     message: (customType: string, renderer: Parameters<PiRendererRegistry['message']>[1]) =>
-      registerEffect(`message-renderer:${customType}`, () => registrars.renderers.registerMessage(customType, renderer)),
+      registerEffect(`message-renderer:${customType}`, () =>
+        registrars.renderers.registerMessage(customType, renderer),
+      ),
     entry: (customType: string, renderer: Parameters<PiRendererRegistry['entry']>[1]) =>
       registerEffect(`entry-renderer:${customType}`, () => registrars.renderers.registerEntry(customType, renderer)),
   }

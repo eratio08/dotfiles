@@ -10,7 +10,7 @@ import type {
 import { Context, Effect, Option } from 'effect'
 import type { PiContextValue, PiMode } from './context.ts'
 import { combinePiAbortSignals } from './context.ts'
-import { piOperationTry, piOperationTryPromise, type PiOperationsError, PiUiUnavailableError } from './errors.ts'
+import { type PiOperationsError, PiUiUnavailableError, piOperationTry, piOperationTryPromise } from './errors.ts'
 
 type EffectSuccess<T> = T extends Effect.Effect<infer A, infer _E, infer _R> ? A : never
 
@@ -313,7 +313,8 @@ function createPiUiService(context: PiContextValue, ui: PiUiPort): PiUiService {
     effect: Effect.Effect<A, E>,
   ): Effect.Effect<A, PiUiUnavailableError | E> =>
     context.mode === 'tui' && context.hasUI ? effect : unavailable(operation)
-  const sync = <A>(operation: string, evaluate: () => A): Effect.Effect<A, PiOperationsError> => piOperationTry(operation, evaluate)
+  const sync = <A>(operation: string, evaluate: () => A): Effect.Effect<A, PiOperationsError> =>
+    piOperationTry(operation, evaluate)
   const promise = <A>(
     operation: string,
     evaluate: (signal: AbortSignal) => Promise<A>,
