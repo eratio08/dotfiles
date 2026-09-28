@@ -277,6 +277,7 @@ test('should return method details given an operation-specific help request', as
   assert.match(result.content[0]?.text ?? '', /type EchoInput = \{ text: string \}/)
   assert.match(result.content[0]?.text ?? '', /"text"/)
   assert.doesNotMatch(result.content[0]?.text ?? '', /Convert the supplied text to uppercase\./)
+  assert.deepEqual(result.details?.operations, { help: 1 })
 })
 
 test('should return an overview given a help request without an operation', async () => {
@@ -294,6 +295,7 @@ test('should return an overview given a help request without an operation', asyn
   assert.doesNotMatch(result.content[0]?.text ?? '', /Parameter schema:/)
   assert.match(result.content[0]?.text ?? '', /API type: `echoApi`/)
   assert.match(result.content[0]?.text ?? '', /Program type: `echoProgram`/)
+  assert.deepEqual(result.details?.operations, { help: 1 })
 })
 
 test('should reject unknown method names given an operation-help request', async () => {
@@ -561,8 +563,10 @@ test('should show the operation summary on one line given collapsed rendering', 
   assert.deepEqual(rendered.render(120), [])
   const callLines = call.render(120)
   assert.equal(callLines.length, 1)
-  assert.match(callLines[0] ?? '', /echo: 2 · uppercase: 1/)
+  assert.match(callLines[0] ?? '', /echo 2 · uppercase 1/)
+  assert.match(callLines[0] ?? '', /ctrl\+o/)
   assert.match(callLines[0] ?? '', /to expand/)
+  assert.doesNotMatch(callLines[0] ?? '', /(?:echo|uppercase):/)
   assert.doesNotMatch(callLines.join('\n'), /export default|hello/)
 })
 
@@ -614,7 +618,7 @@ test('should show the submitted code and result given expanded rendering', async
   assert.match(output, /Code/)
   assert.match(output, new RegExp(code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   assert.match(output, /Operations/)
-  assert.match(output, /echo: 1/)
+  assert.match(output, /echo 1/)
   assert.match(output, /Result/)
   assert.match(output, /hello/)
 })

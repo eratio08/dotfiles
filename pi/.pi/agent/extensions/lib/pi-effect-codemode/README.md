@@ -85,15 +85,15 @@ export default async (api: tasksApi) => api.add({ title: "Review" })
 The collapsed call for this run looks like this:
 
 ```text
-tasks · add: 1 <configured expand key> to expand
+tasks · add 1 <configured expand key> to expand
 ```
 
-Pi shows the current `app.tools.expand` key in place of the placeholder.
+Pi shows the current `app.tools.expand` key, or `ctrl+o` when the key is unavailable.
 When expanded, the result looks like this:
 
 ```text
 Operations
-add: 1
+add 1
 
 Code
 export default async (api: tasksApi) => api.add({ title: "Review" })
@@ -106,14 +106,78 @@ Result
 ```
 
 ## Help API
-The submitted program can call `api.help()` synchronously.
-It is not a separate Pi tool. The SDK registers one runner under `toolName`.
-Call `api.help()` to see the operation list, descriptions, generated API and program type names, and configured examples.
-Call `api.help("operation")` to see that method's signature and description.
-The response includes configured type declarations and the parameter schema when the method has parameters.
-The method name `help` is reserved for this generated reference.
+`createTool()` adds one helper to the generated API.
+The helper returns strings and has two call forms: `api.help()` and `api.help("operation")`.
+The helper is not a separate Pi tool. The SDK registers one runner tool under `toolName`.
+The method name `help` is reserved, so `methods` cannot define an operation with that name.
+Help calls do not appear in the `operations` count.
 
-### Example output
+### Overview help
+`api.help()` returns an overview of the API.
+A `ToolDefinition` is the configuration object that `createTool()` reads.
+The SDK builds the overview from these fields:
+
+| Input | Generated output |
+| --- | --- |
+| `toolName` | Names the overview and the generated API and program types. |
+| `description` | Appears below the overview heading. |
+| Each method name and `description` | Creates the operation list and its descriptions. |
+| `examples` | Adds an Examples section with the configured code examples. |
+
+The overview does not include `typeDeclarations`, method signatures, or parameter schemas.
+The SDK adds the API type name, the program type name, and a prompt to call `api.help("operation")` for method details.
+
+### Operation help
+`api.help("operation")` returns details for one operation.
+The operation name must match a key in `methods`, such as `"add"`.
+The SDK builds the response from these method fields:
+
+| Input | Generated output |
+| --- | --- |
+| `toolName`, the operation name, and `signature` | Create the response heading. |
+| `description` | Explains what the operation does. |
+| `typeDeclarations` | Adds a Type declarations section when the field has content. |
+| `parameters` | Adds a formatted JSON schema when the method has a parameter schema. |
+
+The response does not include configured examples.
+The SDK checks method arguments against `parameters` before it calls the handler.
+If the operation name is unknown, the SDK returns an error that lists the available names.
+
+### TypeScript declarations
+The SDK starts the program declarations with `typeDeclarations` when the field has content.
+It adds a generated API interface with both help call forms and one method signature for each entry in `methods`.
+It also adds a generated program type that receives the generated API interface.
+The `signature` field supplies each generated method signature.
+The help method runs inside the submitted program and returns a string.
+The outer Pi tool shows a help string only when the submitted program returns it.
+
+### Overview output example
+For the `tasks` tool above, `api.help()` returns:
+
+````text
+# tasks API overview
+
+Manage task records.
+
+## Operations
+
+- `add`: Create a task record.
+
+API type: `tasksApi`.
+Program type: `tasksProgram`.
+
+Call `api.help("operation")` for an operation signature and parameter schema.
+
+## Examples
+
+### Example 1
+
+```typescript
+export default async (api: tasksApi) => api.add({ title: "Review" })
+```
+````
+
+### Operation help example
 For the `tasks` tool above, `api.help("add")` returns:
 
 ````text

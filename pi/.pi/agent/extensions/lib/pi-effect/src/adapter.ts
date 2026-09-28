@@ -4,132 +4,68 @@ import type {
   ExtensionCommandContext,
   ExtensionContext,
   ExtensionFactory,
-  ExtensionUIContext,
   ProjectTrustContext,
   SessionManager,
   ToolDefinition,
 } from '@earendil-works/pi-coding-agent'
-import { Effect, Layer, Option } from 'effect'
+import { Effect, Layer } from 'effect'
 import type { Static, TSchema } from 'typebox'
-import { combinePiAbortSignals } from './context.ts'
 import {
-  PiHostError,
-  PiRegistrationError,
-  PiRuntimeDisposedError,
-  PiToolError,
-  PiUiUnavailableError,
-  piCauseMessage,
-} from './errors.ts'
-import type { PiPlugin } from './plugin.ts'
-import {
-  createPiRegistries,
-  type PiEventCallback,
-  type PiEventName,
-  type PiFailurePolicy,
-  type PiRegistrationContext,
-} from './registries.ts'
-import { createPiManagedRuntime, type PiManagedRuntime } from './runtime.ts'
-import { createPiToolsService } from './services/active-tools.ts'
-import { createPiFlagsService } from './services/flags.ts'
-import { createPiMessagesService } from './services/messages.ts'
-import { createPiProcessService } from './services/process.ts'
-import { createPiSessionService } from './services/session.ts'
-import {
-  Pi,
+  combinePiAbortSignals,
+  createPiSessionService,
   PiCommandContext,
   type PiCommandContextValue,
   PiContext,
   type PiContextValue,
-  type PiCustomFactory,
-  type PiCustomMessage,
-  PiFlags,
-  type PiHostOperations,
-  PiHostService,
-  type PiInvocationServices,
-  PiMessages,
-  PiProcess,
-  type PiServices,
   PiSession,
   type PiSessionChangeOptions,
   PiSessionContext,
   type PiSessionContextValue,
-  type PiStableServices,
   PiToolContext,
   type PiToolContextValue,
-  PiTools,
-  PiUi,
-  type PiUiService,
-} from './services.ts'
-import type { EffectToolDefinition } from './tools.ts'
-
-type EffectSuccess<T> = T extends Effect.Effect<infer A, infer _E, infer _R> ? A : never
+} from './context.ts'
+import {
+  hostTry,
+  hostTryPromise,
+  PiHostError,
+  PiRegistrationError,
+  PiRuntimeDisposedError,
+  PiToolError,
+  piCauseMessage,
+} from './errors.ts'
+import { createPiMessagesService, type PiCustomMessage, PiMessages } from './messages.ts'
+import {
+  Pi,
+  type PiHostOperations,
+  PiHostService,
+  type PiInvocationServices,
+  type PiServices,
+  type PiStableServices,
+} from './pi.ts'
+import type { PiPlugin } from './plugin.ts'
+import { createPiProcessService, PiProcess } from './process.ts'
+import {
+  createPiFlagsService,
+  createPiRegistries,
+  type PiEventCallback,
+  type PiEventName,
+  type PiFailurePolicy,
+  PiFlags,
+  type PiRegistrationContext,
+} from './registries.ts'
+import { createPiManagedRuntime, type PiManagedRuntime } from './runtime.ts'
+import { createPiToolsService, type EffectToolDefinition, PiTools } from './tools.ts'
+import { createPiUiPort, createPiUiService, emptyPiUiPort, PiUi, type PiUiPort, type PiUiService } from './ui.ts'
 
 type PiToolUpdateHandler = {
   onUpdate(update: unknown): void
 }['onUpdate']
-
-type PiUiPort = {
-  readonly select: (...args: Parameters<PiUiService['select']>) => Promise<string | undefined>
-  readonly confirm: (...args: Parameters<PiUiService['confirm']>) => Promise<boolean>
-  readonly input: (...args: Parameters<PiUiService['input']>) => Promise<string | undefined>
-  readonly notify: (...args: Parameters<PiUiService['notify']>) => void
-  readonly onTerminalInput: (...args: Parameters<PiUiService['onTerminalInput']>) => () => void
-  readonly setStatus: (...args: Parameters<PiUiService['setStatus']>) => void
-  readonly setWorkingMessage: (...args: Parameters<PiUiService['setWorkingMessage']>) => void
-  readonly setWorkingVisible: (...args: Parameters<PiUiService['setWorkingVisible']>) => void
-  readonly setWorkingIndicator: (...args: Parameters<PiUiService['setWorkingIndicator']>) => void
-  readonly setWidget: (...args: Parameters<PiUiService['setWidget']>) => void
-  readonly setFooter: (...args: Parameters<PiUiService['setFooter']>) => void
-  readonly setHeader: (...args: Parameters<PiUiService['setHeader']>) => void
-  readonly setTitle: (...args: Parameters<PiUiService['setTitle']>) => void
-  readonly custom: <A>(
-    factory: PiCustomFactory<A>,
-    options?: Parameters<PiUiService['custom']>[1],
-  ) => Effect.Effect<A, PiHostError | PiUiUnavailableError>
-  readonly pasteToEditor: (...args: Parameters<PiUiService['pasteToEditor']>) => void
-  readonly setEditorText: (...args: Parameters<PiUiService['setEditorText']>) => void
-  readonly getEditorText: () => string
-  readonly editor: (...args: Parameters<PiUiService['editor']>) => Promise<string | undefined>
-  readonly addAutocompleteProvider: (...args: Parameters<PiUiService['addAutocompleteProvider']>) => void
-  readonly setEditorComponent: (...args: Parameters<PiUiService['setEditorComponent']>) => void
-  readonly getEditorComponent: () => EffectSuccess<ReturnType<PiUiService['getEditorComponent']>>
-  readonly theme: EffectSuccess<ReturnType<PiUiService['theme']>>
-  readonly getAllThemes: () => EffectSuccess<ReturnType<PiUiService['getAllThemes']>>
-  readonly getTheme: (
-    ...args: Parameters<PiUiService['getTheme']>
-  ) => EffectSuccess<ReturnType<PiUiService['getTheme']>>
-  readonly setTheme: (
-    ...args: Parameters<PiUiService['setTheme']>
-  ) => EffectSuccess<ReturnType<PiUiService['setTheme']>>
-  readonly getToolsExpanded: () => EffectSuccess<ReturnType<PiUiService['getToolsExpanded']>>
-  readonly setToolsExpanded: (...args: Parameters<PiUiService['setToolsExpanded']>) => void
-}
 
 type PiStableFacade = Pick<Pi['Service'], 'messages' | 'tools' | 'flags' | 'process' | 'events' | 'model'>
 
 type PiReplacedSessionContext = Parameters<
   NonNullable<NonNullable<Parameters<ExtensionCommandContext['switchSession']>[1]>['withSession']>
 >[0]
-
-const hostTry = Effect.fnUntraced(function* <A>(
-  operation: string,
-  evaluate: () => A,
-): Effect.fn.Return<A, PiHostError> {
-  return yield* Effect.try({
-    try: evaluate,
-    catch: (cause: unknown) => new PiHostError({ operation, message: piCauseMessage(cause), cause }),
-  })
-})
-
-const hostTryPromise = Effect.fnUntraced(function* <A>(
-  operation: string,
-  evaluate: (signal: AbortSignal) => Promise<A>,
-): Effect.fn.Return<A, PiHostError> {
-  return yield* Effect.tryPromise({
-    try: (signal: AbortSignal) => evaluate(signal),
-    catch: (cause: unknown) => new PiHostError({ operation, message: piCauseMessage(cause), cause }),
-  })
-})
 
 function createPiHostOperations(api: ExtensionAPI): PiHostOperations {
   return {
@@ -207,95 +143,6 @@ function createPiHostOperations(api: ExtensionAPI): PiHostOperations {
   }
 }
 
-function createUiPort(ui: ExtensionUIContext): PiUiPort {
-  return {
-    select: (title: string, options: Parameters<PiUiPort['select']>[1], dialog?: Parameters<PiUiPort['select']>[2]) =>
-      ui.select(title, [...options], dialog),
-    confirm: (
-      title: string,
-      message: Parameters<PiUiPort['confirm']>[1],
-      dialog?: Parameters<PiUiPort['confirm']>[2],
-    ) => ui.confirm(title, message, dialog),
-    input: (title: string, placeholder?: Parameters<PiUiPort['input']>[1], dialog?: Parameters<PiUiPort['input']>[2]) =>
-      ui.input(title, placeholder, dialog),
-    notify: (message: string, type?: Parameters<PiUiPort['notify']>[1]) => ui.notify(message, type),
-    onTerminalInput: (handler: Parameters<PiUiPort['onTerminalInput']>[0]) => ui.onTerminalInput(handler),
-    setStatus: (key: string, text: Parameters<PiUiPort['setStatus']>[1]) => ui.setStatus(key, text),
-    setWorkingMessage: (message: string | undefined) => ui.setWorkingMessage(message),
-    setWorkingVisible: (visible: boolean) => ui.setWorkingVisible(visible),
-    setWorkingIndicator: (options: Parameters<PiUiPort['setWorkingIndicator']>[0]) =>
-      ui.setWorkingIndicator(
-        options ? { ...options, frames: options.frames ? [...options.frames] : undefined } : undefined,
-      ),
-    setWidget: (
-      key: string,
-      content: Parameters<PiUiPort['setWidget']>[1],
-      options?: Parameters<PiUiPort['setWidget']>[2],
-    ) =>
-      typeof content === 'function'
-        ? ui.setWidget(key, content, options)
-        : ui.setWidget(key, content ? [...content] : undefined, options),
-    setFooter: (factory: Parameters<PiUiPort['setFooter']>[0]) => ui.setFooter(factory),
-    setHeader: (factory: Parameters<PiUiPort['setHeader']>[0]) => ui.setHeader(factory),
-    setTitle: (title: string) => ui.setTitle(title),
-    custom: <A>(factory: PiCustomFactory<A>, options?: Parameters<PiUiPort['custom']>[1]) =>
-      hostTryPromise('custom', () => ui.custom(factory, options)),
-    pasteToEditor: (text: string) => ui.pasteToEditor(text),
-    setEditorText: (text: string) => ui.setEditorText(text),
-    getEditorText: () => ui.getEditorText(),
-    editor: (title: string, prefill?: Parameters<PiUiPort['editor']>[1]) => ui.editor(title, prefill),
-    addAutocompleteProvider: (factory: Parameters<PiUiPort['addAutocompleteProvider']>[0]) =>
-      ui.addAutocompleteProvider(factory),
-    setEditorComponent: (factory: Parameters<PiUiPort['setEditorComponent']>[0]) => ui.setEditorComponent(factory),
-    getEditorComponent: () => ui.getEditorComponent(),
-    theme: ui.theme,
-    getAllThemes: () => ui.getAllThemes(),
-    getTheme: (name: string) => ui.getTheme(name),
-    setTheme: (theme: Parameters<PiUiPort['setTheme']>[0]) => ui.setTheme(theme),
-    getToolsExpanded: () => ui.getToolsExpanded(),
-    setToolsExpanded: (expanded: boolean) => ui.setToolsExpanded(expanded),
-  }
-}
-
-function emptyUiPort(mode: PiContextValue['mode'] = 'print'): PiUiPort {
-  return {
-    select: async () => undefined,
-    confirm: async () => false,
-    input: async () => undefined,
-    notify: () => undefined,
-    onTerminalInput: () => () => undefined,
-    setStatus: () => undefined,
-    setWorkingMessage: () => undefined,
-    setWorkingVisible: () => undefined,
-    setWorkingIndicator: () => undefined,
-    setWidget: () => undefined,
-    setFooter: () => undefined,
-    setHeader: () => undefined,
-    setTitle: () => undefined,
-    custom: <_A>() =>
-      Effect.fail(
-        new PiUiUnavailableError({
-          operation: 'custom',
-          mode,
-          message: `UI is unavailable for ${mode}.`,
-        }),
-      ),
-    pasteToEditor: () => undefined,
-    setEditorText: () => undefined,
-    getEditorText: () => '',
-    editor: async () => undefined,
-    addAutocompleteProvider: () => undefined,
-    setEditorComponent: () => undefined,
-    getEditorComponent: () => undefined,
-    theme: undefined,
-    getAllThemes: () => [],
-    getTheme: () => undefined,
-    setTheme: () => ({ success: false }),
-    getToolsExpanded: () => false,
-    setToolsExpanded: () => undefined,
-  }
-}
-
 function baseContext(raw: ExtensionContext): PiContextValue {
   return {
     mode: raw.mode,
@@ -312,126 +159,6 @@ function baseContext(raw: ExtensionContext): PiContextValue {
     shutdown: () => hostTry('shutdown', () => raw.shutdown()),
     compact: (options: Parameters<PiContextValue['compact']>[0]) => hostTry('compact', () => raw.compact(options)),
     systemPrompt: () => hostTry('systemPrompt', () => raw.getSystemPrompt()),
-  }
-}
-
-/**
- * Creates UI operations that respect the invocation's UI availability and execution mode.
- * Interactive operations fail with `PiUiUnavailableError` when the required UI mode is unavailable.
- * @param context Invocation values that describe the Pi mode, UI availability, and abort signal.
- * @param ui Functions that call the underlying Pi UI.
- * @returns Effect-based UI operations for the invocation.
- */
-function createPiUiService(context: PiContextValue, ui: PiUiPort): PiUiService {
-  const unavailable = (operation: string): Effect.Effect<never, PiUiUnavailableError> =>
-    Effect.fail(
-      new PiUiUnavailableError({ operation, mode: context.mode, message: `UI is unavailable for ${context.mode}.` }),
-    )
-  const requireUI = <A, E>(
-    operation: string,
-    effect: Effect.Effect<A, E>,
-  ): Effect.Effect<A, PiUiUnavailableError | E> => (context.hasUI ? effect : unavailable(operation))
-  const requireTui = <A, E>(
-    operation: string,
-    effect: Effect.Effect<A, E>,
-  ): Effect.Effect<A, PiUiUnavailableError | E> =>
-    context.mode === 'tui' && context.hasUI ? effect : unavailable(operation)
-  const sync = <A>(operation: string, evaluate: () => A): Effect.Effect<A, PiHostError> => hostTry(operation, evaluate)
-  const promise = <A>(
-    operation: string,
-    evaluate: (signal: AbortSignal) => Promise<A>,
-  ): Effect.Effect<A, PiHostError> => hostTryPromise(operation, evaluate)
-  const dialogOptions = (
-    dialog: Parameters<PiUiPort['select']>[2],
-    signal: AbortSignal,
-  ): Parameters<PiUiPort['select']>[2] => ({
-    ...dialog,
-    signal: combinePiAbortSignals(dialog?.signal, context.signal, signal),
-  })
-
-  return {
-    select: (
-      title: string,
-      options: Parameters<PiUiService['select']>[1],
-      dialog?: Parameters<PiUiService['select']>[2],
-    ) =>
-      requireUI(
-        'select',
-        promise('select', (signal) => ui.select(title, options, dialogOptions(dialog, signal))),
-      ),
-    confirm: (
-      title: string,
-      message: Parameters<PiUiService['confirm']>[1],
-      dialog?: Parameters<PiUiService['confirm']>[2],
-    ) =>
-      requireUI(
-        'confirm',
-        promise('confirm', (signal) => ui.confirm(title, message, dialogOptions(dialog, signal))),
-      ),
-    input: (
-      title: string,
-      placeholder?: Parameters<PiUiService['input']>[1],
-      dialog?: Parameters<PiUiService['input']>[2],
-    ) =>
-      requireUI(
-        'input',
-        promise('input', (signal) => ui.input(title, placeholder, dialogOptions(dialog, signal))),
-      ),
-    notify: (message: string, type?: Parameters<PiUiService['notify']>[1]) =>
-      context.hasUI ? sync('notify', () => ui.notify(message, type)) : Effect.succeed(undefined),
-    onTerminalInput: (handler: Parameters<PiUiService['onTerminalInput']>[0]) =>
-      requireTui(
-        'onTerminalInput',
-        sync('onTerminalInput', () => ui.onTerminalInput(handler)),
-      ),
-    setStatus: (key: string, text: Parameters<PiUiService['setStatus']>[1]) =>
-      context.hasUI ? sync('setStatus', () => ui.setStatus(key, text)) : Effect.succeed(undefined),
-    setWorkingMessage: (message: string | undefined) =>
-      context.hasUI ? sync('setWorkingMessage', () => ui.setWorkingMessage(message)) : Effect.succeed(undefined),
-    setWorkingVisible: (visible: boolean) =>
-      context.hasUI ? sync('setWorkingVisible', () => ui.setWorkingVisible(visible)) : Effect.succeed(undefined),
-    setWorkingIndicator: (options: Parameters<PiUiService['setWorkingIndicator']>[0]) =>
-      context.hasUI ? sync('setWorkingIndicator', () => ui.setWorkingIndicator(options)) : Effect.succeed(undefined),
-    setWidget: (
-      key: string,
-      content: Parameters<PiUiService['setWidget']>[1],
-      options?: Parameters<PiUiService['setWidget']>[2],
-    ) => (context.hasUI ? sync('setWidget', () => ui.setWidget(key, content, options)) : Effect.succeed(undefined)),
-    setFooter: (factory: Parameters<PiUiService['setFooter']>[0]) =>
-      context.hasUI ? sync('setFooter', () => ui.setFooter(factory)) : Effect.succeed(undefined),
-    setHeader: (factory: Parameters<PiUiService['setHeader']>[0]) =>
-      context.hasUI ? sync('setHeader', () => ui.setHeader(factory)) : Effect.succeed(undefined),
-    setTitle: (title: string) =>
-      context.hasUI ? sync('setTitle', () => ui.setTitle(title)) : Effect.succeed(undefined),
-    custom: <A>(factory: PiCustomFactory<A>, options?: Parameters<PiUiService['custom']>[1]) =>
-      requireTui('custom', ui.custom(factory, options).pipe(Effect.map(Option.some))),
-    pasteToEditor: (text: string) =>
-      context.hasUI ? sync('pasteToEditor', () => ui.pasteToEditor(text)) : Effect.succeed(undefined),
-    setEditorText: (text: string) =>
-      context.hasUI ? sync('setEditorText', () => ui.setEditorText(text)) : Effect.succeed(undefined),
-    getEditorText: () => sync('getEditorText', () => ui.getEditorText()),
-    editor: (title: string, prefill?: Parameters<PiUiService['editor']>[1]) =>
-      requireTui(
-        'editor',
-        promise('editor', () => ui.editor(title, prefill)),
-      ),
-    addAutocompleteProvider: (factory: Parameters<PiUiService['addAutocompleteProvider']>[0]) =>
-      context.hasUI
-        ? sync('addAutocompleteProvider', () => ui.addAutocompleteProvider(factory))
-        : Effect.succeed(undefined),
-    setEditorComponent: (factory: Parameters<PiUiService['setEditorComponent']>[0]) =>
-      requireTui(
-        'setEditorComponent',
-        sync('setEditorComponent', () => ui.setEditorComponent(factory)),
-      ),
-    getEditorComponent: () => sync('getEditorComponent', () => ui.getEditorComponent()),
-    theme: () => sync('theme', () => ui.theme),
-    getAllThemes: () => sync('getAllThemes', () => ui.getAllThemes()),
-    getTheme: (name: string) => sync('getTheme', () => ui.getTheme(name)),
-    setTheme: (theme: Parameters<PiUiService['setTheme']>[0]) => sync('setTheme', () => ui.setTheme(theme)),
-    getToolsExpandedValue: () => ui.getToolsExpanded(),
-    getToolsExpanded: () => sync('getToolsExpanded', () => ui.getToolsExpanded()),
-    setToolsExpanded: (expanded: boolean) => sync('setToolsExpanded', () => ui.setToolsExpanded(expanded)),
   }
 }
 
@@ -575,7 +302,7 @@ const createInvocation = Effect.fnUntraced(function* <Services>(
       session,
       command: commandValue,
       tool: toolValue,
-      pi: createFacade(stable, host, context, session, commandValue, toolValue, createUiPort(raw.ui)),
+      pi: createFacade(stable, host, context, session, commandValue, toolValue, createPiUiPort(raw.ui)),
     }
   })
 })
@@ -740,7 +467,7 @@ function trustInvocation(host: PiHostOperations, stable: PiStableFacade, raw: Pr
   const command = unavailableCommandContext(context, session)
   const tool = unavailableToolContext(context, session)
   const ui: PiUiPort = {
-    ...emptyUiPort(raw.mode),
+    ...emptyPiUiPort(raw.mode),
     select: (title: string, options: Parameters<PiUiPort['select']>[1], dialog?: Parameters<PiUiPort['select']>[2]) =>
       raw.ui.select(title, [...options], dialog),
     confirm: raw.ui.confirm,
@@ -776,7 +503,7 @@ function bootstrapInvocation(host: PiHostOperations, stable: PiStableFacade): In
     session,
     command,
     tool,
-    pi: createFacade(stable, host, context, session, command, tool, emptyUiPort(context.mode)),
+    pi: createFacade(stable, host, context, session, command, tool, emptyPiUiPort(context.mode)),
   })
 }
 

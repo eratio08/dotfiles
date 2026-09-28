@@ -22,6 +22,7 @@
   },
   "scripts": {
     "build": "rolldown -c",
+    "docs": "bunx typedoc --entryPoints src/index.ts src/testing/index.ts --out docs",
     "typecheck": "bun run build && tsc --noEmit",
     "test": "bun run build && bun test tests/*.test.ts",
     "check": "biome check .",

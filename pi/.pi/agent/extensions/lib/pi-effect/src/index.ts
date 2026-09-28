@@ -7,6 +7,48 @@ export {
   PiToolError,
   PiUiUnavailableError,
 } from './errors.ts'
+/** Context, session, host, UI, and service operation types. */
+export type {
+  PiCommandContextValue,
+  PiCompactOptions,
+  PiContent,
+  PiContextUsage,
+  PiContextValue,
+  PiCustomFactory,
+  PiCustomMessage,
+  PiInvocationServices,
+  PiMode,
+  PiSendMessageOptions,
+  PiSendUserMessageOptions,
+  PiSessionChangeOptions,
+  PiSessionChangeResult,
+  PiSessionContextValue,
+  PiSessionReplacement,
+  PiStableServices,
+  PiToolContextValue,
+  PiToolExecutionMode,
+  PiToolUpdate,
+  PiUiDialogOptions,
+  PiUiService,
+  PiWidgetOptions,
+  PiWorkingIndicatorOptions,
+} from './pi.ts'
+/** Effect service tags for Pi operations and invocation context. */
+export {
+  Pi,
+  PiCommandContext,
+  PiContext,
+  PiFlags,
+  PiHostService,
+  PiMessages,
+  PiProcess,
+  type PiServices,
+  PiSession,
+  PiSessionContext,
+  PiToolContext,
+  PiTools,
+  PiUi,
+} from './pi.ts'
 /** Plugin definition types accepted by the installation API. */
 export type { PiPlugin, PiPluginDefinition } from './plugin.ts'
 /** Plugin definition and installation helpers. */
@@ -32,49 +74,5 @@ export type {
 } from './registries.ts'
 /** Renderer types supported by Pi extensions. */
 export type { PiEntryRenderer, PiMessageRenderer } from './renderers.ts'
-/** Context, session, host, UI, and service operation types. */
-export type {
-  PiCommandContextValue,
-  PiCompactOptions,
-  PiContent,
-  PiContextUsage,
-  PiContextValue,
-  PiCustomFactory,
-  PiCustomMessage,
-  PiInvocationServices,
-  PiMode,
-  PiSendMessageOptions,
-  PiSendUserMessageOptions,
-  PiSessionChangeOptions,
-  PiSessionChangeResult,
-  PiSessionContextValue,
-  PiSessionReplacement,
-  PiStableServices,
-  PiTheme,
-  PiToolContextValue,
-  PiToolExecutionMode,
-  PiToolUpdate,
-  PiTui,
-  PiUiDialogOptions,
-  PiUiService,
-  PiWidgetOptions,
-  PiWorkingIndicatorOptions,
-} from './services.ts'
-/** Effect service tags for Pi operations and invocation context. */
-export {
-  Pi,
-  PiCommandContext,
-  PiContext,
-  PiFlags,
-  PiHostService,
-  PiMessages,
-  PiProcess,
-  type PiServices,
-  PiSession,
-  PiSessionContext,
-  PiToolContext,
-  PiTools,
-  PiUi,
-} from './services.ts'
 /** Types for Effect-based tools and their results. */
 export type { EffectToolDefinition, PiToolResult } from './tools.ts'

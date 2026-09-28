@@ -5,7 +5,8 @@ import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
   formatSize,
-  keyHint,
+  keyText,
+  rawKeyHint,
   type ToolExecutionMode,
   truncateHead,
   withFileMutationQueue,
@@ -254,6 +255,7 @@ function createToolRenderers<Params extends TSchema>(
   type RenderResultParameters = Parameters<
     NonNullable<EffectToolDefinition<Params, never, never, ToolOutputDetails>['renderResult']>
   >
+  const expandHint = (): string => rawKeyHint(keyText('app.tools.expand') || 'ctrl+o', 'to expand')
   return {
     renderCall: (
       _args: RenderCallParameters[0],
@@ -265,7 +267,7 @@ function createToolRenderers<Params extends TSchema>(
       state.call = text
       state.callText = theme.fg('toolTitle', theme.bold(toolLabel))
       const summary = !context.expanded && state.hasResult && state.summary ? ` · ${state.summary}` : ''
-      const hint = !context.expanded && state.hasResult ? ` ${keyHint('app.tools.expand', 'to expand')}` : ''
+      const hint = !context.expanded && state.hasResult ? ` ${expandHint()}` : ''
       text.setText(`${state.callText}${summary}${hint}`)
       return text
     },
@@ -292,7 +294,7 @@ function createToolRenderers<Params extends TSchema>(
       }
       const summary =
         Object.entries(details?.operations ?? {})
-          .map(([operation, count]) => `${operation}: ${count}`)
+          .map(([operation, count]) => `${operation} ${count}`)
           .join(' · ') || 'no operations'
       const state = (context.state ?? {}) as RendererState
       state.hasResult = true
@@ -305,7 +307,7 @@ function createToolRenderers<Params extends TSchema>(
         )
       }
       if (state.call && state.callText) {
-        state.call.setText(`${state.callText} · ${summary} ${keyHint('app.tools.expand', 'to expand')}`)
+        state.call.setText(`${state.callText} · ${summary} ${expandHint()}`)
       }
       return new Container()
     },
@@ -565,6 +567,10 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
                   })
                   return yield* host.invoke(methodName, args, signal, runContext)
                 }),
+              invokeSync: (methodName: string, args: readonly unknown[]): unknown => {
+                operations.set(methodName, (operations.get(methodName) ?? 0) + 1)
+                return host.invokeSync(methodName, args)
+              },
             }
             const runOptions: ProgramRunOptions = {
               cwd: context.cwd,

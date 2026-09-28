@@ -14,7 +14,7 @@ import {
   PiToolContext,
   type PiToolRegistry,
 } from '../src/index.ts'
-import type { PiStableServices } from '../src/services.ts'
+import type { PiStableServices } from '../src/pi.ts'
 
 type Assert<T extends true> = T
 type Equal<Left, Right> =

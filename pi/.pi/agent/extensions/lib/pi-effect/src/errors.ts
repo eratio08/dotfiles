@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 
 /**
  * Error returned when a Pi host operation fails.
@@ -63,7 +63,29 @@ function piCauseMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
 }
 
+const hostTry = Effect.fnUntraced(function* <A>(
+  operation: string,
+  evaluate: () => A,
+): Effect.fn.Return<A, PiHostError> {
+  return yield* Effect.try({
+    try: evaluate,
+    catch: (cause: unknown) => new PiHostError({ operation, message: piCauseMessage(cause), cause }),
+  })
+})
+
+const hostTryPromise = Effect.fnUntraced(function* <A>(
+  operation: string,
+  evaluate: (signal: AbortSignal) => Promise<A>,
+): Effect.fn.Return<A, PiHostError> {
+  return yield* Effect.tryPromise({
+    try: (signal: AbortSignal) => evaluate(signal),
+    catch: (cause: unknown) => new PiHostError({ operation, message: piCauseMessage(cause), cause }),
+  })
+})
+
 export {
+  hostTry,
+  hostTryPromise,
   type PiExtensionError,
   PiHostError,
   PiRegistrationError,
