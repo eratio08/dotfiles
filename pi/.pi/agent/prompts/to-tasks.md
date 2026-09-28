@@ -71,8 +71,8 @@ For a purely linear chain that means top to bottom.
 {
   content: "<todo-task title>",
   details: `<**What to build:** the end-to-end behaviour this todo-task makes work, from the user's perspective, not a layer-by-layer implementation list.
-    - [ ] Acceptance criterion 1
-    - [ ] Acceptance criterion 2
+    - Acceptance criterion 1
+    - Acceptance criterion 2
   >`,
   dependsOn: [<the ids of the todo-tasks that gate this one>],
 }
