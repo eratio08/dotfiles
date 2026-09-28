@@ -1,0 +1,1220 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0b1016">
+  <title>Context Metering Design Preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      font-synthesis: none;
+      font-variant-numeric: tabular-nums;
+      --bg: #0b1016;
+      --panel: #121a23;
+      --surface: #17212c;
+      --surface-raised: #1b2530;
+      --line: #293746;
+      --text: #f0f4fa;
+      --body: #e7edf5;
+      --muted: #a5b4c6;
+      --faint: #8192a5;
+      --mint: #73dec9;
+      --mint-ink: #a7eee0;
+      --purple: #c1b6ff;
+      --green: #80e0a5;
+      --red: #ff8994;
+      --amber: #f5cb77;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-width: 320px;
+      margin: 0;
+      background: var(--bg);
+      color: var(--body);
+      line-height: 1.5;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    a:focus-visible,
+    summary:focus-visible {
+      outline: 3px solid var(--mint);
+      outline-offset: 3px;
+    }
+
+    .skip-link {
+      position: absolute;
+      z-index: 20;
+      top: 8px;
+      left: 8px;
+      padding: 10px 14px;
+      transform: translateY(-160%);
+      border-radius: 8px;
+      background: var(--text);
+      color: var(--bg);
+      font-weight: 700;
+    }
+
+    .skip-link:focus {
+      transform: translateY(0);
+    }
+
+    .topbar {
+      position: sticky;
+      z-index: 10;
+      top: 0;
+      border-bottom: 1px solid var(--line);
+      background: rgb(11 16 22 / 94%);
+      backdrop-filter: blur(14px);
+    }
+
+    .topbar-inner {
+      display: flex;
+      min-height: 72px;
+      max-width: 1240px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      margin: 0 auto;
+      padding: 12px 28px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text);
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      border: 1px solid #38655f;
+      border-radius: 10px;
+      background: #1b2d31;
+      color: var(--mint-ink);
+      font-size: 13px;
+    }
+
+    .view-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .view-nav a {
+      padding: 9px 14px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 650;
+      text-decoration: none;
+    }
+
+    .view-nav a:hover {
+      border-color: var(--line);
+      color: var(--text);
+    }
+
+    .sample-label,
+    .request-label,
+    .scope-label {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #202b37;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+
+    .sample-label {
+      padding: 7px 12px;
+      border-color: #38655f;
+      background: #1b2d31;
+      color: var(--mint-ink);
+    }
+
+    main {
+      display: grid;
+      max-width: 1240px;
+      gap: 24px;
+      margin: 0 auto;
+      padding: 36px 28px 64px;
+    }
+
+    .hero {
+      padding: 8px 2px 4px;
+    }
+
+    .eyebrow,
+    .column-label,
+    .role-label,
+    .detail-label {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .hero .eyebrow {
+      color: var(--mint);
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      max-width: 850px;
+      margin-bottom: 10px;
+      color: var(--text);
+      font-size: clamp(30px, 4vw, 42px);
+      line-height: 1.12;
+      text-wrap: balance;
+    }
+
+    .hero-copy {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .view-panel {
+      scroll-margin-top: 92px;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--panel);
+      box-shadow: 0 18px 48px rgb(0 0 0 / 14%);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 22px;
+    }
+
+    .section-head h2 {
+      margin: 4px 0 6px;
+      color: var(--text);
+      font-size: clamp(26px, 3vw, 34px);
+      line-height: 1.2;
+      text-wrap: balance;
+    }
+
+    .section-copy {
+      max-width: 720px;
+      margin-bottom: 0;
+      color: var(--muted);
+    }
+
+    .request-label,
+    .scope-label {
+      display: inline-flex;
+      align-items: center;
+      padding: 9px 13px;
+    }
+
+    .context-summary {
+      display: grid;
+      grid-template-columns: minmax(210px, 0.8fr) minmax(360px, 1.2fr);
+      align-items: center;
+      gap: 28px;
+      padding: 22px 24px;
+      border: 1px solid #2b3a4a;
+      border-radius: 16px;
+      background: var(--surface);
+    }
+
+    .context-total strong {
+      display: block;
+      margin: 4px 0 0;
+      color: var(--text);
+      font-size: 40px;
+      font-weight: 750;
+      line-height: 1.1;
+    }
+
+    .context-total span {
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .window-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .window-heading strong {
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .meter-track,
+    .composition-track {
+      display: flex;
+      overflow: hidden;
+      height: 12px;
+      border-radius: 999px;
+      background: #263442;
+    }
+
+    .meter-fill {
+      width: 64%;
+      border-radius: inherit;
+      background: var(--mint);
+    }
+
+    .composition {
+      margin: 13px 0 0;
+    }
+
+    .composition-track {
+      height: 10px;
+    }
+
+    .composition-track span:nth-child(1) {
+      width: 67%;
+      background: var(--mint);
+    }
+
+    .composition-track span:nth-child(2) {
+      width: 21%;
+      background: #8f83ed;
+    }
+
+    .composition-track span:nth-child(3) {
+      width: 12%;
+      background: var(--amber);
+    }
+
+    .composition figcaption {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 20px;
+      margin-top: 9px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .composition figcaption span::before {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin-right: 7px;
+      border-radius: 50%;
+      background: var(--mint);
+      content: "";
+    }
+
+    .composition figcaption span:nth-child(2)::before {
+      background: #8f83ed;
+    }
+
+    .composition figcaption span:nth-child(3)::before {
+      background: var(--amber);
+    }
+
+    .list-heading,
+    .tool-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 26px 0 12px;
+    }
+
+    .list-heading h3,
+    .tool-heading h3 {
+      margin: 0;
+      color: var(--text);
+      font-size: 21px;
+    }
+
+    .tree-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-align: right;
+      text-transform: uppercase;
+    }
+
+    .entry-tree,
+    .branch-list,
+    .tool-list,
+    .invocation-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .branch-list > li {
+      position: relative;
+    }
+
+    .entry-tree > li + li {
+      margin-top: 10px;
+    }
+
+    details > summary {
+      display: list-item;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    details > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .entry-summary,
+    .turn-summary,
+    .tool-summary,
+    .invocation-summary {
+      position: relative;
+      display: grid;
+      align-items: center;
+      gap: 16px;
+      border: 1px solid #2b3a4a;
+      background: var(--surface);
+      color: var(--body);
+    }
+
+    .entry-summary {
+      grid-template-columns: 18px minmax(0, 1fr) auto auto;
+      min-height: 62px;
+      padding: 10px 18px;
+      border-radius: 12px;
+    }
+
+    .entry-summary:hover,
+    .tool-summary:hover,
+    .invocation-summary:hover {
+      border-color: #526779;
+      background: #1a2632;
+    }
+
+    .chevron {
+      display: inline-block;
+      color: var(--muted);
+      font-size: 22px;
+      line-height: 1;
+      transform-origin: center;
+    }
+
+    details[open] > summary .chevron {
+      color: var(--mint);
+      transform: rotate(90deg);
+    }
+
+    .entry-main {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .role-label {
+      flex: 0 0 auto;
+      padding: 5px 8px;
+      border-radius: 7px;
+      background: #232d39;
+      color: #c4d0df;
+      letter-spacing: 0.06em;
+    }
+
+    .role-user {
+      background: #203b3a;
+      color: var(--mint-ink);
+    }
+
+    .role-assistant {
+      background: #29253e;
+      color: var(--purple);
+    }
+
+    .role-tool {
+      background: #203b3a;
+      color: var(--mint-ink);
+    }
+
+    .entry-preview {
+      overflow: hidden;
+      color: var(--body);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .token-count {
+      color: var(--body);
+      font-size: 14px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .share {
+      min-width: 72px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #213c39;
+      color: var(--mint-ink);
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .role-assistant + .entry-preview ~ .share,
+    .share.assistant-share {
+      background: #282642;
+      color: var(--purple);
+    }
+
+    .share.neutral-share {
+      background: #26313d;
+      color: var(--body);
+    }
+
+    .turn-summary {
+      grid-template-columns: 18px minmax(0, 1fr) auto;
+      min-height: 38px;
+      padding: 7px 14px;
+      border: 0;
+      border-radius: 9px;
+      background: var(--surface-raised);
+      color: #c3d0de;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .turn-summary .turn-count {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .branch-list {
+      position: relative;
+      margin: 8px 0 0 15px;
+      padding-left: 13px;
+      border-left: 1px solid #516272;
+    }
+
+        .branch-list > li + li {
+      margin-top: 8px;
+    }
+
+    .branch-list > li::before {
+      position: absolute;
+      top: 30px;
+      left: -13px;
+      width: 13px;
+      border-top: 1px solid #516272;
+      content: "";
+    }
+
+    .branch-list .nested-list {
+      margin: 8px 0 0 18px;
+      padding-left: 13px;
+      border-left: 1px solid #516272;
+    }
+
+    .entry-detail {
+      margin: 0 0 0 34px;
+      padding: 12px 16px 14px;
+      border: 1px solid #2b3a4a;
+      border-top: 0;
+      border-radius: 0 0 12px 12px;
+      background: #101820;
+      color: var(--muted);
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+
+    .entry-detail strong {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .entry-detail p:last-child {
+      margin-bottom: 0;
+    }
+
+    .entry-detail code,
+    .invocation-detail code {
+      color: #d9e2ed;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      overflow-wrap: anywhere;
+    }
+
+    .open-entry > summary {
+      border-color: #4b6e69;
+      background: #17212c;
+    }
+
+    .open-entry > .entry-detail {
+      border-color: #4b6e69;
+    }
+
+    .context-note,
+    .scope-note {
+      margin: 15px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .tool-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin: 22px 0 0;
+    }
+
+    .metric-card {
+      padding: 20px 22px;
+      border: 1px solid #2b3a4a;
+      border-radius: 15px;
+      background: var(--surface);
+    }
+
+    .metric-card strong {
+      display: block;
+      margin: 4px 0 5px;
+      color: var(--text);
+      font-size: 32px;
+      line-height: 1.2;
+    }
+
+    .metric-card p:last-child {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .tool-heading {
+      margin-top: 28px;
+    }
+
+    .tool-columns,
+    .tool-summary {
+      display: grid;
+      grid-template-columns: 18px minmax(150px, 1.2fr) minmax(130px, 0.8fr) minmax(190px, 1.1fr) minmax(190px, 1fr);
+      align-items: center;
+      gap: 14px;
+    }
+
+    .tool-columns {
+      padding: 0 16px 8px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .tool-list > li + li {
+      margin-top: 8px;
+    }
+
+    .tool-summary {
+      min-height: 62px;
+      padding: 10px 16px;
+      border-radius: 11px;
+    }
+
+    .tool-name {
+      min-width: 0;
+      color: var(--text);
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .tool-value {
+      color: var(--body);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .outcome-counts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px 10px;
+      font-size: 13px;
+    }
+
+    .success-text {
+      color: var(--green);
+    }
+
+    .error-text {
+      color: var(--red);
+    }
+
+    .unused-label {
+      display: inline-flex;
+      justify-self: start;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #29313a;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+    }
+
+    .tool-detail {
+      margin: 8px 0 0 32px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #101820;
+    }
+
+    .tool-detail h4 {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .invocation-list > li + li {
+      margin-top: 8px;
+    }
+
+    .invocation-summary {
+      grid-template-columns: 18px 90px 100px minmax(0, 1fr);
+      min-height: 52px;
+      padding: 8px 12px;
+      border-radius: 9px;
+      font-size: 13px;
+    }
+
+    .invocation-time {
+      color: var(--body);
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 750;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .status::before {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      content: "";
+    }
+
+    .status-success {
+      color: var(--green);
+    }
+
+    .status-failed {
+      color: var(--red);
+    }
+
+    .invocation-tokens {
+      color: var(--body);
+    }
+
+    .invocation-detail {
+      display: grid;
+      gap: 8px;
+      margin: 0 0 0 28px;
+      padding: 12px 14px;
+      border: 1px solid #3c454e;
+      border-top: 0;
+      border-radius: 0 0 9px 9px;
+      background: #151b23;
+      color: var(--muted);
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .invocation-detail p {
+      margin: 0;
+    }
+
+    .invocation-detail strong {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .error-detail {
+      color: #ffd0d4;
+    }
+
+    .scope-note {
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    footer {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0 28px 28px;
+      color: var(--faint);
+      font-size: 12px;
+    }
+
+    @media (max-width: 760px) {
+      .topbar-inner {
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        padding: 12px 16px;
+      }
+
+      .brand {
+        flex: 1 1 auto;
+      }
+
+      .sample-label {
+        order: 2;
+      }
+
+      .view-nav {
+        order: 3;
+        width: 100%;
+      }
+
+      .view-nav a {
+        flex: 1;
+        text-align: center;
+      }
+
+      main {
+        gap: 16px;
+        padding: 24px 14px 40px;
+      }
+
+      .view-panel {
+        padding: 18px 14px;
+        border-radius: 16px;
+      }
+
+      .section-head {
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .context-summary {
+        grid-template-columns: 1fr;
+        gap: 18px;
+        padding: 18px;
+      }
+
+      .entry-summary {
+        grid-template-columns: 16px minmax(0, 1fr) auto;
+        gap: 9px;
+        padding: 10px;
+      }
+
+      .entry-main {
+        flex-wrap: wrap;
+        gap: 6px 9px;
+      }
+
+      .entry-preview {
+        flex-basis: 100%;
+        padding-left: 2px;
+        white-space: normal;
+      }
+
+      .token-count {
+        grid-column: 2;
+        padding-left: 2px;
+      }
+
+      .share {
+        grid-column: 3;
+        grid-row: 2;
+        min-width: 60px;
+      }
+
+      .tree-label {
+        max-width: 45%;
+      }
+
+      .tool-metrics {
+        grid-template-columns: 1fr;
+      }
+
+      .tool-columns {
+        display: none;
+      }
+
+      .tool-summary {
+        grid-template-columns: 16px minmax(0, 1fr) auto;
+        gap: 8px 10px;
+        padding: 12px;
+      }
+
+      .tool-summary .tool-name {
+        grid-column: 2 / 4;
+      }
+
+      .tool-summary .tool-static {
+        grid-column: 2;
+      }
+
+      .tool-summary .tool-outcomes {
+        grid-column: 2 / 4;
+      }
+
+      .tool-summary .tool-dynamic {
+        grid-column: 2 / 4;
+      }
+
+      .invocation-summary {
+        grid-template-columns: 16px minmax(72px, auto) minmax(0, 1fr);
+        gap: 8px;
+      }
+
+      .invocation-tokens {
+        grid-column: 2 / 4;
+      }
+
+      .tool-detail {
+        margin-left: 12px;
+        padding: 12px;
+      }
+
+      footer {
+        padding: 0 14px 24px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="topbar" id="top">
+    <div class="topbar-inner">
+      <a class="brand" href="#top" aria-label="Context Metering design preview home">
+        <span class="brand-mark" aria-hidden="true">PI</span>
+        <span>Context Metering</span>
+      </a>
+      <nav class="view-nav" aria-label="Preview sections">
+        <a href="#conversation">Conversation</a>
+        <a href="#tools">Tools</a>
+      </nav>
+      <span class="sample-label">Sample data</span>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="hero">
+      <p class="eyebrow">Design preview</p>
+      <h1>Make context visible. Make tool use explainable.</h1>
+      <p class="hero-copy">The report follows one selected branch. Tool calls and results nest inside the chronological conversation.</p>
+    </div>
+
+    <section class="view-panel" id="conversation" aria-labelledby="conversation-heading">
+      <header class="section-head">
+        <div>
+          <p class="eyebrow">View 1 · Selected branch</p>
+          <h2 id="conversation-heading">Conversation context</h2>
+          <p class="section-copy">Each entry stays on one row. Expand an entry to read its full content.</p>
+        </div>
+        <span class="request-label">Request 18 · Latest</span>
+      </header>
+
+      <div class="context-summary">
+        <div class="context-total">
+          <p class="column-label">Input in this request</p>
+          <strong>41,284</strong>
+          <span>tokens</span>
+        </div>
+        <div>
+          <div class="window-heading">
+            <span class="column-label">Context window</span>
+            <strong>64% of 64,000 tokens</strong>
+          </div>
+          <div class="meter-track" role="img" aria-label="This request uses 64 percent of a 64,000 token context window">
+            <span class="meter-fill"></span>
+          </div>
+          <figure class="composition">
+            <div class="composition-track" role="img" aria-label="Estimated input: conversation 67 percent, instructions 21 percent, tool schemas 12 percent">
+              <span></span><span></span><span></span>
+            </div>
+            <figcaption>
+              <span>Conversation 67%</span>
+              <span>Instructions 21%</span>
+              <span>Tool schemas 12%</span>
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="list-heading">
+        <h3>Conversation entries</h3>
+        <span class="tree-label">Selected branch · chronological tree</span>
+      </div>
+
+      <ol class="entry-tree" aria-label="Selected branch conversation entries">
+        <li>
+          <details class="entry">
+            <summary class="entry-summary">
+              <span class="chevron" aria-hidden="true">›</span>
+              <span class="entry-main">
+                <span class="role-label role-user">User</span>
+                <span class="entry-preview">“Find the slow tests and explain the regression.”</span>
+              </span>
+              <span class="token-count">3,120 tokens</span>
+              <span class="share">7.6%</span>
+            </summary>
+            <div class="entry-detail">
+              <strong>Full entry</strong>
+              <p>Find the slow tests and explain the regression.</p>
+            </div>
+          </details>
+        </li>
+        <li>
+          <details class="turn" open>
+            <summary class="turn-summary">
+              <span class="chevron" aria-hidden="true">›</span>
+              <span>Assistant turn 18</span>
+              <span class="turn-count">3 entries</span>
+            </summary>
+            <ol class="branch-list" aria-label="Entries in assistant turn 18">
+              <li>
+                <details class="entry">
+                  <summary class="entry-summary">
+                    <span class="chevron" aria-hidden="true">›</span>
+                    <span class="entry-main">
+                      <span class="role-label role-assistant">Assistant · tool call</span>
+                      <span class="entry-preview">search_files</span>
+                    </span>
+                    <span class="token-count">184 tokens</span>
+                    <span class="share assistant-share">0.4%</span>
+                  </summary>
+                  <div class="entry-detail">
+                    <strong>Tool arguments</strong>
+                    <code>{"query":"slow tests regression"}</code>
+                  </div>
+                </details>
+                <ol class="branch-list nested-list" aria-label="Result for search_files">
+                  <li>
+                    <details class="entry open-entry" open>
+                      <summary class="entry-summary">
+                        <span class="chevron" aria-hidden="true">›</span>
+                        <span class="entry-main">
+                          <span class="role-label role-tool">Tool result · search</span>
+                          <span class="entry-preview">Found 12 matching files.</span>
+                        </span>
+                        <span class="token-count">2,804 tokens</span>
+                        <span class="share">6.8%</span>
+                      </summary>
+                      <div class="entry-detail">
+                        <strong>Result preview</strong>
+                        <p>Found 12 matching files. The largest change is in the request parser.</p>
+                        <p>Expand any row to inspect its full content.</p>
+                      </div>
+                    </details>
+                  </li>
+                </ol>
+              </li>
+              <li>
+                <details class="entry">
+                  <summary class="entry-summary">
+                    <span class="chevron" aria-hidden="true">›</span>
+                    <span class="entry-main">
+                      <span class="role-label role-assistant">Assistant</span>
+                      <span class="entry-preview">“Here are the slow tests and the likely cause.”</span>
+                    </span>
+                    <span class="token-count">640 tokens</span>
+                    <span class="share assistant-share">1.6%</span>
+                  </summary>
+                  <div class="entry-detail">
+                    <strong>Full entry</strong>
+                    <p>Here are the slow tests and the likely cause.</p>
+                  </div>
+                </details>
+              </li>
+            </ol>
+          </details>
+        </li>
+      </ol>
+      <p class="context-note">Indentation links tool results to calls. Shares use the full selected request.</p>
+    </section>
+
+    <section class="view-panel" id="tools" aria-labelledby="tools-heading">
+      <header class="section-head">
+        <div>
+          <p class="eyebrow">View 2 · Full session</p>
+          <h2 id="tools-heading">Tool contribution &amp; activity</h2>
+          <p class="section-copy">Separate fixed schema cost from tokens created by tool calls and results.</p>
+        </div>
+        <span class="scope-label">Full session</span>
+      </header>
+
+      <div class="tool-metrics">
+        <article class="metric-card">
+          <p class="column-label">Static · per request</p>
+          <strong>1,257 tokens</strong>
+          <p>Descriptions and input schemas sent with each request.</p>
+        </article>
+        <article class="metric-card">
+          <p class="column-label">Dynamic · full session</p>
+          <strong>18,430 tokens</strong>
+          <p>Arguments sent and results returned across 11 calls.</p>
+        </article>
+      </div>
+
+      <div class="tool-heading">
+        <h3>Tools</h3>
+        <span class="tree-label">Static cost · outcomes · dynamic tokens</span>
+      </div>
+      <div class="tool-columns" aria-hidden="true">
+        <span></span><span>Tool</span><span>Static</span><span>Call outcome</span><span>Dynamic · input / output</span>
+      </div>
+
+      <ul class="tool-list" aria-label="Tool contributions and invocations">
+        <li>
+          <details class="tool" open>
+            <summary class="tool-summary">
+              <span class="chevron" aria-hidden="true">›</span>
+              <span class="tool-name">search_files</span>
+              <span class="tool-value tool-static">428 / request</span>
+              <span class="outcome-counts tool-outcomes"><span class="success-text">4 success</span><span class="error-text">2 failed</span></span>
+              <span class="tool-value tool-dynamic">512 in · 8,210 out</span>
+            </summary>
+            <div class="tool-detail">
+              <h4>Recent invocations</h4>
+              <ol class="invocation-list">
+                <li>
+                  <details>
+                    <summary class="invocation-summary">
+                      <span class="chevron" aria-hidden="true">›</span>
+                      <time class="invocation-time" datetime="2025-03-08T10:14:00">10:14 AM</time>
+                      <span class="status status-success">Success</span>
+                      <span class="invocation-tokens">32 input tokens → 1,242 output tokens</span>
+                    </summary>
+                    <div class="invocation-detail">
+                      <p><strong>Arguments</strong> <code>{"query":"slow tests regression"}</code></p>
+                      <p><strong>Result</strong> 12 matching files returned.</p>
+                    </div>
+                  </details>
+                </li>
+                <li>
+                  <details open>
+                    <summary class="invocation-summary">
+                      <span class="chevron" aria-hidden="true">›</span>
+                      <time class="invocation-time" datetime="2025-03-08T10:18:00">10:18 AM</time>
+                      <span class="status status-failed">Failed</span>
+                      <span class="invocation-tokens">44 input tokens → 86 output tokens</span>
+                    </summary>
+                    <div class="invocation-detail error-detail">
+                      <p><strong>Arguments</strong> <code>{"path":"./tests-old"}</code></p>
+                      <p><strong>Error</strong> Search path not found. Check the directory and retry.</p>
+                    </div>
+                  </details>
+                </li>
+              </ol>
+            </div>
+          </details>
+        </li>
+        <li>
+          <details class="tool">
+            <summary class="tool-summary">
+              <span class="chevron" aria-hidden="true">›</span>
+              <span class="tool-name">read_file</span>
+              <span class="tool-value tool-static">312 / request</span>
+              <span class="outcome-counts tool-outcomes"><span class="success-text">3 success</span></span>
+              <span class="tool-value tool-dynamic">270 in · 4,402 out</span>
+            </summary>
+            <div class="tool-detail">
+              <p class="section-copy">Three successful calls. Expand a call to inspect its arguments and result.</p>
+            </div>
+          </details>
+        </li>
+        <li>
+          <details class="tool">
+            <summary class="tool-summary">
+              <span class="chevron" aria-hidden="true">›</span>
+              <span class="tool-name">image_inspect</span>
+              <span class="tool-value tool-static">228 / request</span>
+              <span class="unused-label tool-outcomes">Unused · 0 calls</span>
+              <span class="tool-value tool-dynamic">No invocation tokens</span>
+            </summary>
+            <div class="tool-detail">
+              <p class="section-copy">No call was recorded. This does not prove the agent missed a tool.</p>
+            </div>
+          </details>
+        </li>
+        <li>
+          <details class="tool">
+            <summary class="tool-summary">
+              <span class="chevron" aria-hidden="true">›</span>
+              <span class="tool-name">terminal</span>
+              <span class="tool-value tool-static">289 / request</span>
+              <span class="outcome-counts tool-outcomes"><span class="success-text">1 success</span><span class="error-text">1 failed</span></span>
+              <span class="tool-value tool-dynamic">122 in · 4,914 out</span>
+            </summary>
+            <div class="tool-detail">
+              <p class="section-copy">Two calls recorded: one success and one failure.</p>
+            </div>
+          </details>
+        </li>
+      </ul>
+      <p class="scope-note">Static cost is per request. Dynamic totals are session-wide. Do not add unlike scopes. Success and failure use text labels, not color alone.</p>
+    </section>
+  </main>
+  <footer>Context Metering design mock · Sample values only · Expand rows with a mouse or keyboard.</footer>
+</body>
+</html>
