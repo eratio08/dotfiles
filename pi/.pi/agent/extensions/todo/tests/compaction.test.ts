@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { initTheme } from '@earendil-works/pi-coding-agent'
 import { visibleWidth } from '@earendil-works/pi-tui'
 import { PiToolError } from '@eratio/pi-effect-codemode'
 import todoExtension from '../index.ts'
@@ -327,7 +328,7 @@ for (const { name, event } of rejectedPlanResults) {
   })
 }
 
-test('should not carry open tasks given a malformed marked snapshot', async () => {
+test('should preserve the live plan given a malformed historical snapshot during tree navigation', async () => {
   //given
   const value = harness(branchWithTodos, true)
   await restoreTodos(value)
@@ -348,8 +349,39 @@ test('should not carry open tasks given a malformed marked snapshot', async () =
   )
 
   //then
-  assert.equal(value.widgets.get('todo'), undefined)
-  assert.equal(value.sentMessages.length, 0)
+  const tool = value.registeredTool
+  assert.ok(tool)
+  const result = await tool.execute(
+    'todo-call',
+    todoCode(
+      "return JSON.stringify((await todo.show({ status: ['pending', 'in_progress', 'completed', 'omitted', 'blocked'] })).map(({ content, status }) => ({ content, status })))",
+    ),
+    undefined,
+    undefined,
+    value.ctx,
+  )
+  assert.equal(
+    (result as TodoToolResult).content[0]?.text,
+    JSON.stringify([
+      { content: 'first task', status: 'pending' },
+      { content: 'second task', status: 'blocked' },
+    ]),
+  )
+  assert.deepEqual(
+    extractLatestTodoSnapshot(value.appendedEntries).map(({ content, status }) => ({ content, status })),
+    [
+      { content: 'first task', status: 'pending' },
+      { content: 'second task', status: 'blocked' },
+    ],
+  )
+  assert.equal(value.sentMessages.length, 1)
+  const message = value.sentMessages[0]?.message
+  assert.ok(message)
+  assert.equal(message.display, false)
+  assert.equal(value.sentMessages[0]?.options?.triggerTurn, false)
+  assert.match(message.content, /first task/)
+  assert.match(message.content, /Tasks: 2 remaining, 1 blocked, 0 complete, 0 omitted\./)
+  assert.notEqual(value.widgets.get('todo'), undefined)
 })
 
 test('should register one todo tool and commit one snapshot given a successful program', async () => {
@@ -385,6 +417,50 @@ test('should register one todo tool and commit one snapshot given a successful p
   assert.deepEqual(typedResult.details.operations, { add: 1 })
   assert.equal(value.appendedEntries.length, 1)
   assert.equal((value.appendedEntries[0] as { customType: string }).customType, TODO_STATE_ENTRY)
+})
+
+test('should count help and render expansion controls given a help request', async () => {
+  //given
+  const value = harness()
+  await value.ready
+  const tool = value.registeredTool
+  assert.ok(tool)
+  assert.ok(tool.renderCall)
+  assert.ok(tool.renderResult)
+  initTheme('dark')
+  const code = todoCode('return todo.help()').code
+  const args = { code }
+  const context = {
+    args,
+    toolCallId: 'todo-help-call',
+    invalidate: () => undefined,
+    lastComponent: undefined,
+    state: {},
+    cwd: process.cwd(),
+    executionStarted: true,
+    argsComplete: true,
+    isPartial: false,
+    expanded: false,
+    showImages: false,
+    isError: false,
+  }
+  const call = tool.renderCall(args, value.theme, context as never)
+
+  //when
+  const result = await tool.execute('todo-help-call', { code }, undefined, undefined, value.ctx)
+
+  //then
+  const typedResult = result as TodoToolResult
+  assert.deepEqual(typedResult.details.operations, { help: 1 })
+  tool.renderResult(typedResult, { expanded: false, isPartial: false }, value.theme, context as never)
+  const collapsedCall = call.render(120).join('\n')
+  assert.match(collapsedCall, /help: 1/)
+  assert.match(collapsedCall, /to expand/)
+  const expanded = tool.renderResult(typedResult, { expanded: true, isPartial: false }, value.theme, context as never)
+  const expandedOutput = expanded.render(120).join('\n')
+  assert.match(expandedOutput, /Operations/)
+  assert.match(expandedOutput, /help: 1/)
+  assert.match(expandedOutput, /API overview/)
 })
 
 test('should commit multiple program mutations in one session snapshot given a single session', async () => {
@@ -611,34 +687,190 @@ test('should keep completed task states in the durable snapshot given compaction
   assert.equal(Object.hasOwn(message, 'details'), false)
 })
 
-test('should restore state given a session branch change', async () => {
+test('should restore the latest valid plan given session startup', async () => {
   //given
-  const value = harness(branchWithTodos, true)
+  const value = harness(
+    [
+      {
+        type: 'custom',
+        customType: TODO_STATE_ENTRY,
+        data: { todos: [{ id: firstId, content: 'older task', status: 'pending', dependsOn: [] }] },
+      },
+      {
+        type: 'custom',
+        customType: TODO_STATE_ENTRY,
+        data: { todos: [{ id: secondId, content: 'latest task', status: 'in_progress', dependsOn: [] }] },
+      },
+      { type: 'custom', customType: TODO_STATE_ENTRY, data: { todos: 'invalid' } },
+    ],
+    true,
+  )
+  await value.ready
+  const sessionStart = value.events.get('session_start')
+  const tool = value.registeredTool
+  assert.ok(sessionStart)
+  assert.ok(tool)
+
+  //when
+  await sessionStart({ type: 'session_start' }, value.ctx)
+
+  //then
+  const result = await tool.execute(
+    'todo-call',
+    todoCode('return JSON.stringify((await todo.show()).map(({ content, status }) => ({ content, status })))'),
+    undefined,
+    undefined,
+    value.ctx,
+  )
+  assert.equal(
+    (result as TodoToolResult).content[0]?.text,
+    JSON.stringify([{ content: 'latest task', status: 'in_progress' }]),
+  )
+})
+
+test('should show no tasks given a new empty session', async () => {
+  //given
+  const savedEntry = {
+    type: 'custom',
+    customType: TODO_STATE_ENTRY,
+    data: { todos: [{ id: firstId, content: 'previous session task', status: 'pending', dependsOn: [] }] },
+  }
+  const value = harness([savedEntry], true)
   await restoreTodos(value)
-  value.replaceBranch([
-    {
-      type: 'custom',
-      customType: TODO_STATE_ENTRY,
-      data: { todos: [{ id: secondId, content: 'branch task', status: 'pending', dependsOn: [] }] },
+  const sessionStart = value.events.get('session_start')
+  const tool = value.registeredTool
+  assert.ok(sessionStart)
+  assert.ok(tool)
+  value.replaceBranch([])
+
+  //when
+  await sessionStart({ type: 'session_start' }, value.ctx)
+
+  //then
+  const result = await tool.execute('todo-call', todoCode('return await todo.show()'), undefined, undefined, value.ctx)
+  assert.equal((result as TodoToolResult).content[0]?.text, '[]')
+})
+
+test('should keep the live plan given a later prompt start with older branch history', async () => {
+  //given
+  const savedEntry = {
+    type: 'custom',
+    customType: TODO_STATE_ENTRY,
+    data: { todos: [{ id: firstId, content: 'saved task', status: 'pending', dependsOn: [] }] },
+  }
+  const value = harness([savedEntry], true)
+  await restoreTodos(value)
+  const tool = value.registeredTool
+  assert.ok(tool)
+  await tool.execute(
+    'todo-call',
+    todoCode("await todo.add({ content: 'live task' }); return 'added'"),
+    undefined,
+    undefined,
+    value.ctx,
+  )
+  value.replaceBranch([savedEntry])
+  const beforeAgentStart = value.events.get('before_agent_start')
+  assert.ok(beforeAgentStart)
+
+  //when
+  await beforeAgentStart({ type: 'before_agent_start' }, value.ctx)
+
+  //then
+  const result = await tool.execute(
+    'todo-call',
+    todoCode("return (await todo.show()).map(({ content }) => content).sort().join('|')"),
+    undefined,
+    undefined,
+    value.ctx,
+  )
+  assert.equal((result as TodoToolResult).content[0]?.text, 'live task|saved task')
+})
+
+test('should restore the live plan in a fresh runtime given navigation to an older branch', async () => {
+  //given
+  const childEntry = {
+    type: 'custom',
+    customType: TODO_STATE_ENTRY,
+    data: {
+      todos: [
+        {
+          id: firstId,
+          content: 'finished child task',
+          details: 'finished details',
+          status: 'completed',
+          dependsOn: [],
+        },
+        {
+          id: secondId,
+          content: 'finished child follow-up',
+          details: 'follow-up details',
+          status: 'completed',
+          dependsOn: [firstId],
+        },
+      ],
     },
-  ])
+  }
+  const ancestorEntry = {
+    type: 'custom',
+    customType: TODO_STATE_ENTRY,
+    data: { todos: [{ id: firstId, content: 'finished child task', status: 'pending', dependsOn: [] }] },
+  }
+  const value = harness([childEntry], true)
+  await restoreTodos(value)
+  value.replaceBranch([ancestorEntry])
   const branchChange = value.events.get('session_tree')
+  const tool = value.registeredTool
   assert.ok(branchChange)
+  assert.ok(tool)
 
   //when
   await branchChange({ type: 'session_tree' }, value.ctx)
 
   //then
-  const tool = value.registeredTool
-  assert.ok(tool)
-  const result = await tool.execute(
-    'todo-call',
-    todoCode('return (await todo.show())[0]?.content'),
-    undefined,
-    undefined,
-    value.ctx,
+  const expected = [
+    {
+      content: 'finished child task',
+      status: 'completed',
+      details: 'finished details',
+      dependsOn: [],
+    },
+    {
+      content: 'finished child follow-up',
+      status: 'completed',
+      details: 'follow-up details',
+      dependsOn: [firstId],
+    },
+  ]
+  const showAllTodos = todoCode(
+    "return JSON.stringify((await todo.show({ status: ['pending', 'in_progress', 'completed', 'omitted', 'blocked'], includeDetails: true })).map(({ content, status, details, dependsOn }) => ({ content, status, details, dependsOn })))",
   )
-  assert.equal((result as TodoToolResult).content[0]?.text, 'branch task')
+  const result = await tool.execute('todo-call', showAllTodos, undefined, undefined, value.ctx)
+  assert.equal((result as TodoToolResult).content[0]?.text, JSON.stringify(expected))
+  assert.deepEqual(
+    extractLatestTodoSnapshot(value.appendedEntries).map(({ content, status, details, dependsOn }) => ({
+      content,
+      status,
+      details,
+      dependsOn,
+    })),
+    expected,
+  )
+  assert.equal(value.appendedEntries.length, 1)
+  const message = value.sentMessages[0]?.message
+  assert.ok(message)
+  assert.equal(message.display, false)
+  assert.equal(value.sentMessages[0]?.options?.triggerTurn, false)
+  assert.match(message.content, /Current task: none/)
+  assert.match(message.content, /Tasks: 0 remaining, 0 blocked, 2 complete, 0 omitted\./)
+  assert.equal(value.widgets.get('todo'), undefined)
+
+  const freshRuntime = harness([ancestorEntry, ...value.appendedEntries], true)
+  await restoreTodos(freshRuntime)
+  const freshTool = freshRuntime.registeredTool
+  assert.ok(freshTool)
+  const freshResult = await freshTool.execute('todo-call', showAllTodos, undefined, undefined, freshRuntime.ctx)
+  assert.equal((freshResult as TodoToolResult).content[0]?.text, JSON.stringify(expected))
 })
 
 test('should preserve open task states given tree navigation with a branch summary', async () => {
@@ -670,6 +902,24 @@ test('should preserve open task states given tree navigation with a branch summa
   )
 
   //then
+  const tool = value.registeredTool
+  assert.ok(tool)
+  const result = await tool.execute(
+    'todo-call',
+    todoCode(
+      "return JSON.stringify((await todo.show({ status: ['pending', 'in_progress', 'completed', 'omitted', 'blocked'] })).map(({ content, status }) => ({ content, status })))",
+    ),
+    undefined,
+    undefined,
+    value.ctx,
+  )
+  assert.equal(
+    (result as TodoToolResult).content[0]?.text,
+    JSON.stringify([
+      { content: 'active task', status: 'in_progress' },
+      { content: 'blocked task', status: 'blocked' },
+    ]),
+  )
   const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
   assert.ok(widgetFactory)
   const lines = widgetFactory(undefined, value.theme).render(120)
@@ -682,6 +932,8 @@ test('should preserve open task states given tree navigation with a branch summa
   assert.equal(value.sentMessages.length, 1)
   const message = value.sentMessages[0]?.message
   assert.ok(message)
+  assert.equal(message.display, false)
+  assert.equal(value.sentMessages[0]?.options?.triggerTurn, false)
   assert.match(message.content, /active task/)
   assert.doesNotMatch(message.content, /blocked task/)
   assert.equal(Object.hasOwn(message, 'details'), false)
@@ -742,6 +994,143 @@ test('should preserve newly added tasks given tree navigation with an older snap
   assert.ok(lines.some((line) => line.includes('active task')))
   assert.ok(lines.some((line) => line.includes('new task one')))
   assert.ok(lines.some((line) => line.includes('new task two')))
+  const result = await tool.execute(
+    'todo-call',
+    todoCode(
+      "return (await todo.show({ status: ['pending', 'in_progress', 'completed', 'omitted', 'blocked'] })).map(({ content }) => content).sort().join('|')",
+    ),
+    undefined,
+    undefined,
+    value.ctx,
+  )
+  assert.equal((result as TodoToolResult).content[0]?.text, 'active task|new task one|new task two')
+})
+
+test('should persist an empty plan given tree navigation after clearing todos', async () => {
+  //given
+  const savedEntry = {
+    type: 'custom',
+    customType: TODO_STATE_ENTRY,
+    data: { todos: [{ id: firstId, content: 'saved task', status: 'pending', dependsOn: [] }] },
+  }
+  const value = harness([savedEntry], true)
+  await restoreTodos(value)
+  const tool = value.registeredTool
+  assert.ok(tool)
+  await tool.execute('todo-call', todoCode("await todo.clear(); return 'cleared'"), undefined, undefined, value.ctx)
+  value.replaceBranch([savedEntry])
+  const branchChange = value.events.get('session_tree')
+  assert.ok(branchChange)
+
+  //when
+  await branchChange({ type: 'session_tree' }, value.ctx)
+
+  //then
+  const result = await tool.execute('todo-call', todoCode('return await todo.show()'), undefined, undefined, value.ctx)
+  assert.equal((result as TodoToolResult).content[0]?.text, '[]')
+  assert.equal(value.appendedEntries.length, 2)
+  assert.deepEqual(extractLatestTodoSnapshot(value.appendedEntries), [])
+  const message = value.sentMessages[0]?.message
+  assert.ok(message)
+  assert.equal(message.display, false)
+  assert.equal(value.sentMessages[0]?.options?.triggerTurn, false)
+  assert.match(message.content, /Current task: none/)
+  assert.match(message.content, /Tasks: 0 remaining, 0 blocked, 0 complete, 0 omitted\./)
+  assert.equal(value.widgets.get('todo'), undefined)
+})
+
+test('should keep the live plan given a failed tree snapshot append', async () => {
+  //given
+  const liveEntry = {
+    type: 'custom',
+    customType: TODO_STATE_ENTRY,
+    data: { todos: [{ id: firstId, content: 'live task', status: 'in_progress', dependsOn: [] }] },
+  }
+  const olderEntry = {
+    type: 'custom',
+    customType: TODO_STATE_ENTRY,
+    data: { todos: [{ id: secondId, content: 'older task', status: 'pending', dependsOn: [] }] },
+  }
+  const cause = new Error('append failed')
+  const value = harness([liveEntry], true, { failure: { operation: 'appendEntry', error: cause } })
+  await restoreTodos(value)
+  value.replaceBranch([olderEntry])
+  const branchChange = value.events.get('session_tree')
+  const tool = value.registeredTool
+  assert.ok(branchChange)
+  assert.ok(tool)
+
+  //when
+  const execution = Promise.resolve(branchChange({ type: 'session_tree' }, value.ctx))
+
+  //then
+  await assert.rejects(execution, (error: unknown) => {
+    assert.ok(error instanceof TodoUiError)
+    assert.equal(error.operation, 'append-entry')
+    assert.equal(error.cause, cause)
+    return true
+  })
+  const result = await tool.execute(
+    'todo-call',
+    todoCode(
+      "return (await todo.show({ status: ['pending', 'in_progress', 'completed', 'omitted', 'blocked'] })).map(({ content }) => content).join('|')",
+    ),
+    undefined,
+    undefined,
+    value.ctx,
+  )
+  assert.equal((result as TodoToolResult).content[0]?.text, 'live task')
+  assert.deepEqual(value.appendedEntries, [])
+})
+
+test('should keep the saved plan given a failed tree status summary', async () => {
+  //given
+  const liveEntry = {
+    type: 'custom',
+    customType: TODO_STATE_ENTRY,
+    data: { todos: [{ id: firstId, content: 'live task', status: 'in_progress', dependsOn: [] }] },
+  }
+  const olderEntry = {
+    type: 'custom',
+    customType: TODO_STATE_ENTRY,
+    data: { todos: [{ id: secondId, content: 'older task', status: 'pending', dependsOn: [] }] },
+  }
+  const cause = new Error('message failed')
+  const value = harness([liveEntry], true, { failure: { operation: 'sendMessage', error: cause } })
+  await restoreTodos(value)
+  value.replaceBranch([olderEntry])
+  value.widgets.set('todo', undefined)
+  const branchChange = value.events.get('session_tree')
+  const tool = value.registeredTool
+  assert.ok(branchChange)
+  assert.ok(tool)
+
+  //when
+  const execution = Promise.resolve(branchChange({ type: 'session_tree' }, value.ctx))
+
+  //then
+  await assert.rejects(execution, (error: unknown) => {
+    assert.ok(error instanceof TodoUiError)
+    assert.equal(error.operation, 'send-message')
+    assert.equal(error.cause, cause)
+    return true
+  })
+  assert.deepEqual(
+    extractLatestTodoSnapshot(value.appendedEntries).map((todo) => todo.content),
+    ['live task'],
+  )
+  const result = await tool.execute(
+    'todo-call',
+    todoCode(
+      "return (await todo.show({ status: ['pending', 'in_progress', 'completed', 'omitted', 'blocked'] })).map(({ content }) => content).join('|')",
+    ),
+    undefined,
+    undefined,
+    value.ctx,
+  )
+  assert.equal((result as TodoToolResult).content[0]?.text, 'live task')
+  assert.notEqual(value.widgets.get('todo'), undefined)
+  assert.deepEqual(value.sentMessages, [])
 })
 
 test('should suspend the todo tool given Plannotator execution of an approved plan', async () => {

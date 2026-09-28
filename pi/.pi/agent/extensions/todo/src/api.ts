@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
 import { Result, Schema } from 'effect'
-import { TODO_API_HELP } from './code-mode.ts'
 import {
   type Todo,
   type TodoId,
@@ -27,7 +26,6 @@ type TodoCompleteResult = {
 }
 
 type TodoApi = {
-  help(): string
   add(input: TodoInput): Promise<Todo>
   update(id: TodoId, patch: TodoPatch): Promise<Todo>
   show(options?: TodoShowOptions): Promise<readonly Todo[]>
@@ -405,7 +403,7 @@ function createTodoApi({ draft, signal, onMutation, onShow }: TodoApiOptions): T
     return Promise.resolve({ cleared })
   }
 
-  return { help: () => TODO_API_HELP, add, update, show, next, complete, omit, restore, clear }
+  return { add, update, show, next, complete, omit, restore, clear }
 }
 
 export { createTodoApi, type TodoApi, type TodoCompleteResult }

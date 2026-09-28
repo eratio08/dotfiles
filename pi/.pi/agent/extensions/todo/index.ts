@@ -12,7 +12,7 @@ import {
 } from '@eratio/pi-effect-codemode'
 import { Effect, Layer, Ref, Result, Schema, Semaphore } from 'effect'
 import { Type } from 'typebox'
-import { TODO_CODE_EXAMPLE, TODO_CODE_TYPES, TODO_PROMPT } from './src/code-mode.ts'
+import { TODO_CODE_EXAMPLE, TODO_CODE_TYPES } from './src/code-mode.ts'
 import {
   TodoEffects,
   TodoEffectsLayer,
@@ -300,10 +300,14 @@ const todoLayer = Layer.mergeAll(TodoStore.layer, todoUiLayer, statusRequestLaye
 const todoTool = createTool<TodoServices, TodoUiError, TodoRunContext>({
   toolName: 'todo',
   label: 'Todo',
-  description:
-    'Run TypeScript code that reads and updates the current todo plan for non-trivial work with three or more tasks.',
+  description: 'Run TypeScript code that reads and updates the current todo plan for non-trivial work with >= 3 tasks.',
   promptSnippet: 'Use todo only for non-trivial work with three or more tasks',
-  promptGuidelines: [TODO_PROMPT],
+  promptGuidelines: [
+    'Use todo only for non-trivial work with three or more tasks.',
+    'Write export default async (todo: TodoApi) => ... and await mutations in order.',
+    'Available methods: add, update, show, next, complete, omit, restore, clear.',
+    'Call todo.help() for exact types, options, defaults, behavior, and examples.',
+  ],
   timeoutMs: 30_000,
   executionMode: 'sequential',
   typeDeclarations: TODO_CODE_TYPES,
@@ -385,11 +389,9 @@ const todoPlugin = PiExtension.define<TodoServices, TodoToolFailure>({
   effect: (registrations: TodoPluginRegistrations) =>
     Effect.gen(function* () {
       const effects = yield* TodoEffects
-      yield* registrations.events.on('session_start', () => effects.syncFromSession())
-      yield* registrations.events.on('session_tree', (event) =>
-        effects.syncFromSession(event.summaryEntry !== undefined),
-      )
-      yield* registrations.events.on('before_agent_start', () => effects.syncFromSession())
+      yield* registrations.events.on('session_start', () => effects.restoreFromSession())
+      yield* registrations.events.on('session_tree', () => effects.carryTodosThroughTreeNavigation())
+      yield* registrations.events.on('before_agent_start', () => effects.prepareAgentStart())
       yield* registrations.events.on('input', () =>
         effects.requestPlannotatorPhase().pipe(Effect.as({ action: 'continue' })),
       )

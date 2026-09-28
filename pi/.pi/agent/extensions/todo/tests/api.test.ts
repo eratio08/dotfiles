@@ -18,25 +18,6 @@ function createDraft(initial: readonly Todo[] = []): { draft: TodoTransactionDra
   return { draft, snapshot: () => cloneTodos(todos) }
 }
 
-test('should return the todo API reference given an on-demand request', () => {
-  //given
-  const { draft } = createDraft()
-  const api = createTodoApi({ draft })
-
-  //when
-  const help = api.help()
-
-  //then
-  assert.match(help, /interface TodoApi/)
-  assert.match(help, /todo\.add/)
-  assert.match(help, /status defaults to \['in_progress', 'pending'\]/)
-  assert.match(help, /limit defaults to 5/)
-  assert.match(help, /includeDetails option defaults to false/)
-  assert.match(help, /interface TodoCompleteResult/)
-  assert.match(help, /allDone is true only when no pending, in-progress, or blocked tasks remain/)
-  assert.match(help, /sorted by ID in ascending order/)
-})
-
 test('should add tasks with generated IDs and derived statuses given task dependencies', async () => {
   //given
   const { draft } = createDraft()

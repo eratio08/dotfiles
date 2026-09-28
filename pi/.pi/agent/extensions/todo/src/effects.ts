@@ -13,12 +13,6 @@ import { createTodoApi, type TodoApi } from './api.ts'
 import { cloneTodos, formatTodoContext, TODO_STATE_ENTRY, type Todo, TodoUpdateError } from './state.ts'
 import { TodoStore, type TodoTransactionDraft, type TodoTransactionResult } from './store.ts'
 
-const decodeTodoSnapshotMarker = Schema.decodeUnknownResult(
-  Schema.Struct({
-    customType: Schema.Literal(TODO_STATE_ENTRY),
-  }),
-)
-
 const TODO_TOOL_NAME = 'todo'
 const PLANNOTATOR_REQUEST_CHANNEL = 'plannotator:request'
 const PLANNOTATOR_REQUEST_TIMEOUT_MS = 250
@@ -332,63 +326,56 @@ const scheduleSessionPhaseSync = Effect.fnUntraced(function* (): Effect.fn.Retur
   })
 })
 
-const syncFromSession = Effect.fn('syncFromSession')(function* (
-  preserveOpenTasks = false,
+const refreshTodoWidget = Effect.fnUntraced(function* (
+  todos: readonly Todo[],
 ): Effect.fn.Return<void, TodoUiError, TodoEffectsRequirements> {
+  const store = yield* TodoStore
+  const ui = yield* TodoUi
+  const suspended = yield* store.isSuspended
+  yield* ui.update(todos, suspended)
+})
+
+const restoreFromSession = Effect.fn('restoreFromSession')(function* (): Effect.fn.Return<
+  void,
+  TodoUiError,
+  TodoEffectsRequirements
+> {
+  const session = yield* PiSession
+  const store = yield* TodoStore
+  const entries = yield* mapTodoEffect('get-session-branch', session.branch())
+  const todos = yield* store.restore(entries)
+  yield* refreshTodoWidget(todos)
+  yield* scheduleSessionPhaseSync()
+})
+
+const carryTodosThroughTreeNavigation = Effect.fn('carryTodosThroughTreeNavigation')(function* (): Effect.fn.Return<
+  void,
+  TodoUiError,
+  TodoEffectsRequirements
+> {
   const session = yield* PiSession
   const pi = yield* Pi
   const store = yield* TodoStore
-  const ui = yield* TodoUi
-  const previous = preserveOpenTasks ? yield* store.snapshot : []
-  const entries = yield* mapTodoEffect('get-session-branch', session.branch())
-  const restored = yield* store.restore(entries)
-  const hasSnapshot = entries.some((entry) => Result.isSuccess(decodeTodoSnapshotMarker(entry)))
-  const restoredPlanIsSubset =
-    !hasSnapshot ||
-    (restored.length > 0 && restored.every((todo) => previous.some((candidate) => candidate.id === todo.id)))
-  const carried = preserveOpenTasks && previous.length > 0 && restoredPlanIsSubset ? previous : []
-  let todos = restored
-  if (carried.length > 0) {
-    const replacement = yield* Effect.match(store.replace(carried), {
-      onFailure: (error: TodoUpdateError) => ({ error }),
-      onSuccess: (value: readonly Todo[]) => ({ value }),
-    })
-    if ('error' in replacement) {
-      return yield* Effect.fail(
-        new TodoUiError({ operation: 'restore', message: replacement.error.message, cause: replacement.error }),
-      )
-    }
-    todos = replacement.value
+  const todos = yield* store.snapshot
+  yield* mapTodoEffect('append-entry', session.appendEntry(TODO_STATE_ENTRY, { todos: cloneTodos(todos) }))
+  yield* refreshTodoWidget(todos)
+  yield* scheduleSessionPhaseSync()
+  const message = {
+    customType: 'todo',
+    content: formatTodoContext(todos),
+    display: false,
   }
-  if (carried.length > 0) {
-    const message = {
-      customType: 'todo',
-      content: formatTodoContext(carried),
-      display: false,
-    }
-    const persisted = yield* Effect.match(
-      mapTodoEffect('append-entry', session.appendEntry(TODO_STATE_ENTRY, { todos: cloneTodos(carried) })),
-      {
-        onFailure: (error: TodoUiError) => ({ error }),
-        onSuccess: () => ({ success: true as const }),
-      },
-    )
-    if ('error' in persisted) {
-      const rollback = yield* Effect.match(store.replace(restored), {
-        onFailure: (error: TodoUpdateError) => ({ error }),
-        onSuccess: () => ({ success: true as const }),
-      })
-      if ('error' in rollback) {
-        return yield* Effect.fail(
-          new TodoUiError({ operation: 'restore-rollback', message: rollback.error.message, cause: rollback.error }),
-        )
-      }
-      return yield* Effect.fail(persisted.error)
-    }
-    yield* mapTodoEffect('send-message', pi.messages.sendMessage(message, { triggerTurn: false }))
-  }
-  const suspended = yield* store.isSuspended
-  yield* ui.update(todos, suspended)
+  yield* mapTodoEffect('send-message', pi.messages.sendMessage(message, { triggerTurn: false }))
+})
+
+const prepareAgentStart = Effect.fn('prepareAgentStart')(function* (): Effect.fn.Return<
+  void,
+  TodoUiError,
+  TodoEffectsRequirements
+> {
+  const store = yield* TodoStore
+  const todos = yield* store.snapshot
+  yield* refreshTodoWidget(todos)
   yield* scheduleSessionPhaseSync()
 })
 
@@ -511,7 +498,12 @@ const clearTodoWidget = Effect.fnUntraced(function* (): Effect.fn.Return<void, T
 class TodoEffects extends Context.Service<
   TodoEffects,
   {
-    readonly syncFromSession: (preserveOpenTasks?: boolean) => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
+    /** Restores the latest valid todo snapshot when a session runtime starts. */
+    readonly restoreFromSession: () => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
+    /** Saves the full live todo plan after tree navigation without restoring branch history. */
+    readonly carryTodosThroughTreeNavigation: () => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
+    /** Refreshes the live todo view and phase without restoring branch history. */
+    readonly prepareAgentStart: () => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
     readonly requestPlannotatorPhase: () => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
     readonly withRun: TodoToolRun
     readonly clearTodos: (signal?: AbortSignal) => Effect.Effect<number, TodoUiError, TodoEffectsRequirements>
@@ -525,7 +517,9 @@ class TodoEffects extends Context.Service<
 const TodoEffectsLayer: Layer.Layer<TodoEffects, never, never> = Layer.succeed(
   TodoEffects,
   TodoEffects.of({
-    syncFromSession,
+    restoreFromSession,
+    carryTodosThroughTreeNavigation,
+    prepareAgentStart,
     requestPlannotatorPhase,
     withRun: withTodoRun,
     clearTodos,
