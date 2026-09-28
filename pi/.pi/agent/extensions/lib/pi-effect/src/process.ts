@@ -1,7 +1,7 @@
 import type { ExecOptions, ExecResult } from '@earendil-works/pi-coding-agent'
 import { Context, type Effect } from 'effect'
-import type { PiHostError } from './errors.ts'
-import type { PiHostOperations } from './pi.ts'
+import type { PiOperationsError } from './errors.ts'
+import type { PiOperationsService } from './pi.ts'
 
 /** Effect operation for running a process through Pi. */
 type PiProcessService = {
@@ -10,15 +10,15 @@ type PiProcessService = {
     command: string,
     args: readonly string[],
     options?: ExecOptions,
-  ) => Effect.Effect<ExecResult, PiHostError>
+  ) => Effect.Effect<ExecResult, PiOperationsError>
 }
 
 /**
- * Creates process execution operations backed by the Pi host.
- * @param host Low-level Pi operations that run processes.
+ * Creates the Pi process service from PiOperations.
+ * @param operations Low-level Pi operations that run processes.
  * @returns The Pi process service.
  */
-const createPiProcessService = (host: PiHostOperations): PiProcessService => ({ exec: host.exec })
+const createPiProcessService = (operations: PiOperationsService): PiProcessService => ({ exec: operations.exec })
 
 /** Service tag for running processes through Pi. */
 class PiProcess extends Context.Service<PiProcess, PiProcessService>()('pi-effect/PiProcess') {}

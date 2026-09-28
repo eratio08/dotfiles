@@ -1,13 +1,13 @@
-/** Error classes returned by host operations, registrations, tools, and runtime shutdown. */
+/** Error classes returned by Pi operations, registrations, tools, and runtime shutdown. */
 export {
   type PiExtensionError,
-  PiHostError,
+  PiOperationsError,
   PiRegistrationError,
   PiRuntimeDisposedError,
   PiToolError,
   PiUiUnavailableError,
 } from './errors.ts'
-/** Context, session, host, UI, and service operation types. */
+/** Context, session, UI, and service operation types. */
 export type {
   PiCommandContextValue,
   PiCompactOptions,
@@ -39,7 +39,7 @@ export {
   PiCommandContext,
   PiContext,
   PiFlags,
-  PiHostService,
+  PiOperations,
   PiMessages,
   PiProcess,
   type PiServices,

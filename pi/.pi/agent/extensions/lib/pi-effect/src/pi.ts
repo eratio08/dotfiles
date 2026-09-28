@@ -21,7 +21,7 @@ import {
   type PiToolExecutionMode,
   type PiToolUpdate,
 } from './context.ts'
-import type { PiHostError } from './errors.ts'
+import type { PiOperationsError } from './errors.ts'
 import {
   type PiContent,
   type PiCustomMessage,
@@ -43,64 +43,64 @@ import {
 } from './ui.ts'
 
 /** Typed Effect wrapper for Pi's extension event bus. */
-type PiHostEventBus = {
+type PiEventBus = {
   /** Emits data on a named event channel. */
-  readonly emit: (channel: string, data: unknown) => Effect.Effect<void, PiHostError>
+  readonly emit: (channel: string, data: unknown) => Effect.Effect<void, PiOperationsError>
   /** Subscribes to a channel and returns an Effect that resolves to an unsubscribe Effect. */
   readonly on: (
     channel: string,
     handler: (data: unknown) => void,
-  ) => Effect.Effect<Effect.Effect<void, PiHostError>, PiHostError>
+  ) => Effect.Effect<Effect.Effect<void, PiOperationsError>, PiOperationsError>
   /** Subscribes to a channel until the current Effect scope closes. */
   readonly onScoped: (
     channel: string,
     handler: (data: unknown) => void,
-  ) => Effect.Effect<void, PiHostError, Scope.Scope>
+  ) => Effect.Effect<void, PiOperationsError, Scope.Scope>
 }
 
-/** Low-level Pi host operations used to build the higher-level services. */
-type PiHostOperations = {
+/** Low-level Pi operations used to build the higher-level services. */
+type PiOperationsService = {
   /** Runs a process through Pi and returns its execution result. */
   readonly exec: (
     command: string,
     args: readonly string[],
     options?: ExecOptions,
-  ) => Effect.Effect<ExecResult, PiHostError>
+  ) => Effect.Effect<ExecResult, PiOperationsError>
   /** Sends a custom message to the current session. */
   readonly sendMessage: <TDetails>(
     message: PiCustomMessage<TDetails>,
     options?: PiSendMessageOptions,
-  ) => Effect.Effect<void, PiHostError>
+  ) => Effect.Effect<void, PiOperationsError>
   /** Sends a user message to the current session. */
-  readonly sendUserMessage: (content: PiContent, options?: PiSendUserMessageOptions) => Effect.Effect<void, PiHostError>
+  readonly sendUserMessage: (content: PiContent, options?: PiSendUserMessageOptions) => Effect.Effect<void, PiOperationsError>
   /** Appends custom data to the session history. */
-  readonly appendEntry: <TData>(customType: string, data?: TData) => Effect.Effect<void, PiHostError>
+  readonly appendEntry: <TData>(customType: string, data?: TData) => Effect.Effect<void, PiOperationsError>
   /** Sets the current session name. */
-  readonly setSessionName: (name: string) => Effect.Effect<void, PiHostError>
+  readonly setSessionName: (name: string) => Effect.Effect<void, PiOperationsError>
   /** Reads the current session name, if one is set. */
-  readonly getSessionName: () => Effect.Effect<string | undefined, PiHostError>
+  readonly getSessionName: () => Effect.Effect<string | undefined, PiOperationsError>
   /** Sets or clears the label for a session entry. */
-  readonly setLabel: (entryId: string, label: string | undefined) => Effect.Effect<void, PiHostError>
+  readonly setLabel: (entryId: string, label: string | undefined) => Effect.Effect<void, PiOperationsError>
   /** Reads the active tool names. */
-  readonly getActiveTools: () => Effect.Effect<readonly string[], PiHostError>
+  readonly getActiveTools: () => Effect.Effect<readonly string[], PiOperationsError>
   /** Reads metadata for all tools known to Pi. */
-  readonly getAllTools: () => Effect.Effect<readonly ToolInfo[], PiHostError>
+  readonly getAllTools: () => Effect.Effect<readonly ToolInfo[], PiOperationsError>
   /** Replaces the active tool list. */
-  readonly setActiveTools: (toolNames: readonly string[]) => Effect.Effect<void, PiHostError>
+  readonly setActiveTools: (toolNames: readonly string[]) => Effect.Effect<void, PiOperationsError>
   /** Reads a named boolean or string flag. */
-  readonly getFlag: (name: string) => Effect.Effect<boolean | string | undefined, PiHostError>
+  readonly getFlag: (name: string) => Effect.Effect<boolean | string | undefined, PiOperationsError>
   /** Selects the current model and reports whether Pi accepted it. */
-  readonly setModel: (model: Model<Api>) => Effect.Effect<boolean, PiHostError>
+  readonly setModel: (model: Model<Api>) => Effect.Effect<boolean, PiOperationsError>
   /** Reads the current thinking level. */
-  readonly getThinkingLevel: () => Effect.Effect<PiThinkingLevel, PiHostError>
+  readonly getThinkingLevel: () => Effect.Effect<PiThinkingLevel, PiOperationsError>
   /** Sets the current thinking level. */
-  readonly setThinkingLevel: (level: PiThinkingLevel) => Effect.Effect<void, PiHostError>
+  readonly setThinkingLevel: (level: PiThinkingLevel) => Effect.Effect<void, PiOperationsError>
   /** Registers a model provider with Pi. */
-  readonly registerProvider: (provider: Provider | string, config?: ProviderConfig) => Effect.Effect<void, PiHostError>
+  readonly registerProvider: (provider: Provider | string, config?: ProviderConfig) => Effect.Effect<void, PiOperationsError>
   /** Removes a registered model provider by name. */
-  readonly unregisterProvider: (name: string) => Effect.Effect<void, PiHostError>
+  readonly unregisterProvider: (name: string) => Effect.Effect<void, PiOperationsError>
   /** Event bus for extension-to-extension coordination. */
-  readonly events: PiHostEventBus
+  readonly events: PiEventBus
 }
 
 /** Facade that groups every service available to an extension. */
@@ -126,16 +126,16 @@ type PiService = {
   /** Process execution operations. */
   readonly process: PiProcess['Service']
   /** Extension event bus. */
-  readonly events: PiHostEventBus
+  readonly events: PiEventBus
   /** Model operations. */
   readonly model: {
     /** Selects the current model and reports whether Pi accepted it. */
-    readonly set: (model: Model<Api>) => Effect.Effect<boolean, PiHostError>
+    readonly set: (model: Model<Api>) => Effect.Effect<boolean, PiOperationsError>
   }
 }
 
-/** Service tag for low-level operations supplied by the Pi host. */
-class PiHostService extends Context.Service<PiHostService, PiHostOperations>()('pi-effect/PiHostService') {}
+/** Service tag for Pi operations. */
+class PiOperations extends Context.Service<PiOperations, PiOperationsService>()('pi-effect/PiOperations') {}
 
 /** Service tag for the facade that groups the available Pi services. */
 class Pi extends Context.Service<Pi, PiService>()('pi-effect/Pi') {}
@@ -162,9 +162,9 @@ export {
   type PiCustomMessage,
   PiFlags,
   type PiFlagsService,
-  type PiHostEventBus,
-  type PiHostOperations,
-  PiHostService,
+  type PiEventBus,
+  type PiOperationsService,
+  PiOperations,
   type PiInvocationServices,
   PiMessages,
   type PiMessagesService,

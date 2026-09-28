@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Effect } from 'effect'
-import type { PiHostOperations } from '../src/pi.ts'
+import type { PiOperationsService } from '../src/pi.ts'
 import { createPiToolsService } from '../src/tools.ts'
 
 test('should release a semaphore permit given an interrupted waiting tool operation', async () => {
@@ -14,7 +14,7 @@ test('should release a semaphore permit given an interrupted waiting tool operat
   const firstRelease = new Promise<void>((resolve) => {
     releaseFirst = resolve
   })
-  const host: PiHostOperations = {
+  const operations: PiOperationsService = {
     exec: () => Effect.succeed({ stdout: '', stderr: '', code: 0, killed: false }),
     sendMessage: () => Effect.succeed(undefined),
     sendUserMessage: () => Effect.succeed(undefined),
@@ -24,7 +24,7 @@ test('should release a semaphore permit given an interrupted waiting tool operat
     setLabel: () => Effect.succeed(undefined),
     getActiveTools: () => Effect.succeed([]),
     getAllTools: () => Effect.succeed([]),
-    setActiveTools: (toolNames: Parameters<PiHostOperations['setActiveTools']>[0]) =>
+    setActiveTools: (toolNames: Parameters<PiOperationsService['setActiveTools']>[0]) =>
       Effect.suspend(() => {
         calls.push([...toolNames])
         if (toolNames[0] === 'first') {
@@ -47,7 +47,7 @@ test('should release a semaphore permit given an interrupted waiting tool operat
       onScoped: () => Effect.succeed(undefined),
     },
   }
-  const tools = createPiToolsService(host)
+  const tools = createPiToolsService(operations)
   const exercise = async (): Promise<{
     readonly beforeRelease: readonly string[][]
     readonly afterRelease: readonly string[][]

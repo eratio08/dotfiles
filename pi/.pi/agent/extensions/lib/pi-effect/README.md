@@ -1,18 +1,18 @@
 # @eratio08/pi-effect
 
 `@eratio08/pi-effect` is an Effect-native SDK for Pi extensions.
-It keeps Pi host callbacks at one adapter boundary and gives extension code typed services, typed errors, and managed lifecycle handling.
+It keeps calls to the Pi API at one adapter boundary and gives extension code typed services, typed errors, and managed lifecycle handling.
 This package targets Bun and Pi extension projects.
 It publishes ESM JavaScript bundles and bundled TypeScript declarations.
 
 ## Requirements
 
-You need Bun and a Pi extension host.
+You need Bun and a Pi extension project.
 You need Effect version 4.
 The package declares these peer dependencies:
 
 - `effect` with the range `^4.0.0-0`.
-- `@earendil-works/pi-coding-agent` for Pi extension types and host APIs.
+- `@earendil-works/pi-coding-agent` for Pi extension types and APIs.
 - `@earendil-works/pi-ai` for model and provider types.
 - `@earendil-works/pi-tui` for TUI types.
 - `typebox` for tool parameter schemas.
@@ -75,9 +75,9 @@ It is a composition-root port, not a runtime service.
 Registered callbacks use Effect service requirements for their dependencies.
 
 A Layer supplies services to an Effect program.
-A plugin layer can require `PiHostService` or stable host services such as `PiMessages`, `PiTools`, `PiFlags`, and `PiProcess` while the layer is built.
+A plugin layer can require `PiOperations` or stable Pi services such as `PiMessages`, `PiTools`, `PiFlags`, and `PiProcess` while the layer is built.
 A plugin layer must not require `Pi`, `PiContext`, `PiSessionContext`, `PiCommandContext`, `PiToolContext`, `PiSession`, or `PiUi` because those services are invocation-scoped.
-The setup program can use stable host services, but it cannot use invocation-scoped services.
+The setup program can use stable Pi services, but it cannot use invocation-scoped services.
 The adapter builds the plugin layer once and keeps its resources until shutdown.
 The adapter provides invocation services separately to each registered callback.
 
@@ -175,17 +175,17 @@ The main service tags are:
 - `PiUi` provides Effect-based dialogs, notifications, widgets, editor access, themes, and TUI operations.
 - `PiTools` reads all tools and replaces the active tool list.
 - `PiFlags` reads execution-time flag values.
-- `PiProcess` runs a process through the Pi host.
+- `PiProcess` runs a process through Pi.
 
 The `Pi` facade also provides `model.set` and the low-level Pi event bus.
-Event emission and subscription return Effects that fail with `PiHostError` when the host rejects the operation.
+Event emission and subscription return Effects that fail with `PiOperationsError` when Pi rejects an operation.
 The event bus uses raw channel data and is intended for coordination with other Pi extensions.
 `events.on` returns an unsubscribe Effect that callers can run when the subscription ends.
 `events.onScoped` registers a subscription in the current Effect scope and removes it when the scope closes.
 Use `events.onScoped` with `Effect.scoped` when the subscription lifetime must follow a scope.
 
-All host operations return Effects when they can fail or require an abort signal.
-The adapter maps host failures to typed errors.
+All Pi operations return Effects when they can fail or require an abort signal.
+The adapter maps Pi operation failures to typed errors.
 
 ## Session state
 
@@ -260,8 +260,8 @@ A tool failure is mapped to `PiToolError` at the adapter boundary.
 
 The SDK uses Effect Schema for package-owned registration data, including flag definitions.
 Pi owns event payloads, invocation contexts, and tool parameter validation.
-The SDK keeps TypeBox tool schemas because Pi consumes those schemas at the host boundary.
-The adapter passes host-owned event and context data through the typed Pi host boundary.
+The SDK keeps TypeBox tool schemas because Pi consumes those schemas directly.
+The adapter passes Pi event and context data through typed Effect APIs.
 The raw Pi event bus remains an escape hatch and accepts unknown data by design.
 
 ## UI and execution modes
@@ -271,13 +271,13 @@ The raw Pi event bus remains an escape hatch and accepts unknown data by design.
 
 Dialog, custom component, editor, and other TUI-only operations return `PiUiUnavailableError` when the current mode has no UI.
 Safe status and widget updates preserve Pi no-op behavior when UI is unavailable.
-Pass an invocation signal to long-running host operations when the service accepts a dialog or tool signal.
+Pass an invocation signal to long-running Pi operations when the service accepts a dialog or tool signal.
 
 ## Errors
 
 The SDK exports these error types:
 
-- `PiHostError` represents a failed Pi host operation.
+- `PiOperationsError` represents a failed Pi operation.
 - `PiUiUnavailableError` represents an operation that needs unavailable UI capabilities.
 - `PiRuntimeDisposedError` represents a callback that ran after plugin disposal.
 - `PiRegistrationError` represents a failed registration.
@@ -289,7 +289,7 @@ Do not convert typed errors to untyped strings at the domain boundary.
 
 ## Testing
 
-The testing entrypoint exposes a fake Pi host and an in-memory installer harness.
+The testing entrypoint exposes a fake Pi extension API and an in-memory installer.
 Import test helpers from `@eratio08/pi-effect/testing`:
 
 ```ts
@@ -316,5 +316,5 @@ await extension.invokeEvent('session_shutdown', {
 ```
 
 The fake extension exposes recorded events, commands, shortcuts, flags, tools, and renderers.
-Use `createFakeExtensionContext` when a test needs a custom working directory or host context.
+Use `createFakeExtensionContext` when a test needs a custom working directory or Pi extension context.
 Use `invokeEvent`, `invokeCommand`, `invokeCommandCompletions`, and `invokeTool` to exercise the installed adapter.

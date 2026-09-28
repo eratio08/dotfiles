@@ -1,7 +1,7 @@
 import type { ImageContent, TextContent } from '@earendil-works/pi-ai'
 import { Context, type Effect } from 'effect'
-import type { PiHostError } from './errors.ts'
-import type { PiHostOperations } from './pi.ts'
+import type { PiOperationsError } from './errors.ts'
+import type { PiOperationsService } from './pi.ts'
 
 /** Text or multimodal content accepted by Pi message operations. */
 type PiContent = string | readonly (TextContent | ImageContent)[]
@@ -38,19 +38,19 @@ type PiMessagesService = {
   readonly sendMessage: <TDetails>(
     message: PiCustomMessage<TDetails>,
     options?: PiSendMessageOptions,
-  ) => Effect.Effect<void, PiHostError>
+  ) => Effect.Effect<void, PiOperationsError>
   /** Sends a user message to the current session. */
-  readonly sendUserMessage: (content: PiContent, options?: PiSendUserMessageOptions) => Effect.Effect<void, PiHostError>
+  readonly sendUserMessage: (content: PiContent, options?: PiSendUserMessageOptions) => Effect.Effect<void, PiOperationsError>
 }
 
 /**
- * Creates message operations backed by the Pi host.
- * @param host Low-level Pi operations that send messages.
+ * Creates the Pi messages service from PiOperations.
+ * @param operations Low-level Pi operations that send messages.
  * @returns The Pi messages service.
  */
-const createPiMessagesService = (host: PiHostOperations): PiMessagesService => ({
-  sendMessage: host.sendMessage,
-  sendUserMessage: host.sendUserMessage,
+const createPiMessagesService = (operations: PiOperationsService): PiMessagesService => ({
+  sendMessage: operations.sendMessage,
+  sendUserMessage: operations.sendUserMessage,
 })
 
 /** Service tag for sending messages to Pi. */

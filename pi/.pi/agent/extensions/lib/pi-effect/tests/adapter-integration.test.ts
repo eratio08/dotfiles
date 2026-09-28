@@ -7,8 +7,8 @@ import {
   PiCommandContext,
   PiContext,
   PiExtension,
-  type PiHostError,
-  PiHostService,
+  type PiOperationsError,
+  PiOperations,
   PiMessages,
   PiProcess,
   type PiRegistrationContext,
@@ -87,7 +87,7 @@ test('should accept void effects given a side-effect-only event handler', async 
   }
 })
 
-test('should map invocation context read failures to PiHostError given a failing host read', async () => {
+test('should map invocation context read failures to PiOperationsError given a failing Pi API read', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/context-read-failure',
@@ -116,13 +116,13 @@ test('should map invocation context read failures to PiHostError given a failing
 
   //then
   await expect(execution).rejects.toMatchObject({
-    _tag: 'PiHostError',
+    _tag: 'PiOperationsError',
     operation: 'isIdle',
-  } satisfies Partial<PiHostError>)
+  } satisfies Partial<PiOperationsError>)
   await shutdown(fake)
 })
 
-test('should map command system-prompt option failures to PiHostError given a failing option read', async () => {
+test('should map command system-prompt option failures to PiOperationsError given a failing option read', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/system-prompt-options-read-failure',
@@ -149,13 +149,13 @@ test('should map command system-prompt option failures to PiHostError given a fa
 
   //then
   await expect(execution).rejects.toMatchObject({
-    _tag: 'PiHostError',
+    _tag: 'PiOperationsError',
     operation: 'systemPromptOptions',
-  } satisfies Partial<PiHostError>)
+  } satisfies Partial<PiOperationsError>)
   await shutdown(fake)
 })
 
-test('should map session snapshot failures to PiHostError given a failing session read', async () => {
+test('should map session snapshot failures to PiOperationsError given a failing session read', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/session-snapshot-failure',
@@ -171,11 +171,11 @@ test('should map session snapshot failures to PiHostError given a failing sessio
       ),
   })
   const fake = await installFakePlugin(PiExtension.install(plugin))
-  const hostContext = createFakeExtensionContext()
+  const extensionContext = createFakeExtensionContext()
   const context = {
-    ...hostContext,
+    ...extensionContext,
     sessionManager: {
-      ...hostContext.sessionManager,
+      ...extensionContext.sessionManager,
       getCwd: () => {
         throw new Error('session cwd failed')
       },
@@ -187,13 +187,13 @@ test('should map session snapshot failures to PiHostError given a failing sessio
 
   //then
   await expect(execution).rejects.toMatchObject({
-    _tag: 'PiHostError',
+    _tag: 'PiOperationsError',
     operation: 'sessionContext',
-  } satisfies Partial<PiHostError>)
+  } satisfies Partial<PiOperationsError>)
   await shutdown(fake)
 })
 
-test('should map session context read failures to PiHostError given a failing context read', async () => {
+test('should map session context read failures to PiOperationsError given a failing context read', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/session-context-read-failure',
@@ -210,11 +210,11 @@ test('should map session context read failures to PiHostError given a failing co
       ),
   })
   const fake = await installFakePlugin(PiExtension.install(plugin))
-  const hostContext = createFakeExtensionContext()
+  const extensionContext = createFakeExtensionContext()
   const context = {
-    ...hostContext,
+    ...extensionContext,
     sessionManager: {
-      ...hostContext.sessionManager,
+      ...extensionContext.sessionManager,
       getEntry: () => {
         throw new Error('entry lookup failed')
       },
@@ -226,13 +226,13 @@ test('should map session context read failures to PiHostError given a failing co
 
   //then
   await expect(execution).rejects.toMatchObject({
-    _tag: 'PiHostError',
+    _tag: 'PiOperationsError',
     operation: 'entry',
-  } satisfies Partial<PiHostError>)
+  } satisfies Partial<PiOperationsError>)
   await shutdown(fake)
 })
 
-test('should keep host services stable given multiple invocation contexts', async () => {
+test('should keep Pi services stable given multiple invocation contexts', async () => {
   //given
   let setupMessages: unknown
   const facadeMessages: unknown[] = []
@@ -322,7 +322,7 @@ test('should clean up event bus subscriptions given a closed scope', async () =>
   expect(received).toEqual([{ value: 1 }])
 })
 
-test('should map event bus failures to PiHostError given a failed host operation', async () => {
+test('should map event bus failures to PiOperationsError given a failed Pi API call', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/effect-event-bus-failure',
@@ -347,9 +347,9 @@ test('should map event bus failures to PiHostError given a failed host operation
 
   //then
   await expect(execution).rejects.toMatchObject({
-    _tag: 'PiHostError',
+    _tag: 'PiOperationsError',
     operation: 'events.emit',
-  } satisfies Partial<PiHostError>)
+  } satisfies Partial<PiOperationsError>)
   await shutdown(fake)
 })
 
@@ -454,7 +454,7 @@ test('should capture event handler construction failures given a synchronous thr
   await shutdown(fake)
 })
 
-test('should register boolean and string flags given Pi host overloads', async () => {
+test('should register boolean and string flags given Pi flag API overloads', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/flags',
@@ -570,7 +570,7 @@ test('should return a typed error given unavailable UI capabilities', async () =
   await shutdown(fake)
 })
 
-test('should map tools-expanded UI read failures to PiHostError given a failed UI read', async () => {
+test('should map tools-expanded UI read failures to PiOperationsError given a failed UI read', async () => {
   //given
   const plugin = PiExtension.define({
     id: 'tests/ui-tools-expanded-failure',
@@ -602,20 +602,20 @@ test('should map tools-expanded UI read failures to PiHostError given a failed U
 
   //then
   await expect(execution).rejects.toMatchObject({
-    _tag: 'PiHostError',
+    _tag: 'PiOperationsError',
     operation: 'getToolsExpanded',
-  } satisfies Partial<PiHostError>)
+  } satisfies Partial<PiOperationsError>)
   await shutdown(fake)
 })
 
-test('should forward Effect cancellation to host promises given AbortSignal support', async () => {
+test('should forward Effect cancellation to Pi API promises given AbortSignal support', async () => {
   //given
   const contextController = new AbortController()
   const callController = new AbortController()
-  let hostSignal: AbortSignal | undefined
-  let hostCancelled = false
+  let piSignal: AbortSignal | undefined
+  let piCancelled = false
   const plugin = PiExtension.define({
-    id: 'tests/host-promise-cancellation',
+    id: 'tests/pi-promise-cancellation',
     effect: ({ events }: PiRegistrationContext<never>) =>
       events.on(
         'session_start',
@@ -634,12 +634,12 @@ test('should forward Effect cancellation to host promises given AbortSignal supp
     options: Parameters<ExtensionAPI['exec']>[2],
   ): ReturnType<ExtensionAPI['exec']> =>
     new Promise<Awaited<ReturnType<ExtensionAPI['exec']>>>((resolve): void => {
-      hostSignal = options?.signal
-      if (hostSignal) {
-        hostSignal.addEventListener(
+      piSignal = options?.signal
+      if (piSignal) {
+        piSignal.addEventListener(
           'abort',
           () => {
-            hostCancelled = true
+            piCancelled = true
             resolve({ stdout: '', stderr: '', code: 0, killed: true })
           },
           { once: true },
@@ -656,10 +656,10 @@ test('should forward Effect cancellation to host promises given AbortSignal supp
 
   //then
   await expect(execution).rejects.toBeDefined()
-  expect(hostSignal).toBeDefined()
-  expect(hostSignal).not.toBe(callController.signal)
-  expect(hostSignal?.aborted).toBe(true)
-  expect(hostCancelled).toBe(true)
+  expect(piSignal).toBeDefined()
+  expect(piSignal).not.toBe(callController.signal)
+  expect(piSignal?.aborted).toBe(true)
+  expect(piCancelled).toBe(true)
   await shutdown(fake)
 })
 
@@ -722,8 +722,8 @@ test('should run command completions and dispose a scoped layer once given repea
     layer: Layer.effect(
       ScopedProbe,
       Effect.gen(function* () {
-        const host = yield* PiHostService
-        return yield* Effect.acquireRelease(Effect.succeed(ScopedProbe.of({ value: host.events ? 1 : 0 })), () =>
+        const operations = yield* PiOperations
+        return yield* Effect.acquireRelease(Effect.succeed(ScopedProbe.of({ value: operations.events ? 1 : 0 })), () =>
           Effect.sync(() => {
             releases += 1
           }),

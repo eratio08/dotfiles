@@ -15,8 +15,8 @@ import type {
 import type { AutocompleteItem, KeyId } from '@earendil-works/pi-tui'
 import { Context, Effect, Schema } from 'effect'
 import type { TSchema } from 'typebox'
-import { type PiExtensionError, type PiHostError, PiRegistrationError } from './errors.ts'
-import type { PiHostOperations, PiServices } from './pi.ts'
+import { type PiExtensionError, type PiOperationsError, PiRegistrationError } from './errors.ts'
+import type { PiOperationsService, PiServices } from './pi.ts'
 import type { EffectToolDefinition } from './tools.ts'
 
 /** Name of a Pi extension event that can be registered. */
@@ -78,20 +78,20 @@ type PiEventOptions = {
   readonly failure?: PiFailurePolicy
 }
 
-/** Runtime-neutral callback shape used by the host event registrar. */
+/** Runtime-neutral callback shape used by the Pi event registrar. */
 type PiEventCallback<Services, Failure> = {
   run(event: unknown): Effect.Effect<unknown, Failure, Services | PiServices>
 }['run']
 
-/** Host event registrar. */
+/** Pi event registrar. */
 type PiEventRegistrar<Services, Failure> = {
-  /** Registers a host event callback with its selected failure policy. */
+  /** Registers a Pi event callback with its selected failure policy. */
   readonly register: (name: PiEventName, handler: PiEventCallback<Services, Failure>, policy: PiFailurePolicy) => void
 }
 
-/** Host command registrar. */
+/** Pi command registrar. */
 type PiCommandRegistrar<Services, Failure> = {
-  /** Registers a command with the host. */
+  /** Registers a command with Pi. */
   readonly register: (name: string, definition: PiCommandDefinition<Services, Failure>) => void
 }
 
@@ -107,9 +107,9 @@ type PiCommandDefinition<Services, Failure> = {
   readonly handler: (args: string) => Effect.Effect<void, Failure, Services | PiServices>
 }
 
-/** Host keyboard shortcut registrar. */
+/** Pi keyboard shortcut registrar. */
 type PiShortcutRegistrar<Services, Failure> = {
-  /** Registers a keyboard shortcut with the host. */
+  /** Registers a keyboard shortcut with Pi. */
   readonly register: (shortcut: KeyId, definition: PiShortcutDefinition<Services, Failure>) => void
 }
 
@@ -136,7 +136,7 @@ const PiFlagDefinitionSchema = Schema.Union([
 /** Boolean or string flag definition, with an optional description and default value. */
 type PiFlagDefinition = Schema.Schema.Type<typeof PiFlagDefinitionSchema>
 
-/** Host custom renderer registrar. */
+/** Pi custom renderer registrar. */
 type PiRendererRegistrar = {
   /** Registers a renderer for custom message content. */
   readonly registerMessage: (customType: string, renderer: MessageRenderer) => void
@@ -144,15 +144,15 @@ type PiRendererRegistrar = {
   readonly registerEntry: (customType: string, renderer: EntryRenderer) => void
 }
 
-/** Host flag registrar. */
+/** Pi flag registrar. */
 type PiFlagRegistrar = {
-  /** Registers a flag definition with the host. */
+  /** Registers a flag definition with Pi. */
   readonly register: (name: string, definition: PiFlagDefinition) => void
 }
 
-/** Host Effect tool registrar. */
+/** Pi Effect tool registrar. */
 type PiToolRegistrar<Services> = {
-  /** Registers an Effect tool definition with the host. */
+  /** Registers an Effect tool definition with Pi. */
   readonly register: <Params extends TSchema, ToolServices extends Services | PiServices, ToolFailure, Details>(
     definition: EffectToolDefinition<Params, ToolServices, ToolFailure, Details>,
   ) => void
@@ -203,15 +203,15 @@ type PiFlagRegistry = {
 /** Effect operation for reading a boolean or string Pi flag. */
 type PiFlagsService = {
   /** Reads a flag by name, or returns `undefined` when it is not set. */
-  readonly get: (name: string) => Effect.Effect<boolean | string | undefined, PiHostError>
+  readonly get: (name: string) => Effect.Effect<boolean | string | undefined, PiOperationsError>
 }
 
 /**
- * Creates flag-read operations backed by the Pi host.
- * @param host Low-level Pi operations that read flags.
+ * Creates the Pi flags service from PiOperations.
+ * @param operations Low-level Pi operations that read flags.
  * @returns The Pi flags service.
  */
-const createPiFlagsService = (host: PiHostOperations): PiFlagsService => ({ get: host.getFlag })
+const createPiFlagsService = (operations: PiOperationsService): PiFlagsService => ({ get: operations.getFlag })
 
 /** Service tag for reading Pi flags. */
 class PiFlags extends Context.Service<PiFlags, PiFlagsService>()('pi-effect/PiFlags') {}
@@ -296,9 +296,9 @@ const registerEffect = Effect.fnUntraced(function* (
 })
 
 /**
- * Builds the Effect-based registration context from host registrars.
+ * Builds the Effect-based registration context from Pi registrars.
  * Registration failures become `PiRegistrationError` values.
- * @param registrars Host functions used to register each kind of extension callback.
+ * @param registrars Pi functions used to register each kind of extension callback.
  * @returns Registries for the plugin setup Effect.
  */
 function createPiRegistries<Services, Failure = PiExtensionError>(registrars: {

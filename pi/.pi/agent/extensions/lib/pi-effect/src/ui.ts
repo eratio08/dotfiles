@@ -10,7 +10,7 @@ import type {
 import { Context, Effect, Option } from 'effect'
 import type { PiContextValue, PiMode } from './context.ts'
 import { combinePiAbortSignals } from './context.ts'
-import { hostTry, hostTryPromise, type PiHostError, PiUiUnavailableError } from './errors.ts'
+import { piOperationTry, piOperationTryPromise, type PiOperationsError, PiUiUnavailableError } from './errors.ts'
 
 type EffectSuccess<T> = T extends Effect.Effect<infer A, infer _E, infer _R> ? A : never
 
@@ -64,7 +64,7 @@ type PiUiService = {
     title: string,
     options: readonly string[],
     dialog?: PiUiDialogOptions,
-  ) => Effect.Effect<string | undefined, PiUiUnavailableError | PiHostError>
+  ) => Effect.Effect<string | undefined, PiUiUnavailableError | PiOperationsError>
   /** Opens a confirmation dialog and returns the user's choice.
    * Fails with `PiUiUnavailableError` when UI is unavailable.
    */
@@ -72,7 +72,7 @@ type PiUiService = {
     title: string,
     message: string,
     dialog?: PiUiDialogOptions,
-  ) => Effect.Effect<boolean, PiUiUnavailableError | PiHostError>
+  ) => Effect.Effect<boolean, PiUiUnavailableError | PiOperationsError>
   /** Opens a text-input dialog and returns its value, or `undefined` when cancelled.
    * Fails with `PiUiUnavailableError` when UI is unavailable.
    */
@@ -80,35 +80,35 @@ type PiUiService = {
     title: string,
     placeholder?: string,
     dialog?: PiUiDialogOptions,
-  ) => Effect.Effect<string | undefined, PiUiUnavailableError | PiHostError>
+  ) => Effect.Effect<string | undefined, PiUiUnavailableError | PiOperationsError>
   /** Shows a notification when UI is available; otherwise does nothing. */
-  readonly notify: (message: string, type?: 'info' | 'warning' | 'error') => Effect.Effect<void, PiHostError>
+  readonly notify: (message: string, type?: 'info' | 'warning' | 'error') => Effect.Effect<void, PiOperationsError>
   /** Registers a terminal-input handler and returns an unsubscribe function.
    * Fails with `PiUiUnavailableError` when UI is unavailable or the mode is not `tui`.
    */
   readonly onTerminalInput: (
     handler: (data: string) => { consume?: boolean; data?: string } | undefined,
-  ) => Effect.Effect<() => void, PiHostError | PiUiUnavailableError>
+  ) => Effect.Effect<() => void, PiOperationsError | PiUiUnavailableError>
   /** Sets or clears a status item when UI is available. */
-  readonly setStatus: (key: string, text: string | undefined) => Effect.Effect<void, PiHostError>
+  readonly setStatus: (key: string, text: string | undefined) => Effect.Effect<void, PiOperationsError>
   /** Sets the working message when UI is available. */
-  readonly setWorkingMessage: (message?: string) => Effect.Effect<void, PiHostError>
+  readonly setWorkingMessage: (message?: string) => Effect.Effect<void, PiOperationsError>
   /** Shows or hides the working indicator when UI is available. */
-  readonly setWorkingVisible: (visible: boolean) => Effect.Effect<void, PiHostError>
+  readonly setWorkingVisible: (visible: boolean) => Effect.Effect<void, PiOperationsError>
   /** Sets the working indicator animation when UI is available. */
-  readonly setWorkingIndicator: (options?: PiWorkingIndicatorOptions) => Effect.Effect<void, PiHostError>
+  readonly setWorkingIndicator: (options?: PiWorkingIndicatorOptions) => Effect.Effect<void, PiOperationsError>
   /** Sets or clears a widget when UI is available. */
   readonly setWidget: (
     key: string,
     content: readonly string[] | PiWidgetFactory | undefined,
     options?: PiWidgetOptions,
-  ) => Effect.Effect<void, PiHostError>
+  ) => Effect.Effect<void, PiOperationsError>
   /** Sets or clears a custom footer when UI is available. */
-  readonly setFooter: (factory: PiFooterFactory | undefined) => Effect.Effect<void, PiHostError>
+  readonly setFooter: (factory: PiFooterFactory | undefined) => Effect.Effect<void, PiOperationsError>
   /** Sets or clears a custom header when UI is available. */
-  readonly setHeader: (factory: PiHeaderFactory | undefined) => Effect.Effect<void, PiHostError>
+  readonly setHeader: (factory: PiHeaderFactory | undefined) => Effect.Effect<void, PiOperationsError>
   /** Sets the terminal title when UI is available. */
-  readonly setTitle: (title: string) => Effect.Effect<void, PiHostError>
+  readonly setTitle: (title: string) => Effect.Effect<void, PiOperationsError>
   /** Opens a custom terminal UI component and returns an `Option` result.
    * The result is `Some` when the component calls `done`.
    * Fails with `PiUiUnavailableError` when UI is unavailable or the mode is not `tui`.
@@ -116,54 +116,54 @@ type PiUiService = {
   readonly custom: <A>(
     factory: PiCustomFactory<A>,
     options?: { readonly overlay?: boolean; readonly overlayOptions?: OverlayOptions },
-  ) => Effect.Effect<Option.Option<A>, PiUiUnavailableError | PiHostError>
+  ) => Effect.Effect<Option.Option<A>, PiUiUnavailableError | PiOperationsError>
   /** Pastes text into the editor when UI is available. */
-  readonly pasteToEditor: (text: string) => Effect.Effect<void, PiHostError>
+  readonly pasteToEditor: (text: string) => Effect.Effect<void, PiOperationsError>
   /** Replaces the editor text when UI is available. */
-  readonly setEditorText: (text: string) => Effect.Effect<void, PiHostError>
+  readonly setEditorText: (text: string) => Effect.Effect<void, PiOperationsError>
   /** Reads the current editor text. */
-  readonly getEditorText: () => Effect.Effect<string, PiHostError>
+  readonly getEditorText: () => Effect.Effect<string, PiOperationsError>
   /** Opens the full editor and returns its text, or `undefined` when cancelled.
    * Fails with `PiUiUnavailableError` when UI is unavailable or the mode is not `tui`.
    */
   readonly editor: (
     title: string,
     prefill?: string,
-  ) => Effect.Effect<string | undefined, PiUiUnavailableError | PiHostError>
+  ) => Effect.Effect<string | undefined, PiUiUnavailableError | PiOperationsError>
   /** Adds or wraps an autocomplete provider. */
   readonly addAutocompleteProvider: (
     factory: (current: AutocompleteProvider) => AutocompleteProvider,
-  ) => Effect.Effect<void, PiHostError>
+  ) => Effect.Effect<void, PiOperationsError>
   /** Sets the custom terminal UI editor component.
    * Fails with `PiUiUnavailableError` when UI is unavailable or the mode is not `tui`.
    */
   readonly setEditorComponent: (
     factory: ((tui: TUI, theme: EditorTheme, keybindings: KeybindingsManager) => EditorComponent) | undefined,
-  ) => Effect.Effect<void, PiUiUnavailableError | PiHostError>
+  ) => Effect.Effect<void, PiUiUnavailableError | PiOperationsError>
   /** Reads the custom terminal UI editor component factory, if one is set. */
   readonly getEditorComponent: () => Effect.Effect<
     ((tui: TUI, theme: EditorTheme, keybindings: KeybindingsManager) => EditorComponent) | undefined,
-    PiHostError
+    PiOperationsError
   >
   /** Reads the active theme, if Pi has one. */
-  readonly theme: () => Effect.Effect<Theme | undefined, PiHostError>
+  readonly theme: () => Effect.Effect<Theme | undefined, PiOperationsError>
   /** Lists available themes and their optional file paths. */
   readonly getAllThemes: () => Effect.Effect<
     readonly { readonly name: string; readonly path: string | undefined }[],
-    PiHostError
+    PiOperationsError
   >
   /** Reads a theme by name, if it is available. */
-  readonly getTheme: (name: string) => Effect.Effect<Theme | undefined, PiHostError>
+  readonly getTheme: (name: string) => Effect.Effect<Theme | undefined, PiOperationsError>
   /** Selects a theme by name or theme value and reports success or an error. */
   readonly setTheme: (
     theme: string | Theme,
-  ) => Effect.Effect<{ readonly success: boolean; readonly error?: string }, PiHostError>
+  ) => Effect.Effect<{ readonly success: boolean; readonly error?: string }, PiOperationsError>
   /** Reads the expanded state without wrapping the value in an Effect. */
   readonly getToolsExpandedValue: () => boolean
   /** Reads whether Pi expands tool output. */
-  readonly getToolsExpanded: () => Effect.Effect<boolean, PiHostError>
+  readonly getToolsExpanded: () => Effect.Effect<boolean, PiOperationsError>
   /** Sets whether Pi expands tool output. */
-  readonly setToolsExpanded: (expanded: boolean) => Effect.Effect<void, PiHostError>
+  readonly setToolsExpanded: (expanded: boolean) => Effect.Effect<void, PiOperationsError>
 }
 
 type PiUiPort = {
@@ -183,7 +183,7 @@ type PiUiPort = {
   readonly custom: <A>(
     factory: PiCustomFactory<A>,
     options?: Parameters<PiUiService['custom']>[1],
-  ) => Effect.Effect<A, PiHostError | PiUiUnavailableError>
+  ) => Effect.Effect<A, PiOperationsError | PiUiUnavailableError>
   readonly pasteToEditor: (...args: Parameters<PiUiService['pasteToEditor']>) => void
   readonly setEditorText: (...args: Parameters<PiUiService['setEditorText']>) => void
   readonly getEditorText: () => string
@@ -235,7 +235,7 @@ function createPiUiPort(ui: ExtensionUIContext): PiUiPort {
     setHeader: (factory: Parameters<PiUiPort['setHeader']>[0]) => ui.setHeader(factory),
     setTitle: (title: string) => ui.setTitle(title),
     custom: <A>(factory: PiCustomFactory<A>, options?: Parameters<PiUiPort['custom']>[1]) =>
-      hostTryPromise('custom', () => ui.custom(factory, options)),
+      piOperationTryPromise('custom', () => ui.custom(factory, options)),
     pasteToEditor: (text: string) => ui.pasteToEditor(text),
     setEditorText: (text: string) => ui.setEditorText(text),
     getEditorText: () => ui.getEditorText(),
@@ -313,11 +313,11 @@ function createPiUiService(context: PiContextValue, ui: PiUiPort): PiUiService {
     effect: Effect.Effect<A, E>,
   ): Effect.Effect<A, PiUiUnavailableError | E> =>
     context.mode === 'tui' && context.hasUI ? effect : unavailable(operation)
-  const sync = <A>(operation: string, evaluate: () => A): Effect.Effect<A, PiHostError> => hostTry(operation, evaluate)
+  const sync = <A>(operation: string, evaluate: () => A): Effect.Effect<A, PiOperationsError> => piOperationTry(operation, evaluate)
   const promise = <A>(
     operation: string,
     evaluate: (signal: AbortSignal) => Promise<A>,
-  ): Effect.Effect<A, PiHostError> => hostTryPromise(operation, evaluate)
+  ): Effect.Effect<A, PiOperationsError> => piOperationTryPromise(operation, evaluate)
   const dialogOptions = (
     dialog: Parameters<PiUiPort['select']>[2],
     signal: AbortSignal,

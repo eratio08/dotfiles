@@ -16,7 +16,7 @@ type FakeCommand = {
   readonly description?: string
 }
 
-/** Fake extension host state and helpers for exercising registered Pi callbacks. */
+/** Fake Pi extension state and helpers for exercising registered callbacks. */
 type FakeExtension = {
   /** Fake Pi API passed to the extension factory. */
   readonly api: ExtensionAPI

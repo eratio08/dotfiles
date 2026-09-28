@@ -8,7 +8,7 @@ import {
   PiCommandContext,
   PiContext,
   PiExtension,
-  type PiHostService,
+  type PiOperations,
   type PiProcess,
   type PiRegistrationError,
   PiToolContext,
@@ -22,7 +22,7 @@ type Equal<Left, Right> =
 type EffectRequirements<T> =
   T extends Effect.Effect<infer _Success, infer _Failure, infer Requirements> ? Requirements : never
 type InvocationHasRuntimeRequirements = Assert<
-  Equal<EffectRequirements<InvocationEffect>, PiHostService | PiStableServices>
+  Equal<EffectRequirements<InvocationEffect>, PiOperations | PiStableServices>
 >
 type ContextCannotReload = Assert<'reload' extends keyof PiContext['Service'] ? false : true>
 type ContextCannotUseUi = Assert<'ui' extends keyof PiContext['Service'] ? false : true>

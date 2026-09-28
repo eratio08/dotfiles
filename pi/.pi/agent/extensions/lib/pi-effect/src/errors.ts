@@ -1,10 +1,10 @@
 import { Effect, Schema } from 'effect'
 
 /**
- * Error returned when a Pi host operation fails.
- * `operation` names the failed host call, and `cause` stores the original failure when available.
+ * Error returned when a Pi operation fails.
+ * `operation` names the failed Pi operation, and `cause` stores the original failure when available.
  */
-class PiHostError extends Schema.TaggedError<PiHostError>()('PiHostError', {
+class PiOperationsError extends Schema.TaggedError<PiOperationsError>()('PiOperationsError', {
   operation: Schema.String,
   message: Schema.String,
   cause: Schema.optional(Schema.Unknown),
@@ -51,7 +51,7 @@ class PiToolError extends Schema.TaggedError<PiToolError>()('PiToolError', {
 }) {}
 
 /** Union of errors that the Pi Effect adapter can return to extension code. */
-type PiExtensionError = PiHostError | PiUiUnavailableError | PiRuntimeDisposedError | PiRegistrationError | PiToolError
+type PiExtensionError = PiOperationsError | PiUiUnavailableError | PiRuntimeDisposedError | PiRegistrationError | PiToolError
 
 /**
  * Converts an unknown failure cause to a readable message.
@@ -63,31 +63,31 @@ function piCauseMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
 }
 
-const hostTry = Effect.fnUntraced(function* <A>(
+const piOperationTry = Effect.fnUntraced(function* <A>(
   operation: string,
   evaluate: () => A,
-): Effect.fn.Return<A, PiHostError> {
+): Effect.fn.Return<A, PiOperationsError> {
   return yield* Effect.try({
     try: evaluate,
-    catch: (cause: unknown) => new PiHostError({ operation, message: piCauseMessage(cause), cause }),
+    catch: (cause: unknown) => new PiOperationsError({ operation, message: piCauseMessage(cause), cause }),
   })
 })
 
-const hostTryPromise = Effect.fnUntraced(function* <A>(
+const piOperationTryPromise = Effect.fnUntraced(function* <A>(
   operation: string,
   evaluate: (signal: AbortSignal) => Promise<A>,
-): Effect.fn.Return<A, PiHostError> {
+): Effect.fn.Return<A, PiOperationsError> {
   return yield* Effect.tryPromise({
     try: (signal: AbortSignal) => evaluate(signal),
-    catch: (cause: unknown) => new PiHostError({ operation, message: piCauseMessage(cause), cause }),
+    catch: (cause: unknown) => new PiOperationsError({ operation, message: piCauseMessage(cause), cause }),
   })
 })
 
 export {
-  hostTry,
-  hostTryPromise,
+  piOperationTry,
+  piOperationTryPromise,
   type PiExtensionError,
-  PiHostError,
+  PiOperationsError,
   PiRegistrationError,
   PiRuntimeDisposedError,
   PiToolError,

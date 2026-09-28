@@ -2,14 +2,14 @@ import type { ExtensionFactory } from '@earendil-works/pi-coding-agent'
 import type { Effect, Layer } from 'effect'
 import { installPiPlugin } from './adapter.ts'
 import type { PiExtensionError, PiRegistrationError } from './errors.ts'
-import type { PiHostService, PiStableServices } from './pi.ts'
+import type { PiOperations, PiStableServices } from './pi.ts'
 import type { PiRegistrationContext } from './registries.ts'
 
 type PiPluginWithLayer<Services, Failure = PiExtensionError> = {
   /** Stable identifier used by Pi when installing this plugin. */
   readonly id: string
   /** Layer that provides the plugin's additional services and can fail with `Failure`. */
-  readonly layer: Layer.Layer<Services, Failure, PiHostService | PiStableServices>
+  readonly layer: Layer.Layer<Services, Failure, PiOperations | PiStableServices>
   /** Setup Effect that registers callbacks and requires the plugin and stable services. */
   readonly effect: (
     context: PiRegistrationContext<Services, Failure>,

@@ -7,8 +7,8 @@ import type {
   ToolExecutionMode,
 } from '@earendil-works/pi-coding-agent'
 import { Context, Effect } from 'effect'
-import { type PiExtensionError, PiHostError, type PiToolError, piCauseMessage } from './errors.ts'
-import type { PiHostOperations } from './pi.ts'
+import { type PiExtensionError, PiOperationsError, type PiToolError, piCauseMessage } from './errors.ts'
+import type { PiOperationsService } from './pi.ts'
 
 /** Optional abort signals supplied by Pi callbacks and callers. */
 type PiInvocationSignals = readonly (AbortSignal | undefined)[]
@@ -47,13 +47,13 @@ type PiSessionContextValue = {
   /** Tree of session entries used for navigation. */
   readonly tree: readonly SessionTreeNode[]
   /** Reads one session entry by its identifier. */
-  readonly entry: (id: string) => Effect.Effect<SessionEntry | undefined, PiHostError>
+  readonly entry: (id: string) => Effect.Effect<SessionEntry | undefined, PiOperationsError>
   /** Reads the branch for `fromId`, or the current leaf when `fromId` is omitted. */
-  readonly branch: (fromId?: string) => Effect.Effect<readonly SessionEntry[], PiHostError>
+  readonly branch: (fromId?: string) => Effect.Effect<readonly SessionEntry[], PiOperationsError>
   /** Reads the entries used to build the current model context. */
-  readonly contextEntries: () => Effect.Effect<readonly SessionEntry[], PiHostError>
+  readonly contextEntries: () => Effect.Effect<readonly SessionEntry[], PiOperationsError>
   /** Reads the label assigned to a session entry. */
-  readonly label: (entryId: string) => Effect.Effect<string | undefined, PiHostError>
+  readonly label: (entryId: string) => Effect.Effect<string | undefined, PiOperationsError>
   /** Current session name, if one is set. */
   readonly name: string | undefined
 }
@@ -61,23 +61,23 @@ type PiSessionContextValue = {
 /** Effect operations for reading and updating the current session. */
 type PiSessionService = {
   /** Appends custom data to the session history. */
-  readonly appendEntry: <TData>(customType: string, data?: TData) => Effect.Effect<void, PiHostError>
+  readonly appendEntry: <TData>(customType: string, data?: TData) => Effect.Effect<void, PiOperationsError>
   /** Sets the current session name. */
-  readonly setName: (name: string) => Effect.Effect<void, PiHostError>
+  readonly setName: (name: string) => Effect.Effect<void, PiOperationsError>
   /** Reads the current session name, if one is set. */
-  readonly getName: () => Effect.Effect<string | undefined, PiHostError>
+  readonly getName: () => Effect.Effect<string | undefined, PiOperationsError>
   /** Sets or clears the label for a session entry. */
-  readonly setLabel: (entryId: string, label: string | undefined) => Effect.Effect<void, PiHostError>
+  readonly setLabel: (entryId: string, label: string | undefined) => Effect.Effect<void, PiOperationsError>
   /** Reads a session entry by its identifier. */
-  readonly entry: (id: string) => Effect.Effect<SessionEntry | undefined, PiHostError>
+  readonly entry: (id: string) => Effect.Effect<SessionEntry | undefined, PiOperationsError>
   /** Reads the branch for `fromId`, or the current leaf when `fromId` is omitted. */
-  readonly branch: (fromId?: string) => Effect.Effect<readonly SessionEntry[], PiHostError>
+  readonly branch: (fromId?: string) => Effect.Effect<readonly SessionEntry[], PiOperationsError>
   /** Reads all entries in the current session. */
-  readonly entries: () => Effect.Effect<readonly SessionEntry[], PiHostError>
+  readonly entries: () => Effect.Effect<readonly SessionEntry[], PiOperationsError>
   /** Reads the session tree used for navigation. */
-  readonly tree: () => Effect.Effect<readonly SessionTreeNode[], PiHostError>
+  readonly tree: () => Effect.Effect<readonly SessionTreeNode[], PiOperationsError>
   /** Reads entries included in the current model context. */
-  readonly contextEntries: () => Effect.Effect<readonly SessionEntry[], PiHostError>
+  readonly contextEntries: () => Effect.Effect<readonly SessionEntry[], PiOperationsError>
 }
 
 /** Invocation context shared by command, tool, session, and event handlers. */
@@ -95,21 +95,21 @@ type PiContextValue = {
   /** Current thinking level, if Pi has selected one. */
   readonly thinkingLevel: PiThinkingLevel | undefined
   /** Checks whether the agent is idle. */
-  readonly isIdle: () => Effect.Effect<boolean, PiHostError>
+  readonly isIdle: () => Effect.Effect<boolean, PiOperationsError>
   /** Checks whether the project is trusted. */
-  readonly isProjectTrusted: () => Effect.Effect<boolean, PiHostError>
+  readonly isProjectTrusted: () => Effect.Effect<boolean, PiOperationsError>
   /** Checks whether messages are waiting to be processed. */
-  readonly hasPendingMessages: () => Effect.Effect<boolean, PiHostError>
+  readonly hasPendingMessages: () => Effect.Effect<boolean, PiOperationsError>
   /** Reads context-window usage, if Pi can provide it. */
-  readonly contextUsage: () => Effect.Effect<PiContextUsage | undefined, PiHostError>
+  readonly contextUsage: () => Effect.Effect<PiContextUsage | undefined, PiOperationsError>
   /** Requests that Pi abort the current agent operation. */
-  readonly abort: () => Effect.Effect<void, PiHostError>
+  readonly abort: () => Effect.Effect<void, PiOperationsError>
   /** Requests that Pi shut down the current process. */
-  readonly shutdown: () => Effect.Effect<void, PiHostError>
+  readonly shutdown: () => Effect.Effect<void, PiOperationsError>
   /** Requests context compaction with optional custom instructions. */
-  readonly compact: (options?: PiCompactOptions) => Effect.Effect<void, PiHostError>
+  readonly compact: (options?: PiCompactOptions) => Effect.Effect<void, PiOperationsError>
   /** Reads the system prompt for the current invocation. */
-  readonly systemPrompt: () => Effect.Effect<string, PiHostError>
+  readonly systemPrompt: () => Effect.Effect<string, PiOperationsError>
 }
 
 /** Options for compacting the current conversation. */
@@ -149,16 +149,16 @@ type PiCommandContextValue = PiContextValue & {
   /** Current session snapshot. */
   readonly session: PiSessionContextValue
   /** Reads the options used to build the current system prompt. */
-  readonly systemPromptOptions: () => Effect.Effect<BuildSystemPromptOptions, PiHostError>
+  readonly systemPromptOptions: () => Effect.Effect<BuildSystemPromptOptions, PiOperationsError>
   /** Waits for the agent to become idle. */
-  readonly waitForIdle: () => Effect.Effect<void, PiHostError>
+  readonly waitForIdle: () => Effect.Effect<void, PiOperationsError>
   /** Creates a new session. */
-  readonly newSession: (options?: PiSessionChangeOptions) => Effect.Effect<PiSessionChangeResult, PiHostError>
+  readonly newSession: (options?: PiSessionChangeOptions) => Effect.Effect<PiSessionChangeResult, PiOperationsError>
   /** Forks the session from the specified entry. */
   readonly fork: (
     entryId: string,
     options?: PiSessionChangeOptions,
-  ) => Effect.Effect<PiSessionChangeResult, PiHostError>
+  ) => Effect.Effect<PiSessionChangeResult, PiOperationsError>
   /** Navigates to a session-tree entry. */
   readonly navigateTree: (
     targetId: string,
@@ -172,14 +172,14 @@ type PiCommandContextValue = PiContextValue & {
       /** Label assigned to the new tree entry. */
       readonly label?: string
     },
-  ) => Effect.Effect<PiSessionChangeResult, PiHostError>
+  ) => Effect.Effect<PiSessionChangeResult, PiOperationsError>
   /** Switches to the session at the given path. */
   readonly switchSession: (
     sessionPath: string,
     options?: PiSessionChangeOptions,
-  ) => Effect.Effect<PiSessionChangeResult, PiHostError>
+  ) => Effect.Effect<PiSessionChangeResult, PiOperationsError>
   /** Reloads the current session. */
-  readonly reload: () => Effect.Effect<void, PiHostError>
+  readonly reload: () => Effect.Effect<void, PiOperationsError>
 }
 
 /** Progress update sent from an Effect tool to Pi. */
@@ -220,28 +220,28 @@ class PiSessionContext extends Context.Service<PiSessionContext, PiSessionContex
 class PiSession extends Context.Service<PiSession, PiSessionService>()('pi-effect/PiSession') {}
 
 /**
- * Creates session operations from host mutations and the current session snapshot.
- * @param host Low-level Pi operations used to change session state.
+ * Creates the session service from Pi operations and the current session snapshot.
+ * @param operations Low-level Pi operations used to change session state.
  * @param current Session snapshot used by read operations.
  * @returns The Pi session service.
  */
-function createPiSessionService(host: PiHostOperations, current: PiSessionContextValue): PiSessionService {
+function createPiSessionService(operations: PiOperationsService, current: PiSessionContextValue): PiSessionService {
   return {
-    appendEntry: host.appendEntry,
-    setName: host.setSessionName,
-    getName: host.getSessionName,
-    setLabel: host.setLabel,
+    appendEntry: operations.appendEntry,
+    setName: operations.setSessionName,
+    getName: operations.getSessionName,
+    setLabel: operations.setLabel,
     entry: current.entry,
     branch: current.branch,
     entries: () =>
       Effect.try({
         try: () => current.entries,
-        catch: (cause: unknown) => new PiHostError({ operation: 'entries', message: piCauseMessage(cause), cause }),
+        catch: (cause: unknown) => new PiOperationsError({ operation: 'entries', message: piCauseMessage(cause), cause }),
       }),
     tree: () =>
       Effect.try({
         try: () => current.tree,
-        catch: (cause: unknown) => new PiHostError({ operation: 'tree', message: piCauseMessage(cause), cause }),
+        catch: (cause: unknown) => new PiOperationsError({ operation: 'tree', message: piCauseMessage(cause), cause }),
       }),
     contextEntries: current.contextEntries,
   }
