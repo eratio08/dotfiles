@@ -8,7 +8,7 @@ import {
   PiCommandContext,
   PiContext,
   PiExtension,
-  type PiHostError,
+  type PiOperationsError,
   PiProcess,
   type PiRegistrationContext,
   PiUi,
@@ -62,7 +62,7 @@ function runExternalCommand(options: {
         timeout,
       })
       .pipe(
-        Effect.catchTag('PiHostError', (error) =>
+        Effect.catchTag('PiOperationsError', (error) =>
           Effect.fail(
             new HerdrBranchError({
               stage: options.stage,
@@ -94,7 +94,7 @@ function runExternalCommand(options: {
 
 function handleHerdrFork(
   args: string,
-): Effect.Effect<void, PiHostError | PiUiUnavailableError, PiContext | PiCommandContext | PiUi | PiProcess> {
+): Effect.Effect<void, PiOperationsError | PiUiUnavailableError, PiContext | PiCommandContext | PiUi | PiProcess> {
   return Effect.gen(function* () {
     const context = yield* PiContext
     const command = yield* PiCommandContext
@@ -216,9 +216,9 @@ function handleHerdrFork(
   )
 }
 
-const herdrBranchPlugin = PiExtension.define<HerdrBranchError | PiHostError | PiUiUnavailableError>({
+const herdrBranchPlugin = PiExtension.define<HerdrBranchError | PiOperationsError | PiUiUnavailableError>({
   id: 'herdr-fork',
-  effect: (context: PiRegistrationContext<never, HerdrBranchError | PiHostError | PiUiUnavailableError>) =>
+  effect: (context: PiRegistrationContext<never, HerdrBranchError | PiOperationsError | PiUiUnavailableError>) =>
     Effect.gen(function* () {
       yield* context.commands.register('herdr-fork', {
         description: 'Fork this Pi session into a new pane in the current Herdr tab.',

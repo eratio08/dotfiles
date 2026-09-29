@@ -4,9 +4,13 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { ExecOptions, ExecResult, ExtensionContext } from '@earendil-works/pi-coding-agent'
+import type { ExecOptions, ExecResult } from '@earendil-works/pi-coding-agent'
 import { createFakeExtensionContext, installFakePlugin } from '@eratio/pi-effect/testing'
 import herdrForkExtension from '../index.ts'
+
+type FakeExtensionContext = ReturnType<typeof createFakeExtensionContext> & {
+  readonly waitForIdle: () => Promise<void>
+}
 
 type TestContextOptions = {
   readonly confirmations?: string[]
@@ -14,7 +18,7 @@ type TestContextOptions = {
   readonly hasUI?: boolean
   readonly idle?: boolean
   readonly leafId?: string | null
-  readonly mode?: ExtensionContext['mode']
+  readonly mode?: FakeExtensionContext['mode']
   readonly notifications?: string[]
   readonly notificationLevels?: string[]
   readonly onShutdown?: () => void
@@ -24,7 +28,7 @@ type TestContextOptions = {
   readonly signal?: AbortSignal
 }
 
-function createTestContext(options: TestContextOptions = {}): ExtensionContext {
+function createTestContext(options: TestContextOptions = {}): FakeExtensionContext {
   const cwd = options.cwd ?? process.cwd()
   const base = createFakeExtensionContext(cwd)
 
@@ -55,7 +59,7 @@ function createTestContext(options: TestContextOptions = {}): ExtensionContext {
     isIdle: () => options.idle ?? true,
     waitForIdle: async () => options.onWaitForIdle?.(),
     shutdown: () => options.onShutdown?.(),
-  } as ExtensionContext
+  }
 }
 
 async function shutdown(fake: Awaited<ReturnType<typeof installFakePlugin>>): Promise<void> {
