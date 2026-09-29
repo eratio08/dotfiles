@@ -15,7 +15,7 @@ import {
   PiExtension,
   PiToolError,
   type RegisteredTool,
-} from '../dist/index.js'
+} from '../src/index.ts'
 
 type TextToolResult = {
   readonly content: readonly { readonly type: string; readonly text?: string }[]

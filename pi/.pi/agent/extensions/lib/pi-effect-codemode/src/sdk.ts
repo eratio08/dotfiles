@@ -16,8 +16,8 @@ import {
   createProgramFailure,
   createProgramRunner,
   type ProgramDefinition,
-  type ProgramFailure,
   ProgramHost as ProgramExecutionService,
+  type ProgramFailure,
   type ProgramRunOptions,
   type ProgramWireValue,
 } from '@eratio/pi-codemode-core'
