@@ -41,7 +41,6 @@ export {
   type PiContent,
   PiContext,
   type PiContextUsage,
-  type PiContextValue,
   type PiCustomFactory,
   type PiCustomMessage,
   PiFlags,

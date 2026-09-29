@@ -97,7 +97,6 @@ type PiSessionService = {
   readonly contextEntries: () => Effect.Effect<readonly SessionEntry[], PiOperationsError>
 }
 
-/** Invocation context shared by command, tool, session, and event handlers. */
 type PiContextValue = {
   /** Current Pi execution mode. */
   readonly mode: PiMode
@@ -162,7 +161,7 @@ type PiSessionChangeOptions = {
 }
 
 /** Invocation context and session operations available to command handlers. */
-type PiCommandContextValue = PiContextValue & {
+type PiCommandContextValue = PiContext['Service'] & {
   /** Current session snapshot. */
   readonly session: PiSessionContextValue
   /** Reads the options used to build the current system prompt. */
@@ -211,7 +210,7 @@ type PiToolUpdate<TDetails = unknown> = {
 type PiToolExecutionMode = ToolExecutionMode
 
 /** Invocation context available to an Effect tool. */
-type PiToolContextValue = PiContextValue & {
+type PiToolContextValue = PiContext['Service'] & {
   /** Current session snapshot. */
   readonly session: PiSessionContextValue
   /** Identifier of the current tool call. */
@@ -704,7 +703,7 @@ type PiUiAdapter = {
  * @param ui Functions that call the underlying Pi UI.
  * @returns Effect-based UI operations for the invocation.
  */
-function createPiUiService(context: PiContextValue, ui: PiUiAdapter): PiUiService {
+function createPiUiService(context: PiContext['Service'], ui: PiUiAdapter): PiUiService {
   const unavailable = (operation: string): Effect.Effect<never, PiUiUnavailableError> =>
     Effect.fail(
       new PiUiUnavailableError({ operation, mode: context.mode, message: `UI is unavailable for ${context.mode}.` }),
@@ -936,7 +935,6 @@ export {
   type PiContent,
   PiContext,
   type PiContextUsage,
-  type PiContextValue,
   type PiCustomFactory,
   type PiCustomMessage,
   type PiEventBus,

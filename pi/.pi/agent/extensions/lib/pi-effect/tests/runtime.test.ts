@@ -1,11 +1,11 @@
 import { expect, test } from 'bun:test'
 import { Context, Effect, Layer } from 'effect'
 import { createPiManagedRuntime, PiRuntimeDisposedError } from '../src/extension.ts'
-import { PiContext, type PiContextValue } from '../src/pi.ts'
+import { PiContext } from '../src/pi.ts'
 
 class RuntimeProbe extends Context.Service<RuntimeProbe, { readonly value: number }>()('tests/RuntimeProbe') {}
 
-function contextValue(cwd: string): PiContextValue {
+function contextValue(cwd: string): PiContext['Service'] {
   return {
     mode: 'tui',
     hasUI: true,

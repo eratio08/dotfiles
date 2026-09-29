@@ -14,4 +14,6 @@ Do not get a service outside that Effect and capture it in a closure.
 Pass request data as function arguments.
 Do not capture other values that the Effect needs when it runs.
 
+Terms like `Host` and `Port` are forbidden; this is not a hexagonal architecture pattern.
+
 Read [LLMS.md](https://github.com/Effect-TS/effect/blob/main/LLMS.md) for official EffectJS v4 guidance.

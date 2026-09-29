@@ -712,7 +712,7 @@ function createPiOperationsService(api: ExtensionAPI): PiApi.PiOperationsService
   }
 }
 
-function baseContext(raw: ExtensionContext): PiApi.PiContextValue {
+function baseContext(raw: ExtensionContext): PiApi.PiContext['Service'] {
   return {
     mode: raw.mode,
     hasUI: raw.hasUI,
@@ -726,7 +726,7 @@ function baseContext(raw: ExtensionContext): PiApi.PiContextValue {
     contextUsage: () => PiApi.piOperationTry('contextUsage', () => raw.getContextUsage()),
     abort: () => PiApi.piOperationTry('abort', () => raw.abort()),
     shutdown: () => PiApi.piOperationTry('shutdown', () => raw.shutdown()),
-    compact: (options: Parameters<PiApi.PiContextValue['compact']>[0]) =>
+    compact: (options: Parameters<PiApi.PiContext['Service']['compact']>[0]) =>
       PiApi.piOperationTry('compact', () => raw.compact(options)),
     systemPrompt: () => PiApi.piOperationTry('systemPrompt', () => raw.getSystemPrompt()),
   }
@@ -735,13 +735,13 @@ function baseContext(raw: ExtensionContext): PiApi.PiContextValue {
 function createFacade(
   stable: PiStableFacade,
   operations: PiApi.PiOperationsService,
-  context: PiApi.PiContextValue,
+  context: PiApi.PiContext['Service'],
   session: PiApi.PiSessionContextValue,
   command: PiApi.PiCommandContextValue,
   tool: PiApi.PiToolContextValue,
   rawUi: PiApi.PiUiAdapter,
 ): PiStableFacade & {
-  context: PiApi.PiContextValue
+  context: PiApi.PiContext['Service']
   sessionContext: PiApi.PiSessionContextValue
   commandContext: PiApi.PiCommandContextValue
   toolContext: PiApi.PiToolContextValue
@@ -761,7 +761,7 @@ function createFacade(
 }
 
 function unavailableCommandContext(
-  context: PiApi.PiContextValue,
+  context: PiApi.PiContext['Service'],
   session: PiApi.PiSessionContextValue,
 ): PiApi.PiCommandContextValue {
   const fail = <A>(): Effect.Effect<A, PiApi.PiOperationsError> =>
@@ -782,7 +782,7 @@ function unavailableCommandContext(
 }
 
 function unavailableToolContext(
-  context: PiApi.PiContextValue,
+  context: PiApi.PiContext['Service'],
   session: PiApi.PiSessionContextValue,
 ): PiApi.PiToolContextValue {
   return {
@@ -797,7 +797,7 @@ function unavailableToolContext(
 }
 
 type Invocation = {
-  readonly context: PiApi.PiContextValue
+  readonly context: PiApi.PiContext['Service']
   readonly session: PiApi.PiSessionContextValue
   readonly command: PiApi.PiCommandContextValue
   readonly tool: PiApi.PiToolContextValue
@@ -978,7 +978,7 @@ const sessionContextFromManager = Effect.fnUntraced(function* (
 })
 
 function toolContext(
-  context: PiApi.PiContextValue,
+  context: PiApi.PiContext['Service'],
   session: PiApi.PiSessionContextValue,
   tool: {
     toolCallId: string
@@ -1034,7 +1034,7 @@ function trustInvocation(
   stable: PiStableFacade,
   raw: ProjectTrustContext,
 ): Invocation {
-  const context: PiApi.PiContextValue = {
+  const context: PiApi.PiContext['Service'] = {
     mode: raw.mode,
     hasUI: raw.hasUI,
     cwd: raw.cwd,
@@ -1401,7 +1401,7 @@ function toPiTool<
   }
 }
 
-function emptyInvocationContext(): PiApi.PiContextValue {
+function emptyInvocationContext(): PiApi.PiContext['Service'] {
   return {
     mode: 'print',
     hasUI: false,
