@@ -19,7 +19,6 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@eratio/pi-effect": "file:../lib/pi-effect",
     "@eratio/pi-effect-codemode": "file:../lib/pi-effect-codemode",
     "effect": "4.0.0-rc.112"
   }
