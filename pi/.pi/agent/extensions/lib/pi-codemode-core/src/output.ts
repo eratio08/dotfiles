@@ -14,6 +14,9 @@ type SerializedOutput = {
   readonly truncated: boolean
 }
 
+/**
+ * This text marks output that exceeds its byte or line limit.
+ */
 const TRUNCATION_NOTICE = '... output truncated ...'
 
 /**

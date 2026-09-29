@@ -120,6 +120,30 @@ describe('code mode core', () => {
     await expect(result).resolves.toBe(2)
   })
 
+  test('should use unique filenames given repeated evaluations', async () => {
+    //given
+    const core = createProgramRunner<never, never>()
+    const host: ProgramHost<never, never> = {
+      invoke: () => Effect.succeed(undefined),
+      invokeSync: () => undefined,
+    }
+    const code = 'export default () => new Error().stack'
+    const evaluations = Effect.all([
+      evaluateWithHost(core, definition, host, code, options),
+      evaluateWithHost(core, definition, host, code, options),
+    ])
+
+    //when
+    const stacks = await Effect.runPromise(evaluations)
+
+    //then
+    const firstStack = String(stacks[0])
+    const secondStack = String(stacks[1])
+    expect(firstStack).toContain('core-')
+    expect(secondStack).toContain('core-')
+    expect(firstStack).not.toBe(secondStack)
+  })
+
   test('should preserve host Effect requirements given an Effect-based host', async () => {
     //given
     const core = createProgramRunner<HostDependencyRequirement, never>()

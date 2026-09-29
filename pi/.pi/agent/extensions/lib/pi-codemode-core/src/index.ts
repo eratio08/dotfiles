@@ -1,15 +1,25 @@
 import type {
   ProgramDefinition,
+  ProgramFailure,
+  ProgramFailureFields,
+  ProgramFailureTag,
   ProgramHostErrorCodec,
   ProgramMethod,
   ProgramRunner,
   ProgramRunOptions,
   ProgramWireValue,
-} from './contract.ts'
-import { findProgramMethod, ProgramHost, validateProgramDefinition, validateProgramRunOptions } from './contract.ts'
-import { createProgramRunner } from './core.ts'
-import type { ProgramFailure, ProgramFailureFields, ProgramFailureTag, ProgramFailureWireValue } from './failure.ts'
-import { createProgramFailure, deserializeProgramError, isProgramFailure, serializeProgramError } from './failure.ts'
+} from './program.ts'
+import {
+  createProgramFailure,
+  findProgramMethod,
+  isProgramFailure,
+  ProgramHost,
+  validateProgramDefinition,
+  validateProgramRunOptions,
+} from './program.ts'
+import { createProgramRunner } from './runner.ts'
+import type { ProgramFailureWireValue } from './worker-protocol.ts'
+import { deserializeProgramError, serializeProgramError } from './worker-protocol.ts'
 
 export {
   createProgramFailure,

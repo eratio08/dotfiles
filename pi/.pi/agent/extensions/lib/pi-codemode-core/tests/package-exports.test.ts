@@ -8,12 +8,34 @@ import { Effect, Layer, ManagedRuntime } from 'effect'
 
 describe('package exports', () => {
   test('should load the root and output entry points given package imports', () => {
+    //given
+    const outputExports = Output
+
+    //when
+    const coreExportNames = Object.keys(Core)
+
+    //then
     expect(typeof Core.ProgramHost).toBe('function')
     expect(typeof Core.createProgramRunner).toBe('function')
     expect(typeof Core.createProgramFailure).toBe('function')
     expect(typeof Output.serializeOutput).toBe('function')
-    expect(Object.keys(Core).filter((name) => name.includes('CodeMode'))).toEqual([])
-    expect(Object.keys(Output).filter((name) => name.includes('CodeMode'))).toEqual([])
+    expect(coreExportNames.sort()).toEqual([
+      'ProgramHost',
+      'createProgramFailure',
+      'createProgramRunner',
+      'deserializeProgramError',
+      'findProgramMethod',
+      'isProgramFailure',
+      'serializeProgramError',
+      'validateProgramDefinition',
+      'validateProgramRunOptions',
+    ])
+    expect(Object.keys(outputExports).sort()).toEqual([
+      'TRUNCATION_NOTICE',
+      'formatValue',
+      'serializeOutput',
+      'truncateOutput',
+    ])
   })
 
   test('should resolve the entry points given a CommonJS consumer', () => {

@@ -2,32 +2,19 @@ import { resolve } from 'node:path'
 import { createContext, Script } from 'node:vm'
 import { Schema } from 'effect'
 import { createJiti } from 'jiti'
-import type { ProgramDefinition, ProgramMethod } from './contract.ts'
+import type { ProgramDefinition, ProgramMethod } from './program.ts'
 import {
   createProgramFailure,
   isCodeModeEncodedHostError,
   isCodeModeHostError,
   isProgramFailure,
   type ProgramFailure,
-} from './failure.ts'
-import { CodeModeExceptionMessageSchema, CodeModeExceptionSchema } from './schema.ts'
+} from './program.ts'
 
-/**
- * Represents the Jiti transformer used to prepare TypeScript code-mode programs.
- */
 type CodeModeJiti = ReturnType<typeof createJiti>
-/**
- * Represents a callable method exposed to a code-mode program.
- */
 type CodeModeApiFunction = (...args: readonly unknown[]) => unknown
 
-/**
- * Invokes a synchronous host method for a code-mode program.
- */
 type CodeModeSyncInvoker = (method: string, args: readonly unknown[]) => unknown
-/**
- * Invokes an asynchronous host method for a code-mode program.
- */
 type CodeModeAsyncInvoker = (method: string, args: readonly unknown[]) => Promise<unknown>
 
 type CodeModeVmModule = {
@@ -36,23 +23,30 @@ type CodeModeVmModule = {
   }
 }
 
-/**
- * Creates a Jiti transformer with module caching disabled.
- */
+type CodeModeExceptionData = {
+  readonly message: string
+  readonly name?: string
+  readonly stack?: string
+}
+
+const CodeModeExceptionSchema = Schema.Struct({
+  message: Schema.String,
+  name: Schema.optional(Schema.String),
+  stack: Schema.optional(Schema.String),
+})
+
+const CodeModeExceptionMessageSchema = Schema.Struct({
+  message: Schema.String,
+})
+
 function createCodeModeJiti(): CodeModeJiti {
   return createJiti(import.meta.url, { moduleCache: false })
 }
 
-/**
- * Builds a TypeScript filename under `<cwd>/.pi` for one evaluation.
- */
-function createCodeModeFilename(cwd: string, filenamePrefix: string, evaluationNumber: number): string {
-  return resolve(cwd, '.pi', `${filenamePrefix}-${evaluationNumber}.ts`)
+function createCodeModeFilename(cwd: string, filenamePrefix: string, evaluationId: string | number): string {
+  return resolve(cwd, '.pi', `${filenamePrefix}-${evaluationId}.ts`)
 }
 
-/**
- * Rejects external and dynamic import statements in code-mode program source.
- */
 function validateCodeModeImports(code: string): ProgramFailure | undefined {
   if (/(?:^|[;\n\r])\s*import\s*(?:\(|(?:type\s+)?(?:[\s\S]*?from\s*)?['"])/m.test(code))
     return createProgramFailure({
@@ -63,9 +57,6 @@ function validateCodeModeImports(code: string): ProgramFailure | undefined {
   return undefined
 }
 
-/**
- * Combines API declarations with program source and transforms it to runnable JavaScript.
- */
 function transformCodeModeProgram(
   jiti: CodeModeJiti,
   definition: ProgramDefinition,
@@ -80,9 +71,6 @@ function transformCodeModeProgram(
   })
 }
 
-/**
- * Builds a frozen API object from the methods declared by a program definition.
- */
 function createCodeModeApi(
   methods: readonly ProgramMethod[],
   invokeSync: CodeModeSyncInvoker,
@@ -121,9 +109,6 @@ function createCodeModeAsyncMethod(method: string, invokeAsync: CodeModeAsyncInv
   return (...args: readonly unknown[]): Promise<unknown> => Promise.resolve().then(() => invokeAsync(method, args))
 }
 
-/**
- * Compiles and invokes a program's default export in a VM context, then awaits its result.
- */
 async function runCodeModeVm(
   code: string,
   api: Readonly<Record<string, CodeModeApiFunction>>,
@@ -244,7 +229,7 @@ function remainingCodeModeTimeout(startedAt: number, timeoutMs: number): number 
 }
 
 function createCodeModeExceptionFailure(cause: unknown, operation: string, fallbackMessage: string): ProgramFailure {
-  let error: { readonly message: string; readonly name?: string; readonly stack?: string } | undefined
+  let error: CodeModeExceptionData | undefined
   try {
     const decoded = Schema.decodeUnknownSync(CodeModeExceptionSchema)(cause)
     error = {
@@ -282,9 +267,6 @@ function decodeCodeModeExceptionProperty(value: unknown, property: 'name' | 'sta
   }
 }
 
-/**
- * Narrows a value to `PromiseLike` when it has a callable `then` property.
- */
 function isCodeModePromiseLike(value: unknown): value is PromiseLike<unknown> {
   return typeof value === 'object' && value !== null && 'then' in value && typeof value.then === 'function'
 }
@@ -292,6 +274,9 @@ function isCodeModePromiseLike(value: unknown): value is PromiseLike<unknown> {
 export {
   type CodeModeApiFunction,
   type CodeModeAsyncInvoker,
+  type CodeModeExceptionData,
+  CodeModeExceptionMessageSchema,
+  CodeModeExceptionSchema,
   type CodeModeJiti,
   type CodeModeSyncInvoker,
   createCodeModeApi,

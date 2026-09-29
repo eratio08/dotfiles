@@ -1,18 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Schema } from 'effect'
-import { validateProgramDefinition, validateProgramRunOptions } from '../src/contract.ts'
-import { deserializeProgramError } from '../src/index.ts'
-import {
-  CodeModeAsyncResponseSchema,
-  CodeModeEncodedHostErrorSchema,
-  CodeModeFailureSchema,
-  CodeModeFailureWireValueSchema,
-  CodeModeHostErrorEnvelopeSchema,
-  CodeModeSyncResponseSchema,
-  CodeModeWireValueSchema,
-  CodeModeWorkerFailureMessageSchema,
-  CodeModeWorkerMessageSchema,
-} from '../src/schema.ts'
+import * as Program from '../src/program.ts'
+import * as WorkerProtocol from '../src/worker-protocol.ts'
 
 const definition = {
   apiName: 'ExampleApi',
@@ -28,7 +17,7 @@ describe('code mode schemas', () => {
     const value = definition
 
     //when
-    const error = validateProgramDefinition(value)
+    const error = Program.validateProgramDefinition(value)
 
     //then
     expect(error).toBeUndefined()
@@ -39,7 +28,7 @@ describe('code mode schemas', () => {
     const value = { cwd: '/tmp', filenamePrefix: 'schema', timeoutMs: 1000, execution: 'worker' as const }
 
     //when
-    const error = validateProgramRunOptions(value)
+    const error = Program.validateProgramRunOptions(value)
 
     //then
     expect(error).toBeUndefined()
@@ -50,7 +39,7 @@ describe('code mode schemas', () => {
     const value = { ...definition, methods: [] }
 
     //when
-    const error = validateProgramDefinition(value)
+    const error = Program.validateProgramDefinition(value)
 
     //then
     expect(error).toEqual({
@@ -65,7 +54,7 @@ describe('code mode schemas', () => {
     const value = { cwd: '/tmp', filenamePrefix: 'schema', timeoutMs: 0 }
 
     //when
-    const error = validateProgramRunOptions(value)
+    const error = Program.validateProgramRunOptions(value)
 
     //then
     expect(error).toEqual({
@@ -90,7 +79,7 @@ describe('code mode schemas', () => {
       'serialize',
     ] as const
     const values = tags.map((_tag) => ({ _tag, operation: 'test', message: 'failure' }))
-    const decode = Schema.decodeUnknownSync(Schema.Array(CodeModeFailureSchema))
+    const decode = Schema.decodeUnknownSync(Schema.Array(Program.CodeModeFailureSchema))
 
     //when
     const decoded = decode(values)
@@ -103,7 +92,7 @@ describe('code mode schemas', () => {
   test('should accept failure wire data given structured-cloneable values', () => {
     //given
     const value = { _tag: 'custom', operation: 'test', message: 'failure', cause: { retryable: false } }
-    const decode = Schema.decodeUnknownSync(CodeModeFailureWireValueSchema)
+    const decode = Schema.decodeUnknownSync(WorkerProtocol.CodeModeFailureWireValueSchema)
 
     //when
     const decoded = decode(value)
@@ -120,7 +109,7 @@ describe('code mode schemas', () => {
     }
 
     //when
-    const decoded = deserializeProgramError(value)
+    const decoded = WorkerProtocol.deserializeProgramError(value)
 
     //then
     expect(decoded).toMatchObject({ _tag: 'deserialize', operation: 'deserialize' })
@@ -129,7 +118,7 @@ describe('code mode schemas', () => {
   test('should accept recursive wire values and reject invalid values given schema decoding', () => {
     //given
     const value = { nested: [1, 'two', null, { enabled: true }], count: 2n }
-    const decode = Schema.decodeUnknownSync(CodeModeWireValueSchema)
+    const decode = Schema.decodeUnknownSync(Program.CodeModeWireValueSchema)
 
     //when
     const decoded = decode(value)
@@ -142,7 +131,7 @@ describe('code mode schemas', () => {
   test('should validate the host error envelope given valid data', () => {
     //given
     const value = { type: 'code-mode-host-error' as const, value: { code: 'FAILED' } }
-    const decode = Schema.decodeUnknownSync(CodeModeHostErrorEnvelopeSchema)
+    const decode = Schema.decodeUnknownSync(Program.CodeModeHostErrorEnvelopeSchema)
 
     //when
     const decoded = decode(value)
@@ -154,7 +143,7 @@ describe('code mode schemas', () => {
   test('should validate the encoded host error envelope given valid data', () => {
     //given
     const value = { type: 'code-mode-host-error' as const, value: { code: 'FAILED' } }
-    const decode = Schema.decodeUnknownSync(CodeModeEncodedHostErrorSchema)
+    const decode = Schema.decodeUnknownSync(Program.CodeModeEncodedHostErrorSchema)
 
     //when
     const decoded = decode(value)
@@ -168,12 +157,15 @@ describe('code mode schemas', () => {
     //given
     const responses = [
       {
-        accepts: Schema.is(CodeModeSyncResponseSchema),
+        accepts: Schema.is(WorkerProtocol.CodeModeSyncResponseSchema),
         value: { type: 'sync-result', id: 1, ok: true, value: undefined },
       },
-      { accepts: Schema.is(CodeModeSyncResponseSchema), value: { type: 'sync-result', id: 1, ok: true } },
       {
-        accepts: Schema.is(CodeModeSyncResponseSchema),
+        accepts: Schema.is(WorkerProtocol.CodeModeSyncResponseSchema),
+        value: { type: 'sync-result', id: 1, ok: true },
+      },
+      {
+        accepts: Schema.is(WorkerProtocol.CodeModeSyncResponseSchema),
         value: {
           type: 'sync-result',
           id: 1,
@@ -181,14 +173,20 @@ describe('code mode schemas', () => {
           error: { kind: 'exception', name: 'Error', message: 'failed' },
         },
       },
-      { accepts: Schema.is(CodeModeSyncResponseSchema), value: { type: 'sync-result', id: 1, ok: false } },
       {
-        accepts: Schema.is(CodeModeAsyncResponseSchema),
+        accepts: Schema.is(WorkerProtocol.CodeModeSyncResponseSchema),
+        value: { type: 'sync-result', id: 1, ok: false },
+      },
+      {
+        accepts: Schema.is(WorkerProtocol.CodeModeAsyncResponseSchema),
         value: { type: 'async-result', id: 1, ok: true, value: undefined },
       },
-      { accepts: Schema.is(CodeModeAsyncResponseSchema), value: { type: 'async-result', id: 1, ok: true } },
       {
-        accepts: Schema.is(CodeModeAsyncResponseSchema),
+        accepts: Schema.is(WorkerProtocol.CodeModeAsyncResponseSchema),
+        value: { type: 'async-result', id: 1, ok: true },
+      },
+      {
+        accepts: Schema.is(WorkerProtocol.CodeModeAsyncResponseSchema),
         value: {
           type: 'async-result',
           id: 1,
@@ -196,7 +194,10 @@ describe('code mode schemas', () => {
           error: { kind: 'exception', name: 'Error', message: 'failed' },
         },
       },
-      { accepts: Schema.is(CodeModeAsyncResponseSchema), value: { type: 'async-result', id: 1, ok: false } },
+      {
+        accepts: Schema.is(WorkerProtocol.CodeModeAsyncResponseSchema),
+        value: { type: 'async-result', id: 1, ok: false },
+      },
     ]
 
     //when
@@ -208,19 +209,19 @@ describe('code mode schemas', () => {
 
   test('should return a deserialize failure given a worker failure without error data', () => {
     //given
-    const decode = Schema.decodeUnknownSync(CodeModeWorkerFailureMessageSchema)
+    const decode = Schema.decodeUnknownSync(WorkerProtocol.CodeModeWorkerFailureMessageSchema)
 
     //when
     const decoded = decode({ type: 'error' })
 
     //then
-    expect(deserializeProgramError(decoded.error)).toMatchObject({ _tag: 'deserialize' })
+    expect(WorkerProtocol.deserializeProgramError(decoded.error)).toMatchObject({ _tag: 'deserialize' })
   })
 
   test('should validate worker messages given serializable data', () => {
     //given
     const value = { type: 'async-call' as const, id: 1, method: 'read', args: ['value'] }
-    const decode = Schema.decodeUnknownSync(CodeModeWorkerMessageSchema)
+    const decode = Schema.decodeUnknownSync(WorkerProtocol.CodeModeWorkerMessageSchema)
 
     //when
     const decoded = decode(value)

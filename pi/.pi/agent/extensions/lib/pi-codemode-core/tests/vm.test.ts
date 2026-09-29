@@ -125,7 +125,7 @@ describe('code mode VM', () => {
     await expect(result).resolves.toEqual([undefined, undefined, undefined])
   })
 
-  test('should reject static and dynamic imports given program source', async () => {
+  test('should reject static imports given program source', async () => {
     //given
     const jiti = createCodeModeJiti()
     const api = createCodeModeApi(
@@ -133,27 +133,41 @@ describe('code mode VM', () => {
       () => 1,
       async () => 'ok',
     )
-    const staticFilename = createCodeModeFilename('/tmp', 'static-import', 6)
-    const dynamicFilename = createCodeModeFilename('/tmp', 'dynamic-import', 7)
-    const staticCode = transformCodeModeProgram(
+    const filename = createCodeModeFilename('/tmp', 'static-import', 6)
+    const code = transformCodeModeProgram(
       jiti,
       definition,
       'import fs from "node:fs"; export default () => fs.readFileSync',
-      staticFilename,
-    )
-    const dynamicCode = transformCodeModeProgram(
-      jiti,
-      definition,
-      'export default async () => await import("node:fs")',
-      dynamicFilename,
+      filename,
     )
 
     //when
-    const staticResult = runCodeModeVm(staticCode, api, staticFilename, 1000)
-    const dynamicResult = runCodeModeVm(dynamicCode, api, dynamicFilename, 1000)
+    const result = runCodeModeVm(code, api, filename, 1000)
 
     //then
-    await expect(staticResult).rejects.toMatchObject({ _tag: 'compile' })
-    await expect(dynamicResult).rejects.toMatchObject({ _tag: 'invoke' })
+    await expect(result).rejects.toMatchObject({ _tag: 'compile' })
+  })
+
+  test('should reject dynamic imports given program source', async () => {
+    //given
+    const jiti = createCodeModeJiti()
+    const api = createCodeModeApi(
+      definition.methods,
+      () => 1,
+      async () => 'ok',
+    )
+    const filename = createCodeModeFilename('/tmp', 'dynamic-import', 7)
+    const code = transformCodeModeProgram(
+      jiti,
+      definition,
+      'export default async () => await import("node:fs")',
+      filename,
+    )
+
+    //when
+    const result = runCodeModeVm(code, api, filename, 1000)
+
+    //then
+    await expect(result).rejects.toMatchObject({ _tag: 'invoke' })
   })
 })

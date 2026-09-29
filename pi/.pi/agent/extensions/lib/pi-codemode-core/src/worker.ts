@@ -1,24 +1,25 @@
 import { isMainThread, MessagePort, parentPort, receiveMessageOnPort } from 'node:worker_threads'
 import { Schema } from 'effect'
-import { createProgramFailure, deserializeCodeModeWorkerError, serializeProgramError } from './failure.ts'
-import type {
-  CodeModeAsyncResponse,
-  CodeModeSyncRequest,
-  CodeModeSyncResponse,
-  CodeModeWorkerMessage,
-  CodeModeWorkerStart,
-} from './protocol.ts'
-import { CodeModeAsyncResponseSchema, CodeModeSyncResponseSchema, CodeModeWorkerStartSchema } from './schema.ts'
+import { createProgramFailure } from './program.ts'
 import { createCodeModeApi, runCodeModeVm } from './vm.ts'
+import {
+  type CodeModeAsyncResponse,
+  CodeModeAsyncResponseSchema,
+  type CodeModeSyncRequest,
+  type CodeModeSyncResponse,
+  CodeModeSyncResponseSchema,
+  type CodeModeWorkerMessage,
+  type CodeModeWorkerStart,
+  CodeModeWorkerStartSchema,
+  deserializeCodeModeWorkerError,
+  serializeProgramError,
+} from './worker-protocol.ts'
 
 type CodeModePendingCall = {
   readonly resolve: (value: unknown) => void
   readonly reject: (cause: unknown) => void
 }
 
-/**
- * Registers the worker message handler that evaluates one program and posts its result or failure.
- */
 function runCodeModeWorker(): void {
   if (parentPort === null) return
   parentPort.once('message', (message: unknown) => {
@@ -192,6 +193,6 @@ function decodeCodeModeWorkerStart(value: unknown): CodeModeWorkerStart | undefi
   }
 }
 
-export { runCodeModeWorker }
-
 if (!isMainThread) runCodeModeWorker()
+
+export { runCodeModeWorker }
