@@ -3,17 +3,22 @@ import assert from 'node:assert/strict'
 import { readFile, rm } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { initTheme } from '@earendil-works/pi-coding-agent'
-import type { ProgramFailure } from '@eratio/pi-codemode-core'
-import { type PiRegistrationContext, PiToolContext as PiToolContextService } from '@eratio/pi-effect'
+import { createProgramFailure as createCoreProgramFailure } from '@eratio/pi-codemode-core'
+import { PiProcess as PiEffectProcess, PiToolContext as PiEffectToolContext } from '@eratio/pi-effect'
 import { installFakePlugin } from '@eratio/pi-effect/testing'
 import { Effect } from 'effect'
 import { type Static, Type } from 'typebox'
 import {
+  createProgramFailure,
   createTool,
   defineMethod,
   type MethodDefinition,
   PiExtension,
+  PiProcess,
+  type PiRegistrationContext,
+  PiToolContext as PiToolContextService,
   PiToolError,
+  type ProgramFailure,
   type RegisteredTool,
 } from '../src/index.ts'
 
@@ -28,6 +33,11 @@ type TextToolResult = {
 
 const echoParameters = Type.Object({ text: Type.String() })
 const tupleParameters = Type.Tuple([Type.String(), Type.String()])
+
+test('should re-export Pi services from the package entry', () => {
+  assert.strictEqual(PiProcess, PiEffectProcess)
+  assert.strictEqual(PiToolContextService, PiEffectToolContext)
+})
 
 type ToolRun<Services, Failure, RunContext = void> = Parameters<
   NonNullable<Parameters<typeof createTool<Services, Failure, RunContext>>[0]['withRun']>
@@ -91,6 +101,10 @@ const installTool = async <Services, Failure>(
       }),
     ),
   )
+
+test('should re-export program failure creation from the package entry', () => {
+  assert.strictEqual(createProgramFailure, createCoreProgramFailure)
+})
 
 test('should register a tool with Pi services given a custom execution failure type', async () => {
   //given

@@ -1,8 +1,8 @@
 # @eratio/pi-effect-codemode
 The package installs `@eratio/pi-effect` as a runtime dependency and bundles `@eratio/pi-codemode-core`.
-Consumers do not need to add `@eratio/pi-effect` directly.
+The package re-exports `PiProcess`, `PiToolContext`, `PiExtensionError`, and `PiRegistrationContext` from `@eratio/pi-effect`.
 It keeps `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, `effect`, and `typebox` as peer dependencies.
-It re-exports Pi Effect services so users can import them from this package.
+Consumers can import these services and types from this package without adding `@eratio/pi-effect` directly.
 It registers one TypeScript runner tool from the supplied method definitions.
 The generated API includes synchronous `api.help()` and `api.help("operation")` methods.
 
@@ -18,8 +18,7 @@ Register slash commands there when they need to run extension Effects directly i
 Import `PiExtension` from this package to use the command registry beside the tool registry.
 
 ```ts
-import type { ProgramFailure } from '@eratio/pi-codemode-core'
-import { createTool, defineMethod, PiExtension } from '@eratio/pi-effect-codemode'
+import { createTool, defineMethod, PiExtension, type ProgramFailure } from '@eratio/pi-effect-codemode'
 import { Effect } from 'effect'
 import { Type } from 'typebox'
 

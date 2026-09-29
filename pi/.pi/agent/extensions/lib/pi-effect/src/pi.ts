@@ -46,7 +46,7 @@ type PiContextUsage = {
 }
 
 /** Snapshot of the current session and Effect operations for reading its state. */
-type PiSessionContextValue = {
+type PiSessionContext = {
   /** Working directory associated with the session. */
   readonly cwd: string
   /** Pi session identifier. */
@@ -97,7 +97,7 @@ type PiSessionService = {
   readonly contextEntries: () => Effect.Effect<readonly SessionEntry[], PiOperationsError>
 }
 
-type PiContextValue = {
+type PiContext = {
   /** Current Pi execution mode. */
   readonly mode: PiMode
   /** Whether Pi provides UI operations for this invocation. */
@@ -143,9 +143,9 @@ type PiSessionChangeResult = {
 /** Context values available after a session change. */
 type PiSessionReplacement = {
   /** Command context for the replacement session. */
-  readonly context: PiCommandContextValue
+  readonly context: PiCommandContext
   /** Session snapshot for the replacement session. */
-  readonly session: PiSessionContextValue
+  readonly session: PiSessionContext
 }
 
 /** Options shared by session creation, fork, and switch operations. */
@@ -155,15 +155,15 @@ type PiSessionChangeOptions = {
   /** Position at which Pi inserts the new session entry. */
   readonly position?: 'before' | 'at'
   /** Effect that runs after Pi creates the new session. */
-  readonly setup?: (session: PiSessionContextValue) => Effect.Effect<void, PiExtensionError>
+  readonly setup?: (session: PiSessionContext) => Effect.Effect<void, PiExtensionError>
   /** Effect that runs with context values for the new session. */
   readonly withSession?: (replacement: PiSessionReplacement) => Effect.Effect<void, PiExtensionError>
 }
 
 /** Invocation context and session operations available to command handlers. */
-type PiCommandContextValue = PiContext['Service'] & {
+type PiCommandContext = PiContext & {
   /** Current session snapshot. */
-  readonly session: PiSessionContextValue
+  readonly session: PiSessionContext
   /** Reads the options used to build the current system prompt. */
   readonly systemPromptOptions: () => Effect.Effect<BuildSystemPromptOptions, PiOperationsError>
   /** Waits for the agent to become idle. */
@@ -210,9 +210,9 @@ type PiToolUpdate<TDetails = unknown> = {
 type PiToolExecutionMode = ToolExecutionMode
 
 /** Invocation context available to an Effect tool. */
-type PiToolContextValue = PiContext['Service'] & {
+type PiToolContext = PiContext & {
   /** Current session snapshot. */
-  readonly session: PiSessionContextValue
+  readonly session: PiSessionContext
   /** Identifier of the current tool call. */
   readonly toolCallId: string
   /** Parameters supplied to the current tool. */
@@ -226,10 +226,10 @@ type PiToolContextValue = PiContext['Service'] & {
 }
 
 /** Service tag for shared Pi invocation context. */
-class PiContext extends Context.Service<PiContext, PiContextValue>()('pi-effect/PiContext') {}
+class PiContextTag extends Context.Service<PiContextTag, PiContext>()('pi-effect/PiContext') {}
 
 /** Service tag for the current session snapshot and read operations. */
-class PiSessionContext extends Context.Service<PiSessionContext, PiSessionContextValue>()(
+class PiSessionContextTag extends Context.Service<PiSessionContextTag, PiSessionContext>()(
   'pi-effect/PiSessionContext',
 ) {}
 
@@ -242,7 +242,7 @@ class PiSession extends Context.Service<PiSession, PiSessionService>()('pi-effec
  * @param current Session snapshot used by read operations.
  * @returns The Pi session service.
  */
-function createPiSessionService(operations: PiOperationsService, current: PiSessionContextValue): PiSessionService {
+function createPiSessionService(operations: PiOperationsService, current: PiSessionContext): PiSessionService {
   return {
     appendEntry: operations.appendEntry,
     setName: operations.setSessionName,
@@ -266,12 +266,17 @@ function createPiSessionService(operations: PiOperationsService, current: PiSess
 }
 
 /** Service tag for command context and session-changing operations. */
-class PiCommandContext extends Context.Service<PiCommandContext, PiCommandContextValue>()(
+class PiCommandContextTag extends Context.Service<PiCommandContextTag, PiCommandContext>()(
   'pi-effect/PiCommandContext',
 ) {}
 
 /** Service tag for the current tool-call context. */
-class PiToolContext extends Context.Service<PiToolContext, PiToolContextValue>()('pi-effect/PiToolContext') {}
+class PiToolContextTag extends Context.Service<PiToolContextTag, PiToolContext>()('pi-effect/PiToolContext') {}
+
+const PiContext: typeof PiContextTag = PiContextTag
+const PiSessionContext: typeof PiSessionContextTag = PiSessionContextTag
+const PiCommandContext: typeof PiCommandContextTag = PiCommandContextTag
+const PiToolContext: typeof PiToolContextTag = PiToolContextTag
 
 /**
  * Combines defined signals so the result aborts when any input signal aborts.
@@ -449,7 +454,9 @@ type EffectToolDefinition<Params extends TSchema, Services, Failure, Details = u
   /** Rules that guide when and how the model uses the tool. */
   readonly promptGuidelines: readonly string[]
   /** Runs the tool with parameters defined by `Params`. */
-  readonly execute: (params: Static<Params>) => Effect.Effect<PiToolResult<Details>, Failure, Services | PiToolContext>
+  readonly execute: (
+    params: Static<Params>,
+  ) => Effect.Effect<PiToolResult<Details>, Failure, Services | PiToolContextTag>
 }
 
 /** Effect operations for reading and replacing the active tool list. */
@@ -703,7 +710,7 @@ type PiUiAdapter = {
  * @param ui Functions that call the underlying Pi UI.
  * @returns Effect-based UI operations for the invocation.
  */
-function createPiUiService(context: PiContext['Service'], ui: PiUiAdapter): PiUiService {
+function createPiUiService(context: PiContext, ui: PiUiAdapter): PiUiService {
   const unavailable = (operation: string): Effect.Effect<never, PiUiUnavailableError> =>
     Effect.fail(
       new PiUiUnavailableError({ operation, mode: context.mode, message: `UI is unavailable for ${context.mode}.` }),
@@ -888,10 +895,10 @@ type PiOperationsService = {
 }
 
 type PiService = {
-  readonly context: PiContext['Service']
-  readonly sessionContext: PiSessionContext['Service']
-  readonly commandContext: PiCommandContext['Service']
-  readonly toolContext: PiToolContext['Service']
+  readonly context: PiContext
+  readonly sessionContext: PiSessionContext
+  readonly commandContext: PiCommandContext
+  readonly toolContext: PiToolContext
   readonly session: PiSession['Service']
   readonly messages: PiMessages['Service']
   readonly ui: PiUi['Service']
@@ -914,7 +921,14 @@ class Pi extends Context.Service<Pi, PiService>()('pi-effect/Pi') {}
 type PiStableServices = PiMessages | PiTools | PiFlags | PiProcess
 
 /** Services whose values or permissions depend on the current invocation. */
-type PiInvocationServices = Pi | PiContext | PiSessionContext | PiCommandContext | PiToolContext | PiSession | PiUi
+type PiInvocationServices =
+  | Pi
+  | PiContextTag
+  | PiSessionContextTag
+  | PiCommandContextTag
+  | PiToolContextTag
+  | PiSession
+  | PiUi
 
 /** Union of stable and invocation-specific Pi service tags. */
 type PiServices = PiStableServices | PiInvocationServices
@@ -930,10 +944,11 @@ export {
   type EffectToolDefinition,
   Pi,
   PiCommandContext,
-  type PiCommandContextValue,
+  type PiCommandContextTag,
   type PiCompactOptions,
   type PiContent,
   PiContext,
+  type PiContextTag,
   type PiContextUsage,
   type PiCustomFactory,
   type PiCustomMessage,
@@ -957,13 +972,13 @@ export {
   type PiSessionChangeOptions,
   type PiSessionChangeResult,
   PiSessionContext,
-  type PiSessionContextValue,
+  type PiSessionContextTag,
   type PiSessionReplacement,
   type PiSessionService,
   type PiStableServices,
   type PiThinkingLevel,
   PiToolContext,
-  type PiToolContextValue,
+  type PiToolContextTag,
   PiToolError,
   type PiToolExecutionMode,
   type PiToolResult,

@@ -14,7 +14,6 @@ import {
   type PiRegistrationContext,
   PiRegistrationError,
   PiSessionContext,
-  type PiSessionContextValue,
   PiToolContext,
   PiToolError,
   type PiToolResult,
@@ -766,7 +765,7 @@ test('should run command completions and dispose a scoped layer once given repea
             const command = yield* PiCommandContext
             systemPromptOptions = yield* command.systemPromptOptions()
             yield* command.newSession({
-              setup: (session: PiSessionContextValue) =>
+              setup: (session: PiSessionContext) =>
                 Effect.sync(() => {
                   replacementCwd = session.cwd
                 }),

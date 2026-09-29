@@ -5,7 +5,7 @@ import { PiContext } from '../src/pi.ts'
 
 class RuntimeProbe extends Context.Service<RuntimeProbe, { readonly value: number }>()('tests/RuntimeProbe') {}
 
-function contextValue(cwd: string): PiContext['Service'] {
+function contextValue(cwd: string): PiContext {
   return {
     mode: 'tui',
     hasUI: true,

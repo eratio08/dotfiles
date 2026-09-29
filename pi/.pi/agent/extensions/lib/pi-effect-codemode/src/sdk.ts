@@ -16,10 +16,10 @@ import {
   createProgramFailure,
   createProgramRunner,
   type ProgramDefinition,
-  ProgramHost as ProgramExecutionService,
+  ProgramOperationInvoker as ProgramExecutionService,
   type ProgramFailure,
+  type ProgramOperationErrorCodec,
   type ProgramRunOptions,
-  type ProgramWireValue,
 } from '@eratio/pi-codemode-core'
 import { formatValue, type OutputLimits } from '@eratio/pi-codemode-core/output'
 import {
@@ -113,10 +113,7 @@ type ToolOutputDetails = {
  * At least one method is required, and `help` is reserved for the generated API reference.
  * A non-`void` `RunContext` requires `withRun`.
  */
-type ProgramErrorCodec<Failure> = {
-  readonly encode: (error: Failure) => ProgramWireValue
-  readonly decode: (value: ProgramWireValue) => Failure
-}
+type ProgramErrorCodec<Failure> = ProgramOperationErrorCodec<Failure>
 
 type ToolDefinition<Services, Failure, RunContext = void> = {
   /**

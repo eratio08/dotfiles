@@ -12,6 +12,7 @@ import {
   type PiProcess,
   type PiRegistrationError,
   PiToolContext,
+  type PiToolContextTag,
   type PiToolRegistry,
 } from '../src/index.ts'
 import type { PiStableServices } from '../src/pi.ts'
@@ -24,14 +25,14 @@ type EffectRequirements<T> =
 type InvocationHasRuntimeRequirements = Assert<
   Equal<EffectRequirements<InvocationEffect>, PiOperations | PiStableServices>
 >
-type ContextCannotReload = Assert<'reload' extends keyof PiContext['Service'] ? false : true>
-type ContextCannotUseUi = Assert<'ui' extends keyof PiContext['Service'] ? false : true>
-type ContextCannotUseToolCallId = Assert<'toolCallId' extends keyof PiContext['Service'] ? false : true>
-type CommandCanReload = Assert<'reload' extends keyof PiCommandContext['Service'] ? true : false>
-type ToolHasToolCallId = Assert<'toolCallId' extends keyof PiToolContext['Service'] ? true : false>
+type ContextCannotReload = Assert<'reload' extends keyof PiContext ? false : true>
+type ContextCannotUseUi = Assert<'ui' extends keyof PiContext ? false : true>
+type ContextCannotUseToolCallId = Assert<'toolCallId' extends keyof PiContext ? false : true>
+type CommandCanReload = Assert<'reload' extends keyof PiCommandContext ? true : false>
+type ToolHasToolCallId = Assert<'toolCallId' extends keyof PiToolContext ? true : false>
 type ToolRegistryAcceptsPiServiceSubset = Assert<
   PiToolRegistry<never>['register'] extends (
-    definition: EffectToolDefinition<TSchema, PiToolContext | PiProcess, { readonly _tag: 'ToolFailure' }>,
+    definition: EffectToolDefinition<TSchema, PiToolContextTag | PiProcess, { readonly _tag: 'ToolFailure' }>,
   ) => Effect.Effect<void, PiRegistrationError>
     ? true
     : false
