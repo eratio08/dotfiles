@@ -9,7 +9,7 @@ import {
 
 type CurrentSessionManager = Pick<
   SessionManager,
-  'getHeader' | 'getSessionId' | 'getCwd' | 'getEntries' | 'getBranch' | 'getLeafId' | 'buildSessionProjection'
+  'getHeader' | 'getSessionId' | 'getCwd' | 'getEntries' | 'getLeafId' | 'buildSessionProjection'
 >
 
 type ParsedSession = {
@@ -19,7 +19,7 @@ type ParsedSession = {
   source: 'current' | 'saved'
   filePath?: string
   entries: SessionEntry[]
-  branch: SessionEntry[]
+  branch?: SessionEntry[]
   leafId: string | null
   projection: SessionProjection
 }
@@ -87,7 +87,6 @@ function selectCurrentSession(sessionManager: CurrentSessionManager): ParsedSess
     cwd: sessionManager.getCwd(),
     source: 'current',
     entries: sessionManager.getEntries(),
-    branch: sessionManager.getBranch(),
     leafId: sessionManager.getLeafId(),
     projection: sessionManager.buildSessionProjection(),
   }

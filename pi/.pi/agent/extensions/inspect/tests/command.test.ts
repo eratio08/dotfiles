@@ -85,7 +85,7 @@ function createHarness(directory: string, sessionManager: SessionManager, browse
   }
 }
 
-test('should serve the active branch and keep the running indicator given the current session', async () => {
+test('should serve the current session projection and keep the running indicator', async () => {
   //given
   const directory = await mkdtemp(join(tmpdir(), 'context-metering-'))
   const manager = SessionManager.inMemory(directory)
@@ -122,6 +122,7 @@ test('should serve the active branch and keep the running indicator given the cu
     const html = await response.text()
     assert.deepEqual(await readdir(directory), [])
     assert.match(html, /active-branch-entry/)
+    assert.match(html, /Selected endpoint context/)
     assert.match(html, /Pi Inspect/)
     assert.doesNotMatch(html, /abandoned-branch-entry/)
     assert.deepEqual(
@@ -139,7 +140,7 @@ test('should serve the active branch and keep the running indicator given the cu
   }
 })
 
-test('should show Pi context usage beside the reconstructed estimate given a current request', async () => {
+test('should show Pi context usage beside the selected-context estimate given a current request', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'context-metering-'))
   const manager = SessionManager.inMemory(directory)
   manager.appendMessage({ role: 'user', content: 'window-test', timestamp: 1 })
@@ -175,7 +176,7 @@ test('should show Pi context usage beside the reconstructed estimate given a cur
     assert.equal(response.status, 200)
     assert.match(html, /Pi context estimate/)
     assert.match(html, /72% of 100 tokens/)
-    assert.match(html, /Reconstructed request estimate/)
+    assert.match(html, /Selected-context estimate/)
   } finally {
     await harness.shutdown()
     await rm(directory, { recursive: true, force: true })

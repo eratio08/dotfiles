@@ -1,10 +1,8 @@
 import { getCurrentSystemMessage, getCurrentTools, type SystemMessage, type Usage } from '@earendil-works/pi-ai'
 import {
   type BuildSystemPromptOptions,
-  buildSessionProjection,
   estimateTokens,
-  type SessionEntry,
-  sessionEntryToContextMessages,
+  type sessionEntryToContextMessages,
   type ToolInfo,
 } from '@earendil-works/pi-coding-agent'
 import type { ParsedSession } from './session.ts'
@@ -189,7 +187,6 @@ type PromptSpan = {
 
 type AgentMessage = ReturnType<typeof sessionEntryToContextMessages>[number]
 type AssistantMessage = Extract<AgentMessage, { role: 'assistant' }>
-type AssistantSessionEntry = Extract<SessionEntry, { type: 'message' }> & { message: AssistantMessage }
 
 type MessageSource = {
   message: AgentMessage
@@ -785,25 +782,6 @@ function createBaseline(
   }
 }
 
-function latestContextEdits(
-  entries: readonly SessionEntry[],
-): Map<string, Extract<SessionEntry, { type: 'context_edit' }>> {
-  const edits = new Map<string, Extract<SessionEntry, { type: 'context_edit' }>>()
-  for (const entry of entries) {
-    if (entry.type === 'context_edit') edits.set(entry.targetId, entry)
-  }
-  return edits
-}
-
-function isCompactedEntry(entry: SessionEntry, branch: readonly SessionEntry[]): boolean {
-  const compaction = [...branch].reverse().find((candidate) => candidate.type === 'compaction')
-  if (compaction?.type !== 'compaction') return false
-  const entryIndex = branch.findIndex((candidate) => candidate.id === entry.id)
-  const compactionIndex = branch.findIndex((candidate) => candidate.id === compaction.id)
-  const keptIndex = branch.findIndex((candidate) => candidate.id === compaction.firstKeptEntryId)
-  return entryIndex >= 0 && entryIndex < compactionIndex && (keptIndex < 0 || entryIndex < keptIndex)
-}
-
 function toolCallIds(messages: readonly MessageSource['message'][]): string[] {
   const ids = new Set<string>()
   for (const message of messages) {
@@ -877,88 +855,52 @@ function toMessageView(message: AgentMessage): MessageView {
 
 function createEntryStatistics(
   session: ParsedSession,
-  requests: readonly RequestAnalysis[],
+  contributions: readonly Contribution[],
   requestExposure: RequestExposure,
+  includedEntryIds: readonly string[],
 ): EntryStatistics[] {
-  const projectedEntries = new Map(session.projection.entries.map((entry) => [entry.sourceEntry.id, entry]))
-  const contextEdits = latestContextEdits(session.projection.entries.map((entry) => entry.sourceEntry))
   const exposureByEntry = new Map<string, number>()
-  const firstAdditionByEntry = new Map<string, number>()
-  const latestIncludedEntries = new Set(requests.at(-1)?.inputEntryIds ?? [])
-
-  for (const request of requests) {
-    const perEntry = new Map<string, number>()
-    for (const contribution of request.contributions) {
-      if (!contribution.entryId) continue
-      perEntry.set(contribution.entryId, (perEntry.get(contribution.entryId) ?? 0) + contribution.tokens)
-      exposureByEntry.set(contribution.entryId, (exposureByEntry.get(contribution.entryId) ?? 0) + contribution.tokens)
-    }
-    for (const [entryId, tokens] of perEntry) {
-      if (!firstAdditionByEntry.has(entryId)) firstAdditionByEntry.set(entryId, tokens)
-    }
+  for (const contribution of contributions) {
+    if (!contribution.entryId) continue
+    exposureByEntry.set(contribution.entryId, (exposureByEntry.get(contribution.entryId) ?? 0) + contribution.tokens)
   }
+  const includedEntries = new Set(includedEntryIds)
 
-  return session.branch.map((entry) => {
-    const projected = projectedEntries.get(entry.id)
-    const rawMessages = sessionEntryToContextMessages(entry)
-    const effectiveMessages = projected?.messages ?? []
-    const targetEdit = contextEdits.get(entry.id)
-    const isMessageContent = rawMessages.some((message) => message.role !== 'system')
-    let contextStatus: EntryContextStatus
+  return session.projection.entries.flatMap(({ sourceEntry, messages }) => {
+    const currentMessages = messages.filter((message) => message.role !== 'system')
+    if (currentMessages.length === 0) return []
 
-    if (
-      entry.type === 'context_edit' ||
-      (!isMessageContent && entry.type !== 'compaction' && entry.type !== 'branch_summary')
-    ) {
-      contextStatus = 'not-model-content'
-    } else if (targetEdit?.replacement === null) {
-      contextStatus = 'omitted'
-    } else if (targetEdit) {
-      contextStatus = 'replaced'
-    } else if (projected?.messages.some((message) => message.role !== 'system')) {
-      contextStatus = 'current'
-    } else if (!projected && isCompactedEntry(entry, session.branch)) {
-      contextStatus = 'compacted'
-    } else if (projected?.messages.some((message) => message.role === 'system')) {
-      contextStatus = 'current'
-    } else {
-      contextStatus = 'historical'
-    }
-
-    const historicalTokens = rawMessages
-      .filter((message) => message.role !== 'system')
-      .reduce((sum, message) => sum + estimateTokens(message), 0)
-    const finalTokens = effectiveMessages
-      .filter((message) => message.role !== 'system')
-      .reduce((sum, message) => sum + estimateTokens(message), 0)
-    const messageAdditionTokens = firstAdditionByEntry.get(entry.id) ?? finalTokens
-    const cumulativeRequestExposure = exposureByEntry.get(entry.id) ?? 0
-    const role = rawMessages.find((message) => message.role !== 'system')?.role
-    const customType = entry.type === 'custom' || entry.type === 'custom_message' ? entry.customType : undefined
-    const providerUsage = rawMessages.find(
+    const messageViews = currentMessages.map(toMessageView)
+    const messageTokens = currentMessages.reduce((sum, message) => sum + estimateTokens(message), 0)
+    const messageAdditionTokens = exposureByEntry.get(sourceEntry.id) ?? 0
+    const role = currentMessages[0]?.role
+    const customType = currentMessages.find((message) => message.role === 'custom')?.customType
+    const providerUsage = currentMessages.find(
       (message): message is AssistantMessage => message.role === 'assistant',
     )?.usage
 
-    return {
-      entryId: entry.id,
-      entryType: entry.type,
-      ...(role === undefined ? {} : { role }),
-      ...(customType === undefined ? {} : { customType }),
-      timestamp: entry.timestamp,
-      contextStatus,
-      messageAdditionTokens,
-      historicalTokens,
-      cumulativeRequestExposure,
-      exposureShare:
-        requestExposure.complete && requestExposure.tokens !== null && requestExposure.tokens > 0
-          ? (cumulativeRequestExposure / requestExposure.tokens) * 100
-          : null,
-      latestRequestIncluded: latestIncludedEntries.has(entry.id),
-      toolCallIds: toolCallIds(rawMessages),
-      rawMessages: rawMessages.map(toMessageView),
-      effectiveMessages: effectiveMessages.map(toMessageView),
-      ...(providerUsage === undefined ? {} : { providerUsage }),
-    }
+    return [
+      {
+        entryId: sourceEntry.id,
+        entryType: sourceEntry.type,
+        ...(role === undefined ? {} : { role }),
+        ...(customType === undefined ? {} : { customType }),
+        timestamp: sourceEntry.timestamp,
+        contextStatus: 'current' as const,
+        messageAdditionTokens,
+        historicalTokens: messageTokens,
+        cumulativeRequestExposure: messageAdditionTokens,
+        exposureShare:
+          requestExposure.complete && requestExposure.tokens !== null && requestExposure.tokens > 0
+            ? (messageAdditionTokens / requestExposure.tokens) * 100
+            : null,
+        latestRequestIncluded: includedEntries.has(sourceEntry.id),
+        toolCallIds: toolCallIds(currentMessages),
+        rawMessages: messageViews,
+        effectiveMessages: messageViews,
+        ...(providerUsage === undefined ? {} : { providerUsage }),
+      },
+    ]
   })
 }
 
@@ -983,68 +925,32 @@ function ensureToolInvocation(
 }
 
 function collectToolInvocations(
-  branch: readonly SessionEntry[],
-  requests: readonly RequestAnalysis[],
+  contributions: readonly Contribution[],
+  footprintTokens: number | null,
 ): ToolInvocationStatistics[] {
   const invocations = new Map<string, ToolInvocationAccumulator>()
 
-  for (const entry of branch) {
-    for (const message of sessionEntryToContextMessages(entry)) {
-      if (message.role === 'assistant') {
-        for (const contribution of messageDrafts(message, entry.id)) {
-          if (contribution.kind !== 'tool-call' || !contribution.toolName || !contribution.toolCallId) continue
-          const invocation = ensureToolInvocation(invocations, contribution.toolName, contribution.toolCallId)
-          invocation.callEntryId ??= entry.id
-          invocation.argumentTokens += contribution.tokens
-        }
-      } else if (message.role === 'toolResult') {
-        const invocation = ensureToolInvocation(invocations, message.toolName, message.toolCallId)
-        invocation.resultEntryId ??= entry.id
-        invocation.isError = message.isError
-        invocation.resultTokens += sumTokens(messageDrafts(message, entry.id))
-      }
+  for (const contribution of contributions) {
+    if (!contribution.toolName || !contribution.toolCallId) continue
+    if (contribution.kind !== 'tool-call' && contribution.kind !== 'tool-result') continue
+
+    const invocation = ensureToolInvocation(invocations, contribution.toolName, contribution.toolCallId)
+    invocation.latestRequestTokens += contribution.tokens
+    if (contribution.kind === 'tool-call') {
+      invocation.callEntryId ??= contribution.entryId
+      invocation.argumentTokens += contribution.tokens
+    } else {
+      invocation.resultEntryId ??= contribution.entryId
+      invocation.isError = contribution.isError ?? null
+      invocation.resultTokens += contribution.tokens
     }
   }
 
-  for (const request of requests) {
-    const requestCalls = new Map<string, Contribution[]>()
-    const requestResults = new Map<string, Contribution[]>()
-    for (const contribution of request.contributions) {
-      if (!contribution.toolName || !contribution.toolCallId) continue
-      if (contribution.kind === 'tool-call' || contribution.kind === 'tool-result') {
-        const invocation = ensureToolInvocation(invocations, contribution.toolName, contribution.toolCallId)
-        if (request === requests.at(-1)) invocation.latestRequestTokens += contribution.tokens
-        const grouped = contribution.kind === 'tool-call' ? requestCalls : requestResults
-        const existing = grouped.get(contribution.toolCallId) ?? []
-        existing.push(contribution)
-        grouped.set(contribution.toolCallId, existing)
-      }
-    }
-    for (const [toolCallId, contributions] of requestCalls) {
-      const invocation = invocations.get(toolCallId)
-      if (invocation && !invocation.callEntryId) {
-        invocation.callEntryId = contributions[0]?.entryId
-        invocation.argumentTokens = sumTokens(contributions)
-      }
-    }
-    for (const [toolCallId, contributions] of requestResults) {
-      const invocation = invocations.get(toolCallId)
-      if (invocation && !invocation.resultEntryId) {
-        invocation.resultEntryId = contributions[0]?.entryId
-        invocation.resultTokens = sumTokens(contributions)
-        invocation.isError = contributions.some((contribution) => contribution.isError)
-      }
-    }
-  }
-
-  const latest = requests.at(-1)
   return [...invocations.values()].map((invocation) => ({
     ...invocation,
     oneTimeInteractionTokens: invocation.argumentTokens + invocation.resultTokens,
     latestRequestShare:
-      latest?.footprintTokens !== null && latest?.footprintTokens !== undefined && latest.footprintTokens > 0
-        ? (invocation.latestRequestTokens / latest.footprintTokens) * 100
-        : null,
+      footprintTokens !== null && footprintTokens > 0 ? (invocation.latestRequestTokens / footprintTokens) * 100 : null,
   }))
 }
 
@@ -1154,95 +1060,92 @@ function buildToolStatistics(
 }
 
 function analyzeSession(session: ParsedSession, options: AnalysisOptions = {}): SessionAnalysis {
-  const assistantEntries = session.branch.filter(
-    (entry): entry is AssistantSessionEntry => entry.type === 'message' && entry.message.role === 'assistant',
-  )
-  const requests: RequestAnalysis[] = []
-  const toolDefinitions = new Map<string, ToolDefinitionInfo>()
-  const totals = createEmptyGroupTotals()
-  let knownExposure = 0
-  let hasUnknownRequest = false
-  const warnings: string[] = []
+  const systemMessages: SystemMessage[] = []
+  const conversationMessages: MessageSource[] = []
+  let endpointAssistant: { entryId: string; timestamp: string; message: AssistantMessage } | undefined
 
-  for (const [index, responseEntry] of assistantEntries.entries()) {
+  for (const entry of session.projection.entries) {
     options.signal?.throwIfAborted()
-    const projection = buildSessionProjection(session.entries, responseEntry.id)
-    const inputEntries = projection.entries.filter((entry) => entry.sourceEntry.id !== responseEntry.id)
-    const systemMessages: SystemMessage[] = []
-    const conversationMessages: MessageSource[] = []
+    for (const message of entry.messages) {
+      if (message.role === 'system') {
+        systemMessages.push(message)
+        continue
+      }
 
-    for (const entry of inputEntries) {
-      for (const message of entry.messages) {
-        if (message.role === 'system') systemMessages.push(message)
-        else conversationMessages.push({ message, entryId: entry.sourceEntry.id })
+      conversationMessages.push({ message, entryId: entry.sourceEntry.id })
+      if (message.role === 'assistant') {
+        endpointAssistant = { entryId: entry.sourceEntry.id, timestamp: entry.sourceEntry.timestamp, message }
       }
     }
-
-    const fallback =
-      session.source === 'current' && systemMessages.length === 0 ? options.fallbackSystemMessage : undefined
-    const loadout = makeLoadout(systemMessages, fallback)
-    for (const tool of loadout.systemMessage?.toolsAdded ?? []) toolDefinitions.set(tool.name, tool)
-    const messageContributions = getMessageContributions(conversationMessages)
-    const contributions = [...loadout.contributions, ...messageContributions]
-    const conversationTokens = sumTokens(messageContributions)
-    const footprintTokens = loadout.tokens === null ? null : loadout.tokens + conversationTokens
-    const knownTokens = loadout.tokens === null ? conversationTokens : (footprintTokens ?? conversationTokens)
-
-    if (footprintTokens === null) {
-      hasUnknownRequest = true
-      warnings.push(`Request ${index + 1} has no saved system snapshot, so its loadout estimate is unavailable.`)
-    }
-
-    knownExposure += knownTokens
-    addGroupTotals(totals, contributions)
-    requests.push({
-      index: index + 1,
-      responseEntryId: responseEntry.id,
-      timestamp: responseEntry.timestamp,
-      footprintTokens,
-      loadoutSource: loadout.tokens === null ? 'unavailable' : fallback ? 'current-configuration' : 'saved',
-      ...(loadout.systemMessage === undefined ? {} : { loadoutMessage: toMessageView(loadout.systemMessage) }),
-      inputEntryIds: inputEntries.filter((entry) => entry.messages.length > 0).map((entry) => entry.sourceEntry.id),
-      knownTokens,
-      loadoutTokens: loadout.tokens,
-      conversationTokens,
-      contributions,
-      providerUsage: responseEntry.message.usage,
-      model: `${responseEntry.message.provider}/${responseEntry.message.model}`,
-    })
   }
 
-  const firstLoadout = requests[0]
-  const baseline = createBaseline(session, firstLoadout, options.fallbackSystemMessage)
-  if (requests.length === 0) {
-    const baselineMessage = firstSystemLoadout(session, options.fallbackSystemMessage)
-    for (const tool of baselineMessage?.toolsAdded ?? []) toolDefinitions.set(tool.name, tool)
+  const fallback =
+    session.source === 'current' && systemMessages.length === 0 ? options.fallbackSystemMessage : undefined
+  const loadout = makeLoadout(systemMessages, fallback)
+  const toolDefinitions = new Map<string, ToolDefinitionInfo>()
+  for (const tool of loadout.systemMessage?.toolsAdded ?? []) toolDefinitions.set(tool.name, tool)
+
+  const messageContributions = getMessageContributions(conversationMessages)
+  const contributions = [...loadout.contributions, ...messageContributions]
+  const conversationTokens = sumTokens(messageContributions)
+  const footprintTokens = loadout.tokens === null ? null : loadout.tokens + conversationTokens
+  const knownTokens = loadout.tokens === null ? conversationTokens : (footprintTokens ?? conversationTokens)
+  const hasContext = conversationMessages.length > 0 || loadout.systemMessage !== undefined
+  const endpointEntry = session.projection.entries.at(-1)?.sourceEntry
+  const currentContext: RequestAnalysis | undefined = hasContext
+    ? {
+        index: 1,
+        responseEntryId: endpointAssistant?.entryId ?? endpointEntry?.id ?? session.leafId ?? '',
+        timestamp: endpointAssistant?.timestamp ?? endpointEntry?.timestamp ?? '',
+        footprintTokens,
+        loadoutSource: loadout.tokens === null ? 'unavailable' : fallback ? 'current-configuration' : 'saved',
+        ...(loadout.systemMessage === undefined ? {} : { loadoutMessage: toMessageView(loadout.systemMessage) }),
+        inputEntryIds: session.projection.entries
+          .filter((entry) => entry.messages.length > 0)
+          .map((entry) => entry.sourceEntry.id),
+        knownTokens,
+        loadoutTokens: loadout.tokens,
+        conversationTokens,
+        contributions,
+        ...(endpointAssistant === undefined
+          ? {}
+          : {
+              providerUsage: endpointAssistant.message.usage,
+              model: `${endpointAssistant.message.provider}/${endpointAssistant.message.model}`,
+            }),
+      }
+    : undefined
+  const requests = currentContext === undefined ? [] : [currentContext]
+  const warnings: string[] = []
+
+  if (currentContext?.footprintTokens === null) {
+    warnings.push(
+      `Request ${currentContext.index} has no saved system snapshot, so its loadout estimate is unavailable.`,
+    )
   }
+
+  const baseline = createBaseline(session, currentContext, options.fallbackSystemMessage)
   const requestExposure: RequestExposure = {
-    tokens: hasUnknownRequest ? null : knownExposure,
-    knownTokens: knownExposure,
-    complete: !hasUnknownRequest,
+    tokens: currentContext === undefined ? 0 : currentContext.footprintTokens,
+    knownTokens: currentContext?.knownTokens ?? 0,
+    complete: currentContext === undefined || currentContext.footprintTokens !== null,
   }
-  const latestRequest = requests.at(-1)
-  const toolInvocations = collectToolInvocations(session.branch, requests)
+  const totals = createEmptyGroupTotals()
+  addGroupTotals(totals, contributions)
+  const toolInvocations = collectToolInvocations(contributions, currentContext?.footprintTokens ?? null)
   const tools = buildToolStatistics(requests, toolInvocations, toolDefinitions)
-  const sharedToolContextExposureTokens = requests.reduce(
-    (total, request) =>
+  const sharedToolContextExposureTokens = contributions.reduce(
+    (total, contribution) =>
       total +
-      request.contributions.reduce(
-        (requestTotal, contribution) =>
-          requestTotal +
-          (!contribution.toolName &&
-          (contribution.group === 'toolDefinitionsAndPromptText' ||
-            contribution.group === 'toolCallsAndResults' ||
-            contribution.source === 'tools')
-            ? contribution.tokens
-            : 0),
-        0,
-      ),
+      (!contribution.toolName &&
+      (contribution.group === 'toolDefinitionsAndPromptText' ||
+        contribution.group === 'toolCallsAndResults' ||
+        contribution.source === 'tools')
+        ? contribution.tokens
+        : 0),
     0,
   )
-  const entries = createEntryStatistics(session, requests, requestExposure)
+  const entries = createEntryStatistics(session, contributions, requestExposure, currentContext?.inputEntryIds ?? [])
   const oneTimeMessageAdditionsTokens = entries.reduce((sum, entry) => sum + entry.messageAdditionTokens, 0)
 
   if (!baseline.available) {
@@ -1264,7 +1167,7 @@ function analyzeSession(session: ParsedSession, options: AnalysisOptions = {}): 
     analyzedAt: new Date().toISOString(),
     tokenEstimateMethod: 'Pi estimateTokens() and its character-based section and tool estimates',
     baseline,
-    latestRequestFootprintTokens: latestRequest?.footprintTokens ?? null,
+    latestRequestFootprintTokens: currentContext?.footprintTokens ?? null,
     requestCount: requests.length,
     requestExposure,
     oneTimeMessageAdditionsTokens,

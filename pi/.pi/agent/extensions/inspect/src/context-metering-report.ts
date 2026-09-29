@@ -3,7 +3,6 @@ import type { Contribution, EntryStatistics, MessageView, SessionAnalysis } from
 
 type VisibleEntryMessage = {
   message: MessageView
-  historical: boolean
 }
 
 type ToolLinkTargets = {
@@ -267,12 +266,7 @@ function jsonText(value: unknown): string {
 }
 
 function getVisibleEntryMessages(entry: EntryStatistics): VisibleEntryMessage[] {
-  const replaced = entry.contextStatus === 'replaced'
-  const historical =
-    entry.contextStatus === 'compacted' || entry.contextStatus === 'omitted' || entry.contextStatus === 'historical'
-  const messages = entry.rawMessages.map((message) => ({ message, historical: historical || replaced }))
-  if (replaced) messages.push(...entry.effectiveMessages.map((message) => ({ message, historical: false })))
-  return messages
+  return entry.effectiveMessages.map((message) => ({ message }))
 }
 
 function getContentBlocks(content: unknown): Record<string, unknown>[] {
@@ -309,8 +303,8 @@ function sumTokens(contributions: readonly Contribution[]): number {
 }
 
 function renderCostRows(source: string, identifier: string, metrics: SourceMetrics): string {
-  const latestLabel = metrics.latestIncluded ? 'Included' : 'Not included'
-  return `<dl><dt>Source</dt><dd>${escapeHtml(source)}</dd><dt>Source, entry, or call ID</dt><dd>${escapeHtml(identifier || 'Unavailable')}</dd><dt>Per-request loadout cost</dt><dd>${tokenLabel(metrics.loadoutTokens)}</dd><dt>One-time message addition</dt><dd>${tokenLabel(metrics.oneTimeTokens)}</dd><dt>Latest request cost</dt><dd>${tokenLabel(metrics.latestRequestTokens)}</dd><dt>Latest request inclusion</dt><dd>${latestLabel}</dd></dl>`
+  const contextLabel = metrics.latestIncluded ? 'Included' : 'Not included'
+  return `<dl><dt>Source</dt><dd>${escapeHtml(source)}</dd><dt>Source, entry, or call ID</dt><dd>${escapeHtml(identifier || 'Unavailable')}</dd><dt>System snapshot estimate</dt><dd>${tokenLabel(metrics.loadoutTokens)}</dd><dt>One-time message addition</dt><dd>${tokenLabel(metrics.oneTimeTokens)}</dd><dt>Selected-context contribution</dt><dd>${tokenLabel(metrics.latestRequestTokens)}</dd><dt>Selected-context inclusion</dt><dd>${contextLabel}</dd></dl>`
 }
 
 function renderCostDetails(label: string, source: string, identifier: string, metrics: SourceMetrics): string {
@@ -431,7 +425,7 @@ function renderToolPromptSources(
       const source = toolName ? `${toolName} prompt snippet` : 'Shared or unattributed tool prompt text'
       const identifier = contribution?.id ?? `prompt-section:tools:${index}`
       const metrics = contributionMetrics(analysis, contribution ? [contribution] : [], contribution?.tokens ?? null)
-      return `<details class="source-row"><summary>${escapeHtml(source)} · ${tokenLabel(contribution?.tokens)} per request</summary><pre>${escapeHtml(line)}</pre>${renderCostDetails('Tool prompt details', source, identifier, metrics)}</details>`
+      return `<details class="source-row"><summary>${escapeHtml(source)} · ${tokenLabel(contribution?.tokens)} in selected context</summary><pre>${escapeHtml(line)}</pre>${renderCostDetails('Tool prompt details', source, identifier, metrics)}</details>`
     })
     .join('')
 }
@@ -454,7 +448,7 @@ function renderPromptSection(
   const metrics = contributionMetrics(analysis, matching, cost)
 
   const identifier = matching.map((item) => item.id).join(', ') || sectionName
-  return `<details class="source-row"><summary>${escapeHtml(label)} · ${tokenLabel(cost)} per request</summary>${content}${renderCostDetails('Prompt section details', label, identifier, metrics)}</details>`
+  return `<details class="source-row"><summary>${escapeHtml(label)} · ${tokenLabel(cost)} in selected context</summary>${content}${renderCostDetails('Prompt section details', label, identifier, metrics)}</details>`
 }
 
 function renderToolDefinition(
@@ -468,7 +462,7 @@ function renderToolDefinition(
   const schema = tool.parameters === undefined ? 'Unavailable' : jsonText(tool.parameters)
   const description = stringValue(tool.description, 'No description saved.')
 
-  return `<details class="source-row tool-definition"><summary>Tool definition: ${escapeHtml(tool.name)} · ${tokenLabel(loadoutTokens)} per request</summary><p>${escapeHtml(description)}</p><pre>${escapeHtml(schema)}</pre>${renderCostDetails('Tool definition details', tool.name, contribution?.id ?? tool.name, metrics)}</details>`
+  return `<details class="source-row tool-definition"><summary>Tool definition: ${escapeHtml(tool.name)} · ${tokenLabel(loadoutTokens)} in selected context</summary><p>${escapeHtml(description)}</p><pre>${escapeHtml(schema)}</pre>${renderCostDetails('Tool definition details', tool.name, contribution?.id ?? tool.name, metrics)}</details>`
 }
 
 function renderSystemSnapshot(
@@ -488,7 +482,7 @@ function renderSystemSnapshot(
     const cost = sumTokens(contentContributions)
     const metrics = contributionMetrics(analysis, contentContributions, cost)
     rows.push(
-      `<details class="source-row"><summary>System prompt content · ${tokenLabel(cost)} per request</summary>${renderPromptContent(message.content)}${renderCostDetails('System prompt details', 'System prompt content', contentContributions.map((item) => item.id).join(', '), metrics)}</details>`,
+      `<details class="source-row"><summary>System prompt content · ${tokenLabel(cost)} in selected context</summary>${renderPromptContent(message.content)}${renderCostDetails('System prompt details', 'System prompt content', contentContributions.map((item) => item.id).join(', '), metrics)}</details>`,
     )
   }
   for (const [sectionName, value] of Object.entries(message.sections ?? {})) {
@@ -502,9 +496,11 @@ function renderSystemSnapshot(
   }
   const formatting = contributions.find((item) => item.id === 'tool-definition-formatting')
   if (formatting) {
-    rows.push(`<p class="subtle">Shared tool declaration formatting: ${tokenLabel(formatting.tokens)} per request.</p>`)
+    rows.push(
+      `<p class="subtle">Shared tool declaration formatting: ${tokenLabel(formatting.tokens)} in selected context.</p>`,
+    )
   }
-  if (rows.length === 0) rows.push('<p class="muted">The saved loadout is empty.</p>')
+  if (rows.length === 0) rows.push('<p class="muted">The saved system snapshot is empty.</p>')
   return `<div class="loadout">${rows.join('')}</div>`
 }
 
@@ -521,101 +517,42 @@ function renderToolDefinitionDetails(
 }
 
 function renderToolContextDetails(analysis: SessionAnalysis, toolName: string): string {
-  const definitionVersions = new Map<
-    string,
-    { description: unknown; parameters: unknown; tokens: number; requestIndexes: Set<number> }
-  >()
-  const promptVersions = new Map<string, { text: string; tokens: number; requestIndexes: Set<number> }>()
-  const requests =
-    analysis.requests.length > 0
-      ? analysis.requests
-      : analysis.baseline.systemMessage
-        ? [
-            {
-              index: 0,
-              loadoutMessage: analysis.baseline.systemMessage,
-              contributions: analysis.baseline.contributions,
-            },
-          ]
-        : []
-
-  for (const request of requests) {
-    const message = request.loadoutMessage
-    if (!message) continue
-
-    const definition = message.toolsAdded?.find((item) => item.name === toolName)
-    if (definition) {
-      const description = stringValue(definition.description, 'No description saved.')
-      const key = JSON.stringify([description, jsonText(definition.parameters)])
-      const version = definitionVersions.get(key) ?? {
-        description,
-        parameters: definition.parameters,
-        tokens: 0,
-        requestIndexes: new Set<number>(),
-      }
-      version.tokens += sumTokens(
-        request.contributions.filter((item) => item.kind === 'tool-definition' && item.toolName === toolName),
-      )
-      version.requestIndexes.add(request.index)
-      definitionVersions.set(key, version)
-    }
-
-    const sections = message.sections ?? {}
-    const toolPromptLines =
-      typeof sections.tools === 'string'
-        ? sections.tools
-            .split(/\r?\n/)
-            .filter((line) => line.startsWith(`- ${toolName}:`))
-            .join('\n')
-        : ''
-    const promptText = [sections[`metering:tool-prompt:${toolName}`], toolPromptLines]
-      .filter((text): text is string => typeof text === 'string' && text.length > 0)
-      .join('\n')
-    if (!promptText) continue
-
-    const version = promptVersions.get(promptText) ?? {
-      text: promptText,
-      tokens: 0,
-      requestIndexes: new Set<number>(),
-    }
-    version.tokens += sumTokens(
-      request.contributions.filter((item) => item.kind === 'tool-prompt' && item.toolName === toolName),
-    )
-    version.requestIndexes.add(request.index)
-    promptVersions.set(promptText, version)
-  }
-
-  const definitionRows = [...definitionVersions.values()]
-    .map((version, index) => {
-      const label = definitionVersions.size === 1 ? 'Definition' : `Definition version ${formatTokens(index + 1)}`
-      const scopeLabel =
-        analysis.requests.length === 0
-          ? 'in the saved baseline'
-          : `across ${formatTokens(version.requestIndexes.size)} ${version.requestIndexes.size === 1 ? 'request' : 'requests'}`
-      return renderToolDefinitionDetails(
+  const context = analysis.requests.at(-1)
+  const message = context?.loadoutMessage ?? analysis.baseline.systemMessage
+  const contributions = context?.contributions ?? analysis.baseline.contributions
+  const definition = message?.toolsAdded?.find((item) => item.name === toolName)
+  const definitionTokens = sumTokens(
+    contributions.filter((item) => item.kind === 'tool-definition' && item.toolName === toolName),
+  )
+  const definitionContent = definition
+    ? renderToolDefinitionDetails(
         toolName,
-        label,
-        version.description,
-        version.parameters,
-        version.tokens,
-        scopeLabel,
+        'Definition',
+        definition.description,
+        definition.parameters,
+        definitionTokens,
+        'in selected context',
       )
-    })
-    .join('')
-  const promptRows = [...promptVersions.values()]
-    .map((version) => {
-      const scopeLabel =
-        analysis.requests.length === 0
-          ? 'in the saved baseline'
-          : `across ${formatTokens(version.requestIndexes.size)} ${version.requestIndexes.size === 1 ? 'request' : 'requests'}`
-      return `<details class="tool-prompt-source"><summary>Prompt guidance and examples · ${tokenLabel(version.tokens)} estimated ${scopeLabel}</summary><pre>${escapeHtml(version.text)}</pre></details>`
-    })
-    .join('')
-  const definitionContent = definitionRows || '<p class="muted">No saved tool description or schema is available.</p>'
-  const promptContent =
-    promptRows || '<p class="muted">No saved tool-specific prompt guidance or examples are available.</p>'
+    : '<p class="muted">No saved tool description or schema is available.</p>'
+  const sections = message?.sections ?? {}
+  const toolPromptLines =
+    typeof sections.tools === 'string'
+      ? sections.tools
+          .split(/\r?\n/)
+          .filter((line) => line.startsWith(`- ${toolName}:`))
+          .join('\n')
+      : ''
+  const promptText = [sections[`metering:tool-prompt:${toolName}`], toolPromptLines]
+    .filter((text): text is string => typeof text === 'string' && text.length > 0)
+    .join('\n')
+  const promptTokens = sumTokens(
+    contributions.filter((item) => item.kind === 'tool-prompt' && item.toolName === toolName),
+  )
+  const promptContent = promptText
+    ? `<details class="tool-prompt-source"><summary>Prompt guidance and examples · ${tokenLabel(promptTokens)} estimated in selected context</summary><pre>${escapeHtml(promptText)}</pre></details>`
+    : '<p class="muted">No saved tool-specific prompt guidance or examples are available.</p>'
 
-  return `<section class="tool-context-details"><h4>Static tool context</h4><p class="subtle">Each source shows its estimated exposure across requests that include the saved text.</p>${definitionContent}${promptContent}</section>`
+  return `<section class="tool-context-details"><h4>Current tool context</h4><p class="subtle">These sources appear in the selected endpoint context.</p>${definitionContent}${promptContent}</section>`
 }
 
 function renderImage(block: Record<string, unknown>): string {
@@ -703,91 +640,37 @@ function renderMessageContent(
     .join('')
 }
 
-function renderSystemDelta(message: MessageView, analysis: SessionAnalysis): string {
-  const pieces: string[] = []
-  const latestLoadout = analysis.requests.at(-1)?.loadoutMessage
-  const hasContent =
-    typeof message.content === 'string'
-      ? message.content.length > 0
-      : Array.isArray(message.content) && message.content.length > 0
-  if (hasContent) {
-    const latestContent = latestLoadout?.content
-    const contentIncluded =
-      typeof message.content === 'string'
-        ? typeof latestContent === 'string' && latestContent.includes(message.content)
-        : Array.isArray(message.content) &&
-          Array.isArray(latestContent) &&
-          message.content.every((block) => latestContent.some((current) => jsonText(current) === jsonText(block)))
-    const latestStatus = contentIncluded ? 'Included in latest request' : 'Not included in latest request'
-    pieces.push(
-      `<div class="message-text"><strong>System prompt text · ${latestStatus}</strong>${renderPromptContent(message.content)}</div>`,
-    )
-  }
-  for (const [sectionName, value] of Object.entries(message.sections ?? {})) {
-    if (value === null) {
-      pieces.push(
-        `<p class="muted">Section removed: ${escapeHtml(sectionName)}. Removed content is not included in the latest request.</p>`,
-      )
-    } else {
-      const latestIncluded = latestLoadout?.sections?.[sectionName] === value
-      pieces.push(
-        `<details class="message-detail"><summary>Prompt section changed: ${escapeHtml(sectionLabel(sectionName))}</summary><pre>${escapeHtml(value)}</pre><p class="subtle">${latestIncluded ? 'Included in latest request.' : 'Not included in latest request.'}</p></details>`,
-      )
-    }
-  }
-  for (const tool of message.toolsAdded ?? []) {
-    const latestIncluded = latestLoadout?.toolsAdded?.some((current) => jsonText(current) === jsonText(tool)) ?? false
-    pieces.push(
-      `<p>Tool added: <strong>${escapeHtml(tool.name)}</strong> — ${escapeHtml(tool.description)}. ${latestIncluded ? 'Included in latest request.' : 'Not included in latest request.'}</p>`,
-    )
-  }
-  for (const tool of message.toolsRemoved ?? []) {
-    const latestIncluded = latestLoadout?.toolsAdded?.some((current) => jsonText(current) === jsonText(tool)) ?? false
-    pieces.push(
-      `<p class="muted">Tool removed: ${escapeHtml(tool.name)}. ${latestIncluded ? 'Included in latest request.' : 'Not included in latest request.'}</p>`,
-    )
-  }
-  if (pieces.length === 0) pieces.push('<p class="muted">System loadout checkpoint.</p>')
-  return `<div class="system-delta">${pieces.join('')}</div>`
-}
-
 function renderMessage(
   visible: VisibleEntryMessage,
   entryIndex: number,
   messageIndex: number,
-  analysis: SessionAnalysis,
   targets: ToolLinkTargets,
 ): string {
   const message = visible.message
-  const historicalClass = visible.historical ? ' historical' : ''
   if (message.role === 'system')
-    return `<div class="message${historicalClass}"><div class="message-role">System prompt and tool-loadout change</div>${renderSystemDelta(message, analysis)}</div>`
+    return '<div class="message"><div class="message-role">System snapshot</div><p class="muted">System content appears in the current system snapshot.</p></div>'
   if (message.role === 'toolResult')
-    return `<div class="message${historicalClass}"><div class="message-role">Tool result</div>${renderToolResultMessage(message, entryIndex, messageIndex, targets)}</div>`
+    return `<div class="message"><div class="message-role">Tool result</div>${renderToolResultMessage(message, entryIndex, messageIndex, targets)}</div>`
   if (message.role === 'bashExecution') {
-    return `<div class="message${historicalClass}"><div class="message-role">Bash execution</div><p><strong>Command</strong></p><pre>${escapeHtml(stringValue(message.command))}</pre><p><strong>Output</strong></p><pre>${escapeHtml(stringValue(message.output))}</pre></div>`
+    return `<div class="message"><div class="message-role">Bash execution</div><p><strong>Command</strong></p><pre>${escapeHtml(stringValue(message.command))}</pre><p><strong>Output</strong></p><pre>${escapeHtml(stringValue(message.output))}</pre></div>`
   }
   if (message.role === 'branchSummary' || message.role === 'compactionSummary') {
-    return `<div class="message${historicalClass}"><div class="message-role">${escapeHtml(message.role)}</div><div class="message-text">${escapeHtml(stringValue(message.summary))}</div></div>`
+    const role = message.role === 'compactionSummary' ? 'Compaction summary' : 'Branch summary'
+    return `<div class="message"><div class="message-role">${role}</div><div class="message-text">${escapeHtml(stringValue(message.summary))}</div></div>`
   }
   const role =
     message.role === 'custom' ? `Extension message · ${stringValue(message.customType, 'custom')}` : message.role
-  return `<div class="message${historicalClass}"><div class="message-role">${escapeHtml(role)}</div>${renderMessageContent(message.content, entryIndex, messageIndex, targets)}${message.role === 'custom' ? `<p class="subtle">Saved customType: ${escapeHtml(stringValue(message.customType, 'unknown'))}</p>` : ''}</div>`
+  return `<div class="message"><div class="message-role">${escapeHtml(role)}</div>${renderMessageContent(message.content, entryIndex, messageIndex, targets)}${message.role === 'custom' ? `<p class="subtle">Saved customType: ${escapeHtml(stringValue(message.customType, 'unknown'))}</p>` : ''}</div>`
 }
 
 function renderEntryDetails(entry: EntryStatistics): string {
   const source = entry.customType ?? entry.role ?? entry.entryType
-  const latestLabel = entry.latestRequestIncluded ? 'Included' : 'Not included'
-  return `<details class="detail-popover"><summary>Entry estimates</summary><div class="popover"><dl><dt>Source</dt><dd>${escapeHtml(source)}</dd><dt>Entry ID</dt><dd>${escapeHtml(entry.entryId)}</dd><dt>Timestamp</dt><dd>${escapeHtml(entry.timestamp)}</dd><dt>One-time message addition</dt><dd>${tokenLabel(entry.messageAdditionTokens)}</dd><dt>Historical message estimate</dt><dd>${tokenLabel(entry.historicalTokens)}</dd><dt>Latest request inclusion</dt><dd>${latestLabel}</dd></dl></div></details>`
+  const contextLabel = entry.latestRequestIncluded ? 'Included' : 'Not included'
+  return `<details class="detail-popover"><summary>Entry estimates</summary><div class="popover"><dl><dt>Source</dt><dd>${escapeHtml(source)}</dd><dt>Entry ID</dt><dd>${escapeHtml(entry.entryId)}</dd><dt>Timestamp</dt><dd>${escapeHtml(entry.timestamp)}</dd><dt>Projected message estimate</dt><dd>${tokenLabel(entry.messageAdditionTokens)}</dd><dt>Selected-context inclusion</dt><dd>${contextLabel}</dd></dl></div></details>`
 }
 
 function contextStatusLabel(status: EntryStatistics['contextStatus']): string {
-  if (status === 'current') return 'Current context'
-  if (status === 'compacted') return 'Compacted history'
-  if (status === 'replaced') return 'Context-edited'
-  if (status === 'omitted') return 'Omitted'
-  if (status === 'historical') return 'History only'
-  return 'Not model content'
+  return status === 'current' ? 'Current context' : 'Not in selected context'
 }
 
 function renderEntry(
@@ -795,7 +678,7 @@ function renderEntry(
   entryIndex: number,
   analysis: SessionAnalysis,
   targets: ToolLinkTargets,
-  latestRequestTokensByEntry: ReadonlyMap<string, number>,
+  contextTokensByEntry: ReadonlyMap<string, number>,
   nestedResults: readonly { entry: EntryStatistics; entryIndex: number }[] = [],
 ): string {
   const messages = getVisibleEntryMessages(entry)
@@ -829,45 +712,20 @@ function renderEntry(
       })
       .find((text) => text.trim().length > 0) ?? role
   const preview = escapeHtml(previewText.replace(/\s+/g, ' ').trim())
-  const statusClass =
-    entry.contextStatus === 'current'
-      ? 'badge-current'
-      : entry.contextStatus === 'replaced'
-        ? 'badge-replaced'
-        : entry.contextStatus === 'omitted' ||
-            entry.contextStatus === 'compacted' ||
-            entry.contextStatus === 'historical'
-          ? 'badge-historical'
-          : ''
-  const latestRequest = analysis.requests.at(-1)
-  const latestTokens = latestRequestTokensByEntry.get(entry.entryId) ?? 0
-  const hasLatestContribution = latestRequestTokensByEntry.has(entry.entryId)
-  const includedInLatestPrompt = entry.latestRequestIncluded && hasLatestContribution
-  const includedInLoadout =
-    entry.latestRequestIncluded && !hasLatestContribution && messages.some(({ message }) => message.role === 'system')
-  const requestTokens =
-    latestRequest?.footprintTokens ??
-    latestRequest?.contributions.reduce((sum, contribution) => sum + contribution.tokens, 0) ??
-    null
-  const share = includedInLatestPrompt
-    ? requestTokens && requestTokens > 0
-      ? formatPercent((latestTokens / requestTokens) * 100)
+  const selectedContext = analysis.requests.at(-1)
+  const contextTokens = contextTokensByEntry.get(entry.entryId) ?? 0
+  const hasContextContribution = contextTokensByEntry.has(entry.entryId)
+  const includedInContext = entry.latestRequestIncluded
+  const contextFootprint = selectedContext?.footprintTokens
+  const share =
+    hasContextContribution && contextFootprint !== null && contextFootprint !== undefined && contextFootprint > 0
+      ? formatPercent((contextTokens / contextFootprint) * 100)
       : 'Unavailable'
-    : includedInLoadout
-      ? 'In loadout'
-      : entry.latestRequestIncluded
-        ? 'Unavailable'
-        : 'Not in latest input'
-  const displayedTokens = includedInLatestPrompt ? latestTokens : includedInLoadout ? null : entry.messageAdditionTokens
-  const tokenScope = includedInLatestPrompt
-    ? 'latest input'
-    : includedInLoadout
-      ? 'loadout shown above'
-      : entry.latestRequestIncluded
-        ? 'latest estimate unavailable'
-        : 'one-time addition'
+  const displayedTokens = hasContextContribution ? contextTokens : entry.messageAdditionTokens
+  const tokenScope = hasContextContribution ? 'selected-context contribution' : 'projected message estimate'
+  const statusClass = entry.contextStatus === 'current' ? 'badge-current' : ''
   const body = messages
-    .map((visible, messageIndex) => renderMessage(visible, entryIndex, messageIndex, analysis, targets))
+    .map((visible, messageIndex) => renderMessage(visible, entryIndex, messageIndex, targets))
     .join('')
   const emptyBody =
     body ||
@@ -875,25 +733,14 @@ function renderEntry(
   const nestedResultsHtml = nestedResults.length
     ? `<ol class="nested-entry-list" aria-label="Tool results">${nestedResults
         .map(({ entry: resultEntry, entryIndex: resultIndex }) =>
-          renderEntry(resultEntry, resultIndex, analysis, targets, latestRequestTokensByEntry),
+          renderEntry(resultEntry, resultIndex, analysis, targets, contextTokensByEntry),
         )
         .join('')}</ol>`
     : ''
+  const contextContribution = hasContextContribution ? tokenLabel(contextTokens) : 'Unavailable'
+  const contextShare = includedInContext ? formatPercent(entry.exposureShare) : 'Not in selected context'
 
-  return `<li class="entry-node"><details class="entry" id="entry-${entryIndex}"><summary class="entry-summary"><span class="disclosure-glyph" aria-hidden="true">›</span><span class="entry-main"><span class="entry-role">${escapeHtml(role)}</span><span class="entry-preview">${preview}</span></span><time class="entry-timestamp" datetime="${escapeHtml(entry.timestamp)}">${escapeHtml(entry.timestamp)}</time><span class="entry-token-count"><strong>${tokenLabel(displayedTokens)}</strong><small>${tokenScope}</small></span><span class="entry-share">${escapeHtml(share)}<small>${includedInLatestPrompt ? 'of latest request' : includedInLoadout ? 'see loadout' : ''}</small></span><span class="badge ${statusClass}">${contextStatusLabel(entry.contextStatus)}</span></summary><div class="entry-expanded"><div class="entry-header"><h3 class="entry-title">${escapeHtml(role)} · ${escapeHtml(entry.entryId)}</h3><div class="badges"><span class="badge ${statusClass}">${contextStatusLabel(entry.contextStatus)}</span><span class="badge">${entry.latestRequestIncluded ? 'In latest request' : 'Not in latest request'}</span></div></div><div class="entry-meta"><span>${escapeHtml(entry.timestamp)}</span>${entry.customType ? `<span>customType: ${escapeHtml(entry.customType)}</span>` : ''}</div><div class="entry-metrics"><span>Latest request contribution: ${includedInLatestPrompt ? tokenLabel(latestTokens) : includedInLoadout ? 'Counted in loadout estimate' : entry.latestRequestIncluded ? 'Estimate unavailable' : 'Not in latest request'}</span><span>One-time addition: ${tokenLabel(entry.messageAdditionTokens)} estimated tokens</span><span>Cumulative exposure: ${tokenLabel(entry.cumulativeRequestExposure)} estimated tokens</span><span>Selected-branch share: ${formatPercent(entry.exposureShare)}</span></div>${renderEntryDetails(entry)}${entry.contextStatus === 'replaced' ? '<p class="status-note">The saved entry is historical. The effective replacement below is model-visible.</p>' : ''}${entry.contextStatus === 'omitted' ? '<p class="status-note">Pi omitted this saved entry from requests after the context edit.</p>' : ''}${emptyBody}</div></details>${nestedResultsHtml}</li>`
-}
-
-function sameLoadout(left: MessageView | undefined, right: MessageView | undefined): boolean {
-  if (!left || !right) return left === right
-  return (
-    jsonText([left.content, left.sections, left.toolsAdded]) ===
-    jsonText([right.content, right.sections, right.toolsAdded])
-  )
-}
-
-function renderLoadoutChange(request: SessionAnalysis['requests'][number], analysis: SessionAnalysis): string {
-  const loadoutContributions = request.contributions.filter((contribution) => contribution.entryId === undefined)
-  return `<li class="loadout-event prompt-change"><h3>Effective loadout before request ${request.index}</h3><p class="subtle">Estimated empty-history loadout cost: ${tokenLabel(request.loadoutTokens)}. This snapshot applies before assistant entry ${escapeHtml(request.responseEntryId)}.</p>${renderSystemSnapshot(request.loadoutMessage, analysis, loadoutContributions)}</li>`
+  return `<li class="entry-node"><details class="entry" id="entry-${entryIndex}"><summary class="entry-summary"><span class="disclosure-glyph" aria-hidden="true">›</span><span class="entry-main"><span class="entry-role">${escapeHtml(role)}</span><span class="entry-preview">${preview}</span></span><time class="entry-timestamp" datetime="${escapeHtml(entry.timestamp)}">${escapeHtml(entry.timestamp)}</time><span class="entry-token-count"><strong>${tokenLabel(displayedTokens)}</strong><small>${tokenScope}</small></span><span class="entry-share">${escapeHtml(share)}<small>${hasContextContribution ? 'of selected context' : ''}</small></span><span class="badge ${statusClass}">${contextStatusLabel(entry.contextStatus)}</span></summary><div class="entry-expanded"><div class="entry-header"><h3 class="entry-title">${escapeHtml(role)} · ${escapeHtml(entry.entryId)}</h3><div class="badges"><span class="badge ${statusClass}">${contextStatusLabel(entry.contextStatus)}</span><span class="badge">${includedInContext ? 'In selected context' : 'Not in selected context'}</span></div></div><div class="entry-meta"><span>${escapeHtml(entry.timestamp)}</span>${entry.customType ? `<span>customType: ${escapeHtml(entry.customType)}</span>` : ''}</div><div class="entry-metrics"><span>Selected-context contribution: ${contextContribution}</span><span>Projected message estimate: ${tokenLabel(entry.messageAdditionTokens)}</span><span>Selected-context share: ${contextShare}</span></div>${renderEntryDetails(entry)}${emptyBody}</div></details>${nestedResultsHtml}</li>`
 }
 
 function renderConversationTab(
@@ -902,13 +749,12 @@ function renderConversationTab(
   runtimeContextUsage?: ContextUsage,
 ): string {
   const targets = createToolLinkTargets(analysis)
-  const requestsByResponse = new Map(analysis.requests.map((request) => [request.responseEntryId, request]))
-  const latestRequest = analysis.requests.at(-1)
-  const latestRequestTokensByEntry = new Map<string, number>()
-  for (const contribution of latestRequest?.contributions ?? []) {
+  const context = analysis.requests.at(-1)
+  const contextTokensByEntry = new Map<string, number>()
+  for (const contribution of context?.contributions ?? []) {
     if (!contribution.entryId) continue
-    const tokens = latestRequestTokensByEntry.get(contribution.entryId) ?? 0
-    latestRequestTokensByEntry.set(contribution.entryId, tokens + contribution.tokens)
+    const tokens = contextTokensByEntry.get(contribution.entryId) ?? 0
+    contextTokensByEntry.set(contribution.entryId, tokens + contribution.tokens)
   }
 
   const callEntryIndexes = new Map<string, number>()
@@ -951,28 +797,22 @@ function renderConversationTab(
   }
 
   const timeline: string[] = []
-  let previousLoadout = analysis.baseline.systemMessage
   for (const [entryIndex, entry] of analysis.entries.entries()) {
     if (nestedResultIndexes.has(entryIndex)) continue
-    const request = requestsByResponse.get(entry.entryId)
-    if (request?.loadoutMessage && !sameLoadout(previousLoadout, request.loadoutMessage))
-      timeline.push(renderLoadoutChange(request, analysis))
-    if (request?.loadoutMessage) previousLoadout = request.loadoutMessage
-
     const nestedResults = (nestedResultsByEntryIndex.get(entryIndex) ?? [])
       .sort((left, right) => left - right)
       .flatMap((nestedIndex) => {
         const nestedEntry = analysis.entries[nestedIndex]
         return nestedEntry ? [{ entry: nestedEntry, entryIndex: nestedIndex }] : []
       })
-    timeline.push(renderEntry(entry, entryIndex, analysis, targets, latestRequestTokensByEntry, nestedResults))
+    timeline.push(renderEntry(entry, entryIndex, analysis, targets, contextTokensByEntry, nestedResults))
   }
 
   const conversation = timeline.length
     ? `<ol class="timeline">${timeline.join('')}</ol>`
-    : '<p class="status-note">No selected-branch conversation entries are available.</p>'
+    : '<p class="status-note">No projected conversation messages are available for this endpoint.</p>'
 
-  return `<section id="conversation-panel" class="page" role="tabpanel" aria-labelledby="conversation-tab" tabindex="0"><h2>Latest request context</h2>${renderLatestRequestComposition(analysis, contextWindowTokens, runtimeContextUsage)}<h2>Selected branch conversation</h2><p class="subtle">Rows show each entry once. Tool results appear under their call. Shares use the latest request when an entry was included. Other entries show their one-time token estimate.</p>${conversation}</section>`
+  return `<section id="conversation-panel" class="page" role="tabpanel" aria-labelledby="conversation-tab" tabindex="0"><h2>Selected endpoint context</h2>${renderLatestRequestComposition(analysis, contextWindowTokens, runtimeContextUsage)}<h2>Projected messages</h2><p class="subtle">Rows show only model-ready messages in the selected endpoint projection. Context edits are applied. Entries omitted from the projection are not shown. Tool results appear under their call.</p>${conversation}</section>`
 }
 
 function renderMetricCard(label: string, value: string, note: string): string {
@@ -985,7 +825,7 @@ function renderLatestRequestComposition(
   runtimeContextUsage?: ContextUsage,
 ): string {
   const request = analysis.requests.at(-1)
-  if (!request) return '<p class="status-note">No model request is available for this session.</p>'
+  if (!request) return '<p class="status-note">No selected endpoint context is available for this session.</p>'
 
   const tokensByGroup = new Map<keyof SessionAnalysis['sourceGroups'], number>()
   for (const group of sourceGroupDescriptions) tokensByGroup.set(group.key, 0)
@@ -996,7 +836,7 @@ function renderLatestRequestComposition(
 
   const groupTotal = sourceGroupDescriptions.reduce((sum, group) => sum + (tokensByGroup.get(group.key) ?? 0), 0)
   const totalTokens = request.footprintTokens ?? groupTotal
-  if (totalTokens <= 0) return '<p class="status-note">No token estimates are available for the latest request.</p>'
+  if (totalTokens <= 0) return '<p class="status-note">No token estimates are available for the selected context.</p>'
 
   const runtimeContextWindow =
     runtimeContextUsage && Number.isFinite(runtimeContextUsage.contextWindow) && runtimeContextUsage.contextWindow > 0
@@ -1030,16 +870,16 @@ function renderLatestRequestComposition(
       : ''
   const reconstructionNote =
     piContextPercent === undefined
-      ? '<p class="subtle">Source shares use the reconstructed request estimate.</p>'
+      ? '<p class="subtle">Source shares use the selected-context estimate.</p>'
       : contextWindowPercent === undefined
-        ? '<p class="subtle">The reconstructed request estimate is unavailable. Source shares use known input tokens.</p>'
-        : `<p class="subtle">Reconstructed request estimate: ${tokenLabel(request.footprintTokens)} · ${formatPercent(contextWindowPercent)} of ${formatTokens(validContextWindow ?? 0)} tokens. Source shares use this estimate.</p>`
+        ? '<p class="subtle">The selected-context estimate is unavailable. Source shares use known contributions.</p>'
+        : `<p class="subtle">Selected-context estimate: ${tokenLabel(request.footprintTokens)} · ${formatPercent(contextWindowPercent)} of ${formatTokens(validContextWindow ?? 0)} tokens. Source shares use this estimate.</p>`
   const contextWarnings = [
     piContextPercent !== undefined && piContextPercent > 100
       ? '<p class="status-note">Pi context estimate exceeds the model context window.</p>'
       : '',
     contextWindowPercent !== undefined && contextWindowPercent > 100
-      ? `<p class="status-note">${piContextPercent === undefined ? 'The request estimate exceeds the model context window.' : 'The reconstructed request estimate exceeds the model context window.'}</p>`
+      ? '<p class="status-note">The selected-context estimate exceeds the model context window.</p>'
       : '',
   ].join('')
   const windowUsage =
@@ -1076,34 +916,28 @@ function renderLatestRequestComposition(
   const totalLabel =
     request.footprintTokens === null ? `${tokenLabel(totalTokens)} known tokens` : tokenLabel(request.footprintTokens)
   const scopeLabel =
-    request.footprintTokens === null ? 'Known input breakdown' : `Request ${request.index} input breakdown`
+    request.footprintTokens === null ? 'Known selected-context breakdown' : 'Selected context breakdown'
   const status =
     request.footprintTokens === null
-      ? '<p class="subtle">The full request footprint is unavailable. Shares use the known input tokens.</p>'
-      : '<p class="subtle">Shares use the estimated input sent before the latest assistant response.</p>'
+      ? '<p class="subtle">The full selected-context estimate is unavailable. Shares use known contributions.</p>'
+      : '<p class="subtle">Shares use the selected endpoint projection, including its assistant response when present.</p>'
 
   return `<section class="request-composition" aria-labelledby="request-composition-title"><div class="request-composition-heading"><div><h3 id="request-composition-title">${scopeLabel}</h3>${status}</div><strong>${totalLabel}</strong></div>${windowUsage}<div class="request-composition-bar" role="img" aria-label="${escapeHtml(ariaLabel)}">${segments}</div><ul class="chart-legend request-composition-legend">${legend}</ul></section>`
 }
 
 function renderOverview(analysis: SessionAnalysis): string {
-  const exposure =
+  const contextEstimate =
     analysis.requestExposure.tokens === null
       ? `${formatTokens(analysis.requestExposure.knownTokens)} known tokens · incomplete`
       : tokenLabel(analysis.requestExposure.tokens)
-  return `<div class="metrics-grid">${renderMetricCard('Empty-history loadout estimate', tokenLabel(analysis.baseline.tokens), analysis.baseline.available ? analysis.baseline.source : 'Baseline unavailable')}${renderMetricCard('Latest request footprint', tokenLabel(analysis.latestRequestFootprintTokens), 'Estimated loadout plus projected conversation')}${renderMetricCard('Reconstructed requests', formatTokens(analysis.requestCount), 'One snapshot before each assistant response')}${renderMetricCard('Estimated tokens across all requests', exposure, 'Repeated context is counted again on each request')}${renderMetricCard('One-time message additions', tokenLabel(analysis.oneTimeMessageAdditionsTokens), 'Each selected-branch entry counted once')}</div>`
+  return `<div class="metrics-grid">${renderMetricCard('Current system-snapshot estimate', tokenLabel(analysis.baseline.tokens), analysis.baseline.available ? analysis.baseline.source : 'Snapshot unavailable')}${renderMetricCard('Selected-context estimate', contextEstimate, 'Projected system and conversation content counted once')}${renderMetricCard('Projected conversation estimate', tokenLabel(analysis.oneTimeMessageAdditionsTokens), 'Selected-context messages counted once')}</div>`
 }
 
 function renderProviderUsage(analysis: SessionAnalysis): string {
-  const rows = analysis.requests
-    .filter((request) => request.providerUsage !== undefined)
-    .map((request) => {
-      const usage = request.providerUsage
-      if (!usage) return ''
-      return `<tr><td>Request ${request.index}</td><td>${escapeHtml(request.model ?? 'Unknown model')}</td><td class="number">${formatTokens(usage.input)} input tokens</td><td class="number">${formatTokens(usage.output)} output tokens</td><td class="number">${formatTokens(usage.cacheRead)} cache-read tokens</td><td class="number">${formatTokens(usage.cacheWrite)} cache-write tokens</td><td class="number">${formatTokens(usage.totalTokens)} total tokens</td></tr>`
-    })
-    .join('')
-  if (!rows) return '<p class="status-note">No assistant response contains provider-reported Usage.</p>'
-  return `<div class="table-wrap"><table class="provider-table"><thead><tr><th>Request</th><th>Model</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache write</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table></div>`
+  const context = analysis.requests.at(-1)
+  const usage = context?.providerUsage
+  if (!usage) return '<p class="status-note">The endpoint response has no provider-reported Usage.</p>'
+  return `<div class="table-wrap"><table class="provider-table"><thead><tr><th>Endpoint response</th><th>Model</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache write</th><th>Total</th></tr></thead><tbody><tr><td>${escapeHtml(context.responseEntryId)}</td><td>${escapeHtml(context.model ?? 'Unknown model')}</td><td class="number">${formatTokens(usage.input)} input tokens</td><td class="number">${formatTokens(usage.output)} output tokens</td><td class="number">${formatTokens(usage.cacheRead)} cache-read tokens</td><td class="number">${formatTokens(usage.cacheWrite)} cache-write tokens</td><td class="number">${formatTokens(usage.totalTokens)} total tokens</td></tr></tbody></table></div>`
 }
 
 function renderDonut(analysis: SessionAnalysis): string {
@@ -1125,18 +959,17 @@ function renderDonut(analysis: SessionAnalysis): string {
       return segment
     })
     .join('')
-  const denominator = total
   const legend = values
     .map((group) => {
-      const share = denominator > 0 ? (group.tokens / denominator) * 100 : 0
+      const share = total > 0 ? (group.tokens / total) * 100 : 0
       return `<li><span class="legend-label"><span class="swatch" style="background:${group.color}"></span>${escapeHtml(group.label)}</span><span class="legend-value">${tokenLabel(group.tokens)} · ${formatPercent(share)}</span></li>`
     })
     .join('')
   const note = analysis.requestExposure.complete
-    ? 'Repeated context is counted again for each request.'
-    : 'The chart shows known contributions only. The across-request estimate is incomplete.'
+    ? 'Each projected message is counted once in the selected context.'
+    : 'The chart shows known selected-context contributions. The full estimate is incomplete.'
 
-  return `<div class="chart-layout"><svg class="donut" viewBox="0 0 160 160" role="img" aria-labelledby="exposure-chart-title exposure-chart-description"><title id="exposure-chart-title">Estimated request-context tokens by source group</title><desc id="exposure-chart-description">${escapeHtml(note)}</desc><circle cx="80" cy="80" r="58" fill="none" stroke="#354552" stroke-width="22"/>${segments}<text x="80" y="76" text-anchor="middle" fill="#e8eef3" font-size="15">${escapeHtml(formatTokens(total))}</text><text x="80" y="96" text-anchor="middle" fill="#a6b3bf" font-size="10">${analysis.requestExposure.complete ? 'estimated tokens' : 'known tokens'}</text></svg><div><p class="subtle">${escapeHtml(note)}</p><ul class="chart-legend">${legend}</ul></div></div>`
+  return `<div class="chart-layout"><svg class="donut" viewBox="0 0 160 160" role="img" aria-labelledby="exposure-chart-title exposure-chart-description"><title id="exposure-chart-title">Estimated selected-context tokens by source group</title><desc id="exposure-chart-description">${escapeHtml(note)}</desc><circle cx="80" cy="80" r="58" fill="none" stroke="#354552" stroke-width="22"/>${segments}<text x="80" y="76" text-anchor="middle" fill="#e8eef3" font-size="15">${escapeHtml(formatTokens(total))}</text><text x="80" y="96" text-anchor="middle" fill="#a6b3bf" font-size="10">${analysis.requestExposure.complete ? 'estimated tokens' : 'known tokens'}</text></svg><div><p class="subtle">${escapeHtml(note)}</p><ul class="chart-legend">${legend}</ul></div></div>`
 }
 
 function largestValue<T>(items: readonly T[], getValue: (item: T) => number): number {
@@ -1148,14 +981,14 @@ function largestClass(value: number, largest: number): string {
 }
 
 function renderToolTable(analysis: SessionAnalysis, targets: ToolLinkTargets): string {
-  const sharedExposure = `<p class="subtle">Shared or unattributed tool context: ${tokenLabel(analysis.sharedToolContextExposureTokens)} estimated across the selected branch. This amount is separate from per-tool totals.</p>`
+  const sharedExposure = `<p class="subtle">Shared or unattributed tool context: ${tokenLabel(analysis.sharedToolContextExposureTokens)} estimated in the selected context. This amount is separate from per-tool totals.</p>`
   const incompleteExposure = analysis.requestExposure.complete
     ? ''
-    : '<p class="status-note">Some request loadouts are unavailable, so cumulative tool exposure may be incomplete.</p>'
+    : '<p class="status-note">The selected-context estimate may be incomplete because the system snapshot is unavailable.</p>'
   if (analysis.tools.length === 0)
-    return `<p class="status-note">No tool definitions or tool interactions appear on this branch.</p>${sharedExposure}${incompleteExposure}`
+    return `<p class="status-note">No tool definitions or tool interactions appear in the selected context.</p>${sharedExposure}${incompleteExposure}`
 
-  const initialCosts = analysis.tools.map((tool) => {
+  const systemSnapshotCosts = analysis.tools.map((tool) => {
     const contributions = analysis.baseline.contributions.filter((item) => item.toolName === tool.name)
     const definitions = contributions.filter((item) => item.kind === 'tool-definition')
     const prompts = contributions.filter((item) => item.kind === 'tool-prompt')
@@ -1166,70 +999,74 @@ function renderToolTable(analysis: SessionAnalysis, targets: ToolLinkTargets): s
       totalTokens: sumTokens([...definitions, ...prompts]),
       hasDefinition: definitions.length > 0,
       hasPrompt: prompts.length > 0,
-      hasInitialCost: definitions.length > 0 || prompts.length > 0,
+      hasSnapshotCost: definitions.length > 0 || prompts.length > 0,
     }
   })
-  const maxExposure = largestValue(analysis.tools, (tool) => tool.estimatedContextExposureTokens)
-  const maxArguments = largestValue(analysis.tools, (tool) => tool.estimatedArgumentExposureTokens)
-  const maxResults = largestValue(analysis.tools, (tool) => tool.estimatedResultExposureTokens)
-  const rows = initialCosts
-    .map(({ tool, definitionTokens, promptTokens, totalTokens, hasDefinition, hasPrompt, hasInitialCost }, index) => {
+  const maxSnapshotCost = largestValue(systemSnapshotCosts, (item) => item.totalTokens)
+  const maxArguments = largestValue(analysis.tools, (tool) => tool.argumentTokens)
+  const maxResults = largestValue(analysis.tools, (tool) => tool.totalResultTokens)
+  const exposureNote =
+    analysis.requests.length === 0
+      ? '<p class="subtle">No model-ready conversation entries are available. The system-snapshot estimate covers tool definitions and prompt guidance. It is not included in the invocation total.</p>'
+      : '<p class="subtle">The invocation total adds each listed call and result once. It excludes tool definitions and prompt guidance. Expanded details show their estimated contribution to the selected context.</p>'
+  const rows = systemSnapshotCosts
+    .map(({ tool, definitionTokens, promptTokens, totalTokens, hasDefinition, hasPrompt, hasSnapshotCost }, index) => {
       const toolCalls = analysis.toolInvocations.filter(
         (invocation) => invocation.toolName === tool.name && invocation.callEntryId,
       )
       const successfulCalls = toolCalls.filter((invocation) => invocation.isError === false).length
       const failedCalls = toolCalls.filter((invocation) => invocation.isError === true).length
       const noResultCalls = toolCalls.filter((invocation) => invocation.isError === null).length
-      const initialDefinition = !analysis.baseline.available
+      const snapshotDefinition = !analysis.baseline.available
         ? 'Unavailable'
         : hasDefinition
           ? tokenLabel(definitionTokens)
-          : 'Not in first request'
-      const initialPrompt = !analysis.baseline.available
+          : 'Not in current system snapshot'
+      const snapshotPrompt = !analysis.baseline.available
         ? 'Unavailable'
         : hasPrompt
           ? tokenLabel(promptTokens)
-          : 'Not in first request'
-      const initialCost = !analysis.baseline.available
+          : 'Not in current system snapshot'
+      const snapshotCost = !analysis.baseline.available
         ? 'Unavailable'
-        : hasInitialCost
+        : hasSnapshotCost
           ? tokenLabel(totalTokens)
-          : 'Not in first request'
-      return `<details class="tool-card" id="tool-card-${index}"><summary class="tool-card-summary"><span class="disclosure-glyph" aria-hidden="true">›</span><span class="tool-card-name">${escapeHtml(tool.name)}</span><span class="tool-card-static"><small>Cumulative estimated context exposure across selected branch</small><strong class="${largestClass(tool.estimatedContextExposureTokens, maxExposure)}">${tokenLabel(tool.estimatedContextExposureTokens)}</strong><small>Definition ${tokenLabel(tool.estimatedDefinitionExposureTokens)} · prompt ${tokenLabel(tool.estimatedPromptExposureTokens)}</small><small>Initial tool-specific estimate ${initialCost}</small></span><span class="tool-card-dynamic"><small>Estimated call and result exposure</small><strong class="${largestClass(tool.estimatedArgumentExposureTokens, maxArguments)}">Arguments ${tokenLabel(tool.estimatedArgumentExposureTokens)}</strong><small class="${largestClass(tool.estimatedResultExposureTokens, maxResults)}">Results ${tokenLabel(tool.estimatedResultExposureTokens)}</small></span><span class="tool-card-outcomes"><small>${formatTokens(tool.callCount)} calls</small><strong>${formatTokens(successfulCalls)} success · ${formatTokens(failedCalls)} failed</strong><small>${formatTokens(noResultCalls)} with no result</small></span></summary><div class="tool-card-expanded">${renderToolContextDetails(analysis, tool.name)}<dl class="tool-total-metrics"><div><dt>Estimated context exposure across selected branch</dt><dd>${tokenLabel(tool.estimatedContextExposureTokens)}</dd></div><div><dt>Estimated definition exposure</dt><dd>${tokenLabel(tool.estimatedDefinitionExposureTokens)}</dd></div><div><dt>Estimated prompt guidance and examples exposure</dt><dd>${tokenLabel(tool.estimatedPromptExposureTokens)}</dd></div><div><dt>Estimated call-argument exposure</dt><dd>${tokenLabel(tool.estimatedArgumentExposureTokens)}</dd></div><div><dt>Estimated tool-result exposure</dt><dd>${tokenLabel(tool.estimatedResultExposureTokens)}</dd></div><div><dt>Initial definition estimate</dt><dd>${initialDefinition}</dd></div><div><dt>Initial prompt estimate</dt><dd>${initialPrompt}</dd></div><div><dt>Initial tool-specific estimate</dt><dd>${initialCost}</dd></div></dl><h4>Invocation timeline</h4>${renderToolInvocationTable(analysis, targets, tool.name)}</div></details>`
+          : 'Not in current system snapshot'
+      return `<details class="tool-card" id="tool-card-${index}"><summary class="tool-card-summary"><span class="disclosure-glyph" aria-hidden="true">›</span><span class="tool-card-name">${escapeHtml(tool.name)}</span><span class="tool-card-static"><small>Baseline token spend (system snapshot)</small><strong class="${largestClass(totalTokens, maxSnapshotCost)}">${snapshotCost}</strong><small>Estimated invocation total from listed calls · ${tokenLabel(tool.oneTimeInteractionTokens)}</small></span><span class="tool-card-dynamic"><small>Invocation sizes, counted once</small><strong class="${largestClass(tool.argumentTokens, maxArguments)}">Arguments ${tokenLabel(tool.argumentTokens)}</strong><small class="${largestClass(tool.totalResultTokens, maxResults)}">Results ${tokenLabel(tool.totalResultTokens)}</small></span><span class="tool-card-outcomes"><small>${formatTokens(tool.callCount)} calls</small><strong>${formatTokens(successfulCalls)} success · ${formatTokens(failedCalls)} failed</strong><small>${formatTokens(noResultCalls)} with no result</small></span></summary><div class="tool-card-expanded">${renderToolContextDetails(analysis, tool.name)}<dl class="tool-total-metrics"><div><dt>Estimated invocation total from listed calls</dt><dd>${tokenLabel(tool.oneTimeInteractionTokens)}</dd></div><div><dt>Estimated current-context exposure</dt><dd>${tokenLabel(tool.estimatedContextExposureTokens)}</dd></div><div><dt>Estimated definition exposure in current context</dt><dd>${tokenLabel(tool.estimatedDefinitionExposureTokens)}</dd></div><div><dt>Estimated prompt guidance and examples in current context</dt><dd>${tokenLabel(tool.estimatedPromptExposureTokens)}</dd></div><div><dt>Estimated call-argument exposure</dt><dd>${tokenLabel(tool.estimatedArgumentExposureTokens)}</dd></div><div><dt>Estimated tool-result exposure</dt><dd>${tokenLabel(tool.estimatedResultExposureTokens)}</dd></div><div><dt>Current system-snapshot definition estimate</dt><dd>${snapshotDefinition}</dd></div><div><dt>Current system-snapshot prompt estimate</dt><dd>${snapshotPrompt}</dd></div><div><dt>Current system-snapshot tool estimate</dt><dd>${snapshotCost}</dd></div></dl><h4>Invocation timeline</h4>${renderToolInvocationTable(analysis, targets, tool.name)}</div></details>`
     })
     .join('')
 
-  return `<div class="tool-list">${rows}</div>${sharedExposure}${incompleteExposure}`
+  return `${exposureNote}<div class="tool-list">${rows}</div>${sharedExposure}${incompleteExposure}`
 }
 
 function renderPromptSectionTable(analysis: SessionAnalysis): string {
   if (analysis.promptSections.length === 0)
-    return '<p class="status-note">No prompt sections or instruction files are available for the first request.</p>'
-  const initialSections = analysis.promptSections
+    return '<p class="status-note">No prompt sections or instruction files are available in the selected context.</p>'
+  const currentSections = analysis.promptSections
     .map((section) => ({
       section,
       contributions: analysis.baseline.contributions.filter((item) => item.id === section.id),
       tokens: sumTokens(analysis.baseline.contributions.filter((item) => item.id === section.id)),
     }))
     .sort((left, right) => right.tokens - left.tokens || left.section.label.localeCompare(right.section.label))
-  const maxInitial = largestValue(initialSections, (item) => item.tokens)
-  const latestFootprint = analysis.latestRequestFootprintTokens ?? 0
-  const rows = initialSections
+  const maxCurrent = largestValue(currentSections, (item) => item.tokens)
+  const currentFootprint = analysis.latestRequestFootprintTokens ?? 0
+  const rows = currentSections
     .map(({ section, contributions, tokens }) => {
-      const latestShare =
-        section.latestRequestTokens > 0 && latestFootprint > 0
-          ? (section.latestRequestTokens / latestFootprint) * 100
+      const currentShare =
+        section.latestRequestTokens > 0 && currentFootprint > 0
+          ? (section.latestRequestTokens / currentFootprint) * 100
           : null
-      const initialTokens = !analysis.baseline.available
+      const currentSnapshotTokens = !analysis.baseline.available
         ? 'Unavailable'
         : contributions.length > 0
           ? tokenLabel(tokens)
-          : 'Not in first request'
-      const initialClass = contributions.length > 0 ? largestClass(tokens, maxInitial) : ''
-      return `<tr><th scope="row">${escapeHtml(section.label)}${section.source ? `<span class="subtle"><br>${escapeHtml(section.source)}</span>` : ''}</th><td>${escapeHtml(section.kind)}</td><td class="number ${initialClass}">${initialTokens}</td><td class="number">${tokenLabel(section.latestRequestTokens)}</td><td class="number">${formatPercent(latestShare)}</td></tr>`
+          : 'Not in current system snapshot'
+      const currentClass = contributions.length > 0 ? largestClass(tokens, maxCurrent) : ''
+      return `<tr><th scope="row">${escapeHtml(section.label)}${section.source ? `<span class="subtle"><br>${escapeHtml(section.source)}</span>` : ''}</th><td>${escapeHtml(section.kind)}</td><td class="number ${currentClass}">${currentSnapshotTokens}</td><td class="number">${tokenLabel(section.latestRequestTokens)}</td><td class="number">${formatPercent(currentShare)}</td></tr>`
     })
     .join('')
-  return `<div class="table-wrap"><table><thead><tr><th>Prompt section or source</th><th>Type</th><th>Initial loadout tokens</th><th>Latest request tokens</th><th>Latest request share</th></tr></thead><tbody>${rows}</tbody></table></div>`
+  return `<div class="table-wrap"><table><thead><tr><th>Prompt section or source</th><th>Type</th><th>Current system-snapshot tokens</th><th>Selected-context tokens</th><th>Selected-context share</th></tr></thead><tbody>${rows}</tbody></table></div>`
 }
 
 function renderWarnings(analysis: SessionAnalysis): string {
@@ -1241,7 +1078,7 @@ function renderToolInvocationTable(analysis: SessionAnalysis, targets: ToolLinkT
   const entriesById = new Map(analysis.entries.map((entry, index) => [entry.entryId, { entry, index }]))
   const invocations = analysis.toolInvocations.filter((invocation) => invocation.toolName === toolName)
   if (invocations.length === 0)
-    return `<p class="status-note">${escapeHtml(toolName)} was available but no invocation was recorded on this branch.</p>`
+    return `<p class="status-note">${escapeHtml(toolName)} has no invocation in the selected context.</p>`
 
   const chronologicalInvocations = [...invocations].sort((left, right) => {
     const leftEntry = entriesById.get(left.callEntryId ?? '') ?? entriesById.get(left.resultEntryId ?? '')
@@ -1255,11 +1092,11 @@ function renderToolInvocationTable(analysis: SessionAnalysis, targets: ToolLinkT
       const callEntry = entriesById.get(invocation.callEntryId ?? '')?.entry
       const resultEntry = entriesById.get(invocation.resultEntryId ?? '')?.entry
       const timestamp = callEntry?.timestamp ?? resultEntry?.timestamp ?? 'Timestamp unavailable'
-      const callBlock = callEntry?.rawMessages
+      const callBlock = callEntry?.effectiveMessages
         .filter((message) => message.role === 'assistant')
         .flatMap((message) => getContentBlocks(message.content))
         .find((block) => block.type === 'toolCall' && block.id === invocation.toolCallId)
-      const resultMessage = resultEntry?.rawMessages.find(
+      const resultMessage = resultEntry?.effectiveMessages.find(
         (message) => message.role === 'toolResult' && message.toolCallId === invocation.toolCallId,
       )
       const status = invocation.isError === null ? 'No result' : invocation.isError ? 'Failed' : 'Success'
@@ -1271,52 +1108,28 @@ function renderToolInvocationTable(analysis: SessionAnalysis, targets: ToolLinkT
       const resultLink = resultTarget
         ? `<a href="#${escapeHtml(resultTarget)}">Open tool result</a>`
         : '<span class="muted">No saved result</span>'
-      const requestImpacts = analysis.requests
-        .map((request) => {
-          const contributions = request.contributions.filter(
-            (item) =>
-              item.toolName === toolName &&
-              item.toolCallId === invocation.toolCallId &&
-              (item.kind === 'tool-call' || item.kind === 'tool-result'),
-          )
-          return {
-            request,
-            contributions,
-            argumentTokens: sumTokens(contributions.filter((item) => item.kind === 'tool-call')),
-            resultTokens: sumTokens(contributions.filter((item) => item.kind === 'tool-result')),
-          }
-        })
-        .filter((impact) => impact.contributions.length > 0)
-      const exposureTokens = requestImpacts.reduce(
-        (total, impact) => total + impact.argumentTokens + impact.resultTokens,
-        0,
-      )
-      const exposureRows = requestImpacts
-        .map((impact) => {
-          const requestTokens = impact.argumentTokens + impact.resultTokens
-          return `<li>Request ${formatTokens(impact.request.index)} · ${escapeHtml(impact.request.timestamp)} · arguments ${tokenLabel(impact.argumentTokens)} · results ${tokenLabel(impact.resultTokens)} · ${tokenLabel(requestTokens)} estimated</li>`
-        })
-        .join('')
-      const requestExposure =
-        requestImpacts.length === 0
-          ? '<p class="muted">No saved request included this call or result.</p>'
-          : `<details class="invocation-request-impact"><summary>Estimated exposure across ${formatTokens(requestImpacts.length)} ${requestImpacts.length === 1 ? 'request' : 'requests'} · ${tokenLabel(exposureTokens)}</summary><ol>${exposureRows}</ol></details>`
+      const contextImpact = `<p class="subtle">Selected-context interaction estimate: ${tokenLabel(invocation.latestRequestTokens)}</p>`
       const argumentsContent = callBlock
         ? `<section class="invocation-content"><h5>Arguments</h5><pre>${escapeHtml(jsonText(callBlock.arguments))}</pre></section>`
         : '<p class="muted">No saved arguments are available.</p>'
       const resultContent = resultMessage
         ? `<section class="invocation-content"><h5>Result text</h5>${renderPromptContent(resultMessage.content)}</section>`
         : '<p class="muted">No saved result text is available.</p>'
-      return `<li class="invocation-node"><details class="invocation-row"><summary class="invocation-summary"><span class="disclosure-glyph" aria-hidden="true">›</span><time>${escapeHtml(timestamp)}</time><span class="outcome ${statusClass}">${status}</span><span class="invocation-token-summary"><span>Call estimate</span> ${tokenLabel(invocation.argumentTokens)} <span>Result estimate</span> ${tokenLabel(invocation.resultTokens)}</span></summary><div class="invocation-expanded"><dl class="invocation-metrics"><div><dt>Call ID</dt><dd><code>${escapeHtml(invocation.toolCallId)}</code></dd></div><div><dt>Call text estimate</dt><dd>${tokenLabel(invocation.argumentTokens)}</dd></div><div><dt>Result text estimate</dt><dd>${tokenLabel(invocation.resultTokens)}</dd></div><div><dt>Outcome</dt><dd>${status}</dd></div></dl>${argumentsContent}${resultContent}${requestExposure}<div class="tool-invocation-links"><span>Conversation content</span>${callLink}${resultLink}</div></div></details></li>`
+      return `<li class="invocation-node"><details class="invocation-row"><summary class="invocation-summary"><span class="disclosure-glyph" aria-hidden="true">›</span><time>${escapeHtml(timestamp)}</time><span class="outcome ${statusClass}">${status}</span><span class="invocation-token-summary"><span>Call estimate</span> ${tokenLabel(invocation.argumentTokens)} <span>Result estimate</span> ${tokenLabel(invocation.resultTokens)}</span></summary><div class="invocation-expanded"><dl class="invocation-metrics"><div><dt>Call ID</dt><dd><code>${escapeHtml(invocation.toolCallId)}</code></dd></div><div><dt>Call text estimate</dt><dd>${tokenLabel(invocation.argumentTokens)}</dd></div><div><dt>Result text estimate</dt><dd>${tokenLabel(invocation.resultTokens)}</dd></div><div><dt>Outcome</dt><dd>${status}</dd></div></dl>${argumentsContent}${resultContent}${contextImpact}<div class="tool-invocation-links"><span>Selected-context content</span>${callLink}${resultLink}</div></div></details></li>`
     })
     .join('')
 
-  return `<ol class="invocation-timeline" aria-label="${escapeHtml(toolName)} invocation timeline">${rows}</ol>`
+  return `<ol class="invocation-timeline" aria-label="${escapeHtml(toolName)} invocations in selected context">${rows}</ol>`
 }
 
 function renderStatisticsTab(analysis: SessionAnalysis): string {
   const targets = createToolLinkTargets(analysis)
-  return `<section id="statistics-panel" class="page" role="tabpanel" aria-labelledby="statistics-tab" tabindex="0" hidden><h2>Tool context exposure and activity</h2><p class="subtle">Per-tool totals add attributed contributions from every request across the selected branch. Repeated content adds exposure each time. Shared or unattributed tool text stays separate. These values are estimates, not provider billing or exact tokenizer counts.</p><div class="section-heading"><h3>Initial loadout sources</h3><span class="subtle">First request · estimated tokens</span></div><p class="subtle">Expand a source to inspect the system prompt or tool guidance and examples behind its estimate.</p>${renderSystemSnapshot(analysis.baseline.systemMessage, analysis, analysis.baseline.contributions, false)}<div class="section-heading"><h3>Available tools</h3><span class="subtle">Estimated exposure across selected branch</span></div>${renderToolTable(analysis, targets)}<details class="advanced-estimates"><summary>Other session estimates</summary><h2>Session estimates</h2><p class="subtle">Token estimates use Pi's estimator and character-based loadout method. Provider Usage is separate.</p>${renderOverview(analysis)}<h2>Estimated request-context tokens by source group</h2>${renderDonut(analysis)}<div class="section-heading"><h2>Prompt sections and instruction files</h2><span class="subtle">Sorted by initial loadout cost</span></div>${renderPromptSectionTable(analysis)}<h2>Provider-reported usage</h2><p class="subtle">These values come from assistant message Usage. They are not source-level estimates.</p>${renderProviderUsage(analysis)}${renderWarnings(analysis)}</details></section>`
+  const context = analysis.requests.at(-1)
+  const systemMessage = context?.loadoutMessage ?? analysis.baseline.systemMessage
+  const loadoutContributions =
+    context?.contributions.filter((contribution) => contribution.entryId === undefined) ??
+    analysis.baseline.contributions
+  return `<section id="statistics-panel" class="page" role="tabpanel" aria-labelledby="statistics-tab" tabindex="0" hidden><h2>Current context estimates</h2><p class="subtle">These estimates cover the selected endpoint projection. They exclude earlier, out-of-context branch history. Each projected message and tool interaction is counted once. The values are estimates, not provider billing or exact tokenizer counts.</p><div class="section-heading"><h3>Current system snapshot</h3><span class="subtle">Estimated tokens</span></div><p class="subtle">Expand a source to inspect the system prompt or tool guidance and examples in the selected context.</p>${renderSystemSnapshot(systemMessage, analysis, loadoutContributions, false)}<div class="section-heading"><h3>Tools in selected context</h3><span class="subtle">Current-context estimates</span></div>${renderToolTable(analysis, targets)}<details class="advanced-estimates"><summary>Source breakdown</summary><h2>Selected-context estimates</h2><p class="subtle">Token estimates use Pi's estimator and its character-based loadout method. Provider Usage is separate.</p>${renderOverview(analysis)}<h2>Estimated selected-context tokens by source group</h2>${renderDonut(analysis)}<div class="section-heading"><h2>Prompt sections and instruction files</h2><span class="subtle">Sorted by current system-snapshot cost</span></div>${renderPromptSectionTable(analysis)}<h2>Provider-reported usage for the endpoint response</h2><p class="subtle">These values come from the selected endpoint assistant response. They are not source-level estimates.</p>${renderProviderUsage(analysis)}${renderWarnings(analysis)}</details></section>`
 }
 
 function renderMetadata(analysis: SessionAnalysis): string {
@@ -1330,7 +1143,7 @@ function renderTabControls(): string {
 }
 
 function renderHeader(analysis: SessionAnalysis): string {
-  return `<header><p class="eyebrow">Pi Inspect</p><h1>Context estimates</h1>${renderMetadata(analysis)}<p class="warning" role="note">This local report contains the selected branch's full conversation, including tool arguments, tool results, and prompt text. Treat this file as sensitive.</p></header>`
+  return `<header><p class="eyebrow">Pi Inspect</p><h1>Context estimates</h1>${renderMetadata(analysis)}</header>`
 }
 
 function renderReportDocument(
@@ -1338,7 +1151,7 @@ function renderReportDocument(
   contextWindowTokens?: number,
   runtimeContextUsage?: ContextUsage,
 ): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Pi Inspect · ${escapeHtml(analysis.sessionId)}</title><style>${reportStyles}</style></head><body><a class="skip-link" href="#main-content">Skip to report content</a>${renderHeader(analysis)}${renderTabControls()}<main id="main-content" tabindex="-1">${renderConversationTab(analysis, contextWindowTokens, runtimeContextUsage)}${renderStatisticsTab(analysis)}</main><footer><p>All source breakdown values are estimates. The report-wide total repeats context tokens across requests and is not provider billing or a count of unique session tokens.</p></footer><script>${reportScript}</script></body></html>`
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Pi Inspect · ${escapeHtml(analysis.sessionId)}</title><style>${reportStyles}</style></head><body><a class="skip-link" href="#main-content">Skip to report content</a>${renderHeader(analysis)}${renderTabControls()}<main id="main-content" tabindex="-1">${renderConversationTab(analysis, contextWindowTokens, runtimeContextUsage)}${renderStatisticsTab(analysis)}</main><footer><p>Source breakdown values are estimates for the selected endpoint projection. The total is not provider billing or an exact tokenizer count.</p></footer><script>${reportScript}</script></body></html>`
 }
 
 /** Renders a self-contained HTML report and escapes all session and prompt text. */

@@ -10,7 +10,7 @@ const sessionJsonl = [
   '{"type":"message","id":"00000003","parentId":"00000001","timestamp":"2026-01-01T00:00:03.000Z","message":{"role":"user","content":"right","timestamp":1767225603000}}',
 ].join('\n')
 
-test('should select the active session branch given an existing alternate branch', () => {
+test('should select the current session projection given an existing alternate branch', () => {
   //given
   const manager = SessionManager.inMemory('/project')
   const rootId = manager.appendMessage({ role: 'user', content: 'root', timestamp: 1 })
@@ -22,10 +22,9 @@ test('should select the active session branch given an existing alternate branch
   const session = selectCurrentSession(manager)
 
   //then
+  assert.equal(session.branch, undefined)
   assert.deepEqual(
-    session.branch.map((entry) =>
-      entry.type === 'message' && entry.message.role === 'user' ? entry.message.content : null,
-    ),
+    session.projection.messages.map((message) => (message.role === 'user' ? message.content : null)),
     ['root', 'right'],
   )
   assert.equal(session.source, 'current')
@@ -39,8 +38,10 @@ test('should select the last entry branch given no explicit leaf', () => {
   const session = parseSavedSession(content)
 
   //then
+  const branch = session.branch
+  assert.ok(branch)
   assert.deepEqual(
-    session.branch.map((entry) => entry.id),
+    branch.map((entry) => entry.id),
     ['00000001', '00000003'],
   )
   assert.deepEqual(
@@ -57,8 +58,10 @@ test('should select the requested branch given an explicit leaf ID', () => {
   const session = parseSavedSession(content, '00000002')
 
   //then
+  const branch = session.branch
+  assert.ok(branch)
   assert.deepEqual(
-    session.branch.map((entry) => entry.id),
+    branch.map((entry) => entry.id),
     ['00000001', '00000002'],
   )
   assert.deepEqual(
@@ -111,13 +114,32 @@ test('should apply a context edit only to the projection given an edited message
   const session = parseSavedSession(content)
 
   //then
-  const original = session.branch[0]
+  const branch = session.branch
+  assert.ok(branch)
+  const original = branch[0]
   const projected = session.projection.messages[0]
   assert.equal(
     original?.type === 'message' && original.message.role === 'user' ? original.message.content : null,
     'original',
   )
   assert.equal(projected?.role === 'user' ? projected.content : null, 'replacement')
+})
+
+test('should reject a parent cycle given saved entries that form a cycle', () => {
+  const content = [
+    '{"type":"session","version":3,"id":"session-cycle","timestamp":"2026-01-01T00:00:00.000Z","cwd":"/project"}',
+    '{"type":"message","id":"00000021","parentId":"00000022","timestamp":"2026-01-01T00:00:01.000Z","message":{"role":"user","content":"first","timestamp":1767225601000}}',
+    '{"type":"message","id":"00000022","parentId":"00000021","timestamp":"2026-01-01T00:00:02.000Z","message":{"role":"user","content":"second","timestamp":1767225602000}}',
+  ].join('\n')
+  let error: unknown
+
+  try {
+    parseSavedSession(content)
+  } catch (cause) {
+    error = cause
+  }
+
+  assert.match(error instanceof Error ? error.message : '', /parent cycle at entry 00000022/)
 })
 
 test('should reject a broken parent chain given a selected orphan', () => {

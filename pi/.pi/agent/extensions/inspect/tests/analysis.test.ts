@@ -53,7 +53,7 @@ test('should use a current configuration baseline given a session without a save
   assert.equal(analysis.baseline.available, true)
   assert.equal(analysis.baseline.source, 'current-configuration')
   assert.equal(analysis.baseline.tokens, 1)
-  assert.equal(analysis.requests[0]?.footprintTokens, 2)
+  assert.equal(analysis.requests[0]?.footprintTokens, 4)
 })
 
 test('should report an unavailable baseline given a saved session without a system snapshot', () => {
@@ -94,7 +94,7 @@ test('should report an unavailable baseline given a saved session without a syst
   assert.equal(analysis.baseline.tokens, null)
   assert.equal(analysis.requests[0]?.footprintTokens, null)
   assert.equal(analysis.requestExposure.tokens, null)
-  assert.equal(analysis.sourceGroups.otherConversation, 1)
+  assert.equal(analysis.sourceGroups.otherConversation, 3)
 })
 
 test('should split identifiable current prompt sources given context files and tool snippets', () => {
@@ -122,7 +122,7 @@ test('should split identifiable current prompt sources given context files and t
   assert.equal(systemMessage.content, '')
 })
 
-test('should replay system patches and tool changes given two saved requests', () => {
+test('should use the latest system snapshot and tool configuration given two saved requests', () => {
   //given
   const shell = { name: 'shell', description: 'run shell', parameters: { type: 'object', required: ['command'] } }
   const grep = { name: 'grep', description: 'search files', parameters: { type: 'object', required: ['pattern'] } }
@@ -217,12 +217,18 @@ test('should replay system patches and tool changes given two saved requests', (
   const analysis = analyzeSession(session)
 
   //then
+  assert.equal(analysis.requests.length, 1)
   assert.equal(analysis.requests[0]?.loadoutTokens, analysis.baseline.tokens)
-  assert.notEqual(analysis.requests[0]?.loadoutTokens, analysis.requests[1]?.loadoutTokens)
-  assert.deepEqual(analysis.tools.map((tool) => tool.name).sort(), ['grep', 'read', 'shell'])
-  assert.equal(analysis.tools.find((tool) => tool.name === 'shell')?.description, 'run shell')
-  assert.deepEqual(analysis.tools.find((tool) => tool.name === 'read')?.parameterSchema, read.parameters)
-  assert.equal(analysis.entries.find((entry) => entry.entryId === '00000044')?.latestRequestIncluded, true)
+  assert.deepEqual(
+    analysis.tools.map((tool) => tool.name),
+    ['read'],
+  )
+  assert.deepEqual(analysis.tools[0]?.parameterSchema, read.parameters)
+  assert.equal(analysis.requests[0]?.inputEntryIds.includes('00000044'), true)
+  assert.equal(
+    analysis.entries.some((entry) => entry.entryId === '00000044'),
+    false,
+  )
   assert.ok(
     (analysis.promptSections.find((section) => section.id === 'prompt-section:preamble')?.latestRequestTokens ?? 0) > 0,
   )
@@ -233,7 +239,7 @@ test('should replay system patches and tool changes given two saved requests', (
   )
 })
 
-test('should count every request separately given repeated context messages', () => {
+test('should count the selected projection once given repeated context messages', () => {
   //given
   const session = parseSavedSession(
     serializeSession([
@@ -298,16 +304,13 @@ test('should count every request separately given repeated context messages', ()
 
   //then
   assert.equal(analysis.baseline.tokens, 1)
-  assert.equal(analysis.requests.length, 2)
-  assert.deepEqual(
-    analysis.requests.map((request) => request.footprintTokens),
-    [2, 4],
-  )
-  assert.equal(analysis.requestExposure.tokens, 6)
+  assert.equal(analysis.requests.length, 1)
+  assert.equal(analysis.requests[0]?.footprintTokens, 5)
+  assert.equal(analysis.requestExposure.tokens, 5)
   assert.equal(analysis.oneTimeMessageAdditionsTokens, 4)
-  assert.equal(analysis.requests[0]?.providerUsage?.input, 900)
+  assert.equal(analysis.requests[0]?.providerUsage?.input, 700)
   assert.notEqual(analysis.requests[0]?.providerUsage?.input, analysis.requests[0]?.footprintTokens)
-  assert.equal(analysis.sourceGroups.systemPromptAndInstructionFiles, 2)
+  assert.equal(analysis.sourceGroups.systemPromptAndInstructionFiles, 1)
   assert.equal(analysis.sourceGroups.otherConversation, 4)
   assert.equal(
     Object.values(analysis.sourceGroups).reduce((sum, tokens) => sum + tokens, 0),
@@ -315,7 +318,7 @@ test('should count every request separately given repeated context messages', ()
   )
 })
 
-test('should count tool calls only in later requests given a tool result', () => {
+test('should count projected tool calls and results once given a completed tool cycle', () => {
   //given
   const tool = { name: 'shell', description: 'run', parameters: { type: 'object' } }
   const session = parseSavedSession(
@@ -407,12 +410,9 @@ test('should count tool calls only in later requests given a tool result', () =>
   const html = renderContextMeteringReport(analysis)
 
   //then
+  assert.equal(analysis.requests.length, 1)
   assert.equal(
     analysis.requests[0]?.contributions.some((item) => item.entryId === '00000013'),
-    false,
-  )
-  assert.equal(
-    analysis.requests[1]?.contributions.some((item) => item.entryId === '00000013'),
     true,
   )
   assert.equal(analysis.sourceGroups.toolCallsAndResults, 8)
@@ -435,7 +435,7 @@ test('should count tool calls only in later requests given a tool result', () =>
   assert.match(timeline, /<a href="#result-[^"]+">Open tool result<\/a>/)
 })
 
-test('should count repeated tool context in each request given a saved session', () => {
+test('should count projected tool context and interactions once given a saved session', () => {
   //given
   const tool = { name: 'shell', description: 'run commands', parameters: { type: 'object' } }
   const systemMessage = {
@@ -559,10 +559,8 @@ test('should count repeated tool context in each request given a saved session',
   const definitionByRequest = analysis.requests.map((request) =>
     sumTokens(request.contributions.filter((item) => item.toolName === 'shell' && item.kind === 'tool-definition')),
   )
-  assert.equal(definitionByRequest.length, 3)
+  assert.equal(definitionByRequest.length, 1)
   assert.ok(definitionByRequest[0] && definitionByRequest[0] > 0)
-  assert.equal(definitionByRequest[0], definitionByRequest[1])
-  assert.equal(definitionByRequest[1], definitionByRequest[2])
 
   const shared = contributions.filter(
     (item) =>
@@ -576,7 +574,7 @@ test('should count repeated tool context in each request given a saved session',
   assert.ok(html.includes('Shared tool guidance'))
   assert.ok(
     html.includes(
-      `Shared or unattributed tool context: ${analysis.sharedToolContextExposureTokens} tokens estimated across the selected branch.`,
+      `Shared or unattributed tool context: ${analysis.sharedToolContextExposureTokens} tokens estimated in the selected context.`,
     ),
   )
 
@@ -589,19 +587,15 @@ test('should count repeated tool context in each request given a saved session',
   assert.ok(staticContext.includes('Run shell commands safely.'))
   assert.ok(staticContext.includes('Example: shell({ command: &quot;pwd&quot; })'))
   assert.ok(staticContext.includes('&quot;type&quot;'))
-  assert.ok(staticContext.includes('estimated across 3 requests'))
   assert.doesNotMatch(staticContext, /Shared tool guidance/)
   assert.equal(analysis.toolInvocations.length, 1)
   assert.equal((timeline.match(/class="invocation-row"/g) ?? []).length, 1)
-  assert.ok(timeline.includes('Estimated exposure across 2 requests'))
-  assert.ok(timeline.includes('Request 2'))
-  assert.ok(timeline.includes('Request 3'))
   assert.ok(timeline.includes('&quot;command&quot;'))
   assert.ok(timeline.includes('workspace'))
   assert.ok(html.includes('Example: shell({ command: &quot;pwd&quot; })'))
 })
 
-test('should exclude compacted history from later requests given a compaction checkpoint', () => {
+test('should exclude compacted history from the selected projection given a compaction checkpoint', () => {
   //given
   const systemMessage = { role: 'system', content: 'sys', timestamp: 1 }
   const session = parseSavedSession(
@@ -676,18 +670,22 @@ test('should exclude compacted history from later requests given a compaction ch
   const analysis = analyzeSession(session)
 
   //then
-  assert.equal(analysis.requests.length, 2)
+  assert.equal(analysis.requests.length, 1)
   assert.equal(
     analysis.requests[0]?.contributions.some((item) => item.entryId === '00000022'),
+    false,
+  )
+  assert.equal(
+    analysis.requests[0]?.contributions.some((item) => item.entryId === '00000024'),
     true,
   )
   assert.equal(
-    analysis.requests[1]?.contributions.some((item) => item.entryId === '00000022'),
-    false,
+    analysis.requests[0]?.contributions.some((item) => item.label === 'Compaction summary'),
+    true,
   )
 })
 
-test('should exclude omitted content from later requests given a context edit', () => {
+test('should exclude omitted content from the selected projection given a context edit', () => {
   //given
   const session = parseSavedSession(
     serializeSession([
@@ -752,18 +750,15 @@ test('should exclude omitted content from later requests given a context edit', 
   const analysis = analyzeSession(session)
 
   //then
-  assert.equal(analysis.requests.length, 2)
+  assert.equal(analysis.requests.length, 1)
   assert.equal(
     analysis.requests[0]?.contributions.some((item) => item.entryId === '00000032'),
-    true,
-  )
-  assert.equal(
-    analysis.requests[1]?.contributions.some((item) => item.entryId === '00000032'),
     false,
   )
-  assert.equal(analysis.entries.find((entry) => entry.entryId === '00000032')?.contextStatus, 'omitted')
-  assert.ok((analysis.entries.find((entry) => entry.entryId === '00000032')?.cumulativeRequestExposure ?? 0) > 0)
-  assert.equal(analysis.entries.find((entry) => entry.entryId === '00000032')?.latestRequestIncluded, false)
+  assert.equal(
+    analysis.entries.find((entry) => entry.entryId === '00000032'),
+    undefined,
+  )
 })
 
 test('should use effective replacement text given a context edit', () => {
@@ -832,13 +827,13 @@ test('should use effective replacement text given a context edit', () => {
 
   //then
   const entry = analysis.entries.find((item) => item.entryId === '00000052')
-  assert.equal(entry?.contextStatus, 'replaced')
-  assert.equal(entry?.rawMessages[0]?.content as string, 'old!')
+  assert.equal(entry?.contextStatus, 'current')
+  assert.equal(entry?.rawMessages[0]?.content as string, 'replacement text')
   assert.equal(entry?.effectiveMessages[0]?.content as string, 'replacement text')
-  assert.ok((entry?.cumulativeRequestExposure ?? 0) > (entry?.messageAdditionTokens ?? 0))
+  assert.equal(entry?.cumulativeRequestExposure, entry?.messageAdditionTokens)
 })
 
-test('should render calls, context edits, compaction, and loadout changes given a saved branch', () => {
+test('should render only the selected current context after compaction and edits', () => {
   //given
   let step = 0
   const messageEntry = (
@@ -857,7 +852,6 @@ test('should render calls, context edits, compaction, and loadout changes given 
     }
   }
   const shell = { name: 'shell', description: 'run shell', parameters: { type: 'object' } }
-  const read = { name: 'read', description: 'read files', parameters: { type: 'object' } }
   const initialSystem = {
     role: 'system',
     content: 'system content',
@@ -871,14 +865,6 @@ test('should render calls, context edits, compaction, and loadout changes given 
     sections: { preamble: 'compacted prompt', tools: '- shell: run shell' },
     toolsAdded: [shell],
     timestamp: 5,
-  }
-  const updatedSystem = {
-    role: 'system',
-    content: 'system content',
-    sections: { preamble: 'latest prompt', tools: '- read: read files' },
-    toolsAdded: [read],
-    toolsRemoved: [{ name: 'shell' }],
-    timestamp: 12,
   }
   const session = parseSavedSession(
     serializeSession([
@@ -939,7 +925,7 @@ test('should render calls, context edits, compaction, and loadout changes given 
         targetId: '00000067',
         replacement: null,
       },
-      messageEntry('00000072', '00000071', updatedSystem),
+      messageEntry('00000072', '00000071', { role: 'user', content: 'post-compaction user text' }),
       messageEntry('00000073', '00000072', {
         role: 'assistant',
         content: [{ type: 'text', text: 'final response' }],
@@ -957,18 +943,16 @@ test('should render calls, context edits, compaction, and loadout changes given 
   const html = renderContextMeteringReport(analysis)
 
   //then
-  assert.equal(analysis.requests.length, 3)
+  assert.ok(html.includes('compaction summary'))
+  assert.ok(html.includes('compacted prompt'))
+  assert.ok(html.includes('kept-at-compaction'))
+  assert.ok(html.includes('post-compaction user text'))
   assert.ok(html.includes('Call ID: <code>call-fixture</code>'))
   assert.ok(html.includes('visible tool result'))
-  assert.equal(html.includes('private tool result details'), false)
-  assert.ok(html.includes('Compacted history'))
-  assert.ok(html.includes('replacement-original'))
   assert.ok(html.includes('replacement-effective'))
-  assert.ok(html.includes('The effective replacement below is model-visible.'))
-  assert.ok(html.includes('omission-original'))
-  assert.ok(html.includes('Pi omitted this saved entry from requests after the context edit.'))
-  assert.ok(html.includes('Effective loadout before request 2'))
-  assert.ok(html.includes('Effective loadout before request 3'))
-  assert.ok(html.includes('latest prompt'))
-  assert.ok(html.includes('Tool added: <strong>read</strong>'))
+  assert.ok(html.includes('final response'))
+  assert.doesNotMatch(
+    html,
+    /compacted-original|replacement-original|omission-original|initial prompt|private tool result details/,
+  )
 })

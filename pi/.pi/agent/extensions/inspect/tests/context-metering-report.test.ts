@@ -84,6 +84,14 @@ function createAnalysis(): SessionAnalysis {
       toolName: 'shell',
       toolCallId: 'call-1',
     },
+    {
+      id: 'entry:assistant-2',
+      label: 'Assistant response',
+      group: 'otherConversation',
+      kind: 'conversation',
+      tokens: 1,
+      entryId: 'assistant-2',
+    },
   ]
   const shell: ToolStatistics = {
     name: 'shell',
@@ -94,9 +102,9 @@ function createAnalysis(): SessionAnalysis {
     totalResultTokens: 1,
     averageResultTokens: 1,
     oneTimeInteractionTokens: 2,
-    estimatedContextExposureTokens: 6,
-    estimatedDefinitionExposureTokens: 2,
-    estimatedPromptExposureTokens: 2,
+    estimatedContextExposureTokens: 4,
+    estimatedDefinitionExposureTokens: 1,
+    estimatedPromptExposureTokens: 1,
     estimatedArgumentExposureTokens: 1,
     estimatedResultExposureTokens: 1,
   }
@@ -115,13 +123,13 @@ function createAnalysis(): SessionAnalysis {
       contributions: contributions.slice(0, 3),
       systemMessage,
     },
-    latestRequestFootprintTokens: 6,
-    requestCount: 2,
-    requestExposure: { tokens: 10, knownTokens: 10, complete: true },
-    oneTimeMessageAdditionsTokens: 3,
+    latestRequestFootprintTokens: 7,
+    requestCount: 1,
+    requestExposure: { tokens: 7, knownTokens: 7, complete: true },
+    oneTimeMessageAdditionsTokens: 4,
     sourceGroups: {
-      systemPromptAndInstructionFiles: 2,
-      toolDefinitionsAndPromptText: 4,
+      systemPromptAndInstructionFiles: 1,
+      toolDefinitionsAndPromptText: 2,
       toolCallsAndResults: 2,
       otherConversation: 2,
       unattributedContent: 0,
@@ -130,30 +138,15 @@ function createAnalysis(): SessionAnalysis {
     requests: [
       {
         index: 1,
-        responseEntryId: 'assistant-1',
-        timestamp: '2026-01-01T00:00:03.000Z',
-        footprintTokens: 4,
-        loadoutSource: 'saved',
-        loadoutMessage: systemMessage,
-        inputEntryIds: ['user-1'],
-        knownTokens: 4,
-        loadoutTokens: 3,
-        conversationTokens: 1,
-        contributions: contributions.slice(0, 4),
-        providerUsage: providerUsage(),
-        model: 'test-provider/test-model',
-      },
-      {
-        index: 2,
         responseEntryId: 'assistant-2',
         timestamp: '2026-01-01T00:00:05.000Z',
-        footprintTokens: 6,
+        footprintTokens: 7,
         loadoutSource: 'saved',
         loadoutMessage: systemMessage,
-        inputEntryIds: ['user-1', 'assistant-1', 'result-1'],
-        knownTokens: 6,
+        inputEntryIds: ['user-1', 'assistant-1', 'result-1', 'assistant-2'],
+        knownTokens: 7,
         loadoutTokens: 3,
-        conversationTokens: 3,
+        conversationTokens: 4,
         contributions,
         providerUsage: providerUsage(),
         model: 'test-provider/test-model',
@@ -171,7 +164,7 @@ function createAnalysis(): SessionAnalysis {
         isError: false,
         oneTimeInteractionTokens: 2,
         latestRequestTokens: 2,
-        latestRequestShare: 20,
+        latestRequestShare: (2 / 7) * 100,
       },
     ],
     promptSections: [
@@ -195,7 +188,7 @@ function createAnalysis(): SessionAnalysis {
         messageAdditionTokens: 1,
         historicalTokens: 1,
         cumulativeRequestExposure: 2,
-        exposureShare: 20,
+        exposureShare: (1 / 7) * 100,
         latestRequestIncluded: true,
         toolCallIds: [],
         rawMessages: [{ role: 'user', content: '</script><script>alert("conversation")</script>' }],
@@ -219,7 +212,12 @@ function createAnalysis(): SessionAnalysis {
             content: [{ type: 'toolCall', id: 'call-1', name: 'shell', arguments: { command: '</script>' } }],
           },
         ],
-        effectiveMessages: [],
+        effectiveMessages: [
+          {
+            role: 'assistant',
+            content: [{ type: 'toolCall', id: 'call-1', name: 'shell', arguments: { command: '</script>' } }],
+          },
+        ],
       },
       {
         entryId: 'result-1',
@@ -242,7 +240,15 @@ function createAnalysis(): SessionAnalysis {
             isError: false,
           },
         ],
-        effectiveMessages: [],
+        effectiveMessages: [
+          {
+            role: 'toolResult',
+            toolCallId: 'call-1',
+            toolName: 'shell',
+            content: [{ type: 'text', text: 'result & output' }],
+            isError: false,
+          },
+        ],
       },
       {
         entryId: 'assistant-2',
@@ -253,11 +259,11 @@ function createAnalysis(): SessionAnalysis {
         messageAdditionTokens: 1,
         historicalTokens: 1,
         cumulativeRequestExposure: 0,
-        exposureShare: 0,
-        latestRequestIncluded: false,
+        exposureShare: (1 / 7) * 100,
+        latestRequestIncluded: true,
         toolCallIds: [],
         rawMessages: [{ role: 'assistant', content: [{ type: 'text', text: 'done' }] }],
-        effectiveMessages: [],
+        effectiveMessages: [{ role: 'assistant', content: [{ type: 'text', text: 'done' }] }],
         providerUsage: providerUsage(),
       },
     ],
@@ -287,7 +293,7 @@ test('should link parallel tool calls by call ID given matching tool results', (
   const resultEntry = analysis.entries.find((entry) => entry.entryId === 'result-1')
   assert.ok(callEntry)
   assert.ok(resultEntry)
-  const assistantMessage = callEntry.rawMessages.at(0)
+  const assistantMessage = callEntry.effectiveMessages.at(0)
   assert.ok(assistantMessage)
   assert.ok(Array.isArray(assistantMessage.content))
   assistantMessage.content.push({ type: 'toolCall', id: 'call-2', name: 'shell', arguments: { command: 'pwd' } })
@@ -299,6 +305,15 @@ test('should link parallel tool calls by call ID given matching tool results', (
     timestamp: '2026-01-01T00:00:04.500Z',
     toolCallIds: ['call-2'],
     rawMessages: [
+      {
+        role: 'toolResult',
+        toolCallId: 'call-2',
+        toolName: 'shell',
+        content: [{ type: 'text', text: 'parallel result' }],
+        isError: false,
+      },
+    ],
+    effectiveMessages: [
       {
         role: 'toolResult',
         toolCallId: 'call-2',
@@ -325,7 +340,7 @@ test('should link parallel tool calls by call ID given matching tool results', (
   assert.equal((conversation.match(/href="#tool-card-/g) ?? []).length, 2)
 })
 
-test('should render compact context rows and nest tool results under calls given a selected branch', () => {
+test('should render compact context rows and nest tool results under calls in the selected context', () => {
   //given
   const analysis = createAnalysis()
 
@@ -337,9 +352,10 @@ test('should render compact context rows and nest tool results under calls given
 
   //then
   assert.equal((conversation.match(/class="entry-summary"/g) ?? []).length, analysis.entries.length)
-  assert.ok(conversation.includes('Request 2 input breakdown'))
-  assert.ok(conversation.includes('16,67%'))
-  assert.ok(conversation.includes('Not in latest input'))
+  assert.ok(conversation.includes('Selected context breakdown'))
+  assert.ok(conversation.includes('14,29%'))
+  assert.ok(conversation.includes('In selected context'))
+  assert.ok(conversation.includes('done'))
   const callRowStart = conversation.indexOf('<details class="entry" id="entry-1">')
   const nestedResultsStart = conversation.indexOf('</details><ol class="nested-entry-list"', callRowStart)
   const resultRowStart = conversation.indexOf('<details class="entry" id="entry-2">', nestedResultsStart)
@@ -348,11 +364,76 @@ test('should render compact context rows and nest tool results under calls given
   assert.ok(resultRowStart > nestedResultsStart)
 })
 
-test('should show latest request window use separately from cumulative tool exposure', () => {
+test('should render the projected compaction summary and post-compaction content only', () => {
+  const analysis = createAnalysis()
+  const context = analysis.requests.at(-1)
+  const retainedEntry = analysis.entries.find((entry) => entry.entryId === 'user-1')
+  assert.ok(context)
+  assert.ok(retainedEntry)
+  retainedEntry.rawMessages = [{ role: 'user', content: 'discarded pre-compaction user secret' }]
+  retainedEntry.effectiveMessages = [{ role: 'user', content: 'first kept entry content' }]
+  const summaryEntry = {
+    ...retainedEntry,
+    entryId: 'compaction-summary',
+    role: 'compactionSummary',
+    timestamp: '2026-01-01T00:00:01.000Z',
+    latestRequestIncluded: true,
+    rawMessages: [{ role: 'compactionSummary', summary: 'stale compaction source secret' }],
+    effectiveMessages: [{ role: 'compactionSummary', summary: 'compaction summary kept by the projection' }],
+  }
+  const laterUserEntry = {
+    ...retainedEntry,
+    entryId: 'later-user',
+    timestamp: '2026-01-01T00:00:04.500Z',
+    rawMessages: [{ role: 'user', content: 'hidden raw later copy' }],
+    effectiveMessages: [{ role: 'user', content: 'post-compaction user addition' }],
+  }
+  analysis.entries.unshift(summaryEntry)
+  analysis.entries.splice(4, 0, laterUserEntry)
+  context.contributions.push(
+    {
+      id: 'entry:compaction-summary',
+      label: 'Compaction summary',
+      group: 'otherConversation',
+      kind: 'conversation',
+      tokens: 1,
+      entryId: 'compaction-summary',
+    },
+    {
+      id: 'entry:later-user',
+      label: 'Later user message',
+      group: 'otherConversation',
+      kind: 'conversation',
+      tokens: 1,
+      entryId: 'later-user',
+    },
+  )
+  context.inputEntryIds.push('compaction-summary', 'later-user')
+  context.footprintTokens = 9
+  context.knownTokens = 9
+  context.conversationTokens = 6
+  analysis.latestRequestFootprintTokens = 9
+  analysis.requestExposure = { tokens: 9, knownTokens: 9, complete: true }
+  analysis.oneTimeMessageAdditionsTokens = 6
+  analysis.sourceGroups.otherConversation += 2
+
+  const html = renderContextMeteringReport(analysis)
+
+  assert.ok(html.includes('Current system snapshot'))
+  assert.ok(html.includes('System prompt content'))
+  assert.ok(html.includes('compaction summary kept by the projection'))
+  assert.ok(html.includes('first kept entry content'))
+  assert.ok(html.includes('post-compaction user addition'))
+  assert.ok(html.includes('Call ID: <code>call-1</code>'))
+  assert.ok(html.includes('result &amp; output'))
+  assert.ok(html.includes('done'))
+  assert.doesNotMatch(html, /discarded pre-compaction user secret|stale compaction source secret|hidden raw later copy/)
+})
+
+test('should show selected context window use separately from tool invocation totals', () => {
   const analysis = createAnalysis()
   const tool = analysis.tools.at(0)
   assert.ok(tool)
-  tool.estimatedContextExposureTokens = 2_349_578
 
   const html = renderContextMeteringReport(analysis, 24)
   const conversationStart = html.indexOf('id="conversation-panel"')
@@ -361,13 +442,13 @@ test('should show latest request window use separately from cumulative tool expo
   const statistics = html.slice(statisticsStart)
 
   assert.ok(conversation.includes('Context window'))
-  assert.ok(conversation.includes('25% of 24 tokens'))
-  assert.match(conversation, /<meter[^>]+value="25"/)
-  assert.ok(statistics.includes('Cumulative estimated context exposure across selected branch'))
-  assert.ok(statistics.includes('2.349.578 tokens'))
+  assert.ok(conversation.includes('29,17% of 24 tokens'))
+  assert.match(conversation, /<meter[^>]+value="29\.166/)
+  assert.ok(statistics.includes('<dt>Estimated current-context exposure</dt><dd>4 tokens</dd>'))
+  assert.ok(statistics.includes('<dt>Estimated invocation total from listed calls</dt><dd>2 tokens</dd>'))
 })
 
-test('should distinguish Pi context usage from the reconstructed request estimate', () => {
+test('should distinguish Pi context usage from the selected-context estimate', () => {
   const analysis = createAnalysis()
   const request = analysis.requests.at(-1)
   assert.ok(request)
@@ -394,12 +475,16 @@ test('should distinguish Pi context usage from the reconstructed request estimat
 
   assert.ok(conversation.includes('Pi context estimate'))
   assert.ok(conversation.includes('71,6% of 272.000 tokens'))
-  assert.ok(conversation.includes('Reconstructed request estimate'))
+  assert.ok(conversation.includes('Selected-context estimate'))
   assert.ok(conversation.includes('43,81% of 272.000 tokens'))
 })
 
-test('should flag request estimates above the model context window', () => {
+test('should flag selected-context estimates above the model context window', () => {
   const analysis = createAnalysis()
+  const request = analysis.requests.at(-1)
+  assert.ok(request)
+  request.footprintTokens = 6
+  analysis.latestRequestFootprintTokens = 6
   const html = renderContextMeteringReport(analysis, 3)
   const conversationStart = html.indexOf('id="conversation-panel"')
   const statisticsStart = html.indexOf('id="statistics-panel"')
@@ -407,7 +492,7 @@ test('should flag request estimates above the model context window', () => {
 
   assert.ok(conversation.includes('200% of 3 tokens'))
   assert.match(conversation, /<meter[^>]+value="100"/)
-  assert.ok(conversation.includes('The request estimate exceeds the model context window.'))
+  assert.ok(conversation.includes('The selected-context estimate exceeds the model context window.'))
 })
 
 test('should separate static tool cost from dynamic calls and show outcomes given mixed invocations', () => {
@@ -453,11 +538,11 @@ test('should separate static tool cost from dynamic calls and show outcomes give
 
   //then
   assert.ok(html.includes('>Tools</button>'))
-  assert.ok(tools.includes('Initial definition estimate'))
-  assert.ok(tools.includes('Initial prompt estimate'))
-  assert.ok(tools.includes('Initial tool-specific estimate'))
-  assert.ok(tools.includes('Initial loadout sources'))
-  assert.ok(tools.includes('Estimated context exposure across selected branch'))
+  assert.ok(tools.includes('Current system-snapshot definition estimate'))
+  assert.ok(tools.includes('Current system-snapshot prompt estimate'))
+  assert.ok(tools.includes('Current system-snapshot tool estimate'))
+  assert.ok(tools.includes('Current system snapshot'))
+  assert.ok(tools.includes('Estimated current-context exposure'))
   assert.ok(tools.includes('Arguments 7 tokens'))
   assert.ok(tools.includes('Results 4 tokens'))
   assert.ok(tools.includes('1 success · 1 failed'))
@@ -465,7 +550,7 @@ test('should separate static tool cost from dynamic calls and show outcomes give
   assert.ok(tools.includes('Invocation timeline'))
   assert.ok(tools.includes('<dt>Call text estimate</dt>'))
   assert.ok(tools.includes('2026-01-01T00:00:03.000Z'))
-  assert.ok(tools.includes('Estimated exposure across 1 request'))
+  assert.ok(tools.includes('Selected-context interaction estimate: 2 tokens'))
   assert.ok(tools.includes('&lt;/script&gt;'))
   assert.ok(tools.includes('result &amp; output'))
   assert.ok(tools.includes('Open call input'))
@@ -473,7 +558,7 @@ test('should separate static tool cost from dynamic calls and show outcomes give
   assert.ok(html.includes("window.addEventListener('hashchange', activateHashTarget)"))
 })
 
-test('should keep loadout sources and tool details in the tools view given a selected branch', () => {
+test('should keep the current system snapshot and tool details in the selected-context view', () => {
   //given
   const analysis = createAnalysis()
 
@@ -483,22 +568,22 @@ test('should keep loadout sources and tool details in the tools view given a sel
   const toolsStart = html.indexOf('id="statistics-panel"')
   const conversation = html.slice(conversationStart, toolsStart)
   const tools = html.slice(toolsStart)
-  const sourceStart = tools.indexOf('<h3>Initial loadout sources</h3>')
-  const availableToolsStart = tools.indexOf('<h3>Available tools</h3>')
+  const sourceStart = tools.indexOf('<h3>Current system snapshot</h3>')
+  const availableToolsStart = tools.indexOf('<h3>Tools in selected context</h3>')
   const sources = tools.slice(sourceStart, availableToolsStart)
 
   //then
   assert.ok(sourceStart >= 0)
   assert.ok(availableToolsStart > sourceStart)
   assert.ok(conversation.includes('View tool details'))
-  assert.doesNotMatch(conversation, /Initial system prompt and tool loadout/)
+  assert.doesNotMatch(conversation, /System prompt content/)
   assert.doesNotMatch(conversation, /Tool definition: shell/)
   assert.doesNotMatch(conversation, /Interaction estimates/)
   assert.doesNotMatch(conversation, /Tool prompt details/)
   assert.doesNotMatch(sources, /Tool definition: shell/)
-  assert.ok(tools.includes('Initial loadout sources'))
+  assert.ok(tools.includes('Current system snapshot'))
   assert.ok(tools.includes('<details class="tool-definition-details">'))
-  assert.ok(tools.includes('Estimated call and result exposure'))
+  assert.ok(tools.includes('Invocation sizes, counted once'))
 })
 
 test('should show exclusive chart shares and provider usage separately given a complete request', () => {
@@ -512,13 +597,13 @@ test('should show exclusive chart shares and provider usage separately given a c
   assert.ok(html.includes('Tool definitions and attributable prompt text'))
   assert.ok(html.includes('Tool calls and results'))
   assert.ok(html.includes('Other conversation'))
-  assert.ok(html.includes('2 tokens · 20%'))
-  assert.ok(html.includes('Estimated tokens across all requests'))
+  assert.ok(html.includes('2 tokens · 28,57%'))
+  assert.ok(html.includes('Selected-context estimate'))
   assert.ok(html.includes('Provider-reported usage'))
   assert.ok(html.includes('120 input tokens'))
-  assert.ok(html.includes('Initial definition estimate'))
-  assert.ok(html.includes('Initial loadout tokens'))
-  assert.ok(html.includes('Latest request share'))
+  assert.ok(html.includes('Current system-snapshot definition estimate'))
+  assert.ok(html.includes('Current system-snapshot tokens'))
+  assert.ok(html.includes('Selected-context share'))
 })
 
 test('should match donut segments to legend totals given exclusive source groups', () => {
@@ -535,14 +620,14 @@ test('should match donut segments to legend totals given exclusive source groups
   const segmentLengths = [...html.matchAll(/stroke-dasharray="([\d.]+) [\d.]+"/g)].map((match) => Number(match[1]))
   const legendHtml = html.match(/<ul class="chart-legend">([\s\S]*?)<\/ul>/)?.[1]
   assert.ok(legendHtml)
-  const legendEntries = [...legendHtml.matchAll(/<span class="legend-value">([\d.,]+) tokens · ([\d.,]+)%<\/span>/g)]
+  const legendEntries = [...legendHtml.matchAll(/<span class="legend-value">([\d.,]+) tokens? · ([\d.,]+)%<\/span>/g)]
   assert.deepEqual(
     legendEntries.map((entry) => Number(entry[1]?.replaceAll('.', '').replace(',', '.'))),
     values,
   )
   assert.deepEqual(
     legendEntries.map((entry) => Number(entry[2]?.replaceAll('.', '').replace(',', '.'))),
-    values.map((tokens) => (tokens / total) * 100),
+    values.map((tokens) => Number(((tokens / total) * 100).toFixed(2))),
   )
   assert.equal(segmentLengths.length, values.filter((tokens) => tokens > 0).length)
   assert.ok(Math.abs(segmentLengths.reduce((sum, length) => sum + length, 0) - circumference) < 0.0001)
@@ -552,21 +637,36 @@ test('should match donut segments to legend totals given exclusive source groups
   )
 })
 
-test('should show cumulative exposure and omit one-time interaction totals given a tool with calls', () => {
-  //given
+test('should explain invocation totals separately from selected-context exposure given a tool with calls', () => {
   const analysis = createAnalysis()
-
-  //when
   const html = renderContextMeteringReport(analysis)
-  const toolsStart = html.indexOf('id="statistics-panel"')
-  const tools = html.slice(toolsStart)
+  const tools = html.slice(html.indexOf('id="statistics-panel"'))
 
-  //then
-  assert.ok(tools.includes('Initial definition estimate</dt><dd>1 token'))
-  assert.ok(tools.includes('Arguments 1 token'))
-  assert.ok(tools.includes('Results 1 token'))
-  assert.ok(tools.includes('<dt>Estimated context exposure across selected branch</dt><dd>6 tokens</dd>'))
-  assert.doesNotMatch(tools, /One-time interaction/)
+  assert.ok(
+    tools.includes(
+      'The invocation total adds each listed call and result once. It excludes tool definitions and prompt guidance. Expanded details show their estimated contribution to the selected context.',
+    ),
+  )
+})
+
+test('should show selected-context tool exposure separately from invocation totals', () => {
+  const analysis = createAnalysis()
+  const html = renderContextMeteringReport(analysis)
+  const tools = html.slice(html.indexOf('id="statistics-panel"'))
+  const summaryStart = tools.indexOf('<summary class="tool-card-summary">')
+  const summaryEnd = tools.indexOf('</summary>', summaryStart)
+  const summary = tools.slice(summaryStart, summaryEnd)
+
+  assert.match(
+    summary,
+    /<small>Baseline token spend \(system snapshot\)<\/small><strong class="[^"]*">[^<]+<\/strong><small>Estimated invocation total from listed calls · 2 tokens<\/small>/,
+  )
+  assert.ok(summary.includes('Arguments 1 token'))
+  assert.ok(summary.includes('Results 1 token'))
+  assert.doesNotMatch(summary, /4 tokens/)
+  assert.ok(tools.includes('<dt>Estimated invocation total from listed calls</dt><dd>2 tokens</dd>'))
+  assert.ok(tools.includes('<dt>Estimated current-context exposure</dt><dd>4 tokens</dd>'))
+  assert.ok(tools.includes('Current system-snapshot definition estimate</dt><dd>1 token'))
 })
 
 test('should ignore snapshot timestamps given an unchanged loadout', () => {
@@ -581,48 +681,34 @@ test('should ignore snapshot timestamps given an unchanged loadout', () => {
   const html = renderContextMeteringReport(analysis)
 
   //then
-  assert.doesNotMatch(html, /Effective loadout before request 2/)
+  assert.doesNotMatch(html, /Effective loadout before request|class="loadout-event/)
 })
 
-test('should show tool prompt snippets separately given a saved tools section', () => {
+test('should show tool prompt snippets from the selected system snapshot', () => {
   //given
   const analysis = createAnalysis()
-  const userEntry = analysis.entries.at(0)
-  const latestRequest = analysis.requests.at(-1)
-  assert.ok(userEntry)
-  assert.ok(latestRequest)
-  analysis.entries.splice(1, 0, {
-    ...userEntry,
-    entryId: 'system-update',
-    entryType: 'system',
-    role: 'system',
-    timestamp: '2026-01-01T00:00:02.500Z',
-    contextStatus: 'current',
-    messageAdditionTokens: 0,
-    historicalTokens: 0,
-    cumulativeRequestExposure: 0,
-    exposureShare: 0,
-    latestRequestIncluded: true,
-    toolCallIds: [],
-    rawMessages: [{ role: 'system', sections: { tools: '- shell: Run shell commands' } }],
-    effectiveMessages: [],
-  })
-  latestRequest.inputEntryIds.push('system-update')
+  const context = analysis.requests.at(-1)
+  assert.ok(context?.loadoutMessage)
+  const sections = {
+    ...context.loadoutMessage.sections,
+    'metering:tool-prompt:shell': '- shell: Apply these usage guidelines.\nExample: shell({ command: "ls" })',
+  }
+  context.loadoutMessage = { ...context.loadoutMessage, sections }
+  if (analysis.baseline.systemMessage)
+    analysis.baseline.systemMessage = { ...analysis.baseline.systemMessage, sections }
 
   //when
   const html = renderContextMeteringReport(analysis)
 
   //then
+  assert.ok(html.includes('Current system snapshot'))
   assert.ok(html.includes('shell prompt snippet'))
   assert.ok(html.includes('- shell: Run shell commands'))
   assert.ok(html.includes('tool-prompt:shell'))
-  assert.ok(html.includes('In loadout'))
-  assert.ok(html.includes('loadout shown above'))
-  const systemChangeStart = html.indexOf('Prompt section changed: tools')
-  const systemChangeEnd = html.indexOf('</details>', systemChangeStart)
-  const systemChange = html.slice(systemChangeStart, systemChangeEnd)
-  assert.doesNotMatch(systemChange, /Cumulative request exposure/)
-  assert.ok(systemChange.includes('Included in latest request.'))
+  assert.ok(html.includes('Apply these usage guidelines.'))
+  assert.ok(html.includes('Prompt guidance and examples · 1 token estimated in selected context'))
+  assert.doesNotMatch(html, /Prompt section changed: tools/)
+  assert.doesNotMatch(html, /In latest request|loadout shown above/)
   const detailsStart = html.indexOf('Tool prompt details')
   const detailsOpen = html.lastIndexOf('<details class="inline-cost-details">', detailsStart)
   const detailsEnd = html.indexOf('</details>', detailsStart)
@@ -635,7 +721,7 @@ test('should show tool prompt snippets separately given a saved tools section', 
   assert.doesNotMatch(details, /Selected-branch exposure share/)
 })
 
-test('should show initial tool costs and prompt examples for an unused tool', () => {
+test('should feature baseline token spend given an unused tool with prompt examples', () => {
   //given
   const analysis = createAnalysis()
   const tool = analysis.tools[0]
@@ -672,18 +758,54 @@ test('should show initial tool costs and prompt examples for an unused tool', ()
   //when
   const html = renderContextMeteringReport(analysis)
   const statistics = html.slice(html.indexOf('id="statistics-panel"'))
+  const summaryStart = statistics.indexOf('<summary class="tool-card-summary">')
+  const summaryEnd = statistics.indexOf('</summary>', summaryStart)
+  const summary = statistics.slice(summaryStart, summaryEnd)
 
   //then
-  assert.ok(statistics.includes('Initial tool-specific estimate'))
-  assert.ok(statistics.includes('Initial definition estimate</dt><dd>1 token'))
-  assert.ok(statistics.includes('Initial prompt estimate</dt><dd>1 token'))
-  assert.ok(statistics.includes('Initial tool-specific estimate</dt><dd>2 tokens'))
+  assert.match(
+    summary,
+    /<small>Baseline token spend \(system snapshot\)<\/small><strong class="[^"]*">2 tokens<\/strong>/,
+  )
+  assert.ok(summary.includes('<small>Estimated invocation total from listed calls · 0 tokens</small>'))
+  assert.ok(statistics.includes('Current system-snapshot definition estimate</dt><dd>1 token'))
+  assert.ok(statistics.includes('Current system-snapshot prompt estimate</dt><dd>1 token'))
+  assert.ok(statistics.includes('Current system-snapshot tool estimate</dt><dd>2 tokens'))
   assert.ok(statistics.includes('Apply these usage guidelines.'))
   assert.ok(statistics.includes('Example: shell'))
   assert.ok(statistics.includes('0 calls'))
   assert.ok(statistics.includes('0 with no result'))
-  assert.ok(statistics.includes('shell was available but no invocation was recorded on this branch.'))
-  assert.ok(statistics.includes('Estimated context exposure across selected branch'))
+  assert.ok(statistics.includes('shell has no invocation in the selected context.'))
+  assert.ok(statistics.includes('Estimated current-context exposure'))
+})
+
+test('should explain the current system-snapshot estimate when no conversation is saved', () => {
+  const analysis = createAnalysis()
+  const tool = analysis.tools[0]
+  assert.ok(tool)
+  analysis.requests = []
+  analysis.requestCount = 0
+  analysis.requestExposure = { tokens: 0, knownTokens: 0, complete: true }
+  analysis.latestRequestFootprintTokens = null
+  tool.estimatedContextExposureTokens = 0
+  tool.estimatedDefinitionExposureTokens = 0
+  tool.estimatedPromptExposureTokens = 0
+  analysis.toolInvocations = []
+
+  const html = renderContextMeteringReport(analysis)
+  const statistics = html.slice(html.indexOf('id="statistics-panel"'))
+
+  assert.ok(statistics.includes('No model-ready conversation entries are available.'))
+  assert.ok(
+    statistics.includes(
+      'The system-snapshot estimate covers tool definitions and prompt guidance. It is not included in the invocation total.',
+    ),
+  )
+  assert.match(
+    statistics,
+    /<small>Baseline token spend \(system snapshot\)<\/small><strong class="[^"]*">2 tokens<\/strong>/,
+  )
+  assert.ok(statistics.includes('Estimated current-context exposure</dt><dd>0 tokens'))
 })
 
 test('should format visible numbers with European separators and two decimal places', () => {
@@ -692,6 +814,10 @@ test('should format visible numbers with European separators and two decimal pla
   analysis.baseline.tokens = 12345.6789
   analysis.requestCount = 1234
   analysis.requestExposure = { tokens: 8, knownTokens: 8, complete: true }
+  analysis.latestRequestFootprintTokens = 1234
+  const request = analysis.requests.at(-1)
+  assert.ok(request)
+  request.footprintTokens = 1234
   analysis.sourceGroups = {
     systemPromptAndInstructionFiles: 1,
     toolDefinitionsAndPromptText: 7.1,
@@ -750,7 +876,7 @@ test('should expose tab controls and touch-friendly details given keyboard and t
   assert.doesNotMatch(html, /<link\s+href=/i)
 })
 
-test('should show saved tool context text and repeated impact given repeated loadouts', () => {
+test('should show tool context text from the selected projection', () => {
   //given
   const analysis = createAnalysis()
 
@@ -767,41 +893,21 @@ test('should show saved tool context text and repeated impact given repeated loa
   assert.ok(context.includes('<strong>Description</strong>'))
   assert.ok(context.includes('<strong>Schema</strong>'))
   assert.ok(context.includes('- shell: Run shell commands'))
-  assert.ok(context.includes('Prompt guidance and examples · 2 tokens estimated across 2 requests'))
+  assert.ok(context.includes('Prompt guidance and examples · 1 token estimated in selected context'))
   assert.ok(html.includes('<details class="tool-definition-details">'))
-  assert.ok(html.includes('<summary>Definition: shell · 2 tokens estimated across 2 requests</summary>'))
+  assert.ok(html.includes('<summary>Definition: shell · 1 token estimated in selected context</summary>'))
   assert.doesNotMatch(html, /\.table-wrap \.tool-definition \.popover\{/)
 })
 
-test('should count repeated request impact without adding invocation rows given repeated call context', () => {
+test('should list each projected tool interaction once', () => {
   //given
   const analysis = createAnalysis()
-  const firstRequest = analysis.requests[0]
-  const latestRequest = analysis.requests.at(-1)
-  const tool = analysis.tools[0]
-  assert.ok(firstRequest)
-  assert.ok(latestRequest)
-  assert.ok(tool)
-  const repeatedContributions = latestRequest.contributions.filter(
+  const context = analysis.requests.at(-1)
+  assert.ok(context)
+  const interactionContributions = context.contributions.filter(
     (item) => item.toolCallId === 'call-1' && (item.kind === 'tool-call' || item.kind === 'tool-result'),
   )
-  const argumentTokens = repeatedContributions
-    .filter((item) => item.kind === 'tool-call')
-    .reduce((total, item) => total + item.tokens, 0)
-  const resultTokens = repeatedContributions
-    .filter((item) => item.kind === 'tool-result')
-    .reduce((total, item) => total + item.tokens, 0)
-  const repeatedTokens = argumentTokens + resultTokens
-  firstRequest.contributions.push(...repeatedContributions)
-  firstRequest.footprintTokens = (firstRequest.footprintTokens ?? 0) + repeatedTokens
-  firstRequest.knownTokens += repeatedTokens
-  firstRequest.conversationTokens += repeatedTokens
-  analysis.requestExposure.tokens = (analysis.requestExposure.tokens ?? 0) + repeatedTokens
-  analysis.requestExposure.knownTokens += repeatedTokens
-  analysis.sourceGroups.toolCallsAndResults += repeatedTokens
-  tool.estimatedContextExposureTokens += repeatedTokens
-  tool.estimatedArgumentExposureTokens += argumentTokens
-  tool.estimatedResultExposureTokens += resultTokens
+  const interactionTokens = interactionContributions.reduce((total, item) => total + item.tokens, 0)
 
   //when
   const html = renderContextMeteringReport(analysis)
@@ -809,13 +915,12 @@ test('should count repeated request impact without adding invocation rows given 
   const timeline = html.slice(timelineStart)
 
   //then
-  assert.ok(repeatedContributions.length > 0)
+  assert.equal(interactionTokens, 2)
   assert.equal((timeline.match(/class="invocation-row"/g) ?? []).length, 1)
-  assert.ok(timeline.includes('Estimated exposure across 2 requests'))
-  assert.ok(timeline.includes('Request 1'))
-  assert.ok(timeline.includes('Request 2'))
+  assert.ok(timeline.includes('Selected-context interaction estimate: 2 tokens'))
   assert.ok(timeline.includes('&quot;command&quot;'))
   assert.ok(timeline.includes('result &amp; output'))
+  assert.doesNotMatch(timeline, /Request \d|across \d+ requests/)
   assert.match(timeline, /<a href="#call-[^"]+">Open call input<\/a>/)
   assert.match(timeline, /<a href="#result-[^"]+">Open tool result<\/a>/)
 })
