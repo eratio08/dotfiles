@@ -55,11 +55,13 @@ const createEchoTool = (
   }: Static<typeof echoParameters>) => Effect.succeed(text),
   outputLimits?: { readonly maxBytes?: number; readonly maxLines?: number },
   toolName = 'echo',
+  execution?: 'worker' | 'in-process',
 ): RegisteredTool<never, never> =>
   createTool({
     toolName,
     description: 'Run TypeScript against the echo API.',
     timeoutMs: 10_000,
+    ...(execution === undefined ? {} : { execution }),
     outputLimits: outputLimits ?? { maxBytes: 1_000, maxLines: 40 },
     typeDeclarations: 'type EchoInput = { text: string }',
     methods: {
@@ -282,7 +284,7 @@ test('should return method details given an operation-specific help request', as
 
 test('should return an overview given a help request without an operation', async () => {
   //given
-  const extension = await installTool(createEchoTool())
+  const extension = await installTool(createEchoTool(undefined, undefined, 'echo', 'in-process'))
 
   //when
   const result = (await extension.invokeTool('echo', 'help-api-call', {
@@ -298,17 +300,18 @@ test('should return an overview given a help request without an operation', asyn
   assert.deepEqual(result.details?.operations, { help: 1 })
 })
 
-test('should reject unknown method names given an operation-help request', async () => {
+test('should describe unknown method names given an operation-help request', async () => {
   //given
   const extension = await installTool(createEchoTool())
 
   //when
-  const invocation = extension.invokeTool('echo', 'unknown-help-call', {
+  const result = (await extension.invokeTool('echo', 'unknown-help-call', {
     code: 'export default (api: echoApi) => api.help("missing")',
-  })
+  })) as TextToolResult
 
   //then
-  await assert.rejects(invocation)
+  assert.match(result.content[0]?.text ?? '', /The operation missing is not defined/)
+  assert.deepEqual(result.details?.operations, { help: 1 })
 })
 
 test('should omit a separate help tool given runner registration', async () => {

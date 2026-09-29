@@ -17,9 +17,9 @@ import {
   createProgramRunner,
   type ProgramDefinition,
   type ProgramFailure,
-  ProgramHost,
-  type ProgramHostErrorCodec,
+  ProgramHost as ProgramExecutionService,
   type ProgramRunOptions,
+  type ProgramWireValue,
 } from '@eratio/pi-codemode-core'
 import { formatValue, type OutputLimits } from '@eratio/pi-codemode-core/output'
 import {
@@ -113,6 +113,11 @@ type ToolOutputDetails = {
  * At least one method is required, and `help` is reserved for the generated API reference.
  * A non-`void` `RunContext` requires `withRun`.
  */
+type ProgramErrorCodec<Failure> = {
+  readonly encode: (error: Failure) => ProgramWireValue
+  readonly decode: (value: ProgramWireValue) => Failure
+}
+
 type ToolDefinition<Services, Failure, RunContext = void> = {
   /**
    * Names the registered Pi tool and appears in help headings and generated API/program types.
@@ -145,10 +150,10 @@ type ToolDefinition<Services, Failure, RunContext = void> = {
   readonly outputLimits?: Partial<OutputLimits>
   /** Selects whether Pi schedules this tool sequentially or in parallel. */
   readonly executionMode?: ToolExecutionMode
-  /** Selects how the code runner evaluates submitted code. The default uses a worker; `in-process` uses the host process. */
+  /** Selects how the code runner evaluates submitted code. The default uses a worker; `in-process` runs code in the current process. */
   readonly execution?: ProgramRunOptions['execution']
   /** Lets worker execution preserve custom method failures across worker transport. */
-  readonly errorCodec?: ProgramHostErrorCodec<ProgramFailure | Failure>
+  readonly errorCodec?: ProgramErrorCodec<ProgramFailure | Failure>
   /**
    * Wraps the full program run, including output formatting, and supplies its shared context.
    *
@@ -443,8 +448,8 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
     examples: options.examples ?? [],
   }
   const core = createProgramRunner<Services | PiServices, ProgramFailure | Failure>()
-  const hostService = ProgramHost<Services | PiServices, ProgramFailure | Failure>()
-  const host = {
+  const programService = ProgramExecutionService<Services | PiServices, ProgramFailure | Failure>()
+  const methodHandlers = {
     invoke: (
       methodName: string,
       args: readonly unknown[],
@@ -492,28 +497,15 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
       return method.execute((tupleParameters ? args : args[0]) as never, signal, runContext)
     },
     invokeSync: (methodName: string, args: readonly unknown[]): unknown => {
-      if (methodName === 'help') {
-        if (args.length === 0) return helpOverview
-        if (args.length === 1 && typeof args[0] === 'string') {
-          const operationHelp = methodHelp.get(args[0])
-          if (operationHelp !== undefined) return operationHelp
-          throw createProgramFailure({
-            _tag: 'validation',
-            operation: 'help',
-            message: `The operation ${args[0]} is not defined. Available operations: ${methodEntries.map(([name]) => name).join(', ')}.`,
-          })
-        }
-        throw createProgramFailure({
-          _tag: 'validation',
-          operation: 'help',
-          message: 'The help method accepts no arguments or one method name.',
-        })
+      if (methodName !== 'help') return `The code mode method ${methodName} is not synchronous.`
+      if (args.length === 0) return helpOverview
+      if (args.length === 1 && typeof args[0] === 'string') {
+        return (
+          methodHelp.get(args[0]) ??
+          `The operation ${args[0]} is not defined. Available operations: ${methodEntries.map(([name]) => name).join(', ')}.`
+        )
       }
-      throw createProgramFailure({
-        _tag: 'validation',
-        operation: methodName,
-        message: `The operation ${methodName} is not synchronous.`,
-      })
+      return 'The help method accepts no arguments or one method name.'
     },
     ...(options.errorCodec === undefined ? {} : { errorCodec: options.errorCodec }),
   }
@@ -554,8 +546,12 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
         ): Effect.Effect<PiToolResult<ToolOutputDetails>, ProgramFailure | Failure, Services | PiServices> =>
           Effect.gen(function* () {
             const operations = new Map<string, number>()
-            const invocationHost = {
-              ...host,
+            const trackedMethodHandlers = {
+              ...methodHandlers,
+              invokeSync: (methodName: string, args: readonly unknown[]): unknown => {
+                operations.set(methodName, (operations.get(methodName) ?? 0) + 1)
+                return methodHandlers.invokeSync(methodName, args)
+              },
               invoke: (
                 methodName: string,
                 args: readonly unknown[],
@@ -565,12 +561,8 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
                   yield* Effect.sync(() => {
                     operations.set(methodName, (operations.get(methodName) ?? 0) + 1)
                   })
-                  return yield* host.invoke(methodName, args, signal, runContext)
+                  return yield* methodHandlers.invoke(methodName, args, signal, runContext)
                 }),
-              invokeSync: (methodName: string, args: readonly unknown[]): unknown => {
-                operations.set(methodName, (operations.get(methodName) ?? 0) + 1)
-                return host.invokeSync(methodName, args)
-              },
             }
             const runOptions: ProgramRunOptions = {
               cwd: context.cwd,
@@ -581,8 +573,8 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
             }
             const result = yield* Effect.provideService(
               core.evaluate(definition, code, runOptions),
-              hostService,
-              invocationHost,
+              programService,
+              trackedMethodHandlers,
             )
             return yield* createToolOutput(result, outputLimits, Object.fromEntries(operations), context.toolSignal)
           })

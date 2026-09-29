@@ -1,80 +1,77 @@
-export type { Theme as PiTheme } from '@earendil-works/pi-coding-agent'
-export type { TUI as PiTui } from '@earendil-works/pi-tui'
 /** Error classes returned by Pi operations, registrations, tools, and runtime shutdown. */
 export {
+  /** Event, command, shortcut, flag, tool, and renderer registration types. */
+  type PiCommandDefinition,
+  type PiCommandRegistry,
+  /** Renderer types supported by Pi extensions. */
+  type PiEntryRenderer,
+  type PiEventHandler,
+  type PiEventMap,
+  type PiEventName,
+  type PiEventOptions,
+  type PiEventRegistry,
+  type PiEventResultMap,
+  /** Plugin definition and installation helpers. */
+  PiExtension,
   type PiExtensionError,
-  PiOperationsError,
+  type PiFailurePolicy,
+  type PiFlagDefinition,
+  type PiFlagRegistry,
+  type PiMessageRenderer,
+  /** Plugin definition types accepted by the installation API. */
+  type PiPlugin,
+  type PiPluginDefinition,
+  type PiRegistrationContext,
   PiRegistrationError,
+  type PiRendererRegistry,
   PiRuntimeDisposedError,
-  PiToolError,
-  PiUiUnavailableError,
-} from './errors.ts'
-/** Context, session, UI, and service operation types. */
-export type {
-  PiCommandContextValue,
-  PiCompactOptions,
-  PiContent,
-  PiContextUsage,
-  PiContextValue,
-  PiCustomFactory,
-  PiCustomMessage,
-  PiInvocationServices,
-  PiMode,
-  PiSendMessageOptions,
-  PiSendUserMessageOptions,
-  PiSessionChangeOptions,
-  PiSessionChangeResult,
-  PiSessionContextValue,
-  PiSessionReplacement,
-  PiStableServices,
-  PiToolContextValue,
-  PiToolExecutionMode,
-  PiToolUpdate,
-  PiUiDialogOptions,
-  PiUiService,
-  PiWidgetOptions,
-  PiWorkingIndicatorOptions,
-} from './pi.ts'
-/** Effect service tags for Pi operations and invocation context. */
+  type PiShortcutDefinition,
+  type PiShortcutRegistry,
+  type PiToolRegistry,
+} from './extension.ts'
 export {
+  /** Types for Effect-based tools and their results. */
+  type EffectToolDefinition,
+  /** Effect service tags for Pi operations and invocation context. */
   Pi,
   PiCommandContext,
+  /** Context, session, UI, and service operation types. */
+  type PiCommandContextValue,
+  type PiCompactOptions,
+  type PiContent,
   PiContext,
+  type PiContextUsage,
+  type PiContextValue,
+  type PiCustomFactory,
+  type PiCustomMessage,
   PiFlags,
+  type PiInvocationServices,
   PiMessages,
+  type PiMode,
   PiOperations,
+  PiOperationsError,
   PiProcess,
+  type PiSendMessageOptions,
+  type PiSendUserMessageOptions,
   type PiServices,
   PiSession,
+  type PiSessionChangeOptions,
+  type PiSessionChangeResult,
   PiSessionContext,
+  type PiSessionContextValue,
+  type PiSessionReplacement,
+  type PiStableServices,
   PiToolContext,
+  type PiToolContextValue,
+  PiToolError,
+  type PiToolExecutionMode,
+  type PiToolResult,
   PiTools,
+  type PiToolUpdate,
   PiUi,
+  type PiUiDialogOptions,
+  type PiUiService,
+  PiUiUnavailableError,
+  type PiWidgetOptions,
+  type PiWorkingIndicatorOptions,
 } from './pi.ts'
-/** Plugin definition types accepted by the installation API. */
-export type { PiPlugin, PiPluginDefinition } from './plugin.ts'
-/** Plugin definition and installation helpers. */
-export { PiExtension } from './plugin.ts'
-/** Event, command, shortcut, flag, tool, and renderer registration types. */
-export type {
-  PiCommandDefinition,
-  PiCommandRegistry,
-  PiEventHandler,
-  PiEventMap,
-  PiEventName,
-  PiEventOptions,
-  PiEventRegistry,
-  PiEventResultMap,
-  PiFailurePolicy,
-  PiFlagDefinition,
-  PiFlagRegistry,
-  PiRegistrationContext,
-  PiRendererRegistry,
-  PiShortcutDefinition,
-  PiShortcutRegistry,
-  PiToolRegistry,
-} from './registries.ts'
-/** Renderer types supported by Pi extensions. */
-export type { PiEntryRenderer, PiMessageRenderer } from './renderers.ts'
-/** Types for Effect-based tools and their results. */
-export type { EffectToolDefinition, PiToolResult } from './tools.ts'

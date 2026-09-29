@@ -1,8 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Context, Effect, Layer } from 'effect'
-import { PiContext, type PiContextValue } from '../src/context.ts'
-import { PiRuntimeDisposedError } from '../src/errors.ts'
-import { createPiManagedRuntime } from '../src/runtime.ts'
+import { createPiManagedRuntime, PiRuntimeDisposedError } from '../src/extension.ts'
+import { PiContext, type PiContextValue } from '../src/pi.ts'
 
 class RuntimeProbe extends Context.Service<RuntimeProbe, { readonly value: number }>()('tests/RuntimeProbe') {}
 

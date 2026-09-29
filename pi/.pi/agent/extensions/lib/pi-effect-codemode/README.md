@@ -1,7 +1,7 @@
 # @eratio/pi-effect-codemode
 The package installs `@eratio/pi-effect` as a runtime dependency and bundles `@eratio/pi-codemode-core`.
 Consumers do not need to add `@eratio/pi-effect` directly.
-It keeps the Pi host packages, `effect`, and `typebox` as peer dependencies.
+It keeps `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, `effect`, and `typebox` as peer dependencies.
 It re-exports Pi Effect services so users can import them from this package.
 It registers one TypeScript runner tool from the supplied method definitions.
 The generated API includes synchronous `api.help()` and `api.help("operation")` methods.
@@ -110,7 +110,7 @@ Result
 The helper returns strings and has two call forms: `api.help()` and `api.help("operation")`.
 The helper is not a separate Pi tool. The SDK registers one runner tool under `toolName`.
 The method name `help` is reserved, so `methods` cannot define an operation with that name.
-Help calls do not appear in the `operations` count.
+Calls to `api.help()` and `api.help("operation")` appear as `help` in the `operations` count.
 
 ### Overview help
 `api.help()` returns an overview of the API.

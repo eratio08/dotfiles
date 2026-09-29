@@ -17,3 +17,5 @@ No effect or layer type is permitted to express an error type as a generic `unkn
 Effects are never run in the logic, they are run at the outer layer at a single point.
 
 Read [LLMS.md](https://github.com/Effect-TS/effect/blob/main/LLMS.md) for official EffectJS v4 guidance.
+
+If a task changes TypeScript module structure, read [MODULE-DESIGN.md](MODULE-DESIGN.md).

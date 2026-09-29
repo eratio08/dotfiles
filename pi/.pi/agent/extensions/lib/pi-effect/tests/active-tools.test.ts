@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Effect } from 'effect'
 import type { PiOperationsService } from '../src/pi.ts'
-import { createPiToolsService } from '../src/tools.ts'
+import { createPiToolsService } from '../src/pi.ts'
 
 test('should release a semaphore permit given an interrupted waiting tool operation', async () => {
   //given

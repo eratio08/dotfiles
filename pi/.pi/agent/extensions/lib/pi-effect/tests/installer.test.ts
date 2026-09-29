@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 import { Effect } from 'effect'
-import { PiExtension } from '../src/plugin.ts'
+import { PiExtension } from '../src/extension.ts'
 
 function fakeContext(): ExtensionContext {
   const sessionManager: Partial<ExtensionContext['sessionManager']> = {
