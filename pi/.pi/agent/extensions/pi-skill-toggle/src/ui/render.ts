@@ -1,5 +1,7 @@
+import type { Theme } from '@earendil-works/pi-coding-agent'
 import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui'
-import type { PiTheme } from '@eratio08/pi-effect'
+
+type RenderTheme = Pick<Theme, 'fg'>
 
 function fit(text: string, width: number): string {
   const truncated = truncateToWidth(text, Math.max(0, width))
@@ -7,19 +9,19 @@ function fit(text: string, width: number): string {
   return `${truncated}${' '.repeat(padding)}`
 }
 
-function frameLine(theme: PiTheme, content: string, innerWidth: number): string {
+function frameLine(theme: RenderTheme, content: string, innerWidth: number): string {
   return `${theme.fg('borderAccent', '│')}${fit(content, innerWidth)}${theme.fg('borderAccent', '│')}`
 }
 
-function divider(theme: PiTheme, innerWidth: number): string {
+function divider(theme: RenderTheme, innerWidth: number): string {
   return theme.fg('borderMuted', `├${'─'.repeat(innerWidth)}┤`)
 }
 
-function topBorder(theme: PiTheme, innerWidth: number): string {
+function topBorder(theme: RenderTheme, innerWidth: number): string {
   return theme.fg('borderAccent', `┌${'─'.repeat(innerWidth)}┐`)
 }
 
-function bottomBorder(theme: PiTheme, innerWidth: number): string {
+function bottomBorder(theme: RenderTheme, innerWidth: number): string {
   return theme.fg('borderAccent', `└${'─'.repeat(innerWidth)}┘`)
 }
 

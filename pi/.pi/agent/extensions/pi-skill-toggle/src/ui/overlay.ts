@@ -1,14 +1,14 @@
-import { keyHint } from '@earendil-works/pi-coding-agent'
-import { Key, matchesKey } from '@earendil-works/pi-tui'
-import type { PiHostError, PiTheme, PiTui, PiUiService, PiUiUnavailableError } from '@eratio08/pi-effect'
+import { keyHint, type Theme } from '@earendil-works/pi-coding-agent'
+import { Key, matchesKey, type TUI } from '@earendil-works/pi-tui'
+import type { PiOperationsError, PiUiService, PiUiUnavailableError } from '@eratio08/pi-effect'
 import { Effect, Option } from 'effect'
 import { formatSourceKind } from '../inventory/classifier.ts'
 import type { SkillDraft, SkillInvocationMode, SkillRecord, SkillToggleUiResult } from '../types.ts'
 import { bottomBorder, combineColumns, divider, fit, frameLine, topBorder } from './render.ts'
 import { filterSkills, modeLabel, toggleMode } from './view-model.ts'
 
-type SkillToggleTui = PiTui
-type SkillToggleTheme = PiTheme
+type SkillToggleTui = Pick<TUI, 'requestRender' | 'terminal'>
+type SkillToggleTheme = Pick<Theme, 'fg' | 'bold'>
 type SkillToggleKeybindings = {
   matches(
     data: string,
@@ -21,7 +21,7 @@ function showSkillToggleUi(
   skills: SkillRecord[],
 ): Effect.Effect<
   SkillToggleUiResult | { action: 'cancel'; drafts: never[] },
-  PiHostError | PiUiUnavailableError,
+  PiOperationsError | PiUiUnavailableError,
   never
 > {
   return ui
