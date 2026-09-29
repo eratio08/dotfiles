@@ -1,3 +1,4 @@
+import type { Theme } from '@earendil-works/pi-coding-agent'
 import { truncateToWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui'
 import {
   createTool,
@@ -5,8 +6,6 @@ import {
   Pi,
   PiContext,
   PiExtension,
-  type PiTheme,
-  type PiTui,
   PiUi,
   type ToolDefinition,
 } from '@eratio/pi-effect-codemode'
@@ -113,15 +112,17 @@ type TodoCancelKeybindings = {
   getKeys(keybinding: 'tui.select.cancel'): string[]
 }
 
+type TodoTheme = Pick<Theme, 'fg' | 'strikethrough'>
+
 class TodoViewer {
   private cachedWidth?: number
   private cachedLines?: string[]
   private readonly todos: readonly Todo[]
-  private readonly theme: PiTheme
+  private readonly theme: TodoTheme
   private readonly keybindings: TodoCancelKeybindings
   private readonly onClose: () => void
 
-  constructor(todos: readonly Todo[], theme: PiTheme, keybindings: TodoCancelKeybindings, onClose: () => void) {
+  constructor(todos: readonly Todo[], theme: TodoTheme, keybindings: TodoCancelKeybindings, onClose: () => void) {
     this.todos = todos
     this.theme = theme
     this.keybindings = keybindings
@@ -175,7 +176,7 @@ function formatCounts(counts: ReturnType<typeof getTodoCounts>): string {
   return parts.join(' • ') || 'empty'
 }
 
-function renderMarker(status: TodoStatus, theme: PiTheme): string {
+function renderMarker(status: TodoStatus, theme: TodoTheme): string {
   switch (status) {
     case 'pending':
       return theme.fg('dim', '[ ]')
@@ -190,7 +191,7 @@ function renderMarker(status: TodoStatus, theme: PiTheme): string {
   }
 }
 
-function renderContent(todo: Todo, theme: PiTheme): string {
+function renderContent(todo: Todo, theme: TodoTheme): string {
   if (todo.status === 'completed' || todo.status === 'omitted') {
     return theme.fg('muted', theme.strikethrough(todo.content))
   }
@@ -222,7 +223,7 @@ function getTodoDepths(todos: readonly Todo[]): ReadonlyMap<string, number> {
   return depths
 }
 
-function renderTodoLine(todo: Todo, theme: PiTheme, depth = 0): string {
+function renderTodoLine(todo: Todo, theme: TodoTheme, depth = 0): string {
   const prefix = depth > 0 ? `${'  '.repeat(depth)}↳ ` : ''
   return `${prefix}${renderMarker(todo.status, theme)} ${renderContent(todo, theme)}`
 }
@@ -247,7 +248,7 @@ const updateUi = Effect.fnUntraced(function* (
 
   let toolsExpanded = yield* hostUi.getToolsExpanded().pipe(Effect.mapError((cause) => todoHostError('update', cause)))
   yield* hostUi
-    .setWidget('todo', (_tui: PiTui, theme: PiTheme) => ({
+    .setWidget('todo', (_tui, theme) => ({
       render(width: number): string[] {
         toolsExpanded = hostUi.getToolsExpandedValue()
         const visible = unfinished.slice(0, 8)

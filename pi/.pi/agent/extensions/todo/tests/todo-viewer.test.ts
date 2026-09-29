@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import type { Theme } from '@earendil-works/pi-coding-agent'
 import { KeybindingsManager, TUI_KEYBINDINGS } from '@earendil-works/pi-tui'
-import type { PiTheme } from '@eratio/pi-effect-codemode'
 import { TodoViewer } from '../index.ts'
 
 const theme = {
   fg: (_color: string, text: string) => text,
-} as PiTheme
+} as Theme
 
 test('should use and show the configured cancel key given a custom binding', () => {
   //given

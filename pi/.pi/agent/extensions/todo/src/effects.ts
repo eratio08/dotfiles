@@ -79,7 +79,11 @@ class TodoUiError extends Schema.TaggedError<TodoUiError>()('TodoUiError', {
 
 function todoHostError(operation: string, cause: unknown): TodoUiError {
   const original =
-    typeof cause === 'object' && cause !== null && '_tag' in cause && cause._tag === 'PiHostError' && 'cause' in cause
+    typeof cause === 'object' &&
+    cause !== null &&
+    '_tag' in cause &&
+    (cause._tag === 'PiHostError' || cause._tag === 'PiOperationsError') &&
+    'cause' in cause
       ? cause.cause
       : cause
   const message =

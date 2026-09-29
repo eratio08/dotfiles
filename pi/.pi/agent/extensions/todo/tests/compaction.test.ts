@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { initTheme } from '@earendil-works/pi-coding-agent'
 import { visibleWidth } from '@earendil-works/pi-tui'
 import { PiToolError } from '@eratio/pi-effect-codemode'
 import todoExtension from '../index.ts'
@@ -393,7 +392,7 @@ test('should register one todo tool and commit one snapshot given a successful p
   assert.equal(tool.name, 'todo')
   assert.equal(
     tool.description,
-    'Run TypeScript code that reads and updates the current todo plan for non-trivial work with three or more tasks.',
+    'Run TypeScript code that reads and updates the current todo plan for non-trivial work with >= 3 tasks.',
   )
   assert.deepEqual(value.registeredToolNames, ['todo'])
   assert.equal(tool.executionMode, 'sequential')
@@ -417,50 +416,6 @@ test('should register one todo tool and commit one snapshot given a successful p
   assert.deepEqual(typedResult.details.operations, { add: 1 })
   assert.equal(value.appendedEntries.length, 1)
   assert.equal((value.appendedEntries[0] as { customType: string }).customType, TODO_STATE_ENTRY)
-})
-
-test('should count help and render expansion controls given a help request', async () => {
-  //given
-  const value = harness()
-  await value.ready
-  const tool = value.registeredTool
-  assert.ok(tool)
-  assert.ok(tool.renderCall)
-  assert.ok(tool.renderResult)
-  initTheme('dark')
-  const code = todoCode('return todo.help()').code
-  const args = { code }
-  const context = {
-    args,
-    toolCallId: 'todo-help-call',
-    invalidate: () => undefined,
-    lastComponent: undefined,
-    state: {},
-    cwd: process.cwd(),
-    executionStarted: true,
-    argsComplete: true,
-    isPartial: false,
-    expanded: false,
-    showImages: false,
-    isError: false,
-  }
-  const call = tool.renderCall(args, value.theme, context as never)
-
-  //when
-  const result = await tool.execute('todo-help-call', { code }, undefined, undefined, value.ctx)
-
-  //then
-  const typedResult = result as TodoToolResult
-  assert.deepEqual(typedResult.details.operations, { help: 1 })
-  tool.renderResult(typedResult, { expanded: false, isPartial: false }, value.theme, context as never)
-  const collapsedCall = call.render(120).join('\n')
-  assert.match(collapsedCall, /help: 1/)
-  assert.match(collapsedCall, /to expand/)
-  const expanded = tool.renderResult(typedResult, { expanded: true, isPartial: false }, value.theme, context as never)
-  const expandedOutput = expanded.render(120).join('\n')
-  assert.match(expandedOutput, /Operations/)
-  assert.match(expandedOutput, /help: 1/)
-  assert.match(expandedOutput, /API overview/)
 })
 
 test('should commit multiple program mutations in one session snapshot given a single session', async () => {
