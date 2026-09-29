@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { createFakeExtensionApi } from '@eratio/pi-effect/testing'
+import { createFakeExtensionApi } from '@eratio/pi-effect-codemode/testing'
 import opensrcExtension from '../index.ts'
 import { createOpensrcFailure, OpensrcFailure } from '../src/core/model.ts'
 import { opensrcErrorCodec } from '../src/effects/code-mode.ts'

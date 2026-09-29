@@ -14,17 +14,21 @@ type CodeModeDeadline = {
 }
 
 /**
- * Creates a runner that validates and evaluates programs using host services from the Effect environment.
+ * Creates a runner that validates and evaluates programs using an operation invoker from the Effect environment.
  */
 function createProgramRunner<R, E>(): Program.ProgramRunner<R, E> {
-  const hostService = Program.ProgramHost<R, E>()
+  const operationInvokerService = Program.ProgramOperationInvoker<R, E>()
 
   const evaluate = Effect.fnUntraced(
     function* (
       definitionInput: Program.ProgramDefinition,
       codeInput: string,
       optionsInput: Program.ProgramRunOptions,
-    ): Effect.fn.Return<unknown, Program.ProgramFailure | E, R | Program.ProgramHostRequirement<R, E> | Scope> {
+    ): Effect.fn.Return<
+      unknown,
+      Program.ProgramFailure | E,
+      R | Program.ProgramOperationInvokerRequirement<R, E> | Scope
+    > {
       const definition = yield* Schema.decodeUnknownEffect(Program.CodeModeDefinitionSchema)(definitionInput).pipe(
         Effect.mapError((cause) =>
           Program.createProgramFailure({
@@ -78,7 +82,7 @@ function createProgramRunner<R, E>(): Program.ProgramRunner<R, E> {
       if (deadline.isTimedOut())
         return yield* Effect.fail(createCodeModeTimeoutFailure('evaluation', options.timeoutMs))
 
-      const host = yield* hostService
+      const operationInvoker = yield* operationInvokerService
       const queue = yield* createCodeModeRequestQueue<R, E>()
       const invokeSync = (method: string, args: readonly unknown[]): unknown => {
         const methodDefinition = Program.findProgramMethod(definition, method)
@@ -88,13 +92,13 @@ function createProgramRunner<R, E>(): Program.ProgramRunner<R, E> {
             operation: 'method',
             message: `The code mode method ${method} is not synchronous.`,
           })
-        if (host.invokeSync === undefined)
+        if (operationInvoker.invokeSync === undefined)
           throw Program.createProgramFailure({
             _tag: 'invoke',
             operation: method,
-            message: `The code mode host does not implement synchronous method ${method}.`,
+            message: `The program operation invoker does not implement synchronous method ${method}.`,
           })
-        return host.invokeSync(method, args)
+        return operationInvoker.invokeSync(method, args)
       }
       const api = Vm.createCodeModeApi(definition.methods, invokeSync, (method, args) =>
         queue.invoke(method, args, deadline.signal),
@@ -138,7 +142,7 @@ function createProgramRunner<R, E>(): Program.ProgramRunner<R, E> {
       function runInWorker(): Effect.Effect<
         unknown,
         Program.ProgramFailure | E,
-        R | Program.ProgramHostRequirement<R, E>
+        R | Program.ProgramOperationInvokerRequirement<R, E>
       > {
         return runCodeModeWorkerEvaluation<R, E>(
           definition,
@@ -282,7 +286,7 @@ type CodeModeQueuedRequest = {
 const createCodeModeRequestQueue = Effect.fnUntraced(function* <R, E>(): Effect.fn.Return<
   CodeModeRequestQueue,
   never,
-  R | Program.ProgramHostRequirement<R, E> | Scope
+  R | Program.ProgramOperationInvokerRequirement<R, E> | Scope
 > {
   const requests = yield* Queue.unbounded<CodeModeQueuedRequest>()
   const pending = new Set<CodeModeQueuedRequest>()
@@ -390,15 +394,15 @@ const createCodeModeRequestQueue = Effect.fnUntraced(function* <R, E>(): Effect.
 
 const runCodeModeHostRequest = Effect.fnUntraced(function* <R, E>(
   request: CodeModeQueuedRequest,
-): Effect.fn.Return<unknown, E | Program.ProgramFailure, R | Program.ProgramHostRequirement<R, E>> {
-  const host = yield* Program.ProgramHost<R, E>()
+): Effect.fn.Return<unknown, E | Program.ProgramFailure, R | Program.ProgramOperationInvokerRequirement<R, E>> {
+  const operationInvoker = yield* Program.ProgramOperationInvoker<R, E>()
   const effect = yield* Effect.try({
-    try: () => host.invoke(request.method, request.args, request.signal),
+    try: () => operationInvoker.invoke(request.method, request.args, request.signal),
     catch: (cause: unknown) =>
       Program.createProgramFailure({
         _tag: 'invoke',
         operation: request.method,
-        message: 'The code mode host failed before returning an Effect.',
+        message: 'The program operation invoker failed before returning an Effect.',
         cause,
       }),
   })
@@ -413,7 +417,7 @@ function waitForCodeModeAbort(signal: AbortSignal): Effect.Effect<never, Program
           Program.createProgramFailure({
             _tag: 'cancellation',
             operation: 'host',
-            message: 'The code mode host call was cancelled.',
+            message: 'The program operation invoker call was cancelled.',
           }),
         ),
       )
@@ -438,17 +442,17 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
 ): Effect.fn.Return<
   unknown,
   CodeModeFailureLike | Program.CodeModeHostError<E> | E,
-  R | Program.ProgramHostRequirement<R, E> | CodeModeRequestQueueRequirement
+  R | Program.ProgramOperationInvokerRequirement<R, E> | CodeModeRequestQueueRequirement
 > {
-  const host = yield* Program.ProgramHost<R, E>()
+  const operationInvoker = yield* Program.ProgramOperationInvoker<R, E>()
   const queue = yield* CodeModeRequestQueueService
   const invokeSync: Vm.CodeModeSyncInvoker =
-    host.invokeSync ??
+    operationInvoker.invokeSync ??
     ((method: string): unknown => {
       throw Program.createProgramFailure({
         _tag: 'invoke',
         operation: method,
-        message: `The code mode host does not implement synchronous method ${method}.`,
+        message: `The program operation invoker does not implement synchronous method ${method}.`,
       })
     })
   const acquireWorker: Effect.Effect<Worker, CodeModeFailureLike> = signal.aborted
@@ -616,7 +620,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
               type: 'sync-result',
               id: request.id,
               ok: false,
-              error: WorkerProtocol.serializeProgramError(cause, host.errorCodec),
+              error: WorkerProtocol.serializeProgramError(cause, operationInvoker.errorCodec),
             }
           }
           postSyncResponse(response)
@@ -706,7 +710,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
                 type: 'async-result',
                 id: request.id,
                 ok: false,
-                error: WorkerProtocol.serializeProgramError(cause, host.errorCodec),
+                error: WorkerProtocol.serializeProgramError(cause, operationInvoker.errorCodec),
               }),
           )
         }
@@ -727,7 +731,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
             } else if (decoded.type === 'error') {
               finishFailure(
                 decoded.error.kind === 'host'
-                  ? WorkerProtocol.deserializeCodeModeHostError(decoded.error, host.errorCodec)
+                  ? WorkerProtocol.deserializeCodeModeHostError(decoded.error, operationInvoker.errorCodec)
                   : WorkerProtocol.deserializeProgramError(decoded.error),
               )
             } else {
@@ -743,7 +747,7 @@ const runCodeModeWorkerEvaluation = Effect.fnUntraced(function* <R, E>(
           } catch {
             try {
               const decoded = Schema.decodeUnknownSync(WorkerProtocol.CodeModeWorkerFailureMessageSchema)(message)
-              finishFailure(WorkerProtocol.deserializeProgramError(decoded.error, host.errorCodec))
+              finishFailure(WorkerProtocol.deserializeProgramError(decoded.error, operationInvoker.errorCodec))
               return
             } catch {
               finishFailure(

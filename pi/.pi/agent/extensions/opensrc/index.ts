@@ -1,5 +1,10 @@
-import { type PiExtensionError, type PiRegistrationContext, PiToolContext } from '@eratio/pi-effect'
-import { createTool, PiExtension } from '@eratio/pi-effect-codemode'
+import {
+  createTool,
+  PiExtension,
+  type PiExtensionError,
+  type PiRegistrationContext,
+  PiToolContext,
+} from '@eratio/pi-effect-codemode'
 import { Effect } from 'effect'
 import { OPENSRC_CODE_TYPES } from './src/core/code-mode.ts'
 import type { OpensrcFailure } from './src/core/model.ts'

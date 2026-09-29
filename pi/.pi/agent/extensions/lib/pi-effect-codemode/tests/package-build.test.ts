@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { basename } from 'node:path'
+import { createFakeExtensionApi } from '@eratio/pi-effect-codemode/testing'
 
 test('should resolve the package entry point given a CommonJS consumer', () => {
   //given
@@ -13,6 +14,13 @@ test('should resolve the package entry point given a CommonJS consumer', () => {
 
   //then
   assert.equal(entryName, 'index.js')
+})
+
+test('should expose fake extension helpers given the testing package subpath', () => {
+  const packageRequire = createRequire(import.meta.url)
+
+  assert.equal(typeof createFakeExtensionApi, 'function')
+  assert.equal(basename(packageRequire.resolve('@eratio/pi-effect-codemode/testing')), 'testing.js')
 })
 
 test('should install Pi Effect transitively and bundle code-mode core given the published package', async () => {

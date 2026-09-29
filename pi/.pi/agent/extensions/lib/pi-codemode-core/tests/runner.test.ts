@@ -18,18 +18,18 @@ const options: Core.ProgramRunOptions = {
 
 const evaluateWithHost = <R, E>(
   core: Core.ProgramRunner<R, E>,
-  host: Core.ProgramHost<R, E>,
+  host: Core.ProgramOperationInvoker<R, E>,
   code: string,
   runOptions: Core.ProgramRunOptions,
 ): Effect.Effect<unknown, Core.ProgramFailure | E, R> =>
-  Effect.provideService(core.evaluate(definition, code, runOptions), Core.ProgramHost<R, E>(), host)
+  Effect.provideService(core.evaluate(definition, code, runOptions), Core.ProgramOperationInvoker<R, E>(), host)
 
 describe('code mode runner', () => {
   test('should run host calls in offer order given concurrent API calls', async () => {
     //given
     const events: string[] = []
     const core = Core.createProgramRunner<never, never>()
-    const host: Core.ProgramHost<never, never> = {
+    const host: Core.ProgramOperationInvoker<never, never> = {
       invoke: (_method: string, args: readonly unknown[]) =>
         Effect.promise(async () => {
           const value = String(args[0])
@@ -58,7 +58,7 @@ describe('code mode runner', () => {
   test('should process later requests given a host that throws before returning an Effect', async () => {
     //given
     const core = Core.createProgramRunner<never, never>()
-    const host: Core.ProgramHost<never, never> = {
+    const host: Core.ProgramOperationInvoker<never, never> = {
       invoke: (_method: string, args: readonly unknown[]) => {
         if (args[0] === 'throws') throw new Error('Host failed before returning an Effect.')
         return Effect.succeed(String(args[0]))
@@ -88,7 +88,7 @@ describe('code mode runner', () => {
     })
     const controller = new AbortController()
     const core = Core.createProgramRunner<never, never>()
-    const host: Core.ProgramHost<never, never> = {
+    const host: Core.ProgramOperationInvoker<never, never> = {
       invoke: () => {
         resolveStarted()
         return Effect.never.pipe(
@@ -128,7 +128,7 @@ describe('code mode runner', () => {
       resolveStarted = resolve
     })
     const core = Core.createProgramRunner<never, never>()
-    const host: Core.ProgramHost<never, never> = {
+    const host: Core.ProgramOperationInvoker<never, never> = {
       invoke: () => {
         resolveStarted()
         return Effect.never.pipe(

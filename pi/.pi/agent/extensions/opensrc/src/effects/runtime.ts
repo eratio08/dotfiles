@@ -1,4 +1,4 @@
-import type { PiProcess } from '@eratio/pi-effect'
+import type { PiProcess } from '@eratio/pi-effect-codemode'
 import { Layer } from 'effect'
 import { OpensrcContext, type OpensrcContextValue } from './context.ts'
 import { type FileSystem, FileSystemLive } from './file-system.ts'

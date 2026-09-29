@@ -534,7 +534,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
     }: Static<typeof runParameters>): Effect.Effect<
       PiToolResult<ToolOutputDetails>,
       ProgramFailure | Failure,
-      Services | PiServices | PiToolContext
+      Services | PiServices
     > =>
       Effect.gen(function* () {
         const context = yield* PiToolContext

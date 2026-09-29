@@ -14,8 +14,8 @@ import {
   isCodeModeWireValue,
   isProgramFailure,
   type ProgramFailure,
-  type ProgramHostErrorCodec,
   type ProgramMethod,
+  type ProgramOperationErrorCodec,
   type ProgramWireValue,
 } from './program.ts'
 
@@ -261,9 +261,9 @@ const CodeModeParentMessageSchema = Schema.Union([
 ])
 
 /**
- * Encodes program and host errors into the worker protocol, using a codec for typed host errors.
+ * Encodes program and host errors into the worker protocol, using a codec for typed operation errors.
  */
-function serializeProgramError<E>(cause: unknown, codec?: ProgramHostErrorCodec<E>): WorkerError {
+function serializeProgramError<E>(cause: unknown, codec?: ProgramOperationErrorCodec<E>): WorkerError {
   if (isCodeModeEncodedHostError(cause)) return { kind: 'host', value: cause.value }
   if (isCodeModeHostError<E>(cause)) {
     if (codec === undefined)
@@ -308,7 +308,7 @@ function serializeProgramError<E>(cause: unknown, codec?: ProgramHostErrorCodec<
 
 function deserializeCodeModeHostError<E>(
   error: unknown,
-  codec: ProgramHostErrorCodec<E> | undefined,
+  codec: ProgramOperationErrorCodec<E> | undefined,
 ): ProgramFailure<string> | CodeModeHostError<E> {
   let shape: { readonly kind: 'host'; readonly value: unknown }
   try {
@@ -372,15 +372,15 @@ function deserializeCodeModeWorkerError(error: unknown): ProgramFailure<string> 
 }
 
 /**
- * Decodes a worker error payload as a program failure or, with a codec, a typed host error.
+ * Decodes a worker error payload as a program failure or, with a codec, a typed operation error.
  */
 function deserializeProgramError(error: unknown): ProgramFailure<string>
 function deserializeProgramError<E>(
   error: unknown,
-  codec: ProgramHostErrorCodec<E> | undefined,
+  codec: ProgramOperationErrorCodec<E> | undefined,
 ): ProgramFailure<string> | E
-function deserializeProgramError<E>(error: unknown, codec: ProgramHostErrorCodec<E>): ProgramFailure<string> | E
-function deserializeProgramError<E>(error: unknown, codec?: ProgramHostErrorCodec<E>): ProgramFailure<string> | E {
+function deserializeProgramError<E>(error: unknown, codec: ProgramOperationErrorCodec<E>): ProgramFailure<string> | E
+function deserializeProgramError<E>(error: unknown, codec?: ProgramOperationErrorCodec<E>): ProgramFailure<string> | E {
   let decoded: WorkerError
   try {
     decoded = Schema.decodeUnknownSync(CodeModeWorkerErrorSchema)(error)

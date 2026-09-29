@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { PiProcess } from '@eratio/pi-effect'
+import { PiProcess } from '@eratio/pi-effect-codemode'
 import { Context, Effect, Layer } from 'effect'
 import type { OpensrcFailure, PiExecutionRequest, PiExecutionResult } from '../core/model.ts'
 import { createOpensrcFailure } from '../core/model.ts'

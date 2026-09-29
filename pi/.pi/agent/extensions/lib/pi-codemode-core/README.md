@@ -7,7 +7,7 @@ Each program receives the API as a typed `api` argument and returns a value.
 
 ```ts
 import { Effect, Layer, ManagedRuntime } from 'effect'
-import { ProgramHost, createProgramRunner } from '@eratio/pi-codemode-core'
+import { ProgramOperationInvoker, createProgramRunner } from '@eratio/pi-codemode-core'
 
 const definition = {
   apiName: 'MathApi',
@@ -17,14 +17,14 @@ const definition = {
   examples: [],
 } as const
 
-const host = {
+const operationInvoker = {
   invoke: (_method: string, args: readonly unknown[]) =>
     Effect.succeed(Number(args[0]) + Number(args[1])),
 }
 
 const core = createProgramRunner<never, never>()
 const runtime = ManagedRuntime.make(
-  Layer.succeed(ProgramHost<never, never>(), host),
+  Layer.succeed(ProgramOperationInvoker<never, never>(), operationInvoker),
 )
 const source = 'export default async (api: MathApi) => api.add(2, 3)'
 const result = await runtime.runPromise(
@@ -45,8 +45,8 @@ await runtime.dispose()
 
 Creates a `ProgramRunner<R, E>`.
 Call `core.evaluate(definition, source, options)` to run a program.
-The returned Effect produces the program result and can fail with `ProgramFailure` or a host error of type `E`.
-`R` describes the Effect services required by the host.
+The returned Effect produces the program result and can fail with `ProgramFailure` or an operation error of type `E`.
+`R` describes the Effect services required by the operation invoker.
 
 ### `ProgramDefinition`
 
@@ -54,18 +54,18 @@ A definition describes the API available to a program:
 - `apiName` names the TypeScript type used by the program's `api` argument.
 - `programName` names the program.
 - `declarations` provides TypeScript declarations for the API.
-- `methods` lists the host methods that the program can call.
+- `methods` lists the operations that the program can call.
 - `examples` contains example program strings.
 
 Each method has a `name` and a `kind` of `'sync'` or `'async'`.
 
-### `ProgramHost<R, E>()`
+### `ProgramOperationInvoker<R, E>()`
 
-Returns the Effect service key used to provide the host.
-The host provides `invoke` for asynchronous methods and can provide `invokeSync` for synchronous methods.
+Returns the Effect service key used to provide a program operation invoker.
+The operation invoker provides `invoke` for asynchronous operations and can provide `invokeSync` for synchronous operations.
 `invoke(method, args, signal)` receives an `AbortSignal` and returns an Effect.
-`invokeSync(method, args)` returns a method value directly.
-Optionally set `errorCodec` with `encode` and `decode` functions for host errors of type `E`.
+`invokeSync(method, args)` returns an operation value directly.
+Optionally set `errorCodec` with `encode` and `decode` functions for operation errors of type `E`.
 
 ### `ProgramRunOptions`
 

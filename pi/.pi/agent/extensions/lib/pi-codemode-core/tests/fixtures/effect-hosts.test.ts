@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
 import type { ProgramFailure } from '../../src/index.ts'
-import { createProgramRunner, ProgramHost } from '../../src/index.ts'
+import { createProgramRunner, ProgramOperationInvoker } from '../../src/index.ts'
 import { createCodeModeFixture, createOpenSrcFixture, createTodoFixture } from './effect-hosts.ts'
 
 const options = {
@@ -20,7 +20,7 @@ describe('Effect host fixtures', () => {
     const result = await Effect.runPromise(
       Effect.provideService(
         core.evaluate(fixture.definition, fixture.source, options),
-        ProgramHost<never, ProgramFailure>(),
+        ProgramOperationInvoker<never, ProgramFailure>(),
         fixture.host,
       ),
     )
@@ -39,7 +39,7 @@ describe('Effect host fixtures', () => {
     const result = await Effect.runPromise(
       Effect.provideService(
         core.evaluate(fixture.definition, fixture.source, options),
-        ProgramHost<never, ProgramFailure>(),
+        ProgramOperationInvoker<never, ProgramFailure>(),
         fixture.host,
       ),
     )
@@ -58,7 +58,7 @@ describe('Effect host fixtures', () => {
     const result = await Effect.runPromise(
       Effect.provideService(
         core.evaluate(fixture.definition, fixture.source, options),
-        ProgramHost<never, ProgramFailure>(),
+        ProgramOperationInvoker<never, ProgramFailure>(),
         fixture.host,
       ),
     )

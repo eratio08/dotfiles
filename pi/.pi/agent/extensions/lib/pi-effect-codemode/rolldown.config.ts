@@ -4,9 +4,10 @@ import { dts } from 'rolldown-plugin-dts'
 const config = defineConfig({
   input: {
     index: 'src/index.ts',
+    testing: 'src/testing.ts',
     worker: 'node_modules/@eratio/pi-codemode-core/src/worker.ts',
   },
-  plugins: [dts({ entry: 'src/index.ts', resolver: 'tsc' })],
+  plugins: [dts({ entry: ['src/index.ts', 'src/testing.ts'], resolver: 'tsc' })],
   resolve: {
     alias: {
       '@eratio/pi-codemode-core/output': '../pi-codemode-core/src/output.ts',

@@ -22,17 +22,17 @@ const options: Core.ProgramRunOptions = {
 
 const evaluateWithHost = <R, E>(
   core: Core.ProgramRunner<R, E>,
-  host: Core.ProgramHost<R, E>,
+  host: Core.ProgramOperationInvoker<R, E>,
   code: string,
   runOptions: Core.ProgramRunOptions,
 ): Effect.Effect<unknown, Core.ProgramFailure | E, R> =>
-  Effect.provideService(core.evaluate(definition, code, runOptions), Core.ProgramHost<R, E>(), host)
+  Effect.provideService(core.evaluate(definition, code, runOptions), Core.ProgramOperationInvoker<R, E>(), host)
 
 describe('code mode worker', () => {
   test('should evaluate synchronous and asynchronous host calls given a worker program', async () => {
     //given
     const core = Core.createProgramRunner<never, never>()
-    const host: Core.ProgramHost<never, never> = {
+    const host: Core.ProgramOperationInvoker<never, never> = {
       invoke: (method: string, args: readonly unknown[]) =>
         Effect.succeed(method === 'wait' ? String(args[0]).length : undefined),
       invokeSync: (method: string, args: readonly unknown[]) => (method === 'add' ? Number(args[0]) + 1 : undefined),
@@ -50,7 +50,7 @@ describe('code mode worker', () => {
   test('should fail a synchronous host call given no host sync method', async () => {
     //given
     const core = Core.createProgramRunner<never, never>()
-    const host: Core.ProgramHost<never, never> = {
+    const host: Core.ProgramOperationInvoker<never, never> = {
       invoke: () => Effect.succeed(undefined),
     }
 
@@ -66,7 +66,7 @@ describe('code mode worker', () => {
   test('should preserve the result given worker termination fails after evaluation', async () => {
     //given
     const core = Core.createProgramRunner<never, never>()
-    const host: Core.ProgramHost<never, never> = {
+    const host: Core.ProgramOperationInvoker<never, never> = {
       invoke: () => Effect.succeed(undefined),
       invokeSync: () => undefined,
     }
@@ -90,7 +90,7 @@ describe('code mode worker', () => {
   test('should stop execution given a loop starts after an awaited host call', async () => {
     //given
     const core = Core.createProgramRunner<never, never>()
-    const host: Core.ProgramHost<never, never> = {
+    const host: Core.ProgramOperationInvoker<never, never> = {
       invoke: () => Effect.succeed('ok'),
       invokeSync: () => undefined,
     }

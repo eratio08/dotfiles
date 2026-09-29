@@ -1,11 +1,11 @@
-import type {
-  ProgramFailure,
-  ProgramFailureTag,
-  ProgramHostErrorCodec,
-  ProgramWireValue,
-} from '@eratio/pi-codemode-core'
-import { createProgramFailure } from '@eratio/pi-codemode-core'
-import { defineMethod } from '@eratio/pi-effect-codemode'
+import {
+  createProgramFailure,
+  defineMethod,
+  type ProgramFailure,
+  type ProgramFailureTag,
+  type ProgramOperationErrorCodec,
+  type ProgramWireValue,
+} from '@eratio/pi-effect-codemode'
 import { Type } from 'typebox'
 import { createOpensrcFailure, OpensrcFailure } from '../core/model.ts'
 import type { OpensrcApiService } from './opensrc-api.ts'
@@ -99,7 +99,7 @@ function serializeFailureCause(value: unknown, seen: WeakSet<object> = new WeakS
   }
 }
 
-const opensrcErrorCodec: ProgramHostErrorCodec<ProgramFailure | OpensrcFailure> = {
+const opensrcErrorCodec: ProgramOperationErrorCodec<ProgramFailure | OpensrcFailure> = {
   encode: (error: OpensrcFailure | ProgramFailure) => {
     const failure = {
       _tag: error._tag,

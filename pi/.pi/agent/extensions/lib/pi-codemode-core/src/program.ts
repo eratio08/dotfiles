@@ -14,7 +14,7 @@ function getCodeModeSchemaFailureMessage(cause: unknown, fallbackMessage: string
 }
 
 /**
- * Describes a host method and whether a code-mode program invokes it synchronously or asynchronously.
+ * Describes a program operation and whether the code-mode program invokes it synchronously or asynchronously.
  */
 type ProgramMethod = {
   readonly name: string
@@ -22,7 +22,7 @@ type ProgramMethod = {
 }
 
 /**
- * Declares the API type, host methods, and examples available to a code-mode program.
+ * Declares the API type, operations, and examples available to a code-mode program.
  */
 type ProgramDefinition = {
   readonly apiName: string
@@ -32,26 +32,31 @@ type ProgramDefinition = {
   readonly examples: readonly string[]
 }
 
-declare const programHostTag: unique symbol
+declare const programOperationInvokerTag: unique symbol
 
-type ProgramHostRequirement<R, E> = {
-  readonly [programHostTag]: readonly [R, E]
+type ProgramOperationInvokerRequirement<R, E> = {
+  readonly [programOperationInvokerTag]: readonly [R, E]
 }
 
 /**
- * Defines the host operations and optional error codec available to a program runner.
+ * Defines the program operations that a runner can invoke and an optional codec for their errors.
  */
-type ProgramHost<R, E> = {
+type ProgramOperationInvoker<R, E> = {
   readonly invoke: (method: string, args: readonly unknown[], signal: AbortSignal) => Effect.Effect<unknown, E, R>
   readonly invokeSync?: (method: string, args: readonly unknown[]) => unknown
-  readonly errorCodec?: ProgramHostErrorCodec<E>
+  readonly errorCodec?: ProgramOperationErrorCodec<E>
 }
 
 /**
- * Returns the Effect service key used to provide a program host.
+ * Returns the Effect service key used to provide a program operation invoker.
  */
-const ProgramHost = <R, E>(): Context.Service<ProgramHostRequirement<R, E>, ProgramHost<R, E>> =>
-  Context.Service<ProgramHostRequirement<R, E>, ProgramHost<R, E>>('@eratio/pi-codemode-core/CodeModeEffectHost')
+const ProgramOperationInvoker = <R, E>(): Context.Service<
+  ProgramOperationInvokerRequirement<R, E>,
+  ProgramOperationInvoker<R, E>
+> =>
+  Context.Service<ProgramOperationInvokerRequirement<R, E>, ProgramOperationInvoker<R, E>>(
+    '@eratio/pi-codemode-core/ProgramOperationInvoker',
+  )
 
 /**
  * Configures paths, timeout, cancellation, and execution mode for one evaluation.
@@ -72,7 +77,7 @@ type ProgramRunner<R, E> = {
     definition: ProgramDefinition,
     code: string,
     options: ProgramRunOptions,
-  ) => Effect.Effect<unknown, ProgramFailure | E, R | ProgramHostRequirement<R, E>>
+  ) => Effect.Effect<unknown, ProgramFailure | E, R | ProgramOperationInvokerRequirement<R, E>>
 }
 
 /**
@@ -123,9 +128,9 @@ type ProgramWireValue =
   | { readonly [key: string]: ProgramWireValue }
 
 /**
- * Encodes and decodes typed host errors as values that can cross the worker boundary.
+ * Encodes and decodes typed operation errors as values that can cross the worker boundary.
  */
-type ProgramHostErrorCodec<E> = {
+type ProgramOperationErrorCodec<E> = {
   readonly encode: (error: E) => ProgramWireValue
   readonly decode: (value: ProgramWireValue) => E
 }
@@ -469,10 +474,10 @@ export {
   type ProgramFailure,
   type ProgramFailureFields,
   type ProgramFailureTag,
-  ProgramHost,
-  type ProgramHostErrorCodec,
-  type ProgramHostRequirement,
   type ProgramMethod,
+  type ProgramOperationErrorCodec,
+  ProgramOperationInvoker,
+  type ProgramOperationInvokerRequirement,
   type ProgramRunner,
   type ProgramRunOptions,
   type ProgramWireValue,

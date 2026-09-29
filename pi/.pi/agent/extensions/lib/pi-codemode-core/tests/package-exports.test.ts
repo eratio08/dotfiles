@@ -15,12 +15,12 @@ describe('package exports', () => {
     const coreExportNames = Object.keys(Core)
 
     //then
-    expect(typeof Core.ProgramHost).toBe('function')
+    expect(typeof Core.ProgramOperationInvoker).toBe('function')
     expect(typeof Core.createProgramRunner).toBe('function')
     expect(typeof Core.createProgramFailure).toBe('function')
     expect(typeof Output.serializeOutput).toBe('function')
     expect(coreExportNames.sort()).toEqual([
-      'ProgramHost',
+      'ProgramOperationInvoker',
       'createProgramFailure',
       'createProgramRunner',
       'deserializeProgramError',
@@ -75,7 +75,7 @@ describe('package exports', () => {
       invoke: (_method: string, _args: readonly unknown[]) => Effect.succeed('bundled'),
     }
     const core = Core.createProgramRunner<never, never>()
-    const runtime = ManagedRuntime.make(Layer.succeed(Core.ProgramHost<never, never>(), host))
+    const runtime = ManagedRuntime.make(Layer.succeed(Core.ProgramOperationInvoker<never, never>(), host))
     const evaluation = core.evaluate(definition, 'export default async (api: WorkerApi) => api.value()', {
       cwd: process.cwd(),
       filenamePrefix: 'bundle-test',

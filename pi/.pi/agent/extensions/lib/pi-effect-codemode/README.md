@@ -3,6 +3,7 @@ The package installs `@eratio/pi-effect` as a runtime dependency and bundles `@e
 The package re-exports `PiProcess`, `PiToolContext`, `PiExtensionError`, and `PiRegistrationContext` from `@eratio/pi-effect`.
 It keeps `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, `effect`, and `typebox` as peer dependencies.
 Consumers can import these services and types from this package without adding `@eratio/pi-effect` directly.
+The `@eratio/pi-effect-codemode/testing` entry exports fake extension helpers for tests.
 It registers one TypeScript runner tool from the supplied method definitions.
 The generated API includes synchronous `api.help()` and `api.help("operation")` methods.
 
