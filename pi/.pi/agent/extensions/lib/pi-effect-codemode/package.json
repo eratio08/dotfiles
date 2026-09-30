@@ -28,8 +28,8 @@
     "prepack": "bun run build"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-tui": "*",
+    "@earendil-works/pi-coding-agent": "^0.99.1",
+    "@earendil-works/pi-tui": "^0.99.1",
     "effect": "^4.0.0-0",
     "typebox": "*"
   },
@@ -39,8 +39,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.12",
-    "@earendil-works/pi-coding-agent": "^0.87.1",
-    "@earendil-works/pi-tui": "^0.87.1",
+    "@earendil-works/pi-coding-agent": "^0.99.1",
+    "@earendil-works/pi-tui": "^0.99.1",
     "@eratio/pi-codemode-core": "file:../pi-codemode-core",
     "@types/bun": "^1.4.2",
     "@types/node": "^24.10.1",

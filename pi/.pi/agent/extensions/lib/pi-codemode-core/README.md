@@ -1,5 +1,8 @@
 # @eratio/pi-codemode-core
 
+This package is deprecated.
+Use [Pi's built-in code mode](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/cli.md#enable-codemode) instead.
+
 Run trusted TypeScript programs against an API that your application provides.
 Each program receives the API as a typed `api` argument and returns a value.
 

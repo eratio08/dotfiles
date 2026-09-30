@@ -1,9 +1,13 @@
 {
-  "lastChangelogVersion": "0.87.1",
+  "lastChangelogVersion": "0.99.1",
   "theme": "rose-pine-moon",
   "defaultProvider": "github-copilot",
   "defaultModel": "gpt-6-luna",
   "defaultThinkingLevel": "max",
+  "defaultTools": [
+    "+codemode",
+    "+tool_search"
+  ],
   "packages": [
     {
       "source": "npm:@tran-quil/pi-rose-pine",
@@ -25,7 +29,6 @@
         "-skills/ponytail-review/SKILL.md"
       ]
     },
-    "git:github.com/eratio08/pi-mcp",
     "npm:@plannotator/pi-extension",
     "npm:cc-safety-net",
     "ssh://git@github.com/eratio08/pi-spa.git"
@@ -35,7 +38,7 @@
   "enabledModels": [
     "github-copilot/kimi-k3",
     "github-copilot/gpt-6-luna",
-    "github-copilot/gpt-6-sol"
+    "github-copilot/gpt-6.1-sol"
   ],
   "skills": [
     "~/.local/state/sparness/opencode/skills",

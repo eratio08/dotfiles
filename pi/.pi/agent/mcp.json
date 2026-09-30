@@ -1,50 +1,58 @@
 {
-	"mcp": {
-		"toolMode": "proxy",
-		"startup": "lazy",
+	"mcpServers": {
 		"ripwire": {
 			"enabled": true,
-			"type": "local",
-			"command": ["ripwire", "--mcp"]
+			"command": "ripwire",
+			"args": [
+				"--mcp"
+			],
+			"exposure": "codemode-deferred"
 		},
 		"context7": {
 			"enabled": true,
-			"type": "remote",
-			"url": "https://mcp.context7.com/mcp"
+			"url": "https://mcp.context7.com/mcp",
+			"exposure": "codemode-deferred"
 		},
 		"code-index": {
 			"enabled": true,
-			"type": "local",
-			"command": ["uvx", "code-index-mcp@2.17.1"]
+			"command": "uvx",
+			"args": [
+				"code-index-mcp@2.17.1"
+			],
+			"exposure": "codemode-deferred"
 		},
 		"aws-mcp": {
-			"enabled": true,
-			"type": "local",
-			"command": [
-				"uvx",
+			"enabled": false,
+			"command": "uvx",
+			"args": [
 				"mcp-proxy-for-aws==1.6.4",
 				"https://aws-mcp.eu-central-1.api.aws/mcp"
-			]
+			],
+			"exposure": "codemode-deferred"
 		},
 		"opentofu": {
 			"enabled": true,
-			"type": "local",
-			"command": ["bunx", "-y", "@opentofu/opentofu-mcp-server@1.0.0"]
+      "url": "https://mcp.opentofu.org/mcp",
+			"exposure": "codemode-deferred"
 		},
 		"playwright": {
 			"enabled": false,
-			"type": "local",
-			"command": ["bunx", "-y", "@playwright/mcp@1.63.0"]
+			"command": "bunx",
+			"args": [
+				"-y",
+				"@playwright/mcp@1.63.0"
+			],
+			"exposure": "codemode-deferred"
 		},
 		"chrome-devtools": {
 			"enabled": true,
-			"type": "local",
-			"command": [
-				"bunx",
+			"command": "bunx",
+			"args": [
 				"-y",
 				"chrome-devtools-mcp@1.9.0",
 				"--no-usage-statistics"
-			]
+			],
+			"exposure": "codemode-deferred"
 		}
 	}
 }

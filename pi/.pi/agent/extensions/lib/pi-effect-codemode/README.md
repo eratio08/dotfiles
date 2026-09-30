@@ -1,4 +1,7 @@
 # @eratio/pi-effect-codemode
+
+This extension is deprecated.
+Use [Pi's built-in code mode](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/cli.md#enable-codemode) instead.
 The package installs `@eratio/pi-effect` as a runtime dependency and bundles `@eratio/pi-codemode-core`.
 The package re-exports `PiProcess`, `PiToolContext`, `PiExtensionError`, and `PiRegistrationContext` from `@eratio/pi-effect`.
 It keeps `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, `effect`, and `typebox` as peer dependencies.

@@ -1,4 +1,4 @@
-import type {
+export type {
   ProgramDefinition,
   ProgramFailure,
   ProgramFailureFields,
@@ -9,7 +9,7 @@ import type {
   ProgramRunOptions,
   ProgramWireValue,
 } from './program.ts'
-import {
+export {
   createProgramFailure,
   findProgramMethod,
   isProgramFailure,
@@ -17,28 +17,6 @@ import {
   validateProgramDefinition,
   validateProgramRunOptions,
 } from './program.ts'
-import { createProgramRunner } from './runner.ts'
-import type { ProgramFailureWireValue } from './worker-protocol.ts'
-import { deserializeProgramError, serializeProgramError } from './worker-protocol.ts'
-
-export {
-  createProgramFailure,
-  createProgramRunner,
-  deserializeProgramError,
-  findProgramMethod,
-  isProgramFailure,
-  type ProgramDefinition,
-  type ProgramFailure,
-  type ProgramFailureFields,
-  type ProgramFailureTag,
-  type ProgramFailureWireValue,
-  type ProgramMethod,
-  type ProgramOperationErrorCodec,
-  ProgramOperationInvoker,
-  type ProgramRunner,
-  type ProgramRunOptions,
-  type ProgramWireValue,
-  serializeProgramError,
-  validateProgramDefinition,
-  validateProgramRunOptions,
-}
+export { createProgramRunner } from './runner.ts'
+export type { ProgramFailureWireValue } from './worker-protocol.ts'
+export { deserializeProgramError, serializeProgramError } from './worker-protocol.ts'
