@@ -62,6 +62,7 @@ When working with EffectJS you must read the [EffectJS guidelines](references/ef
 ## Formatting and checks
 
 When setting up a new extension you must read the [setup guidelines](references/setup.md).
+When managing dependencies you must read the [peer-dependencies guidelines](references/peer-dependencies.md)
 You must never change biome configurations without being explicitly asked to.
 Use Bun to install dependencies and update `bun.lock`.
 Run `bun run check` in every extension before you finish.
