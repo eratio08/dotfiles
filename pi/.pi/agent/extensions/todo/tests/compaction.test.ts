@@ -25,22 +25,12 @@ type RegisteredTool = {
 type TodoToolResult<T = unknown> = { readonly structuredContent: T }
 type RegisteredCommand = { handler: (...args: unknown[]) => Promise<void> }
 type Phase = 'idle' | 'planning' | 'executing'
-type FailureOperation =
-  | 'appendEntry'
-  | 'sendMessage'
-  | 'getActiveTools'
-  | 'setActiveTools'
-  | 'getBranch'
-  | 'getToolsExpanded'
-  | 'notify'
-  | 'isIdle'
-  | 'emit'
+type FailureOperation = 'appendEntry' | 'sendMessage' | 'getBranch' | 'getToolsExpanded' | 'notify' | 'isIdle' | 'emit'
 type HarnessOptions = {
   customError?: unknown
   phase?: Phase
   phaseResponses?: Array<{ phase: Phase; delayMs?: number }>
   failure?: { operation: FailureOperation; error: Error }
-  onSetActiveTools?: () => void
   toolsExpanded?: boolean
 }
 
@@ -49,7 +39,6 @@ type Harness = {
   ctx: Record<string, unknown>
   events: Map<string, EventHandler>
   sentMessages: SentMessage[]
-  activeTools: string[]
   widgets: Map<string, string[] | undefined>
   notifications: string[]
   notificationLevels: Array<string | undefined>
@@ -67,7 +56,6 @@ type Harness = {
 function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = {}): Harness {
   const events = new Map<string, EventHandler>()
   const sentMessages: SentMessage[] = []
-  const activeTools = ['read', 'todo', 'write']
   const widgets = new Map<string, string[] | undefined>()
   const notifications: string[] = []
   const notificationLevels: Array<string | undefined> = []
@@ -118,14 +106,9 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
       sentMessages.push({ message, options })
     },
     getActiveTools(): string[] {
-      fail('getActiveTools')
-      return [...activeTools]
+      return []
     },
-    setActiveTools(next: string[]): void {
-      fail('setActiveTools')
-      activeTools.splice(0, activeTools.length, ...next)
-      options.onSetActiveTools?.()
-    },
+    setActiveTools(): void {},
     events: {
       emit(channel: string, request: { respond: (response: unknown) => void }): void {
         fail('emit')
@@ -197,7 +180,6 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
     ctx,
     events,
     sentMessages,
-    activeTools,
     widgets,
     notifications,
     notificationLevels,
@@ -267,7 +249,7 @@ async function executeTodoTool(
   return tool.execute(`${name}-call`, params, signal, undefined, value.ctx)
 }
 
-test('should suspend todo tracking given an approved plan submission', async () => {
+test('should suspend Todo tool calls given an approved plan submission', async () => {
   //given
   const value = harness([], true, { phase: 'executing' })
   await value.ready
@@ -278,7 +260,7 @@ test('should suspend todo tracking given an approved plan submission', async () 
   await handler({ toolName: 'plannotator_submit_plan', details: { approved: true, plan: 'accepted' } }, value.ctx)
 
   //then
-  assert.equal(value.activeTools.includes('todo'), false)
+  await assert.rejects(executeTodoTool(value, 'todo_show'), /disabled while Plannotator/)
 })
 
 const rejectedPlanResults = [
@@ -320,7 +302,8 @@ for (const { name, event } of rejectedPlanResults) {
     await handler(event, value.ctx)
 
     //then
-    assert.equal(value.activeTools.includes('todo'), true)
+    const result = await executeTodoTool(value, 'todo_show')
+    assert.deepEqual((result as TodoToolResult<Todo[]>).structuredContent, [])
   })
 }
 
@@ -905,23 +888,20 @@ test('should keep the saved plan given a failed tree status summary', async () =
   assert.deepEqual(value.sentMessages, [])
 })
 
-test('should suspend the todo tool given Plannotator execution of an approved plan', async () => {
+test('should reject Todo calls given Plannotator execution of an approved plan', async () => {
   //given
   const value = harness(branchWithTodos, true, { phase: 'executing' })
   await restoreTodos(value)
-  const tool = value.registeredTool
-  assert.ok(tool)
 
   //when
-  const execution = tool.execute('todo-call', {}, undefined, undefined, value.ctx)
+  const execution = executeTodoTool(value, 'todo_show')
 
   //then
   await assert.rejects(execution, /disabled while Plannotator/)
-  assert.equal(value.activeTools.includes('todo'), false)
   assert.equal(value.widgets.get('todo'), undefined)
 })
 
-test('should restore the tool given Plannotator returning to idle', async () => {
+test('should allow Todo calls given Plannotator returning to idle', async () => {
   //given
   const value = harness(branchWithTodos, true, { phase: 'executing' })
   await restoreTodos(value)
@@ -933,8 +913,12 @@ test('should restore the tool given Plannotator returning to idle', async () => 
   await input({ type: 'input' }, value.ctx)
 
   //then
-  assert.equal(value.activeTools.includes('todo'), true)
   assert.notEqual(value.widgets.get('todo'), undefined)
+  const result = await executeTodoTool(value, 'todo_show')
+  assert.deepEqual(
+    (result as TodoToolResult<Todo[]>).structuredContent.map(({ content }) => content),
+    ['first task'],
+  )
 })
 
 test('should wait for Plannotator status responses given an asynchronous request', async () => {
@@ -948,14 +932,18 @@ test('should wait for Plannotator status responses given an asynchronous request
   await restoreTodos(value)
   const input = value.events.get('input')
   assert.ok(input)
-  assert.equal(value.activeTools.includes('todo'), false)
+  await assert.rejects(executeTodoTool(value, 'todo_show'), /disabled while Plannotator/)
 
   //when
   await input({ type: 'input' }, value.ctx)
 
   //then
-  assert.equal(value.activeTools.includes('todo'), true)
   assert.notEqual(value.widgets.get('todo'), undefined)
+  const result = await executeTodoTool(value, 'todo_show')
+  assert.deepEqual(
+    (result as TodoToolResult<Todo[]>).structuredContent.map(({ content }) => content),
+    ['first task'],
+  )
 })
 
 test('should ignore a Plannotator response given an expired bounded wait', async () => {
@@ -970,7 +958,8 @@ test('should ignore a Plannotator response given an expired bounded wait', async
   await new Promise((resolve) => setTimeout(resolve, 350))
 
   //then
-  assert.equal(value.activeTools.includes('todo'), true)
+  const result = await executeTodoTool(value, 'todo_show')
+  assert.deepEqual((result as TodoToolResult<Todo[]>).structuredContent, [])
 })
 
 test('should ignore stale Plannotator responses given overlapping requests', async () => {
@@ -986,7 +975,8 @@ test('should ignore stale Plannotator responses given overlapping requests', asy
   await Promise.all([input({ type: 'input' }, value.ctx), input({ type: 'input' }, value.ctx)])
 
   //then
-  assert.equal(value.activeTools.includes('todo'), true)
+  const result = await executeTodoTool(value, 'todo_show')
+  assert.deepEqual((result as TodoToolResult<Todo[]>).structuredContent, [])
 })
 
 test('should clean up a Plannotator status request given an abort', async () => {
@@ -1014,35 +1004,8 @@ test('should clean up a Plannotator status request given an abort', async () => 
   clearTimeout(abortTimer)
   assert.equal(outcome, 'settled')
   await new Promise((resolve) => setTimeout(resolve, 350))
-  assert.equal(value.activeTools.includes('todo'), true)
-})
-
-test('should serialize phase transitions before updating the widget given concurrent changes', async () => {
-  //given
-  let value!: ReturnType<typeof harness>
-  let input: EventHandler | undefined
-  let concurrentInput: Promise<unknown> | undefined
-  let triggered = false
-  value = harness(branchWithTodos, true, {
-    phase: 'executing',
-    onSetActiveTools: () => {
-      if (triggered) return
-      triggered = true
-      value.setPhase('idle')
-      if (input) concurrentInput = Promise.resolve(input({ type: 'input' }, value.ctx))
-    },
-  })
-  await value.ready
-  input = value.events.get('input')
-  assert.ok(input)
-
-  //when
-  await restoreTodos(value)
-  await concurrentInput
-
-  //then
-  assert.equal(value.activeTools.includes('todo'), true)
-  assert.notEqual(value.widgets.get('todo'), undefined)
+  const result = await executeTodoTool(value, 'todo_show')
+  assert.deepEqual((result as TodoToolResult<Todo[]>).structuredContent, [])
 })
 
 test('should return typed errors given a host that cannot append a snapshot', async () => {
@@ -1066,30 +1029,6 @@ test('should return typed errors given a host that cannot append a snapshot', as
   })
   const readOnly = await tool.execute('todo-call', {}, undefined, undefined, value.ctx)
   assert.deepEqual((readOnly as TodoToolResult<Todo[]>).structuredContent, [])
-})
-
-test('should roll back suspension given a failed active-tool host callback', async () => {
-  //given
-  const cause = new Error('tool update failed')
-  const value = harness(branchWithTodos, true, {
-    phase: 'executing',
-    failure: { operation: 'setActiveTools', error: cause },
-  })
-  await value.ready
-  const sessionStart = value.events.get('session_start')
-  assert.ok(sessionStart)
-
-  //when
-  const execution = Promise.resolve(sessionStart({ type: 'session_start' }, value.ctx))
-
-  //then
-  await assert.rejects(execution, (error: unknown) => {
-    assert.ok(error instanceof TodoUiError)
-    assert.equal(error.operation, 'set-active-tools')
-    assert.equal(error.cause, cause)
-    return true
-  })
-  assert.equal(value.activeTools.includes('todo'), true)
 })
 
 test('should return typed errors given a host callback failure during compaction', async () => {
