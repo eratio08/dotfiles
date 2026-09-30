@@ -3,9 +3,7 @@
 		"ripwire": {
 			"enabled": true,
 			"command": "ripwire",
-			"args": [
-				"--mcp"
-			],
+			"args": ["--mcp"],
 			"exposure": "codemode-deferred"
 		},
 		"context7": {
@@ -14,11 +12,9 @@
 			"exposure": "codemode-deferred"
 		},
 		"code-index": {
-			"enabled": true,
+			"enabled": false,
 			"command": "uvx",
-			"args": [
-				"code-index-mcp@2.17.1"
-			],
+			"args": ["code-index-mcp@2.17.1"],
 			"exposure": "codemode-deferred"
 		},
 		"aws-mcp": {
@@ -32,26 +28,19 @@
 		},
 		"opentofu": {
 			"enabled": true,
-      "url": "https://mcp.opentofu.org/mcp",
+			"url": "https://mcp.opentofu.org/mcp",
 			"exposure": "codemode-deferred"
 		},
 		"playwright": {
 			"enabled": false,
 			"command": "bunx",
-			"args": [
-				"-y",
-				"@playwright/mcp@1.63.0"
-			],
+			"args": ["-y", "@playwright/mcp@1.63.0"],
 			"exposure": "codemode-deferred"
 		},
 		"chrome-devtools": {
 			"enabled": true,
 			"command": "bunx",
-			"args": [
-				"-y",
-				"chrome-devtools-mcp@1.9.0",
-				"--no-usage-statistics"
-			],
+			"args": ["-y", "chrome-devtools-mcp@1.9.0", "--no-usage-statistics"],
 			"exposure": "codemode-deferred"
 		}
 	}
