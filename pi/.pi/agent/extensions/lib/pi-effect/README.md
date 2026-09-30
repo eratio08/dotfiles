@@ -1,6 +1,6 @@
-# @eratio08/pi-effect
+# @eratio/pi-effect
 
-`@eratio08/pi-effect` is an SDK for writing Pi extensions with EffectJS.
+`@eratio/pi-effect` is an SDK for writing Pi extensions with EffectJS.
 It gives extension code typed services, typed errors, and managed lifecycle handling for Pi API calls.
 
 ## Requirements
@@ -18,7 +18,7 @@ The package declares these peer dependencies:
 Install the adapter and EffectJS:
 
 ```bash
-bun add @eratio08/pi-effect effect@rc
+bun add @eratio/pi-effect effect@rc
 ```
 
 Pi provides its API packages and TypeBox at runtime.
@@ -36,7 +36,7 @@ A service tag identifies one service that an EffectJS program can request.
 Create a plugin with `PiExtension.define` and export the result of `PiExtension.install`:
 
 ```ts
-import { Pi, PiExtension } from '@eratio08/pi-effect'
+import { Pi, PiExtension } from '@eratio/pi-effect'
 import { Effect } from 'effect'
 
 const plugin = PiExtension.define({
@@ -92,7 +92,7 @@ Use a custom layer when the extension owns state or another long-lived service:
 
 ```ts
 import { Context, Effect, Layer } from 'effect'
-import { PiExtension } from '@eratio08/pi-effect'
+import { PiExtension } from '@eratio/pi-effect'
 
 class Greeting extends Context.Service<Greeting, { readonly text: string }>()('example/Greeting') {}
 
@@ -163,7 +163,7 @@ The `Pi` service is a facade that groups the services available to an extension.
 Use the smaller service tags when a function needs one capability.
 
 ```ts
-import { PiContext, PiSession, PiUi } from '@eratio08/pi-effect'
+import { PiContext, PiSession, PiUi } from '@eratio/pi-effect'
 import { Effect } from 'effect'
 
 const readSession = Effect.gen(function* () {
@@ -210,7 +210,7 @@ The adapter maps Pi operation failures to typed errors.
 Use `PiSession` to persist state that must survive session reloads or session changes:
 
 ```ts
-import { PiSession } from '@eratio08/pi-effect'
+import { PiSession } from '@eratio/pi-effect'
 import { Effect } from 'effect'
 
 const saveState = Effect.gen(function* () {
@@ -229,7 +229,7 @@ An EffectJS tool uses a TypeBox schema for parameters and an EffectJS program fo
 The tool definition also includes prompt metadata that Pi uses when it describes the tool to the model.
 
 ```ts
-import { PiToolContext, PiToolError, type EffectToolDefinition } from '@eratio08/pi-effect'
+import { PiToolContext, PiToolError, type EffectToolDefinition } from '@eratio/pi-effect'
 import { Effect } from 'effect'
 import { Type } from 'typebox'
 
@@ -380,11 +380,11 @@ Do not convert typed errors to untyped strings at the domain boundary.
 ## Testing
 
 The testing entrypoint exposes a fake Pi extension API and an in-memory installer.
-Import test helpers from `@eratio08/pi-effect/testing`:
+Import test helpers from `@eratio/pi-effect/testing`:
 
 ```ts
-import { PiExtension } from '@eratio08/pi-effect'
-import { installFakePlugin } from '@eratio08/pi-effect/testing'
+import { PiExtension } from '@eratio/pi-effect'
+import { installFakePlugin } from '@eratio/pi-effect/testing'
 import { Effect } from 'effect'
 
 const plugin = PiExtension.define({

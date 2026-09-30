@@ -554,6 +554,7 @@ test('should provide tool identity, progress updates, and a final result given t
       }),
   })
   const fake = await installFakePlugin(PiExtension.install(plugin))
+  const registered = fake.tools.get('test-tool')
 
   //when
   const result = await fake.invokeTool(
@@ -569,6 +570,7 @@ test('should provide tool identity, progress updates, and a final result given t
   await shutdown(fake)
 
   //then
+  expect(registered?.exposure).toBeUndefined()
   expect(result).toEqual({
     content: [{ type: 'text', text: 'call-1:sequential' }],
     details: { query: 'search' },
@@ -625,6 +627,49 @@ test('should preserve Pi tool metadata and prepare a model loadout given Effect 
   expect(changes).toEqual({
     descriptions: { 'metadata-tool': 'Use the docs namespace with codemode tools.' },
     hiddenDeclarations: ['helper'],
+  })
+})
+
+test('should preserve codemode metadata and run the Effect handler given a namespaced tool', async () => {
+  //given
+  const namespace = { name: 'docs', description: 'Documentation tools' }
+  let handlerRuns = 0
+  const plugin = PiExtension.define({
+    id: 'tests/tool-codemode',
+    effect: (registrations: PiRegistrationContext<never>) =>
+      registrations.tools.register({
+        name: 'codemode-tool',
+        label: 'Codemode tool',
+        description: 'Codemode tool',
+        promptSnippet: 'Use codemode-tool for tests.',
+        promptGuidelines: ['Use codemode-tool for tests.'],
+        parameters: Type.Object({}),
+        exposure: 'codemode',
+        namespace,
+        execute: () =>
+          Effect.sync(() => {
+            handlerRuns += 1
+            return {
+              content: [{ type: 'text' as const, text: 'codemode handler ran' }],
+              details: {},
+            }
+          }),
+      }),
+  })
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+  const registered = fake.tools.get('codemode-tool')
+
+  //when
+  const result = await fake.invokeTool('codemode-tool', 'codemode-call', {})
+  await shutdown(fake)
+
+  //then
+  expect(registered?.exposure).toBe('codemode')
+  expect(registered?.namespace).toBe(namespace)
+  expect(handlerRuns).toBe(1)
+  expect(result).toEqual({
+    content: [{ type: 'text', text: 'codemode handler ran' }],
+    details: {},
   })
 })
 
