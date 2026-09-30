@@ -8,7 +8,7 @@ Use Bun as the runtime, not Node.js.
 Use TypeScript and standard APIs that work in both Bun and Node.js.
 Do not use `Bun.*` APIs, Bun-only modules, or Bun-only globals.
 Implement the extension as a Pi-idiomatic TypeScript extension.
-Read the relevant Pi documentation before you write code, especially `docs/extensions.md`, `docs/keybindings.md`, and `docs/tui.md`.
+Read the relevant Pi documentation before you write extension code via `read`.
 Use Pi APIs and components when they provide the required behavior.
 Use one final explicit export list in every TypeScript file.
 Declare exported values and types without inline `export` keywords, then include them in one `export { ... }` clause at the end of the file, using `type` for type-only exports, such as `export { type Config, connect }`.

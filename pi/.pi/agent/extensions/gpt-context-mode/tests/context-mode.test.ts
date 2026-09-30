@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { Model } from '@earendil-works/pi-ai'
-import { Pi, PiContext, PiSession, PiUi } from '@eratio08/pi-effect'
+import { Pi, PiContext, type PiContextTag, PiSession, PiUi } from '@eratio08/pi-effect'
 import { Effect, Layer, ManagedRuntime } from 'effect'
 import gptContextModeExtension, {
   GPT5_HIGH_CONTEXT_WINDOW as PUBLIC_HIGH_CONTEXT_WINDOW,
@@ -33,7 +33,7 @@ type Status = { key: string; value: string | undefined }
 type ServiceProgram<A> = Effect.Effect<
   A,
   GptContextModeError,
-  GptContextModeService | GptContextModeState | Pi | PiContext | PiSession | PiUi
+  GptContextModeService | GptContextModeState | Pi | PiContextTag | PiSession | PiUi
 >
 type LayerHarness = {
   run<A>(use: (service: GptContextModeService['Service']) => ServiceProgram<A>): Promise<A>

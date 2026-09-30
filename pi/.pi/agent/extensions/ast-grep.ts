@@ -34,6 +34,7 @@ function astGrepExtension(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "ast_grep_search",
 		label: "AST Grep Search",
+		exposure: "codemode",
 		description: "Structurally search code with ast-grep. Use `$NAME` for one AST node and `$$$NAMES` for zero or more nodes. Set `lang` for reliable parsing, narrow `path` when possible, and set `json: true` for structured match locations. Use this before ast_grep_rewrite.",
 		promptSnippet: "Search source structurally with ast-grep",
 		promptGuidelines: ["Use ast_grep_search for syntax-aware matches before grep or manual scanning."],
@@ -105,6 +106,7 @@ function astGrepExtension(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "ast_grep_rewrite",
 		label: "AST Grep Rewrite",
+		exposure: "codemode",
 		description: "Structurally rewrite code with ast-grep and update matching files in place. First use ast_grep_search with the same `pattern`, `path`, and `lang` to verify matches. Use `$NAME` and `$$$NAMES` consistently between `pattern` and `rewrite`. Narrow `path` to avoid unintended edits.",
 		promptSnippet: "Rewrite source structurally with ast-grep",
 		promptGuidelines: ["Use ast_grep_rewrite only after ast_grep_search verifies the same pattern, path, and language."],

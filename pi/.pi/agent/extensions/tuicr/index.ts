@@ -88,6 +88,7 @@ function tuicrExtension(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'tuicr',
     label: 'tuicr user review',
+    exposure: 'codemode',
     description:
       'Open tuicr in a Herdr pane for a user-led review, wait for the user to exit, and return user comments.',
     parameters: Parameters,

@@ -4,8 +4,7 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { resolveOpensrcConfig } from '../src/effects/opensrc-cli.ts'
-import { parseSourceSpec } from '../src/effects/source-spec.ts'
+import { parseSourceSpec, resolveOpensrcConfig } from '../src/extension.ts'
 
 const execFileAsync = promisify(execFile)
 const opensrcBin: string = resolveOpensrcConfig().bin

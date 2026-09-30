@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url'
 import type { ExecResult } from '@earendil-works/pi-coding-agent'
 import {
   PiCommandContext,
+  type PiCommandContextTag,
   PiContext,
+  type PiContextTag,
   PiExtension,
   type PiOperationsError,
   PiProcess,
@@ -94,7 +96,11 @@ function runExternalCommand(options: {
 
 function handleHerdrFork(
   args: string,
-): Effect.Effect<void, PiOperationsError | PiUiUnavailableError, PiContext | PiCommandContext | PiUi | PiProcess> {
+): Effect.Effect<
+  void,
+  PiOperationsError | PiUiUnavailableError,
+  PiContextTag | PiCommandContextTag | PiUi | PiProcess
+> {
   return Effect.gen(function* () {
     const context = yield* PiContext
     const command = yield* PiCommandContext
@@ -213,6 +219,7 @@ function handleHerdrFork(
         yield* ui.notify(`${error.message}${pane}${details}`, severity)
       }),
     ),
+    Effect.asVoid,
   )
 }
 

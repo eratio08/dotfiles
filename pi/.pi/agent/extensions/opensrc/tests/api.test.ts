@@ -1,17 +1,28 @@
 import { describe, expect, test } from 'bun:test'
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent'
 import { Effect, Exit, Layer } from 'effect'
-import type { FileEntry, OpensrcFailure, RawAstMatch, Source } from '../src/core/model.ts'
-import { createOpensrcFailure } from '../src/core/model.ts'
-import { OpensrcContext } from '../src/effects/context.ts'
-import type { FileSystemService } from '../src/effects/file-system.ts'
-import { FileSystem } from '../src/effects/file-system.ts'
-import type { AstParserService } from '../src/effects/opensrc-api.ts'
-import { AstParser, createOpensrcApi } from '../src/effects/opensrc-api.ts'
-import type { OpenSrcCliService, OpensrcConfig } from '../src/effects/opensrc-cli.ts'
-import { OpenSrcCli, OpensrcConfiguration } from '../src/effects/opensrc-cli.ts'
-import type { SourceStoreService } from '../src/effects/source-store.ts'
-import { SourceStore, SourceStoreLive } from '../src/effects/source-store.ts'
+import type {
+  AstParserService,
+  FileEntry,
+  FileSystemService,
+  OpenSrcCliService,
+  OpensrcConfig,
+  OpensrcFailure,
+  RawAstMatch,
+  Source,
+  SourceStoreService,
+} from '../src/extension.ts'
+import {
+  AstParser,
+  createOpensrcApi,
+  createOpensrcFailure,
+  FileSystem,
+  OpenSrcCli,
+  OpensrcConfiguration,
+  OpensrcContext,
+  SourceStore,
+  SourceStoreLive,
+} from '../src/extension.ts'
 
 const captureEffectResult = <A, E>(
   effect: Effect.Effect<A, E>,

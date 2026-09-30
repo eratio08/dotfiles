@@ -47,7 +47,7 @@
       },
       "devDependencies": {
         "@biomejs/biome": "2.5.12",
-        "@earendil-works/pi-ai": "^0.99.1",
+        "@earendil-works/pi-ai": "0.99.1",
         "@earendil-works/pi-coding-agent": "^0.99.1",
         "@types/node": "^24.10.1",
         "typescript": "^5.9.3",
@@ -124,7 +124,7 @@
     },
     "lib/pi-effect": {
       "name": "@eratio/pi-effect",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "devDependencies": {
         "@biomejs/biome": "2.5.12",
         "@earendil-works/pi-ai": "^0.99.1",
@@ -177,7 +177,6 @@
       "dependencies": {
         "@ast-grep/napi": "latest",
         "@eratio/pi-effect": "file:../lib/pi-effect",
-        "@eratio/pi-effect-codemode": "file:../lib/pi-effect-codemode",
         "effect": "4.0.0-rc.112",
         "glob": "latest",
         "opensrc": "0.7.3",
@@ -222,6 +221,7 @@
       },
       "devDependencies": {
         "@biomejs/biome": "2.5.12",
+        "@earendil-works/pi-coding-agent": "0.99.1",
         "@types/bun": "^1.4.2",
         "@types/node": "^24.5.2",
         "typescript": "^5.9.2",
@@ -283,6 +283,7 @@
       },
       "devDependencies": {
         "@biomejs/biome": "2.5.12",
+        "@earendil-works/pi-coding-agent": "0.99.1",
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
@@ -843,6 +844,8 @@
     "bun-types/@types/node": ["@types/node@26.6.3", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-dsqMQQoeTLqu9wynDD00q573mNzso3IdQOAfHRJqLCcmCFPoGo9A1bDpUcv/9tnKpErQWv9uKeGfl37EIS02Yg=="],
 
     "gaxios/https-proxy-agent": ["https-proxy-agent@7.0.6", "", { "dependencies": { "agent-base": "^7.1.2", "debug": "4" } }, "sha512-vK9P5/iUfdl95AI+JVyUuIcVtd4ofvtrOr3HNtM2yxC9bnMbEdp3x01OhQNnjb8IJYi38VlTE3mBXwcfvywuSw=="],
+
+    "gpt-context-mode/@eratio08/pi-effect": ["@eratio/pi-effect@file:lib/pi-effect", { "devDependencies": { "@biomejs/biome": "2.5.12", "@earendil-works/pi-ai": "^0.99.1", "@earendil-works/pi-coding-agent": "^0.99.1", "@earendil-works/pi-tui": "^0.99.1", "@types/bun": "^1.4.2", "@types/node": "^24.10.1", "effect": "4.0.0-rc.112", "rolldown": "^1.2.10", "rolldown-plugin-dts": "^0.28.6", "typebox": "1.3.27", "typescript": "^5.9.3" }, "peerDependencies": { "@earendil-works/pi-ai": "*", "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*", "typebox": "*" } }],
 
     "inspect/@types/node": ["@types/node@22.20.4", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-zJRE40jpHtKqE/C4fgHrAKQLJuSpzEnP9ff9Y7YtoR3Wd2pwqzlekDeEuUQXjRd+QCYnVnNwuJYmhdk9XV8gvA=="],
 

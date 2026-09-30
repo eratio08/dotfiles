@@ -1,5 +1,5 @@
 import type { Api, Model } from '@earendil-works/pi-ai'
-import { Pi, PiContext, type PiExtensionError, PiSession, PiUi } from '@eratio08/pi-effect'
+import { Pi, PiContext, type PiContextTag, type PiExtensionError, PiSession, PiUi } from '@eratio08/pi-effect'
 import { Context, Effect, Layer, Ref, Schema } from 'effect'
 import {
   contextModeEmoji,
@@ -45,16 +45,16 @@ class GptContextModeService extends Context.Service<
   {
     readonly handleCommand: (
       args: string,
-    ) => Effect.Effect<void, GptContextModeError, GptContextModeState | Pi | PiContext | PiSession | PiUi>
+    ) => Effect.Effect<void, GptContextModeError, GptContextModeState | Pi | PiContextTag | PiSession | PiUi>
     readonly restore: () => Effect.Effect<
       GptContextMode,
       GptContextModeError,
-      GptContextModeState | Pi | PiContext | PiSession | PiUi
+      GptContextModeState | Pi | PiContextTag | PiSession | PiUi
     >
     readonly applyModel: (
       model: Model<Api> | undefined,
-    ) => Effect.Effect<boolean, GptContextModeError, GptContextModeState | Pi | PiContext | PiUi>
-    readonly shutdown: () => Effect.Effect<void, GptContextModeError, PiContext | PiUi>
+    ) => Effect.Effect<boolean, GptContextModeError, GptContextModeState | Pi | PiContextTag | PiUi>
+    readonly shutdown: () => Effect.Effect<void, GptContextModeError, PiContextTag | PiUi>
   }
 >()('gpt-context-mode/GptContextModeService') {}
 
@@ -77,7 +77,7 @@ const notify = Effect.fnUntraced(function* (
 const updateStatus = Effect.fnUntraced(function* (
   mode: GptContextMode,
   model: Model<Api> | undefined,
-): Effect.fn.Return<void, GptContextModeError, PiContext | PiUi> {
+): Effect.fn.Return<void, GptContextModeError, PiContextTag | PiUi> {
   const context = yield* PiContext
   if (context.mode !== 'tui' || !context.hasUI) return
   const ui = yield* PiUi
@@ -94,7 +94,7 @@ const setModel = Effect.fnUntraced(function* (model: Model<Api>): Effect.fn.Retu
 
 const applyModel = Effect.fnUntraced(function* (
   model: Model<Api> | undefined,
-): Effect.fn.Return<boolean, GptContextModeError, GptContextModeState | Pi | PiContext | PiUi> {
+): Effect.fn.Return<boolean, GptContextModeError, GptContextModeState | Pi | PiContextTag | PiUi> {
   const state = yield* GptContextModeState
   const mode = yield* Ref.get(state.mode)
   if (!isGptContextModel(model)) {
@@ -129,7 +129,7 @@ const applyModel = Effect.fnUntraced(function* (
 
 const handleCommand = Effect.fnUntraced(function* (
   args: string,
-): Effect.fn.Return<void, GptContextModeError, GptContextModeState | Pi | PiContext | PiSession | PiUi> {
+): Effect.fn.Return<void, GptContextModeError, GptContextModeState | Pi | PiContextTag | PiSession | PiUi> {
   const context = yield* PiContext
   const session = yield* PiSession
   const state = yield* GptContextModeState
@@ -159,7 +159,7 @@ const handleCommand = Effect.fnUntraced(function* (
 const restore = Effect.fnUntraced(function* (): Effect.fn.Return<
   GptContextMode,
   GptContextModeError,
-  GptContextModeState | Pi | PiContext | PiSession | PiUi
+  GptContextModeState | Pi | PiContextTag | PiSession | PiUi
 > {
   const context = yield* PiContext
   const session = yield* PiSession
@@ -171,7 +171,7 @@ const restore = Effect.fnUntraced(function* (): Effect.fn.Return<
   return mode
 })
 
-const shutdown = Effect.fnUntraced(function* (): Effect.fn.Return<void, GptContextModeError, PiContext | PiUi> {
+const shutdown = Effect.fnUntraced(function* (): Effect.fn.Return<void, GptContextModeError, PiContextTag | PiUi> {
   const ui = yield* PiUi
   yield* mapPi('clearStatus', ui.setStatus(STATUS_KEY, undefined))
 })

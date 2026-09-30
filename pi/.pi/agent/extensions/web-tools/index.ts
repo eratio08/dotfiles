@@ -66,6 +66,7 @@ function createWebFetchTool(
   return {
     name: WEBFETCH_NAME,
     label: 'webfetch',
+    exposure: 'codemode',
     description: `Fetch content from an HTTP or HTTPS URL and return it as text, markdown, or HTML. Markdown is the default. Output is truncated to ${DEFAULT_MAX_LINES} lines or ${formatSize(DEFAULT_MAX_BYTES)}.`,
     promptSnippet: 'Fetch text or HTML content from a public web URL',
     promptGuidelines: [
@@ -150,6 +151,7 @@ function createWebSearchTool(
   return {
     name: WEBSEARCH_NAME,
     label: 'websearch',
+    exposure: 'codemode',
     description: `Search the public web for current information using Exa or Parallel. Output is truncated to ${DEFAULT_MAX_LINES} lines or ${formatSize(DEFAULT_MAX_BYTES)}.`,
     promptSnippet: 'Search the public web for current public information',
     promptGuidelines: [

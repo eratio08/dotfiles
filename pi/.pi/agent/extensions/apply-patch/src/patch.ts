@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import { lstat, mkdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path'
+import { Cause, Context, Effect, Exit, Ref, Schema } from 'effect'
+
+class ApplyPatchError extends Schema.TaggedError<ApplyPatchError>()('ApplyPatchError', {
+  operation: Schema.Literals(['parse', 'apply', 'filesystem']),
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+}) {}
 
 type PatchOperation =
   | { type: 'add'; path: string; content: string; diff: string }
@@ -8,8 +15,6 @@ type PatchOperation =
   | { type: 'delete'; path: string; diff: string }
 
 type PatchChunk = { lines: string[] }
-
-type FileLock = <T>(path: string, action: () => Promise<T>) => Promise<T>
 
 type AppliedFile = {
   type: PatchOperation['type'] | 'move'
@@ -35,79 +40,99 @@ const updatePrefix = '*** Update File: '
 const deletePrefix = '*** Delete File: '
 const movePrefix = '*** Move to: '
 
-function parsePatch(patchText: string): PatchOperation[] {
-  const lines = patchText.replace(/\r\n?/g, '\n').split('\n')
-  if (lines.at(-1) === '') lines.pop()
-  if (lines[0] !== begin || lines.at(-1) !== end)
-    throw new Error('apply_patch verification failed: patch must start with *** Begin Patch and end with *** End Patch')
-
-  const operations: PatchOperation[] = []
-  let index = 1
-  while (index < lines.length - 1) {
-    const header = lines[index] ?? ''
-    if (header.startsWith(addPrefix)) {
-      const path = header.slice(addPrefix.length)
-      index++
-      const content: string[] = []
-      while (index < lines.length - 1 && !isHeader(lines[index] ?? '')) {
-        const line = lines[index] ?? ''
-        if (!line.startsWith('+'))
-          throw new Error(`apply_patch verification failed: add content must start with +: ${path}`)
-        content.push(line.slice(1))
-        index++
-      }
-      const text = content.join('\n')
-      operations.push({ type: 'add', path, content: text ? `${text}\n` : '', diff: addDiff(path, content) })
-      continue
-    }
-    if (header.startsWith(deletePrefix)) {
-      const path = header.slice(deletePrefix.length)
-      operations.push({ type: 'delete', path, diff: `--- ${path}\n+++ /dev/null` })
-      index++
-      continue
-    }
-    if (header.startsWith(updatePrefix)) {
-      const path = header.slice(updatePrefix.length)
-      index++
-      let moveTo: string | undefined
-      if ((lines[index] ?? '').startsWith(movePrefix)) {
-        moveTo = (lines[index] ?? '').slice(movePrefix.length)
-        index++
-      }
-      const chunks: PatchChunk[] = []
-      while (index < lines.length - 1 && !isHeader(lines[index] ?? '')) {
-        if (!(lines[index] ?? '').startsWith('@@'))
-          throw new Error(`apply_patch verification failed: expected @@ hunk marker: ${path}`)
-        index++
-        const chunk: string[] = []
-        while (index < lines.length - 1 && !isHeader(lines[index] ?? '') && !(lines[index] ?? '').startsWith('@@')) {
-          const line = lines[index] ?? ''
-          if (!/^[ +-]/.test(line)) throw new Error(`apply_patch verification failed: invalid hunk line: ${path}`)
-          chunk.push(line)
-          index++
-        }
-        if (chunk.length === 0) throw new Error(`apply_patch verification failed: empty hunk: ${path}`)
-        chunks.push({ lines: chunk })
-      }
-      if (chunks.length === 0) throw new Error(`apply_patch verification failed: no hunks found: ${path}`)
-      operations.push({ type: 'update', path, chunks, moveTo, diff: updateDiff(path, moveTo, chunks) })
-      continue
-    }
-    throw new Error(`apply_patch verification failed: unknown patch directive: ${header}`)
-  }
-  if (operations.length === 0) throw new Error('patch rejected: empty patch')
-  return operations
+type PatchMutationQueueService = {
+  readonly withLock: <A, E, R>(path: string, action: Effect.Effect<A, E, R>) => Effect.Effect<A, E | ApplyPatchError, R>
 }
 
-async function applyPatch(
+class PatchMutationQueue extends Context.Service<PatchMutationQueue, PatchMutationQueueService>()(
+  'apply-patch/PatchMutationQueue',
+) {}
+
+const parsePatch = Effect.fn('parsePatch')(function* (
+  patchText: string,
+): Effect.fn.Return<PatchOperation[], ApplyPatchError> {
+  return yield* Effect.try({
+    try: () => {
+      const lines = patchText.replace(/\r\n?/g, '\n').split('\n')
+      if (lines.at(-1) === '') lines.pop()
+      if (lines[0] !== begin || lines.at(-1) !== end)
+        throw new Error(
+          'apply_patch verification failed: patch must start with *** Begin Patch and end with *** End Patch',
+        )
+
+      const operations: PatchOperation[] = []
+      let index = 1
+      while (index < lines.length - 1) {
+        const header = lines[index] ?? ''
+        if (header.startsWith(addPrefix)) {
+          const path = header.slice(addPrefix.length)
+          index++
+          const content: string[] = []
+          while (index < lines.length - 1 && !isHeader(lines[index] ?? '')) {
+            const line = lines[index] ?? ''
+            if (!line.startsWith('+'))
+              throw new Error(`apply_patch verification failed: add content must start with +: ${path}`)
+            content.push(line.slice(1))
+            index++
+          }
+          const text = content.join('\n')
+          operations.push({ type: 'add', path, content: text ? `${text}\n` : '', diff: addDiff(path, content) })
+          continue
+        }
+        if (header.startsWith(deletePrefix)) {
+          const path = header.slice(deletePrefix.length)
+          operations.push({ type: 'delete', path, diff: `--- ${path}\n+++ /dev/null` })
+          index++
+          continue
+        }
+        if (header.startsWith(updatePrefix)) {
+          const path = header.slice(updatePrefix.length)
+          index++
+          let moveTo: string | undefined
+          if ((lines[index] ?? '').startsWith(movePrefix)) {
+            moveTo = (lines[index] ?? '').slice(movePrefix.length)
+            index++
+          }
+          const chunks: PatchChunk[] = []
+          while (index < lines.length - 1 && !isHeader(lines[index] ?? '')) {
+            if (!(lines[index] ?? '').startsWith('@@'))
+              throw new Error(`apply_patch verification failed: expected @@ hunk marker: ${path}`)
+            index++
+            const chunk: string[] = []
+            while (
+              index < lines.length - 1 &&
+              !isHeader(lines[index] ?? '') &&
+              !(lines[index] ?? '').startsWith('@@')
+            ) {
+              const line = lines[index] ?? ''
+              if (!/^[ +-]/.test(line)) throw new Error(`apply_patch verification failed: invalid hunk line: ${path}`)
+              chunk.push(line)
+              index++
+            }
+            if (chunk.length === 0) throw new Error(`apply_patch verification failed: empty hunk: ${path}`)
+            chunks.push({ lines: chunk })
+          }
+          if (chunks.length === 0) throw new Error(`apply_patch verification failed: no hunks found: ${path}`)
+          operations.push({ type: 'update', path, chunks, moveTo, diff: updateDiff(path, moveTo, chunks) })
+          continue
+        }
+        throw new Error(`apply_patch verification failed: unknown patch directive: ${header}`)
+      }
+      if (operations.length === 0) throw new Error('patch rejected: empty patch')
+      return operations
+    },
+    catch: (cause: unknown) => createApplyPatchError('parse', cause),
+  })
+})
+
+const applyPatch = Effect.fn('applyPatch')(function* (
   cwd: string,
   operations: PatchOperation[],
-  lock: FileLock = async <T>(_path: string, action: () => Promise<T>): Promise<T> => action(),
-): Promise<AppliedFile[]> {
-  const root = await realpath(cwd)
+): Effect.fn.Return<AppliedFile[], ApplyPatchError, PatchMutationQueue> {
+  const root = yield* fileSystem(() => realpath(cwd))
   const paths = new Set<string>()
   for (const operation of operations) {
-    if (operation.path === '') throw new Error('apply_patch verification failed: empty file path')
+    if (operation.path === '') return yield* failApply('apply_patch verification failed: empty file path')
     paths.add(operation.path)
     if (operation.type === 'update' && operation.moveTo) paths.add(operation.moveTo)
   }
@@ -115,28 +140,39 @@ async function applyPatch(
     paths.size !==
     operations.reduce((count, operation) => count + (operation.type === 'update' && operation.moveTo ? 2 : 1), 0)
   ) {
-    throw new Error('apply_patch verification failed: each path may appear in only one operation')
+    return yield* failApply('apply_patch verification failed: each path may appear in only one operation')
   }
 
-  const resolvedPaths = await Promise.all(
-    operations.map(async (operation) => {
-      const paths = [await resolvePatchPath(root, operation.path)]
-      if (operation.type === 'update' && operation.moveTo) paths.push(await resolvePatchPath(root, operation.moveTo))
-      return paths
-    }),
-  )
+  const resolvedPaths: string[][] = []
+  for (const operation of operations) {
+    const paths = [yield* resolvePatchPath(root, operation.path)]
+    if (operation.type === 'update' && operation.moveTo) paths.push(yield* resolvePatchPath(root, operation.moveTo))
+    resolvedPaths.push(paths)
+  }
   const locked = [...new Set(resolvedPaths.flat())].sort()
-  return withLockedPaths(locked, lock, async () => {
+  const committed = yield* Ref.make<AppliedFile[] | undefined>(undefined)
+  const action = Effect.fn('applyPatch.action')(function* (): Effect.fn.Return<AppliedFile[], ApplyPatchError> {
     const prepared: PreparedOperation[] = []
-    for (const operation of operations) prepared.push(await prepareOperation(root, operation))
-    return commit(prepared)
-  })
-}
+    for (const operation of operations) prepared.push(yield* prepareOperation(root, operation))
+    return yield* Effect.uninterruptible(commit(prepared).pipe(Effect.tap((files) => Ref.set(committed, files))))
+  })()
+  return yield* Effect.catchCause(withLockedPaths(locked, action), (cause) =>
+    Ref.get(committed).pipe(
+      Effect.flatMap((files) =>
+        files !== undefined && Cause.hasInterruptsOnly(cause) ? Effect.succeed(files) : Effect.failCause(cause),
+      ),
+    ),
+  )
+})
 
-async function prepareOperation(root: string, operation: PatchOperation): Promise<PreparedOperation> {
-  const path = await resolvePatchPath(root, operation.path)
+const prepareOperation = Effect.fn('prepareOperation')(function* (
+  root: string,
+  operation: PatchOperation,
+): Effect.fn.Return<PreparedOperation, ApplyPatchError> {
+  const path = yield* resolvePatchPath(root, operation.path)
   if (operation.type === 'add') {
-    if (await exists(path)) throw new Error(`apply_patch verification failed: file already exists: ${operation.path}`)
+    if (yield* exists(path))
+      return yield* failApply(`apply_patch verification failed: file already exists: ${operation.path}`)
     return {
       type: 'add',
       path,
@@ -151,7 +187,7 @@ async function prepareOperation(root: string, operation: PatchOperation): Promis
     }
   }
 
-  const source = await readText(path, operation.path)
+  const source = yield* readText(path, operation.path)
   if (operation.type === 'delete') {
     return {
       type: 'delete',
@@ -166,36 +202,31 @@ async function prepareOperation(root: string, operation: PatchOperation): Promis
     }
   }
 
-  const destination = operation.moveTo ? await resolvePatchPath(root, operation.moveTo) : undefined
-  if (destination && (await exists(destination)))
-    throw new Error(`apply_patch verification failed: destination already exists: ${operation.moveTo}`)
-  const nextText = applyChunks(normalizeLineEndings(source.text), operation.chunks, operation.path)
-  const next = Buffer.from(source.bom + restoreLineEndings(nextText, source.ending))
-  const additions = operation.chunks.reduce(
-    (count, chunk) => count + chunk.lines.filter((line) => line.startsWith('+')).length,
-    0,
-  )
-  const deletions = operation.chunks.reduce(
-    (count, chunk) => count + chunk.lines.filter((line) => line.startsWith('-')).length,
-    0,
-  )
+  const destination = operation.moveTo ? yield* resolvePatchPath(root, operation.moveTo) : undefined
+  if (destination && (yield* exists(destination)))
+    return yield* failApply(`apply_patch verification failed: destination already exists: ${operation.moveTo}`)
+  const nextText = yield* applyChunks(normalizeLineEndings(source.text), operation.chunks, operation.path)
   return {
     type: 'update',
     path,
     destination,
-    next,
+    next: Buffer.from(source.bom + restoreLineEndings(nextText, source.ending)),
     result: {
       type: destination ? 'move' : 'update',
       path: operation.path,
       destination: operation.moveTo,
-      additions,
-      deletions,
+      additions: countChunkLines(operation.chunks, '+'),
+      deletions: countChunkLines(operation.chunks, '-'),
       diff: operation.diff,
     },
   }
-}
+})
 
-function applyChunks(content: string, chunks: PatchChunk[], path: string): string {
+const applyChunks = Effect.fn('applyChunks')(function* (
+  content: string,
+  chunks: PatchChunk[],
+  path: string,
+): Effect.fn.Return<string, ApplyPatchError> {
   let next = content
   for (const chunk of chunks) {
     const oldText = chunk.lines
@@ -206,17 +237,19 @@ function applyChunks(content: string, chunks: PatchChunk[], path: string): strin
       .filter((line) => !line.startsWith('-'))
       .map((line) => line.slice(1))
       .join('\n')
-    if (!oldText) throw new Error(`apply_patch verification failed: hunk has no original content: ${path}`)
+    if (!oldText) return yield* failApply(`apply_patch verification failed: hunk has no original content: ${path}`)
     const first = next.indexOf(oldText)
-    if (first < 0) throw new Error(`apply_patch verification failed: hunk does not match file: ${path}`)
+    if (first < 0) return yield* failApply(`apply_patch verification failed: hunk does not match file: ${path}`)
     if (next.indexOf(oldText, first + oldText.length) >= 0)
-      throw new Error(`apply_patch verification failed: hunk matches multiple locations: ${path}`)
+      return yield* failApply(`apply_patch verification failed: hunk matches multiple locations: ${path}`)
     next = `${next.slice(0, first)}${newText}${next.slice(first + oldText.length)}`
   }
   return next
-}
+})
 
-async function commit(operations: PreparedOperation[]): Promise<AppliedFile[]> {
+const commit = Effect.fn('commit')(function* (
+  operations: PreparedOperation[],
+): Effect.fn.Return<AppliedFile[], ApplyPatchError> {
   const originals = new Map<string, Buffer | undefined>()
   const temporary = new Map<string, string>()
   const touched = [
@@ -226,93 +259,161 @@ async function commit(operations: PreparedOperation[]): Promise<AppliedFile[]> {
       ),
     ),
   ]
-  for (const path of touched) originals.set(path, (await exists(path)) ? await readFile(path) : undefined)
-  try {
+  for (const path of touched) {
+    const existed = yield* exists(path)
+    originals.set(path, existed ? yield* fileSystem(() => readFile(path)) : undefined)
+  }
+
+  const transaction = Effect.fn('commit.transaction')(function* (): Effect.fn.Return<AppliedFile[], ApplyPatchError> {
     for (const operation of operations) {
       const target = operation.destination ?? (operation.type === 'delete' ? undefined : operation.path)
-      if (!target || !operation.next) continue
-      await mkdir(dirname(target), { recursive: true })
+      const next = operation.next
+      if (!target || next === undefined) continue
+      yield* fileSystem(() => mkdir(dirname(target), { recursive: true }))
       const temp = resolve(dirname(target), `.${basename(target)}.apply-patch-${randomUUID()}`)
-      await writeFile(temp, operation.next)
       temporary.set(target, temp)
+      yield* fileSystem(() => writeFile(temp, next))
     }
-    for (const [target, temp] of temporary) await rename(temp, target)
+    for (const [target, temp] of temporary) yield* fileSystem(() => rename(temp, target))
     for (const operation of operations) {
-      if (operation.type === 'delete' || operation.destination) await rm(operation.path, { force: false })
+      if (operation.type === 'delete' || operation.destination)
+        yield* fileSystem(() => rm(operation.path, { force: false }))
     }
     return operations.map((operation) => operation.result)
-  } catch (error) {
-    await Promise.allSettled(
-      [...originals].map(async ([path, content]) => {
-        if (content === undefined) await rm(path, { force: true })
-        else {
-          await mkdir(dirname(path), { recursive: true })
-          await writeFile(path, content)
-        }
-      }),
-    )
-    throw error
-  } finally {
-    await Promise.allSettled([...temporary.values()].map((path) => rm(path, { force: true })))
-  }
-}
+  })()
+  const finalize = Effect.fn('commit.finalize')(function* (
+    exit: Exit.Exit<AppliedFile[], ApplyPatchError>,
+  ): Effect.fn.Return<void, ApplyPatchError> {
+    if (Exit.isFailure(exit)) yield* restoreOriginals(originals)
+    yield* removeTemporaryFiles(temporary)
+  })
+  return yield* Effect.onExit(transaction, finalize)
+})
 
-async function withLockedPaths<T>(paths: string[], fileLock: FileLock, action: () => Promise<T>): Promise<T> {
-  const lock = async (index: number): Promise<T> => {
-    if (index === paths.length) return action()
+const restoreOriginals = Effect.fn('restoreOriginals')(function* (
+  originals: Map<string, Buffer | undefined>,
+): Effect.fn.Return<void, ApplyPatchError> {
+  return yield* Effect.forEach(
+    [...originals],
+    ([path, content]) => restoreOriginal(path, content).pipe(Effect.catchCause(() => Effect.void)),
+    { discard: true },
+  )
+})
+
+const restoreOriginal = Effect.fn('restoreOriginal')(function* (
+  path: string,
+  content: Buffer | undefined,
+): Effect.fn.Return<void, ApplyPatchError> {
+  if (content === undefined) return yield* fileSystem(() => rm(path, { force: true }))
+  yield* fileSystem(() => mkdir(dirname(path), { recursive: true }))
+  yield* fileSystem(() => writeFile(path, content))
+})
+
+const removeTemporaryFiles = Effect.fn('removeTemporaryFiles')(function* (
+  temporary: Map<string, string>,
+): Effect.fn.Return<void, ApplyPatchError> {
+  return yield* Effect.forEach(
+    [...temporary.values()],
+    (path) => fileSystem(() => rm(path, { force: true })).pipe(Effect.catchCause(() => Effect.void)),
+    { discard: true },
+  )
+})
+
+const withLockedPaths = Effect.fn('withLockedPaths')(function* <A, R>(
+  paths: string[],
+  action: Effect.Effect<A, ApplyPatchError, R>,
+): Effect.fn.Return<A, ApplyPatchError, R | PatchMutationQueue> {
+  const lock = Effect.fn('withLockedPaths.lock')(function* (
+    index: number,
+  ): Effect.fn.Return<A, ApplyPatchError, R | PatchMutationQueue> {
+    if (index === paths.length) return yield* action
     const path = paths[index]
-    if (path === undefined) throw new Error('apply_patch verification failed: missing lock path')
-    return fileLock(path, () => lock(index + 1))
-  }
-  return lock(0)
-}
+    if (path === undefined) return yield* failApply('apply_patch verification failed: missing lock path')
+    const mutationQueue = yield* PatchMutationQueue
+    return yield* mutationQueue.withLock(path, lock(index + 1))
+  })
+  return yield* lock(0)
+})
 
-async function resolvePatchPath(root: string, patchPath: string): Promise<string> {
+const resolvePatchPath = Effect.fn('resolvePatchPath')(function* (
+  root: string,
+  patchPath: string,
+): Effect.fn.Return<string, ApplyPatchError> {
   if (!patchPath || isAbsolute(patchPath))
-    throw new Error(`apply_patch verification failed: path must be project-relative: ${patchPath}`)
+    return yield* failApply(`apply_patch verification failed: path must be project-relative: ${patchPath}`)
   const target = resolve(root, patchPath)
-  if (!inside(root, target)) throw new Error(`apply_patch verification failed: path escapes project: ${patchPath}`)
-  const parent = await existingParent(target)
-  const actualParent = await realpath(parent)
+  if (!inside(root, target))
+    return yield* failApply(`apply_patch verification failed: path escapes project: ${patchPath}`)
+  const parent = yield* existingParent(target)
+  const actualParent = yield* fileSystem(() => realpath(parent))
   if (!inside(root, actualParent))
-    throw new Error(`apply_patch verification failed: path escapes project through symlink: ${patchPath}`)
+    return yield* failApply(`apply_patch verification failed: path escapes project through symlink: ${patchPath}`)
   return target
-}
+})
 
-async function readText(
+const readText = Effect.fn('readText')(function* (
   path: string,
   displayPath: string,
-): Promise<{ bom: string; text: string; ending: '\n' | '\r\n' }> {
-  let info: Awaited<ReturnType<typeof lstat>>
-  try {
-    info = await lstat(path)
-  } catch {
-    throw new Error(`apply_patch verification failed: file not found: ${displayPath}`)
-  }
+): Effect.fn.Return<{ bom: string; text: string; ending: '\n' | '\r\n' }, ApplyPatchError> {
+  const info = yield* Effect.tryPromise({
+    try: () => lstat(path),
+    catch: (cause: unknown) =>
+      isMissingPathError(cause)
+        ? createApplyPatchError('apply', new Error(`apply_patch verification failed: file not found: ${displayPath}`))
+        : createApplyPatchError('filesystem', cause),
+  })
   if (!info.isFile() || info.isSymbolicLink())
-    throw new Error(`apply_patch verification failed: target is not a regular file: ${displayPath}`)
-  const bytes = await readFile(path)
+    return yield* failApply(`apply_patch verification failed: target is not a regular file: ${displayPath}`)
+  const bytes = yield* fileSystem(() => readFile(path))
   const decoded = bytes.toString('utf8')
   if (!Buffer.from(decoded).equals(bytes))
-    throw new Error(`apply_patch verification failed: file is not UTF-8 text: ${displayPath}`)
+    return yield* failApply(`apply_patch verification failed: file is not UTF-8 text: ${displayPath}`)
   const bom = decoded.startsWith('\uFEFF') ? '\uFEFF' : ''
   const text = bom ? decoded.slice(1) : decoded
   return { bom, text, ending: text.includes('\r\n') ? '\r\n' : '\n' }
-}
+})
 
-async function existingParent(path: string): Promise<string> {
+const existingParent = Effect.fn('existingParent')(function* (path: string): Effect.fn.Return<string, ApplyPatchError> {
   let current = dirname(path)
-  while (!(await exists(current))) current = dirname(current)
+  while (!(yield* exists(current))) current = dirname(current)
   return current
+})
+
+const exists = Effect.fn('exists')(function* (path: string): Effect.fn.Return<boolean, ApplyPatchError> {
+  return yield* Effect.matchEffect(
+    fileSystem(() => stat(path)),
+    {
+      onFailure: (error: ApplyPatchError) =>
+        isMissingPathError(error.cause) ? Effect.succeed(false) : Effect.fail(error),
+      onSuccess: () => Effect.succeed(true),
+    },
+  )
+})
+
+const fileSystem = Effect.fn('fileSystem')(function* <A>(
+  operation: () => PromiseLike<A>,
+): Effect.fn.Return<A, ApplyPatchError> {
+  return yield* Effect.tryPromise({
+    try: operation,
+    catch: (cause: unknown) => createApplyPatchError(isFileSystemError(cause) ? 'filesystem' : 'apply', cause),
+  })
+})
+
+function failApply(message: string): Effect.Effect<never, ApplyPatchError> {
+  return Effect.fail(createApplyPatchError('apply', new Error(message)))
 }
 
-async function exists(path: string): Promise<boolean> {
-  try {
-    await stat(path)
-    return true
-  } catch {
-    return false
-  }
+function createApplyPatchError(operation: 'parse' | 'apply' | 'filesystem', cause: unknown): ApplyPatchError {
+  const message = cause instanceof Error ? cause.message : String(cause)
+  return new ApplyPatchError({ operation, message, cause })
+}
+
+function isFileSystemError(cause: unknown): cause is Error & { code: string } {
+  return cause instanceof Error && 'code' in cause && typeof cause.code === 'string'
+}
+
+function isMissingPathError(cause: unknown): boolean {
+  return isFileSystemError(cause) && (cause.code === 'ENOENT' || cause.code === 'ENOTDIR')
 }
 
 function inside(root: string, target: string): boolean {
@@ -332,6 +433,10 @@ function lineCount(value: string): number {
   return value === '' ? 0 : value.endsWith('\n') ? value.slice(0, -1).split('\n').length : value.split('\n').length
 }
 
+function countChunkLines(chunks: PatchChunk[], prefix: '+' | '-'): number {
+  return chunks.reduce((count, chunk) => count + chunk.lines.filter((line) => line.startsWith(prefix)).length, 0)
+}
+
 function isHeader(line: string): boolean {
   return (
     line.startsWith('*** Add File: ') ||
@@ -349,4 +454,12 @@ function updateDiff(path: string, moveTo: string | undefined, chunks: PatchChunk
   return [`--- ${path}`, `+++ ${moveTo ?? path}`, ...chunks.flatMap((chunk) => ['@@', ...chunk.lines])].join('\n')
 }
 
-export { type AppliedFile, applyPatch, type FileLock, type PatchChunk, type PatchOperation, parsePatch }
+export {
+  type AppliedFile,
+  ApplyPatchError,
+  applyPatch,
+  type PatchChunk,
+  PatchMutationQueue,
+  type PatchOperation,
+  parsePatch,
+}

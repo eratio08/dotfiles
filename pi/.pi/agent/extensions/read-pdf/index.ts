@@ -39,6 +39,7 @@ function readPdfExtension(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'read-pdf',
     label: 'read-pdf',
+    exposure: 'codemode',
     description:
       'Read a PDF file and convert its extracted text to Markdown. Output is limited to 50KB or 2000 lines; truncated output is saved to a temporary Markdown file.',
     promptSnippet: 'Read a PDF file and convert it to Markdown',

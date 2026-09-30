@@ -514,6 +514,7 @@ function questionExtension(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "question",
 		label: "Question",
+		exposure: "codemode",
 		description: "Ask the user questions during execution to gather preferences, clarify requirements, or get decisions before continuing.",
 		promptSnippet: "Ask user clarifying questions during execution and continue with selected answers",
 		promptGuidelines: [

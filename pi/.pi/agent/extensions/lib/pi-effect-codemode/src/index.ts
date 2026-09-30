@@ -31,4 +31,3 @@ export {
   type RegisteredTool,
   type ToolDefinition,
 } from './sdk.ts'
-

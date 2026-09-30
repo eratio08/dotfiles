@@ -1,7 +1,10 @@
 {
   "name": "pi-agent-extensions",
   "private": true,
-  "workspaces": ["*", "lib/*"],
+  "workspaces": [
+    "*",
+    "lib/*"
+  ],
   "overrides": {
     "undici": "^8.9.0"
   },

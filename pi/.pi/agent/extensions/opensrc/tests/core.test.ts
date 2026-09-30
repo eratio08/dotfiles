@@ -1,20 +1,23 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
-import { planClean, planFetch } from '../src/core/command-plan.ts'
-import type { FileEntry, RawAstMatch, Source } from '../src/core/model.ts'
-import { diffSources } from '../src/core/source-index.ts'
-import { isContainedPath, normalizeAstMatches } from '../src/core/source-query.ts'
-import { sourceMatchesSpec } from '../src/core/source-spec.ts'
-import { normalizeSources, parseSourceIndex } from '../src/effects/source-index.ts'
+import type { FileEntry, RawAstMatch, Source } from '../src/extension.ts'
 import {
   buildTree,
   buildTreeInterruptible,
+  diffSources,
   grepFiles,
   grepFilesInterruptible,
+  isContainedPath,
+  normalizeAstMatches,
   normalizeAstMatchesInterruptible,
+  normalizeSources,
+  parseSourceIndex,
+  parseSourceSpec,
+  planClean,
+  planFetch,
   resolveContainedPath,
-} from '../src/effects/source-query.ts'
-import { parseSourceSpec } from '../src/effects/source-spec.ts'
+  sourceMatchesSpec,
+} from '../src/extension.ts'
 
 const packageSource: Source = {
   type: 'npm',

@@ -2,17 +2,29 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { PiProcess } from '@eratio/pi-effect-codemode'
+import { PiProcess } from '@eratio/pi-effect'
 import { Effect, Exit, Layer, ManagedRuntime } from 'effect'
-import type { PiExecutionRequest, Source, SourceIndex } from '../src/core/model.ts'
-import { createOpensrcFailure } from '../src/core/model.ts'
-import { createFileSystem } from '../src/effects/file-system.ts'
-import { createAstParser } from '../src/effects/opensrc-api.ts'
-import type { OpenSrcCliService, OpensrcConfig } from '../src/effects/opensrc-cli.ts'
-import { OpenSrcCli, OpenSrcCliLive, OpensrcConfiguration, resolveOpensrcConfig } from '../src/effects/opensrc-cli.ts'
-import type { PiHostService } from '../src/effects/pi-host.ts'
-import { PiHost, PiHostLive } from '../src/effects/pi-host.ts'
-import { SourceStore, SourceStoreLive } from '../src/effects/source-store.ts'
+import type {
+  OpenSrcCliService,
+  OpensrcConfig,
+  PiExecutionRequest,
+  PiHostService,
+  Source,
+  SourceIndex,
+} from '../src/extension.ts'
+import {
+  createAstParser,
+  createFileSystem,
+  createOpensrcFailure,
+  OpenSrcCli,
+  OpenSrcCliLive,
+  OpensrcConfiguration,
+  PiHost,
+  PiHostLive,
+  resolveOpensrcConfig,
+  SourceStore,
+  SourceStoreLive,
+} from '../src/extension.ts'
 
 const source: Source = {
   type: 'npm',

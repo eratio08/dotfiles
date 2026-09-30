@@ -1,4 +1,4 @@
-import { PiCommandContext, PiContext, PiUi } from '@eratio08/pi-effect'
+import { PiCommandContext, type PiCommandContextTag, PiContext, type PiContextTag, PiUi } from '@eratio08/pi-effect'
 import { Effect, Schema } from 'effect'
 import { SkillTogglePlanner } from './apply/planner.ts'
 import { SkillChangeWriter } from './apply/writer.ts'
@@ -33,7 +33,7 @@ function notify(message: string, type: 'info' | 'warning' | 'error'): Effect.Eff
 const toggleSkillsCommand = Effect.fn('toggleSkillsCommand')(function* (): Effect.fn.Return<
   void,
   ToggleSkillsCommandError,
-  SkillInventory | SkillTogglePlanner | SkillChangeWriter | PiContext | PiCommandContext | PiUi
+  SkillInventory | SkillTogglePlanner | SkillChangeWriter | PiContextTag | PiCommandContextTag | PiUi
 > {
   const context = yield* PiContext
   const command = yield* PiCommandContext

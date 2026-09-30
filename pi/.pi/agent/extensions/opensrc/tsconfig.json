@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["node", "bun"]
   },
-  "include": ["./index.ts", "./src/**/*.ts", "./tests/**/*.ts"]
+  "include": ["./index.ts", "./src/extension.ts", "./tests/**/*.ts"]
 }
