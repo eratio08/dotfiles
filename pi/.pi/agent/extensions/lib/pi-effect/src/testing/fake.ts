@@ -3,6 +3,7 @@ import type {
   ExtensionAPI,
   ExtensionContext,
   ExtensionFactory,
+  ExtensionToolContext,
   SessionManager,
   ToolDefinition,
   ToolInfo,
@@ -45,7 +46,7 @@ type FakeExtension = {
     name: string,
     toolCallId: string,
     params: unknown,
-    context?: ExtensionContext,
+    context?: ExtensionToolContext,
     signal?: AbortSignal,
     onUpdate?: (update: unknown) => void,
   ) => Promise<unknown>
@@ -228,7 +229,13 @@ function createFakeExtensionApi(): FakeExtension {
       name: string,
       toolCallId: string,
       params: unknown,
-      context = createFakeExtensionContext(),
+      context: ExtensionToolContext = {
+        ...createFakeExtensionContext(),
+        tools: [],
+        executeTool: async () => {
+          throw new Error('Nested tool calls are not configured in this fake.')
+        },
+      },
       signal?: AbortSignal,
       onUpdate?: (update: unknown) => void,
     ) => {

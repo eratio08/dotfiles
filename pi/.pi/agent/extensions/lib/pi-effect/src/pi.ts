@@ -5,6 +5,7 @@ import type {
   ExecOptions,
   ExecResult,
   ExtensionAPI,
+  ExtensionToolContext,
   KeybindingsManager,
   ProviderConfig,
   SessionEntry,
@@ -221,6 +222,12 @@ type PiToolContext = PiContext & {
   readonly toolSignal: AbortSignal | undefined
   /** Sends a progress update to Pi. */
   readonly onUpdate: (update: PiToolUpdate) => Effect.Effect<void, PiToolError>
+  readonly tools: ExtensionToolContext['tools']
+  readonly executeTool: (
+    name: string,
+    args: unknown,
+    options?: Parameters<ExtensionToolContext['executeTool']>[2],
+  ) => Effect.Effect<Awaited<ReturnType<ExtensionToolContext['executeTool']>>, PiToolError>
   /** Execution mode selected for the current tool definition. */
   readonly executionMode: PiToolExecutionMode
 }
@@ -442,7 +449,7 @@ const createPiProcessService = (operations: PiOperationsService): PiProcessServi
 class PiProcess extends Context.Service<PiProcess, PiProcessService>()('pi-effect/PiProcess') {}
 
 /** Tool result content and optional structured details returned by an Effect tool. */
-type PiToolResult<Details = unknown> = Pick<AgentToolResult<Details>, 'content' | 'details'>
+type PiToolResult<Details = unknown> = AgentToolResult<Details>
 
 /** Pi tool definition whose execution runs as an Effect and can request extension services. */
 type EffectToolDefinition<Params extends TSchema, Services, Failure, Details = unknown> = Omit<

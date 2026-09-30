@@ -9,6 +9,7 @@ import type {
   ExtensionContext,
   ExtensionEvent,
   ExtensionFactory,
+  ExtensionToolContext,
   ExtensionUIContext,
   InputEventResult,
   MessageEndEvent,
@@ -786,6 +787,15 @@ function unavailableToolContext(context: PiApi.PiContext, session: PiApi.PiSessi
     params: undefined,
     toolSignal: undefined,
     onUpdate: () => Effect.succeed(undefined),
+    tools: [],
+    executeTool: (name) =>
+      Effect.fail(
+        new PiApi.PiToolError({
+          tool: name,
+          operation: 'executeTool',
+          message: 'Nested tool calls are unavailable in this invocation.',
+        }),
+      ),
     executionMode: 'parallel',
   }
 }
@@ -851,6 +861,7 @@ const createInvocation = Effect.fnUntraced(function* <Services>(
     signal: AbortSignal | undefined
     onUpdate?: PiToolUpdateHandler
     executionMode?: 'sequential' | 'parallel'
+    nativeContext: ExtensionToolContext
   },
   invoke?: Invoke<Services>,
 ): Effect.fn.Return<Invocation, PiApi.PiOperationsError, InvocationRequirements> {
@@ -980,6 +991,7 @@ function toolContext(
     signal: AbortSignal | undefined
     onUpdate?: PiToolUpdateHandler
     executionMode?: 'sequential' | 'parallel'
+    nativeContext: ExtensionToolContext
   },
 ): PiApi.PiToolContext {
   return {
@@ -1001,6 +1013,18 @@ function toolContext(
           }),
       })
     },
+    tools: tool.nativeContext.tools,
+    executeTool: (name, args, options) =>
+      Effect.tryPromise({
+        try: () => tool.nativeContext.executeTool(name, args, options),
+        catch: (cause: unknown) =>
+          new PiApi.PiToolError({
+            tool: name,
+            operation: 'executeTool',
+            message: PiApi.piCauseMessage(cause),
+            cause,
+          }),
+      }),
     executionMode: tool.executionMode ?? 'parallel',
   }
 }
@@ -1362,7 +1386,7 @@ function toPiTool<
       params: Static<Params>,
       signal: AbortSignal | undefined,
       onUpdate: AgentToolUpdateCallback<Details> | undefined,
-      context: ExtensionContext,
+      context: ExtensionToolContext,
     ) => {
       const invocation = createInvocation(
         context,
@@ -1373,6 +1397,7 @@ function toPiTool<
           signal,
           onUpdate,
           executionMode: definition.executionMode,
+          nativeContext: context,
         },
         run,
       )

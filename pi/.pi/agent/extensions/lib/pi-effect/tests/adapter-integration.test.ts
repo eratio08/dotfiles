@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import type { ExtensionAPI, ExtensionContext, ProjectTrustContext } from '@earendil-works/pi-coding-agent'
+import type { ExtensionAPI, ExtensionContext, ExtensionToolContext, ProjectTrustContext } from '@earendil-works/pi-coding-agent'
 import { Context, Effect, Layer, Schema } from 'effect'
 import { type Static, Type } from 'typebox'
 import {
@@ -567,6 +567,203 @@ test('should provide tool identity, progress updates, and a final result given t
     details: { query: 'search' },
   })
   expect(updates).toEqual([{ content: [{ type: 'text', text: 'working:search' }] }])
+})
+
+test('should preserve Pi tool metadata and prepare a model loadout given Effect tool registration', async () => {
+  //given
+  const namespace = { name: 'docs', description: 'Documentation tools' }
+  const annotations = { readOnlyHint: true, openWorldHint: false }
+  const loadout = {
+    declared: [],
+    callable: [],
+    registered: [],
+    getExposure: () => 'codemode' as const,
+    getNamespace: () => namespace,
+  }
+  const plugin = PiExtension.define({
+    id: 'tests/tool-metadata',
+    effect: (registrations: PiRegistrationContext<never>) =>
+      registrations.tools.register({
+        name: 'metadata-tool',
+        label: 'Metadata tool',
+        description: 'Metadata tool',
+        promptSnippet: 'Use metadata-tool for tests.',
+        promptGuidelines: ['Use metadata-tool for tests.'],
+        parameters: Type.Object({}),
+        exposure: 'model-only',
+        namespace,
+        annotations,
+        prepareLoadout: (tools) => ({
+          descriptions: {
+            'metadata-tool': `Use the ${tools.getNamespace('helper')?.name} namespace with ${tools.getExposure('helper')} tools.`,
+          },
+          hiddenDeclarations: ['helper'],
+        }),
+        execute: () =>
+          Effect.succeed({
+            content: [{ type: 'text' as const, text: 'done' }],
+            details: {},
+          }),
+      }),
+  })
+
+  //when
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+  const registered = fake.tools.get('metadata-tool')
+  const changes = registered?.prepareLoadout?.(loadout)
+  await shutdown(fake)
+
+  //then
+  expect(registered).toMatchObject({ exposure: 'model-only', namespace, annotations })
+  expect(changes).toEqual({
+    descriptions: { 'metadata-tool': 'Use the docs namespace with codemode tools.' },
+    hiddenDeclarations: ['helper'],
+  })
+})
+
+test('should preserve structured and error results given an output schema', async () => {
+  //given
+  const outputSchema = Type.Object({ answer: Type.String() })
+  const plugin = PiExtension.define({
+    id: 'tests/tool-structured-result',
+    effect: (registrations: PiRegistrationContext<never>) =>
+      registrations.tools.register({
+        name: 'structured-tool',
+        label: 'Structured tool',
+        description: 'Structured tool',
+        promptSnippet: 'Use structured-tool for tests.',
+        promptGuidelines: ['Use structured-tool for tests.'],
+        parameters: Type.Object({}),
+        outputSchema,
+        execute: () =>
+          Effect.succeed({
+            content: [{ type: 'text' as const, text: 'The lookup failed.' }],
+            details: { answer: 'unavailable' },
+            structuredContent: { answer: 'unavailable' },
+            isError: true,
+          } satisfies PiToolResult<{ answer: string }>),
+      }),
+  })
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+
+  //when
+  const result = await fake.invokeTool('structured-tool', 'call-2', {})
+  const registered = fake.tools.get('structured-tool')
+  await shutdown(fake)
+
+  //then
+  expect(registered?.outputSchema).toBe(outputSchema)
+  expect(result).toEqual({
+    content: [{ type: 'text', text: 'The lookup failed.' }],
+    details: { answer: 'unavailable' },
+    structuredContent: { answer: 'unavailable' },
+    isError: true,
+  })
+})
+
+test('should expose callable tools and forward nested execution given a tool context', async () => {
+  const callableTool: ExtensionToolContext['tools'][number] = {
+    name: 'nested-tool',
+    label: 'Nested tool',
+    description: 'Nested tool',
+    parameters: Type.Object({ query: Type.String() }),
+    execute: async () => ({ content: [], details: {} }),
+  }
+  const nestedSignal = new AbortController().signal
+  const nestedOutcome: Awaited<ReturnType<ExtensionToolContext['executeTool']>> = {
+    toolCall: {
+      type: 'toolCall',
+      id: 'parent-call/0',
+      name: 'nested-tool',
+      arguments: { query: 'answer' },
+    },
+    result: {
+      content: [{ type: 'text', text: 'Nested result' }],
+      details: { answer: '42' },
+      structuredContent: { answer: '42' },
+      isError: true,
+    },
+    isError: true,
+  }
+  let callableToolNames: string[] = []
+  let nestedToolCallId = ''
+  let observedNestedOutcome: Awaited<ReturnType<ExtensionToolContext['executeTool']>> | undefined
+  let nestedCallName = ''
+  let nestedCallArgs: unknown
+  let nestedCallSignal: AbortSignal | undefined
+  let receivedProgressCallback = false
+  let nestedCallCount = 0
+  const progressUpdates: unknown[] = []
+  const nativeContext: ExtensionToolContext = {
+    ...createFakeExtensionContext(),
+    tools: [callableTool],
+    executeTool: async (name, args, options) => {
+      nestedCallCount += 1
+      if (nestedCallCount > 1) throw new Error('nested invocation failed')
+      nestedCallName = name
+      nestedCallArgs = args
+      nestedCallSignal = options?.signal
+      receivedProgressCallback = options?.onUpdate !== undefined
+      options?.onUpdate?.({ content: [{ type: 'text', text: 'Nested progress' }], details: {} })
+      return nestedOutcome
+    },
+  }
+  const plugin = PiExtension.define({
+    id: 'tests/nested-tool',
+    effect: (registrations: PiRegistrationContext<never>) =>
+      registrations.tools.register({
+        name: 'parent-tool',
+        label: 'Parent tool',
+        description: 'Parent tool',
+        promptSnippet: 'Use parent-tool for tests.',
+        promptGuidelines: ['Use parent-tool for tests.'],
+        parameters: Type.Object({}),
+        execute: () =>
+          Effect.gen(function* () {
+            const tool = yield* PiToolContext
+            callableToolNames = tool.tools.map(({ name }) => name)
+            const outcome = yield* tool.executeTool(
+              'nested-tool',
+              { query: 'answer' },
+              { signal: nestedSignal, onUpdate: (update) => progressUpdates.push(update) },
+            )
+            nestedToolCallId = outcome.toolCall.id
+            observedNestedOutcome = outcome
+            return {
+              content: outcome.result.content,
+              details: outcome.result.details,
+              structuredContent: outcome.result.structuredContent,
+              isError: outcome.isError,
+            } satisfies PiToolResult<unknown>
+          }),
+      }),
+  })
+  const fake = await installFakePlugin(PiExtension.install(plugin))
+
+  const result = await fake.invokeTool('parent-tool', 'parent-call', {}, nativeContext)
+  const failedInvocation = fake.invokeTool('parent-tool', 'parent-call-2', {}, nativeContext)
+  await expect(failedInvocation).rejects.toMatchObject({
+    _tag: 'PiToolError',
+    tool: 'nested-tool',
+    operation: 'executeTool',
+    message: 'nested invocation failed',
+  })
+  await shutdown(fake)
+
+  expect(callableToolNames).toEqual(['nested-tool'])
+  expect(nestedToolCallId).toBe('parent-call/0')
+  expect(observedNestedOutcome).toBe(nestedOutcome)
+  expect(nestedCallName).toBe('nested-tool')
+  expect(nestedCallArgs).toEqual({ query: 'answer' })
+  expect(nestedCallSignal).toBe(nestedSignal)
+  expect(receivedProgressCallback).toBe(true)
+  expect(progressUpdates).toEqual([{ content: [{ type: 'text', text: 'Nested progress' }], details: {} }])
+  expect(result).toEqual({
+    content: [{ type: 'text', text: 'Nested result' }],
+    details: { answer: '42' },
+    structuredContent: { answer: '42' },
+    isError: true,
+  })
 })
 
 test('should return a typed error given unavailable UI capabilities', async () => {
