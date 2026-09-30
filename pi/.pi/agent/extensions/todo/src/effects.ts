@@ -1,19 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import {
-  Pi,
-  PiContext,
-  type PiServices,
-  PiSession,
-  PiTools,
-  PiUi,
-  type ToolDefinition,
-} from '@eratio/pi-effect-codemode'
+import { Pi, PiContext, type PiContextTag, type PiServices, PiSession, PiUi } from '@eratio/pi-effect'
 import { Context, Effect, Layer, Ref, Result, Schema, Semaphore } from 'effect'
 import { createTodoApi, type TodoApi } from './api.ts'
 import { cloneTodos, formatTodoContext, TODO_STATE_ENTRY, type Todo, TodoUpdateError } from './state.ts'
 import { TodoStore, type TodoTransactionDraft, type TodoTransactionResult } from './store.ts'
 
-const TODO_TOOL_NAME = 'todo'
 const PLANNOTATOR_REQUEST_CHANNEL = 'plannotator:request'
 const PLANNOTATOR_REQUEST_TIMEOUT_MS = 250
 const SUSPENDED_TODO_ERROR = 'Todo tracking is disabled while Plannotator executes the approved plan.'
@@ -48,23 +39,6 @@ type TodoCompactionEvent = {
 }
 
 type TodoEffectsRequirements = PiServices | TodoStatusRequestVersion | TodoStore | TodoUi
-
-type TodoRunContext = {
-  readonly api: TodoApi
-}
-
-type TodoRunServices = TodoEffectsRequirements | TodoEffects
-
-type TodoToolRun = NonNullable<ToolDefinition<TodoRunServices, TodoUiError, TodoRunContext>['withRun']>
-type TodoRunValue =
-  ReturnType<Parameters<TodoToolRun>[0]> extends Effect.Effect<infer Value, infer _Failure, infer _Services>
-    ? Value
-    : never
-
-type TodoRunFailure =
-  ReturnType<Parameters<TodoToolRun>[0]> extends Effect.Effect<unknown, infer Failure, infer _Services>
-    ? Failure
-    : never
 
 class TodoStatusRequestVersion extends Context.Service<
   TodoStatusRequestVersion,
@@ -109,7 +83,10 @@ function mapTodoEffect<A, E>(operation: string, effect: Effect.Effect<A, E>): Ef
 class TodoUi extends Context.Service<
   TodoUi,
   {
-    readonly update: (todos: readonly Todo[], suspended?: boolean) => Effect.Effect<void, TodoUiError, PiContext | PiUi>
+    readonly update: (
+      todos: readonly Todo[],
+      suspended?: boolean,
+    ) => Effect.Effect<void, TodoUiError, PiContextTag | PiUi>
     readonly show: (todos: readonly Todo[]) => Effect.Effect<void, TodoUiError, PiUi>
   }
 >()('todo/TodoUi') {}
@@ -177,54 +154,17 @@ function transactTodo<A, R>(
 }
 
 const suspendTracking = Effect.fnUntraced(function* (): Effect.fn.Return<void, TodoUiError, TodoEffectsRequirements> {
-  const tools = yield* PiTools
   const store = yield* TodoStore
   const ui = yield* TodoUi
-  const activeTools = yield* mapTodoEffect('get-active-tools', tools.active())
-  const wasActiveBeforeSuspend = activeTools.includes(TODO_TOOL_NAME)
-  const changed = yield* store.suspend(wasActiveBeforeSuspend)
-  if (changed && wasActiveBeforeSuspend) {
-    const updated = yield* Effect.match(
-      mapTodoEffect(
-        'set-active-tools',
-        tools.replaceActive(activeTools.filter((toolName) => toolName !== TODO_TOOL_NAME)),
-      ),
-      {
-        onFailure: (error: TodoUiError) => ({ error }),
-        onSuccess: () => ({ success: true as const }),
-      },
-    )
-    if ('error' in updated) {
-      yield* store.resume
-      return yield* Effect.fail(updated.error)
-    }
-  }
+  yield* store.suspend(false)
   yield* ui.update([], true)
 })
 
 const resumeTracking = Effect.fnUntraced(function* (): Effect.fn.Return<void, TodoUiError, TodoEffectsRequirements> {
-  const tools = yield* PiTools
   const store = yield* TodoStore
   const ui = yield* TodoUi
   const result = yield* store.resume
   if (!result.resumed) return
-
-  if (result.wasActiveBeforeSuspend) {
-    const activeTools = yield* mapTodoEffect('get-active-tools', tools.active())
-    if (!activeTools.includes(TODO_TOOL_NAME)) {
-      const updated = yield* Effect.match(
-        mapTodoEffect('set-active-tools', tools.replaceActive([...activeTools, TODO_TOOL_NAME])),
-        {
-          onFailure: (error: TodoUiError) => ({ error }),
-          onSuccess: () => ({ success: true as const }),
-        },
-      )
-      if ('error' in updated) {
-        yield* store.suspend(result.wasActiveBeforeSuspend)
-        return yield* Effect.fail(updated.error)
-      }
-    }
-  }
   yield* ui.update(result.todos)
 })
 
@@ -383,64 +323,38 @@ const prepareAgentStart = Effect.fn('prepareAgentStart')(function* (): Effect.fn
   yield* scheduleSessionPhaseSync()
 })
 
-const withTodoRun: TodoToolRun = (run: Parameters<TodoToolRun>[0], signal: Parameters<TodoToolRun>[1]) =>
+const withTodoRun = <A, E, R>(
+  operation: string,
+  run: (api: TodoApi) => Effect.Effect<A, E, R>,
+  signal?: AbortSignal,
+): Effect.Effect<A, TodoUiError, TodoEffectsRequirements | R> =>
   Effect.gen(function* () {
-    let runFailure: TodoRunFailure | undefined
-    const outcome = yield* Effect.match(
-      transactTodo(
-        (draft, transactionSignal) => {
-          const api = createTodoApi({ draft, signal: transactionSignal })
-          return run({ api }).pipe(
-            Effect.mapError((error) => {
-              runFailure = error
-              return new TodoUpdateError({ message: error.message, cause: error })
-            }),
-          )
-        },
-        signal,
-        'execute',
-      ),
-      {
-        onFailure: (error: TodoUiError) => ({ error }),
-        onSuccess: (result: TodoTransactionResult<TodoRunValue>) => ({ result }),
-      },
-    )
-    if ('error' in outcome) {
-      if (runFailure !== undefined) {
-        return yield* Effect.fail(
-          new TodoUiError({
-            operation: 'execute',
-            message: runFailure.message,
-            cause:
-              runFailure.cause instanceof Error
-                ? runFailure.cause
-                : new Error(runFailure.message, { cause: runFailure.cause }),
-          }),
+    const outcome = yield* transactTodo(
+      (draft, transactionSignal) => {
+        const api = createTodoApi({ draft, signal: transactionSignal })
+        return run(api).pipe(
+          Effect.mapError((cause) =>
+            cause instanceof TodoUpdateError
+              ? cause
+              : new TodoUpdateError({ message: cause instanceof Error ? cause.message : String(cause), cause }),
+          ),
         )
-      }
-      return yield* Effect.fail(outcome.error)
-    }
-    return outcome.result.value
+      },
+      signal,
+      operation,
+    )
+    return outcome.value
   })
 
 const clearTodos = Effect.fn('clearTodos')(function* (
   signal?: AbortSignal,
 ): Effect.fn.Return<number, TodoUiError, TodoEffectsRequirements> {
-  const outcome = yield* transactTodo(
-    (draft, transactionSignal) => {
-      const api = createTodoApi({ draft, signal: transactionSignal })
-      return Effect.tryPromise({
-        try: () => api.clear(),
-        catch: (cause: unknown) =>
-          cause instanceof TodoUpdateError
-            ? cause
-            : new TodoUpdateError({ message: cause instanceof Error ? cause.message : String(cause), cause }),
-      })
-    },
-    signal,
+  const result = yield* withTodoRun(
     'execute',
+    (api) => Effect.tryPromise({ try: () => api.clear(), catch: (cause: unknown) => cause }),
+    signal,
   )
-  return outcome.value.cleared
+  return result.cleared
 })
 
 const handleAgentEnd = Effect.fnUntraced(function* (): Effect.fn.Return<void, TodoUiError, TodoEffectsRequirements> {
@@ -509,7 +423,11 @@ class TodoEffects extends Context.Service<
     /** Refreshes the live todo view and phase without restoring branch history. */
     readonly prepareAgentStart: () => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
     readonly requestPlannotatorPhase: () => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
-    readonly withRun: TodoToolRun
+    readonly withRun: <A, E, R>(
+      operation: string,
+      run: (api: TodoApi) => Effect.Effect<A, E, R>,
+      signal?: AbortSignal,
+    ) => Effect.Effect<A, TodoUiError, TodoEffectsRequirements | R>
     readonly clearTodos: (signal?: AbortSignal) => Effect.Effect<number, TodoUiError, TodoEffectsRequirements>
     readonly handleAgentEnd: () => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
     readonly handleCompaction: (event: TodoCompactionEvent) => Effect.Effect<void, TodoUiError, TodoEffectsRequirements>
@@ -538,8 +456,6 @@ export {
   TodoEffects,
   TodoEffectsLayer,
   type TodoEffectsRequirements,
-  type TodoRunContext,
-  type TodoRunServices,
   TodoStatusRequestVersion,
   TodoUi,
   TodoUiError,

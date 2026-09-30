@@ -1,24 +1,24 @@
 import type { Theme } from '@earendil-works/pi-coding-agent'
 import { truncateToWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui'
 import {
-  createTool,
-  defineMethod,
+  type EffectToolDefinition,
   Pi,
   PiContext,
+  type PiContextTag,
   PiExtension,
+  type PiServices,
+  PiToolContext,
   PiUi,
-  type ToolDefinition,
-} from '@eratio/pi-effect-codemode'
+} from '@eratio/pi-effect'
 import { Effect, Layer, Ref, Result, Schema, Semaphore } from 'effect'
 import { Type } from 'typebox'
-import { TODO_CODE_EXAMPLE, TODO_CODE_TYPES } from './src/code-mode.ts'
+import type { TodoCompleteResult } from './src/api.ts'
 import {
   TodoEffects,
   TodoEffectsLayer,
-  type TodoRunContext,
   TodoStatusRequestVersion,
   TodoUi,
-  TodoUiError,
+  type TodoUiError,
   todoHostError,
 } from './src/effects.ts'
 import {
@@ -37,11 +37,8 @@ const decodeApprovedPlanSubmissionDetails = Schema.decodeUnknownResult(
   Schema.Struct({ approved: Schema.Literal(true) }),
 )
 type TodoServices = TodoEffects | TodoStore | TodoStatusRequestVersion | TodoUi
-type TodoToolErrorCodec = NonNullable<ToolDefinition<TodoServices, TodoUiError, TodoRunContext>['errorCodec']>
-type TodoToolFailure = Parameters<TodoToolErrorCodec['encode']>[0]
-type TodoToolRun = NonNullable<ToolDefinition<TodoServices, TodoUiError, TodoRunContext>['withRun']>
 type TodoPluginRegistrations = Parameters<
-  NonNullable<Parameters<typeof PiExtension.define<TodoServices, TodoToolFailure>>[0]['effect']>
+  NonNullable<Parameters<typeof PiExtension.define<TodoServices, TodoUiError>>[0]['effect']>
 >[0]
 
 const todoIdParameter = Type.String({ pattern: TODO_ID_PATTERN.source })
@@ -65,39 +62,288 @@ const showTodoParameters = Type.Object({
   limit: Type.Optional(Type.Integer({ minimum: 1 })),
   includeDetails: Type.Optional(Type.Boolean()),
 })
-const todoToolErrorWireSchema = Schema.Struct({
-  _tag: Schema.String,
-  operation: Schema.String,
-  message: Schema.String,
-  cause: Schema.optionalKey(Schema.String),
+const todoShowDescription =
+  'List todos in ID order. By default, return up to five pending or in-progress todos without details. ' +
+  'Empty or null IDs use the default query. Non-empty IDs cannot combine with status. ' +
+  'Non-empty IDs return every selected todo, regardless of limit. Empty status returns none. ' +
+  'The limit applies after filtering and sorting. Set includeDetails to true to show details.'
+const todoToolNamespace = {
+  name: 'todo',
+  description: 'Tools for inspecting and updating the current todo plan.',
+} as const
+const todoOutputSchema = Type.Object({
+  id: todoIdParameter,
+  content: Type.String(),
+  details: Type.Optional(Type.String()),
+  status: todoStatusParameter,
+  dependsOn: Type.Array(todoIdParameter),
 })
-const todoToolErrorCodec: TodoToolErrorCodec = {
-  encode: (error: TodoToolFailure) => ({
-    _tag: error._tag,
-    operation: error.operation,
-    message: error.message,
-    ...(error.cause === undefined
-      ? {}
-      : { cause: error.cause instanceof Error ? error.cause.message : String(error.cause) }),
+const todoShowOutputSchema = Type.Array(todoOutputSchema)
+const todoNoParameters = Type.Object({})
+const todoCompleteOutputSchema = Type.Object({
+  completed: todoOutputSchema,
+  remaining: Type.Object({
+    pending: Type.Integer({ minimum: 0 }),
+    inProgress: Type.Integer({ minimum: 0 }),
+    blocked: Type.Integer({ minimum: 0 }),
   }),
-  decode: (value: unknown) => {
-    const result = Schema.decodeUnknownResult(todoToolErrorWireSchema)(value)
-    if (Result.isFailure(result)) throw new TypeError('The Todo tool error payload is invalid.')
-    return new TodoUiError({
-      operation: result.success.operation,
-      message: result.success.message,
-      ...(result.success.cause === undefined ? {} : { cause: result.success.cause }),
-    })
-  },
+  allDone: Type.Boolean(),
+})
+const todoClearOutputSchema = Type.Object({ cleared: Type.Integer({ minimum: 0 }) })
+const todoShowTool: EffectToolDefinition<
+  typeof showTodoParameters,
+  TodoServices | PiServices,
+  TodoUiError,
+  { readonly count: number }
+> = {
+  name: 'todo_show',
+  label: 'Show todos',
+  description: todoShowDescription,
+  promptSnippet: 'Inspect the current todo plan',
+  promptGuidelines: [
+    'Use todo_show when the current plan is unclear.',
+    'Use ids or status to filter tasks. Set includeDetails to request task details.',
+  ],
+  parameters: showTodoParameters,
+  exposure: 'codemode',
+  namespace: todoToolNamespace,
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  outputSchema: todoShowOutputSchema,
+  execute: (options: TodoShowOptions) =>
+    Effect.gen(function* () {
+      const tool = yield* PiToolContext
+      const effects = yield* TodoEffects
+      const todos = yield* effects.withRun(
+        'show',
+        (api) => Effect.tryPromise({ try: () => api.show(options), catch: (cause: unknown) => cause }),
+        tool.toolSignal,
+      )
+      return {
+        content: [{ type: 'text', text: JSON.stringify(todos) }],
+        details: { count: todos.length },
+        structuredContent: todos,
+      }
+    }),
 }
-
-function runTodoApiOperation<A>(operation: string, run: () => Promise<A>): Effect.Effect<A, TodoUiError> {
-  return Effect.tryPromise({
-    try: run,
-    catch: (cause: unknown) => todoHostError(operation, cause),
-  })
+const todoAddTool: EffectToolDefinition<
+  typeof addTodoParameters,
+  TodoServices | PiServices,
+  TodoUiError,
+  { readonly id: string }
+> = {
+  name: 'todo_add',
+  label: 'Add todo',
+  description:
+    'Add a todo to the current plan. Add prerequisites before their dependents, then use their IDs in dependsOn.',
+  promptSnippet: 'Add a todo to the current plan',
+  promptGuidelines: ['Add prerequisites before their dependents. Use dependsOn to link their IDs.'],
+  parameters: addTodoParameters,
+  exposure: 'codemode',
+  namespace: todoToolNamespace,
+  outputSchema: todoOutputSchema,
+  execute: (input: TodoInput) =>
+    Effect.gen(function* () {
+      const tool = yield* PiToolContext
+      const effects = yield* TodoEffects
+      const todo = yield* effects.withRun(
+        'add',
+        (api) => Effect.tryPromise({ try: () => api.add(input), catch: (cause: unknown) => cause }),
+        tool.toolSignal,
+      )
+      return {
+        content: [{ type: 'text', text: JSON.stringify(todo) }],
+        details: { id: todo.id },
+        structuredContent: todo,
+      }
+    }),
 }
-
+const todoUpdateTool: EffectToolDefinition<
+  typeof updateTodoParameters,
+  TodoServices | PiServices,
+  TodoUiError,
+  { readonly id: string }
+> = {
+  name: 'todo_update',
+  label: 'Update todo',
+  description: 'Update one todo by ID. Dependency changes are validated atomically.',
+  promptSnippet: 'Update a todo in the current plan',
+  promptGuidelines: ["Use todo_update to change a todo's content, details, or dependencies."],
+  parameters: updateTodoParameters,
+  exposure: 'codemode',
+  namespace: todoToolNamespace,
+  outputSchema: todoOutputSchema,
+  execute: ([id, patch]: [TodoId, TodoPatch]) =>
+    Effect.gen(function* () {
+      const tool = yield* PiToolContext
+      const effects = yield* TodoEffects
+      const todo = yield* effects.withRun(
+        'update',
+        (api) => Effect.tryPromise({ try: () => api.update(id, patch), catch: (cause: unknown) => cause }),
+        tool.toolSignal,
+      )
+      return {
+        content: [{ type: 'text', text: JSON.stringify(todo) }],
+        details: { id: todo.id },
+        structuredContent: todo,
+      }
+    }),
+}
+const todoNextTool: EffectToolDefinition<
+  typeof todoNoParameters,
+  TodoServices | PiServices,
+  TodoUiError,
+  { readonly id: string }
+> = {
+  name: 'todo_next',
+  label: 'Start next todo',
+  description: 'Start the next ready todo. Fail if a todo is active or no todo is ready.',
+  promptSnippet: 'Start the next ready todo',
+  promptGuidelines: ['Use todo_next when no todo is active and the plan has a ready todo.'],
+  parameters: todoNoParameters,
+  exposure: 'codemode',
+  namespace: todoToolNamespace,
+  outputSchema: todoOutputSchema,
+  execute: () =>
+    Effect.gen(function* () {
+      const tool = yield* PiToolContext
+      const effects = yield* TodoEffects
+      const todo = yield* effects.withRun(
+        'next',
+        (api) => Effect.tryPromise({ try: () => api.next(), catch: (cause: unknown) => cause }),
+        tool.toolSignal,
+      )
+      return {
+        content: [{ type: 'text', text: JSON.stringify(todo) }],
+        details: { id: todo.id },
+        structuredContent: todo,
+      }
+    }),
+}
+const todoCompleteTool: EffectToolDefinition<
+  typeof todoNoParameters,
+  TodoServices | PiServices,
+  TodoUiError,
+  { readonly id: string }
+> = {
+  name: 'todo_complete',
+  label: 'Complete todo',
+  description:
+    'Complete the active todo and return remaining counts. allDone is true only when no pending, in-progress, or blocked todos remain.',
+  promptSnippet: 'Complete the active todo',
+  promptGuidelines: ['Use todo_complete after finishing the active task.'],
+  parameters: todoNoParameters,
+  exposure: 'codemode',
+  namespace: todoToolNamespace,
+  outputSchema: todoCompleteOutputSchema,
+  execute: () =>
+    Effect.gen(function* () {
+      const tool = yield* PiToolContext
+      const effects = yield* TodoEffects
+      const result: TodoCompleteResult = yield* effects.withRun(
+        'complete',
+        (api) => Effect.tryPromise({ try: () => api.complete(), catch: (cause: unknown) => cause }),
+        tool.toolSignal,
+      )
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result) }],
+        details: { id: result.completed.id },
+        structuredContent: result,
+      }
+    }),
+}
+const todoOmitTool: EffectToolDefinition<
+  typeof todoIdParameter,
+  TodoServices | PiServices,
+  TodoUiError,
+  { readonly id: string }
+> = {
+  name: 'todo_omit',
+  label: 'Omit todo',
+  description: 'Mark one todo as omitted. Its dependents remain blocked until it is completed.',
+  promptSnippet: 'Omit a todo from the current plan',
+  promptGuidelines: ['Use todo_omit when a task is no longer required.'],
+  parameters: todoIdParameter,
+  exposure: 'codemode',
+  namespace: todoToolNamespace,
+  outputSchema: todoOutputSchema,
+  execute: (id: TodoId) =>
+    Effect.gen(function* () {
+      const tool = yield* PiToolContext
+      const effects = yield* TodoEffects
+      const todo = yield* effects.withRun(
+        'omit',
+        (api) => Effect.tryPromise({ try: () => api.omit(id), catch: (cause: unknown) => cause }),
+        tool.toolSignal,
+      )
+      return {
+        content: [{ type: 'text', text: JSON.stringify(todo) }],
+        details: { id: todo.id },
+        structuredContent: todo,
+      }
+    }),
+}
+const todoRestoreTool: EffectToolDefinition<
+  typeof todoIdParameter,
+  TodoServices | PiServices,
+  TodoUiError,
+  { readonly id: string }
+> = {
+  name: 'todo_restore',
+  label: 'Restore todo',
+  description: 'Restore one omitted todo to a pending or dependency-blocked state.',
+  promptSnippet: 'Restore a todo to the current plan',
+  promptGuidelines: ['Use todo_restore only for a todo with omitted status.'],
+  parameters: todoIdParameter,
+  exposure: 'codemode',
+  namespace: todoToolNamespace,
+  outputSchema: todoOutputSchema,
+  execute: (id: TodoId) =>
+    Effect.gen(function* () {
+      const tool = yield* PiToolContext
+      const effects = yield* TodoEffects
+      const todo = yield* effects.withRun(
+        'restore',
+        (api) => Effect.tryPromise({ try: () => api.restore(id), catch: (cause: unknown) => cause }),
+        tool.toolSignal,
+      )
+      return {
+        content: [{ type: 'text', text: JSON.stringify(todo) }],
+        details: { id: todo.id },
+        structuredContent: todo,
+      }
+    }),
+}
+const todoClearTool: EffectToolDefinition<
+  typeof todoNoParameters,
+  TodoServices | PiServices,
+  TodoUiError,
+  { readonly cleared: number }
+> = {
+  name: 'todo_clear',
+  label: 'Clear todos',
+  description: 'Clear every todo from the current plan and return the number removed.',
+  promptSnippet: 'Clear the current todo plan',
+  promptGuidelines: ['Use todo_clear only when the current plan must be removed.'],
+  parameters: todoNoParameters,
+  exposure: 'codemode',
+  namespace: todoToolNamespace,
+  outputSchema: todoClearOutputSchema,
+  execute: () =>
+    Effect.gen(function* () {
+      const tool = yield* PiToolContext
+      const effects = yield* TodoEffects
+      const result = yield* effects.withRun(
+        'clear',
+        (api) => Effect.tryPromise({ try: () => api.clear(), catch: (cause: unknown) => cause }),
+        tool.toolSignal,
+      )
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result) }],
+        details: { cleared: result.cleared },
+        structuredContent: result,
+      }
+    }),
+}
 function isApprovedPlanSubmission(event: {
   readonly toolName: string
   readonly isError?: boolean
@@ -231,7 +477,7 @@ function renderTodoLine(todo: Todo, theme: TodoTheme, depth = 0): string {
 const updateUi = Effect.fnUntraced(function* (
   todos: readonly Todo[],
   suspended = false,
-): Effect.fn.Return<void, TodoUiError, PiContext | PiUi> {
+): Effect.fn.Return<void, TodoUiError, PiContextTag | PiUi> {
   const context = yield* PiContext
   const hostUi = yield* PiUi
   if (!context.hasUI) return
@@ -298,93 +544,7 @@ const statusRequestLayer = Layer.effect(
 )
 
 const todoLayer = Layer.mergeAll(TodoStore.layer, todoUiLayer, statusRequestLayer, TodoEffectsLayer)
-const todoTool = createTool<TodoServices, TodoUiError, TodoRunContext>({
-  toolName: 'todo',
-  label: 'Todo',
-  description: 'Run TypeScript code that reads and updates the current todo plan for non-trivial work with >= 3 tasks.',
-  promptSnippet: 'Use todo only for non-trivial work with three or more tasks',
-  promptGuidelines: [
-    'Use todo only for non-trivial work with three or more tasks.',
-    'Write export default async (todo: TodoApi) => ... and await mutations in order.',
-    'Available methods: add, update, show, next, complete, omit, restore, clear.',
-    'Call todo.help() for exact types, options, defaults, behavior, and examples.',
-  ],
-  timeoutMs: 30_000,
-  executionMode: 'sequential',
-  typeDeclarations: TODO_CODE_TYPES,
-  examples: [TODO_CODE_EXAMPLE.trim()],
-  errorCodec: todoToolErrorCodec,
-  methods: {
-    add: defineMethod({
-      description:
-        'Add a todo to the current plan. Add prerequisites before their dependents, then use their IDs in dependsOn.',
-      signature: '(input: TodoInput): Promise<Todo>',
-      parameters: addTodoParameters,
-      execute: (input: TodoInput, _signal: AbortSignal | undefined, context: TodoRunContext) =>
-        runTodoApiOperation('add', () => context.api.add(input)),
-    }),
-    update: defineMethod({
-      description: 'Update one todo by ID. Dependency changes are validated atomically.',
-      signature: '(id: TodoId, patch: TodoPatch): Promise<Todo>',
-      parameters: updateTodoParameters,
-      execute: ([id, patch]: [TodoId, TodoPatch], _signal: AbortSignal | undefined, context: TodoRunContext) =>
-        runTodoApiOperation('update', () => context.api.update(id, patch)),
-    }),
-    show: defineMethod({
-      description:
-        'List todos in ID order. By default, return up to five pending or in-progress todos without details. ' +
-        'Empty or null IDs use the default query. Non-empty IDs cannot combine with status. ' +
-        'Non-empty IDs return every selected todo, regardless of limit. Empty status returns none. ' +
-        'The limit applies after filtering and sorting. Set includeDetails to true to show details.',
-      signature: '(options?: TodoShowOptions): Promise<readonly Todo[]>',
-      parameters: showTodoParameters,
-      optionalParameters: true,
-      execute: (options: TodoShowOptions | undefined, _signal: AbortSignal | undefined, context: TodoRunContext) =>
-        runTodoApiOperation('show', () => context.api.show(options)),
-    }),
-    next: defineMethod({
-      description: 'Start the next ready todo. Fail if a todo is active or no todo is ready.',
-      signature: '(): Promise<Todo>',
-      execute: (_params: unknown, _signal: AbortSignal | undefined, context: TodoRunContext) =>
-        runTodoApiOperation('next', () => context.api.next()),
-    }),
-    complete: defineMethod({
-      description:
-        'Complete the active todo and return remaining counts. ' +
-        'allDone is true only when no pending, in-progress, or blocked todos remain.',
-      signature: '(): Promise<TodoCompleteResult>',
-      execute: (_params: unknown, _signal: AbortSignal | undefined, context: TodoRunContext) =>
-        runTodoApiOperation('complete', () => context.api.complete()),
-    }),
-    omit: defineMethod({
-      description: 'Mark one todo as omitted. Its dependents remain blocked until it is completed.',
-      signature: '(id: TodoId): Promise<Todo>',
-      parameters: todoIdParameter,
-      execute: (id: TodoId, _signal: AbortSignal | undefined, context: TodoRunContext) =>
-        runTodoApiOperation('omit', () => context.api.omit(id)),
-    }),
-    restore: defineMethod({
-      description: 'Restore one omitted todo to a pending or dependency-blocked state.',
-      signature: '(id: TodoId): Promise<Todo>',
-      parameters: todoIdParameter,
-      execute: (id: TodoId, _signal: AbortSignal | undefined, context: TodoRunContext) =>
-        runTodoApiOperation('restore', () => context.api.restore(id)),
-    }),
-    clear: defineMethod({
-      description: 'Clear every todo from the current plan and return the number removed.',
-      signature: '(): Promise<{ readonly cleared: number }>',
-      execute: (_params: unknown, _signal: AbortSignal | undefined, context: TodoRunContext) =>
-        runTodoApiOperation('clear', () => context.api.clear()),
-    }),
-  },
-  withRun: (run: Parameters<TodoToolRun>[0], signal: Parameters<TodoToolRun>[1]) =>
-    Effect.gen(function* () {
-      const effects = yield* TodoEffects
-      return yield* effects.withRun(run, signal)
-    }),
-})
-
-const todoPlugin = PiExtension.define<TodoServices, TodoToolFailure>({
+const todoPlugin = PiExtension.define<TodoServices, TodoUiError>({
   id: 'todo',
   layer: todoLayer,
   effect: (registrations: TodoPluginRegistrations) =>
@@ -402,7 +562,14 @@ const todoPlugin = PiExtension.define<TodoServices, TodoToolFailure>({
       yield* registrations.events.on('agent_end', () => effects.handleAgentEnd())
       yield* registrations.events.on('session_compact', (event) => effects.handleCompaction(event))
       yield* registrations.events.on('session_shutdown', () => effects.clearTodoWidget())
-      yield* todoTool.register(registrations.tools)
+      yield* registrations.tools.register(todoShowTool)
+      yield* registrations.tools.register(todoAddTool)
+      yield* registrations.tools.register(todoUpdateTool)
+      yield* registrations.tools.register(todoNextTool)
+      yield* registrations.tools.register(todoCompleteTool)
+      yield* registrations.tools.register(todoOmitTool)
+      yield* registrations.tools.register(todoRestoreTool)
+      yield* registrations.tools.register(todoClearTool)
       yield* registrations.commands.register('todos', {
         description: 'Show todos on the current branch',
         handler: () =>

@@ -12,8 +12,9 @@
     "check": "biome check ."
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "^0.99.1",
-    "@earendil-works/pi-tui": "^0.99.1",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
     "typebox": "*"
   },
   "devDependencies": {
@@ -24,6 +25,7 @@
   },
   "dependencies": {
     "@ast-grep/napi": "latest",
+    "@eratio/pi-effect": "file:../lib/pi-effect",
     "@eratio/pi-effect-codemode": "file:../lib/pi-effect-codemode",
     "effect": "4.0.0-rc.112",
     "glob": "latest",
