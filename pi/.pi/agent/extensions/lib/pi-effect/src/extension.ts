@@ -4,6 +4,7 @@ import type {
   BeforeProviderRequestEventResult,
   ContextEvent,
   EntryRenderer,
+  ExecuteToolOptions,
   ExtensionAPI,
   ExtensionCommandContext,
   ExtensionContext,
@@ -788,7 +789,7 @@ function unavailableToolContext(context: PiApi.PiContext, session: PiApi.PiSessi
     toolSignal: undefined,
     onUpdate: () => Effect.succeed(undefined),
     tools: [],
-    executeTool: (name) =>
+    executeTool: (name: string) =>
       Effect.fail(
         new PiApi.PiToolError({
           tool: name,
@@ -1013,8 +1014,10 @@ function toolContext(
           }),
       })
     },
-    tools: tool.nativeContext.tools,
-    executeTool: (name, args, options) =>
+    get tools(): ExtensionToolContext['tools'] {
+      return tool.nativeContext.tools
+    },
+    executeTool: (name: string, args: unknown, options?: ExecuteToolOptions) =>
       Effect.tryPromise({
         try: () => tool.nativeContext.executeTool(name, args, options),
         catch: (cause: unknown) =>

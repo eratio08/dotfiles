@@ -29,11 +29,11 @@
     "prepack": "bun run build"
   },
   "peerDependencies": {
-    "@earendil-works/pi-ai": "^0.99.1",
-    "@earendil-works/pi-coding-agent": "^0.99.1",
-    "@earendil-works/pi-tui": "^0.99.1",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
     "effect": "^4.0.0-0",
-    "typebox": "^1.3.27"
+    "typebox": "*"
   },
   "overrides": {
     "undici": "^8.9.0"
@@ -48,7 +48,7 @@
     "effect": "4.0.0-rc.112",
     "rolldown": "^1.2.10",
     "rolldown-plugin-dts": "^0.28.6",
-    "typebox": "^1.3.27",
+    "typebox": "1.3.27",
     "typescript": "^5.9.3"
   }
 }

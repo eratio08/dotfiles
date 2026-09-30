@@ -1,5 +1,12 @@
 import { expect, test } from 'bun:test'
-import type { ExtensionAPI, ExtensionContext, ExtensionToolContext, ProjectTrustContext } from '@earendil-works/pi-coding-agent'
+import type {
+  ExecuteToolOptions,
+  ExtensionAPI,
+  ExtensionContext,
+  ExtensionToolContext,
+  ProjectTrustContext,
+  ToolLoadout,
+} from '@earendil-works/pi-coding-agent'
 import { Context, Effect, Layer, Schema } from 'effect'
 import { type Static, Type } from 'typebox'
 import {
@@ -593,7 +600,7 @@ test('should preserve Pi tool metadata and prepare a model loadout given Effect 
         exposure: 'model-only',
         namespace,
         annotations,
-        prepareLoadout: (tools) => ({
+        prepareLoadout: (tools: ToolLoadout) => ({
           descriptions: {
             'metadata-tool': `Use the ${tools.getNamespace('helper')?.name} namespace with ${tools.getExposure('helper')} tools.`,
           },
@@ -670,6 +677,7 @@ test('should expose callable tools and forward nested execution given a tool con
     execute: async () => ({ content: [], details: {} }),
   }
   const nestedSignal = new AbortController().signal
+  let nativeCallableTools: ExtensionToolContext['tools'] = [callableTool]
   const nestedOutcome: Awaited<ReturnType<ExtensionToolContext['executeTool']>> = {
     toolCall: {
       type: 'toolCall',
@@ -686,6 +694,7 @@ test('should expose callable tools and forward nested execution given a tool con
     isError: true,
   }
   let callableToolNames: string[] = []
+  let callableToolNamesAfterUpdate: string[] = []
   let nestedToolCallId = ''
   let observedNestedOutcome: Awaited<ReturnType<ExtensionToolContext['executeTool']>> | undefined
   let nestedCallName = ''
@@ -696,8 +705,10 @@ test('should expose callable tools and forward nested execution given a tool con
   const progressUpdates: unknown[] = []
   const nativeContext: ExtensionToolContext = {
     ...createFakeExtensionContext(),
-    tools: [callableTool],
-    executeTool: async (name, args, options) => {
+    get tools(): ExtensionToolContext['tools'] {
+      return nativeCallableTools
+    },
+    executeTool: async (name: string, args: unknown, options?: ExecuteToolOptions) => {
       nestedCallCount += 1
       if (nestedCallCount > 1) throw new Error('nested invocation failed')
       nestedCallName = name
@@ -722,10 +733,17 @@ test('should expose callable tools and forward nested execution given a tool con
           Effect.gen(function* () {
             const tool = yield* PiToolContext
             callableToolNames = tool.tools.map(({ name }) => name)
+            nativeCallableTools = []
+            callableToolNamesAfterUpdate = tool.tools.map(({ name }) => name)
+            nativeCallableTools = [callableTool]
             const outcome = yield* tool.executeTool(
               'nested-tool',
               { query: 'answer' },
-              { signal: nestedSignal, onUpdate: (update) => progressUpdates.push(update) },
+              {
+                signal: nestedSignal,
+                onUpdate: (update: Parameters<NonNullable<ExecuteToolOptions['onUpdate']>>[0]) =>
+                  progressUpdates.push(update),
+              },
             )
             nestedToolCallId = outcome.toolCall.id
             observedNestedOutcome = outcome
@@ -751,6 +769,7 @@ test('should expose callable tools and forward nested execution given a tool con
   await shutdown(fake)
 
   expect(callableToolNames).toEqual(['nested-tool'])
+  expect(callableToolNamesAfterUpdate).toEqual([])
   expect(nestedToolCallId).toBe('parent-call/0')
   expect(observedNestedOutcome).toBe(nestedOutcome)
   expect(nestedCallName).toBe('nested-tool')
