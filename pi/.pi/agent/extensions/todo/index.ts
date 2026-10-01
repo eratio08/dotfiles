@@ -64,11 +64,6 @@ const showTodoParameters = Type.Object({
   limit: Type.Optional(Type.Integer({ minimum: 1 })),
   includeDetails: Type.Optional(Type.Boolean()),
 })
-const todoShowDescription =
-  'List todos in ID order. By default, return up to five pending or in-progress todos without details. ' +
-  'Empty or null IDs use the default query. Non-empty IDs cannot combine with status. ' +
-  'Non-empty IDs return every selected todo, regardless of limit. Empty status returns none. ' +
-  'The limit applies after filtering and sorting. Set includeDetails to true to show details.'
 const todoToolNamespace = {
   name: 'todo',
   description: 'Tools for inspecting and updating the current todo plan.',
@@ -92,6 +87,7 @@ const todoCompleteOutputSchema = Type.Object({
   allDone: Type.Boolean(),
 })
 const todoClearOutputSchema = Type.Object({ cleared: Type.Integer({ minimum: 0 }) })
+
 const todoShowTool: EffectToolDefinition<
   typeof showTodoParameters,
   TodoServices | PiServices,
@@ -100,7 +96,11 @@ const todoShowTool: EffectToolDefinition<
 > = {
   name: 'todo_show',
   label: 'Show todos',
-  description: todoShowDescription,
+  description:
+    'List todos in ID order. By default, return up to five pending or in-progress todos without details. ' +
+    'Empty or null IDs use the default query. Non-empty IDs cannot combine with status. ' +
+    'Non-empty IDs return every selected todo, regardless of limit. Empty status returns none. ' +
+    'The limit applies after filtering and sorting. Set includeDetails to true to show details.',
   promptSnippet: 'Inspect the current todo plan',
   promptGuidelines: [
     'Use todo_show when the current plan is unclear.',
@@ -127,6 +127,7 @@ const todoShowTool: EffectToolDefinition<
       }
     }),
 }
+
 const todoAddTool: EffectToolDefinition<
   typeof addTodoParameters,
   TodoServices | PiServices,
@@ -159,6 +160,7 @@ const todoAddTool: EffectToolDefinition<
       }
     }),
 }
+
 const todoUpdateTool: EffectToolDefinition<
   typeof updateTodoParameters,
   TodoServices | PiServices,
@@ -190,6 +192,7 @@ const todoUpdateTool: EffectToolDefinition<
       }
     }),
 }
+
 const todoNextTool: EffectToolDefinition<
   typeof todoNoParameters,
   TodoServices | PiServices,
@@ -221,6 +224,7 @@ const todoNextTool: EffectToolDefinition<
       }
     }),
 }
+
 const todoCompleteTool: EffectToolDefinition<
   typeof todoNoParameters,
   TodoServices | PiServices,
@@ -253,6 +257,7 @@ const todoCompleteTool: EffectToolDefinition<
       }
     }),
 }
+
 const todoOmitTool: EffectToolDefinition<
   typeof todoIdParameter,
   TodoServices | PiServices,
@@ -284,6 +289,7 @@ const todoOmitTool: EffectToolDefinition<
       }
     }),
 }
+
 const todoRestoreTool: EffectToolDefinition<
   typeof todoIdParameter,
   TodoServices | PiServices,
@@ -315,6 +321,7 @@ const todoRestoreTool: EffectToolDefinition<
       }
     }),
 }
+
 const todoClearTool: EffectToolDefinition<
   typeof todoNoParameters,
   TodoServices | PiServices,
@@ -346,6 +353,7 @@ const todoClearTool: EffectToolDefinition<
       }
     }),
 }
+
 function isApprovedPlanSubmission(event: {
   readonly toolName: string
   readonly isError?: boolean
