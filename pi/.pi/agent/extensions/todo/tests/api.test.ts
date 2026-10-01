@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { Effect } from 'effect'
 import type { Todo, TodoTransactionDraft } from '../src/extension.ts'
 import { cloneTodos, createTodoApi } from '../src/extension.ts'
 
@@ -22,8 +23,8 @@ test('should add tasks with generated IDs and derived statuses given task depend
   const api = createTodoApi({ draft })
 
   //when
-  const first = await api.add({ content: 'first task', details: 'details' })
-  const second = await api.add({ content: 'second task', dependsOn: [first.id] })
+  const first = await Effect.runPromise(api.add({ content: 'first task', details: 'details' }))
+  const second = await Effect.runPromise(api.add({ content: 'second task', dependsOn: [first.id] }))
 
   //then
   assert.match(first.id, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
@@ -43,17 +44,17 @@ test('should report successful mutations without counting reads or failures give
 
   //when
   await (async () => {
-    const first = await api.add({ content: 'first task' })
-    const second = await api.add({ content: 'second task' })
-    await api.show()
-    await assert.rejects(api.update('018f0000-0000-7000-8000-000000000099', {}))
-    await api.update(second.id, { details: 'updated' })
-    await api.next()
-    await api.complete()
-    await api.next()
-    await api.omit(second.id)
-    await api.restore(second.id)
-    await api.clear()
+    const first = await Effect.runPromise(api.add({ content: 'first task' }))
+    const second = await Effect.runPromise(api.add({ content: 'second task' }))
+    await Effect.runPromise(api.show())
+    await assert.rejects(Effect.runPromise(api.update('018f0000-0000-7000-8000-000000000099', {})))
+    await Effect.runPromise(api.update(second.id, { details: 'updated' }))
+    await Effect.runPromise(api.next())
+    await Effect.runPromise(api.complete())
+    await Effect.runPromise(api.next())
+    await Effect.runPromise(api.omit(second.id))
+    await Effect.runPromise(api.restore(second.id))
+    await Effect.runPromise(api.clear())
     assert.ok(first)
   })()
 
@@ -75,12 +76,12 @@ test('should start and complete tasks without starting the next task given expli
   //given
   const { draft, snapshot } = createDraft()
   const api = createTodoApi({ draft })
-  const first = await api.add({ content: 'first task' })
-  const second = await api.add({ content: 'second task', dependsOn: [first.id] })
-  const active = await api.next()
+  const first = await Effect.runPromise(api.add({ content: 'first task' }))
+  const second = await Effect.runPromise(api.add({ content: 'second task', dependsOn: [first.id] }))
+  const active = await Effect.runPromise(api.next())
 
   //when
-  const completion = await api.complete()
+  const completion = await Effect.runPromise(api.complete())
 
   //then
   assert.equal(active.id, first.id)
@@ -92,13 +93,13 @@ test('should return the completed task and remaining counts given task completio
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
-  await api.add({ content: 'active task' })
-  const active = await api.next()
-  const pending = await api.add({ content: 'pending task' })
-  await api.add({ content: 'blocked task', dependsOn: [pending.id] })
+  await Effect.runPromise(api.add({ content: 'active task' }))
+  const active = await Effect.runPromise(api.next())
+  const pending = await Effect.runPromise(api.add({ content: 'pending task' }))
+  await Effect.runPromise(api.add({ content: 'blocked task', dependsOn: [pending.id] }))
 
   //when
-  const result = await api.complete()
+  const result = await Effect.runPromise(api.complete())
 
   //then
   assert.equal(result.completed.id, active.id)
@@ -111,11 +112,11 @@ test('should report allDone given no pending, in-progress, or blocked tasks', as
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
-  await api.add({ content: 'only task' })
-  await api.next()
+  await Effect.runPromise(api.add({ content: 'only task' }))
+  await Effect.runPromise(api.next())
 
   //when
-  const result = await api.complete()
+  const result = await Effect.runPromise(api.complete())
 
   //then
   assert.deepEqual(result.remaining, { pending: 0, inProgress: 0, blocked: 0 })
@@ -130,13 +131,13 @@ test('should reject next given an active task', async () => {
     draft,
     onMutation: (operation: TodoMutation, count: number = 1) => mutations.push({ operation, count }),
   })
-  const active = await api.add({ content: 'active task' })
-  await api.add({ content: 'ready task' })
+  const active = await Effect.runPromise(api.add({ content: 'active task' }))
+  await Effect.runPromise(api.add({ content: 'ready task' }))
   mutations.length = 0
-  await api.next()
+  await Effect.runPromise(api.next())
 
   //when
-  const secondAttempt = api.next()
+  const secondAttempt = Effect.runPromise(api.next())
 
   //then
   await assert.rejects(secondAttempt, /already active/)
@@ -153,12 +154,12 @@ test('should update details and replace dependencies atomically given a task upd
   //given
   const { draft, snapshot } = createDraft()
   const api = createTodoApi({ draft })
-  const dependency = await api.add({ content: 'dependency' })
-  const task = await api.add({ content: 'task', details: 'old details' })
+  const dependency = await Effect.runPromise(api.add({ content: 'dependency' }))
+  const task = await Effect.runPromise(api.add({ content: 'task', details: 'old details' }))
 
   //when
-  const updated = await api.update(task.id, { details: 'new details', dependsOn: [dependency.id] })
-  const cleared = await api.update(task.id, { details: null, dependsOn: [] })
+  const updated = await Effect.runPromise(api.update(task.id, { details: 'new details', dependsOn: [dependency.id] }))
+  const cleared = await Effect.runPromise(api.update(task.id, { details: null, dependsOn: [] }))
 
   //then
   assert.equal(updated.details, 'new details')
@@ -172,12 +173,12 @@ test('should return one selected snapshot and hide details by default given a si
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
-  const first = await api.add({ content: 'first', details: 'first details' })
-  const second = await api.add({ content: 'second', details: 'second details' })
+  const first = await Effect.runPromise(api.add({ content: 'first', details: 'first details' }))
+  const second = await Effect.runPromise(api.add({ content: 'second', details: 'second details' }))
 
   //when
-  const hidden = await api.show({ ids: [second.id] })
-  const visible = await api.show({ ids: [second.id], includeDetails: true })
+  const hidden = await Effect.runPromise(api.show({ ids: [second.id] }))
+  const visible = await Effect.runPromise(api.show({ ids: [second.id], includeDetails: true }))
 
   //then
   assert.deepEqual(
@@ -194,13 +195,13 @@ test('should return all selected tasks given a status filter', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
-  const first = await api.add({ content: 'first', details: 'first details' })
-  const second = await api.add({ content: 'second', details: 'second details' })
+  const first = await Effect.runPromise(api.add({ content: 'first', details: 'first details' }))
+  const second = await Effect.runPromise(api.add({ content: 'second', details: 'second details' }))
 
   //when
-  const hidden = await api.show({ status: ['pending'] })
-  const visible = await api.show({ status: ['pending'], includeDetails: true })
-  const limited = await api.show({ status: ['pending'], limit: 1 })
+  const hidden = await Effect.runPromise(api.show({ status: ['pending'] }))
+  const visible = await Effect.runPromise(api.show({ status: ['pending'], includeDetails: true }))
+  const limited = await Effect.runPromise(api.show({ status: ['pending'], limit: 1 }))
 
   //then
   assert.deepEqual(
@@ -223,19 +224,19 @@ test('should show pending and in-progress tasks in ID order given no status filt
   //given
   const { draft, snapshot } = createDraft()
   const api = createTodoApi({ draft })
-  await api.add({ content: 'first' })
-  await api.add({ content: 'second' })
-  await api.add({ content: 'third' })
-  await api.next()
-  const completion = await api.complete()
-  await api.next()
+  await Effect.runPromise(api.add({ content: 'first' }))
+  await Effect.runPromise(api.add({ content: 'second' }))
+  await Effect.runPromise(api.add({ content: 'third' }))
+  await Effect.runPromise(api.next())
+  const completion = await Effect.runPromise(api.complete())
+  await Effect.runPromise(api.next())
   const expectedIds = snapshot()
     .filter((todo) => todo.status === 'in_progress' || todo.status === 'pending')
     .map((todo) => todo.id)
     .sort((left, right) => left.localeCompare(right))
 
   //when
-  const shown = await api.show()
+  const shown = await Effect.runPromise(api.show())
 
   //then
   assert.deepEqual(
@@ -254,19 +255,19 @@ test('should filter tasks by any supplied status given a status array', async ()
   //given
   const { draft, snapshot } = createDraft()
   const api = createTodoApi({ draft })
-  await api.add({ content: 'first' })
-  await api.add({ content: 'second' })
-  await api.add({ content: 'third' })
-  await api.next()
-  const completion = await api.complete()
-  const inProgress = await api.next()
+  await Effect.runPromise(api.add({ content: 'first' }))
+  await Effect.runPromise(api.add({ content: 'second' }))
+  await Effect.runPromise(api.add({ content: 'third' }))
+  await Effect.runPromise(api.next())
+  const completion = await Effect.runPromise(api.complete())
+  const inProgress = await Effect.runPromise(api.next())
   const pendingIds = snapshot()
     .filter((todo) => todo.status === 'pending')
     .map((todo) => todo.id)
   const expectedIds = [completion.completed.id, ...pendingIds].sort((left, right) => left.localeCompare(right))
 
   //when
-  const selected = await api.show({ status: ['pending', 'completed'] })
+  const selected = await Effect.runPromise(api.show({ status: ['pending', 'completed'] }))
 
   //then
   assert.deepEqual(
@@ -283,10 +284,10 @@ test('should return no tasks given an empty status array', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
-  await api.add({ content: 'pending' })
+  await Effect.runPromise(api.add({ content: 'pending' }))
 
   //when
-  const selected = await api.show({ status: [] })
+  const selected = await Effect.runPromise(api.show({ status: [] }))
 
   //then
   assert.deepEqual(selected, [])
@@ -296,15 +297,17 @@ test('should limit broad show queries and accept empty or null IDs given a broad
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
-  const todos = await Promise.all(Array.from({ length: 6 }, (_, index) => api.add({ content: `task ${index + 1}` })))
+  const todos = await Promise.all(
+    Array.from({ length: 6 }, (_, index) => Effect.runPromise(api.add({ content: `task ${index + 1}` }))),
+  )
   const sortedIds = todos.map((todo) => todo.id).sort((left, right) => left.localeCompare(right))
 
   //when
-  const broad = await api.show()
-  const status = await api.show({ status: ['pending'] })
-  const emptyIds = await api.show({ ids: [] })
-  const nullIds = await api.show({ ids: null, limit: 1 })
-  const limited = await api.show({ limit: 2 })
+  const broad = await Effect.runPromise(api.show())
+  const status = await Effect.runPromise(api.show({ status: ['pending'] }))
+  const emptyIds = await Effect.runPromise(api.show({ ids: [] }))
+  const nullIds = await Effect.runPromise(api.show({ ids: null, limit: 1 }))
+  const limited = await Effect.runPromise(api.show({ limit: 2 }))
 
   //then
   assert.deepEqual(
@@ -333,14 +336,14 @@ test('should return every selected ID and reject mixed selectors given explicit 
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
-  const first = await api.add({ content: 'first' })
-  const second = await api.add({ content: 'second' })
+  const first = await Effect.runPromise(api.add({ content: 'first' }))
+  const second = await Effect.runPromise(api.add({ content: 'second' }))
 
   //when
-  const selected = await api.show({ ids: [second.id, first.id], limit: 1 })
-  const emptyIdsWithStatus = await api.show({ ids: [], status: ['pending'] })
-  const nullIdsWithStatus = await api.show({ ids: null, status: ['pending'] })
-  const combined = api.show({ ids: [first.id], status: ['pending'] })
+  const selected = await Effect.runPromise(api.show({ ids: [second.id, first.id], limit: 1 }))
+  const emptyIdsWithStatus = await Effect.runPromise(api.show({ ids: [], status: ['pending'] }))
+  const nullIdsWithStatus = await Effect.runPromise(api.show({ ids: null, status: ['pending'] }))
+  const combined = Effect.runPromise(api.show({ ids: [first.id], status: ['pending'] }))
 
   //then
   assert.deepEqual(
@@ -364,11 +367,11 @@ test('should reject invalid show limits and selectors given invalid query option
   const api = createTodoApi({ draft })
 
   //when
-  const zeroLimit = api.show({ limit: 0 })
-  const fractionalLimit = api.show({ limit: 1.5 })
-  const invalidId = api.show({ ids: ['not-a-todo-id'] })
-  const invalidStatus = api.show({ status: ['unknown' as 'pending'] })
-  const scalarStatus = api.show({ status: 'pending' } as never)
+  const zeroLimit = Effect.runPromise(api.show({ limit: 0 }))
+  const fractionalLimit = Effect.runPromise(api.show({ limit: 1.5 }))
+  const invalidId = Effect.runPromise(api.show({ ids: ['not-a-todo-id'] }))
+  const invalidStatus = Effect.runPromise(api.show({ status: ['unknown' as 'pending'] }))
+  const scalarStatus = Effect.runPromise(api.show({ status: 'pending' } as never))
 
   //then
   await assert.rejects(zeroLimit, /Invalid todo show options/)
@@ -382,11 +385,11 @@ test('should omit and restore tasks given dependency-derived state changes', asy
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
-  const task = await api.add({ content: 'task' })
+  const task = await Effect.runPromise(api.add({ content: 'task' }))
 
   //when
-  const omitted = await api.omit(task.id)
-  const restored = await api.restore(task.id)
+  const omitted = await Effect.runPromise(api.omit(task.id))
+  const restored = await Effect.runPromise(api.restore(task.id))
 
   //then
   assert.equal(omitted.status, 'omitted')
@@ -397,46 +400,51 @@ test('should clear every task and report the number removed given a clear reques
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
-  await api.add({ content: 'first' })
-  await api.add({ content: 'second' })
+  await Effect.runPromise(api.add({ content: 'first' }))
+  await Effect.runPromise(api.add({ content: 'second' }))
 
   //when
-  const result = await api.clear()
+  const result = await Effect.runPromise(api.clear())
 
   //then
   assert.deepEqual(result, { cleared: 2 })
-  assert.deepEqual(await api.show(), [])
+  assert.deepEqual(await Effect.runPromise(api.show()), [])
 })
 
 test('should reject invalid dependencies and completed dependency changes given an invalid task update', async () => {
   //given
   const { draft } = createDraft()
   const api = createTodoApi({ draft })
-  const task = await api.add({ content: 'task' })
-  const open = await api.add({ content: 'open' })
-  await api.next()
-  await api.complete()
+  const task = await Effect.runPromise(api.add({ content: 'task' }))
+  const open = await Effect.runPromise(api.add({ content: 'open' }))
+  await Effect.runPromise(api.next())
+  await Effect.runPromise(api.complete())
 
   //when
-  const unknownDependency = api.add({ content: 'invalid', dependsOn: ['018f0000-0000-7000-8000-000000000001'] })
+  const unknownDependency = Effect.runPromise(
+    api.add({ content: 'invalid', dependsOn: ['018f0000-0000-7000-8000-000000000001'] }),
+  )
 
   //then
   await assert.rejects(unknownDependency, /unknown dependency ID/)
-  await assert.rejects(api.update(task.id, { dependsOn: [] }), /Cannot change dependencies for completed todo/)
-  await assert.rejects(api.update(open.id, { dependsOn: [open.id] }), /cannot depend on itself/)
-  await assert.rejects(api.update(open.id, { dependsOn: [task.id, task.id] }), /more than once/)
+  await assert.rejects(
+    Effect.runPromise(api.update(task.id, { dependsOn: [] })),
+    /Cannot change dependencies for completed todo/,
+  )
+  await assert.rejects(Effect.runPromise(api.update(open.id, { dependsOn: [open.id] })), /cannot depend on itself/)
+  await assert.rejects(Effect.runPromise(api.update(open.id, { dependsOn: [task.id, task.id] })), /more than once/)
 })
 
 test('should block the active task given an update that adds an incomplete dependency', async () => {
   //given
   const { draft, snapshot } = createDraft()
   const api = createTodoApi({ draft })
-  const task = await api.add({ content: 'task' })
-  const dependency = await api.add({ content: 'dependency' })
-  await api.next()
+  const task = await Effect.runPromise(api.add({ content: 'task' }))
+  const dependency = await Effect.runPromise(api.add({ content: 'dependency' }))
+  await Effect.runPromise(api.next())
 
   //when
-  const updated = await api.update(task.id, { dependsOn: [dependency.id] })
+  const updated = await Effect.runPromise(api.update(task.id, { dependsOn: [dependency.id] }))
 
   //then
   assert.equal(updated.status, 'blocked')

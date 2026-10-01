@@ -352,41 +352,44 @@ const opensrcCleanTool: EffectToolDefinition<typeof cleanParameters, OpensrcServ
   execute: ({ options }: Static<typeof cleanParameters>) => runOpensrcApi((api) => api.clean(options)),
 }
 
+const registerOpensrcNativeToolsEffect = Effect.fnUntraced(function* (context: PiRegistrationContext<OpensrcServices>) {
+  yield* context.tools.register(opensrcListTool)
+  yield* context.tools.register(opensrcHasTool)
+  yield* context.tools.register(opensrcGetTool)
+  yield* context.tools.register(opensrcResolveTool)
+  yield* context.tools.register(opensrcFilesTool)
+  yield* context.tools.register(opensrcTreeTool)
+  yield* context.tools.register(opensrcGrepTool)
+  yield* context.tools.register(opensrcAstGrepTool)
+  yield* context.tools.register(opensrcReadTool)
+  yield* context.tools.register(opensrcReadManyTool)
+  yield* context.tools.register(opensrcFetchTool)
+  yield* context.tools.register(opensrcRemoveTool)
+  yield* context.tools.register(opensrcCleanTool)
+})
+
 function createOpensrcNativePlugin(config: OpensrcConfig): PiPlugin<OpensrcServices> {
   return PiExtension.define({
     id: 'opensrc',
     layer: createOpensrcServiceLayer(config),
-    effect: ({ tools }: PiRegistrationContext<OpensrcServices>) =>
-      Effect.gen(function* () {
-        yield* tools.register(opensrcListTool)
-        yield* tools.register(opensrcHasTool)
-        yield* tools.register(opensrcGetTool)
-        yield* tools.register(opensrcResolveTool)
-        yield* tools.register(opensrcFilesTool)
-        yield* tools.register(opensrcTreeTool)
-        yield* tools.register(opensrcGrepTool)
-        yield* tools.register(opensrcAstGrepTool)
-        yield* tools.register(opensrcReadTool)
-        yield* tools.register(opensrcReadManyTool)
-        yield* tools.register(opensrcFetchTool)
-        yield* tools.register(opensrcRemoveTool)
-        yield* tools.register(opensrcCleanTool)
-      }),
+    effect: registerOpensrcNativeToolsEffect,
   })
 }
+
+const runOpensrcApiInScopeEffect = Effect.fnUntraced(function* <Value extends JsonValue>(
+  operation: (api: OpensrcApiService) => Effect.Effect<Value, OpensrcFailure>,
+) {
+  const context = yield* PiToolContext
+  const api = yield* createOpensrcApi(context.toolSignal ?? context.signal).pipe(
+    Effect.provideService(OpensrcContext, { cwd: context.cwd }),
+  )
+  return createOpensrcToolResult(yield* operation(api))
+})
 
 const runOpensrcApi = Effect.fnUntraced(function* <Value extends JsonValue>(
   operation: (api: OpensrcApiService) => Effect.Effect<Value, OpensrcFailure>,
 ): Effect.fn.Return<PiToolResult<Value>, OpensrcFailure, OpensrcServices | PiToolContextTag> {
-  const context = yield* PiToolContext
-  return yield* Effect.scoped(
-    Effect.gen(function* () {
-      const api = yield* createOpensrcApi(context.toolSignal ?? context.signal).pipe(
-        Effect.provideService(OpensrcContext, { cwd: context.cwd }),
-      )
-      return createOpensrcToolResult(yield* operation(api))
-    }),
-  )
+  return yield* Effect.scoped(runOpensrcApiInScopeEffect(operation))
 })
 
 function createOpensrcToolResult<Value extends JsonValue>(value: Value): PiToolResult<Value> {

@@ -6,7 +6,7 @@ import todoExtension from '../index.ts'
 import type { Todo, TodoCompleteResult } from '../src/extension.ts'
 import { TODO_ID_PATTERN, TODO_STATE_ENTRY, TodoUiError } from '../src/extension.ts'
 
-test('should register native Todo tools in the todo codemode namespace given an installed extension', async () => {
+test('should register Todo tools with object update parameters in the codemode namespace given an installed extension', async () => {
   //given
   const fake = await installFakePlugin(todoExtension)
 
@@ -32,6 +32,10 @@ test('should register native Todo tools in the todo codemode namespace given an 
       description: 'Tools for inspecting and updating the current todo plan.',
     })
   }
+
+  const updateTool = fake.tools.get('todo_update')
+  assert.ok(updateTool)
+  assert.equal(Reflect.get(updateTool.parameters, 'type'), 'object')
 })
 
 test('should return sorted matching todos with details given a filtered todo_show request', async () => {
@@ -134,13 +138,13 @@ test('should add and update todos through the native tools given valid inputs', 
   assert.deepEqual(addedResult.details, { id: addedTodo.id })
   assert.deepEqual(JSON.parse(addedResult.content[0]?.text ?? 'null'), addedTodo)
 
-  const updatedResult = (await fake.invokeTool('todo_update', 'update-call', [
-    addedTodo.id,
-    {
+  const updatedResult = (await fake.invokeTool('todo_update', 'update-call', {
+    id: addedTodo.id,
+    patch: {
       content: '  updated task  ',
       details: 'updated details',
     },
-  ])) as {
+  })) as {
     content: readonly { type: string; text: string }[]
     details: { id: string }
     structuredContent: Todo
@@ -181,7 +185,10 @@ test('should reject invalid dependency updates without committing given an unkno
   const unknownDependency = '018f0000-0000-7000-8000-000000000099'
 
   await assert.rejects(
-    fake.invokeTool('todo_update', 'invalid-update-call', [addedTodo.id, { dependsOn: [unknownDependency] }]),
+    fake.invokeTool('todo_update', 'invalid-update-call', {
+      id: addedTodo.id,
+      patch: { dependsOn: [unknownDependency] },
+    }),
     (error: unknown) => {
       const failure = error instanceof PiToolError ? error.cause : error
       assert.ok(failure instanceof TodoUiError)

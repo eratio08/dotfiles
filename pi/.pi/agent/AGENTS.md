@@ -43,10 +43,10 @@ Use `path` for one repository root string or `paths` for an array of 1 to 16 roo
 
 ## General
 - Use the `ast-grep` tool for structural code search and transformation.
-* Use `tools.opensrc_fetch` to cache public source packages and repositories.
-* Use `tools.opensrc_list`, `tools.opensrc_files`, or `tools.opensrc_tree` to locate cached sources and files.
-* Use `tools.opensrc_grep` or `tools.opensrc_ast_grep` to search cached source.
-* Use `tools.opensrc_read` or `tools.opensrc_read_many` to read cached files.
+* Use `tools.opensrc_fetch` to fetch public github source packages and repositories.
+* Use `tools.opensrc_list`, `tools.opensrc_files`, or `tools.opensrc_tree` to locate public github source and files.
+* Use `tools.opensrc_grep` or `tools.opensrc_ast_grep` to search public github source.
+* Use `tools.opensrc_read` or `tools.opensrc_read_many` to read public github files.
 * Use the `gh` cli to access private repositories source code.
 * Never commit anything to Git without the user's explicit instruction.
 - Do not write any code comments, unless explicitly instructed.

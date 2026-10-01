@@ -20,6 +20,7 @@ Add return types to all non-test code.
 Prefer functions over closures.
 
 An extension consists of two files: `index.ts` containing integration layer; `src/extension.ts` containing the rest.
+Favor namespaced imports `import * as <Namespace> from "..."` over direct imports, namespaces are to be capitalized.
 
 ## Custom tools
 

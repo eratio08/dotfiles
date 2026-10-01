@@ -716,35 +716,37 @@ const PiHostLive: Layer.Layer<PiHost, never, PiProcess> = Layer.effect(
           ? piProcess
               .exec(request.command, [...request.args], { cwd: request.cwd })
               .pipe(Effect.mapError((cause) => mapPiFailure(request.command, cause)))
-          : Effect.tryPromise({
-              try: (signal: AbortSignal) => executeCommandWithEnvironment(request, signal),
-              catch: (cause: unknown) => mapPiFailure(request.command, cause),
-            })
+          : executeCommandWithEnvironment(request)
       }),
     })
   }),
 )
 
-function executeCommandWithEnvironment(request: PiExecutionRequest, signal: AbortSignal): Promise<PiExecutionResult> {
-  return new Promise((resolve) => {
+function executeCommandWithEnvironment(request: PiExecutionRequest): Effect.Effect<PiExecutionResult, OpensrcFailure> {
+  return Effect.callback<PiExecutionResult, OpensrcFailure>((resume) => {
     let stdout = ''
     let stderr = ''
     let killed = false
     let settled = false
     let killTimer: ReturnType<typeof setTimeout> | undefined
-    const child = spawn(request.command, [...request.args], {
-      cwd: request.cwd,
-      env: createChildEnvironment(request.environment),
-      shell: false,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    let child: ReturnType<typeof spawn>
+    try {
+      child = spawn(request.command, [...request.args], {
+        cwd: request.cwd,
+        env: createChildEnvironment(request.environment),
+        shell: false,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    } catch (cause) {
+      resume(Effect.fail(mapPiFailure(request.command, cause)))
+      return
+    }
 
     const complete = (result: PiExecutionResult): void => {
       if (settled) return
       settled = true
       if (killTimer !== undefined) clearTimeout(killTimer)
-      signal.removeEventListener('abort', killProcess)
-      resolve(result)
+      resume(Effect.succeed(result))
     }
 
     const killProcess = (): void => {
@@ -769,8 +771,8 @@ function executeCommandWithEnvironment(request: PiExecutionRequest, signal: Abor
     child.once('close', (code) => {
       complete({ stdout, stderr, code: code ?? 0, killed })
     })
-    if (signal.aborted) killProcess()
-    else signal.addEventListener('abort', killProcess, { once: true })
+
+    return Effect.sync(killProcess)
   })
 }
 
@@ -948,54 +950,70 @@ type SourceStoreService = {
 
 class SourceStore extends Context.Service<SourceStore, SourceStoreService>()('opensrc/SourceStore') {}
 
-function SourceStoreLive(): Layer.Layer<SourceStore, never, OpenSrcCli> {
-  return Layer.effect(
-    SourceStore,
+const refreshSourceStoreStateEffect = Effect.fnUntraced(function* (
+  cli: OpenSrcCliService,
+  state: Ref.Ref<readonly Source[]>,
+): Effect.fn.Return<readonly Source[], OpensrcFailure> {
+  const index = yield* cli.list()
+  const sources = yield* normalizeSources(index).pipe(
+    Effect.mapError((cause) =>
+      createOpensrcFailure({
+        _tag: 'parser',
+        operation: 'source-store.refresh',
+        message: cause.message || 'Unable to normalize the source index.',
+        cause,
+      }),
+    ),
+    Effect.map(freezeSources),
+  )
+  yield* Ref.set(state, sources)
+  return sources
+})
+
+const refreshSourceStoreEffect = Effect.fnUntraced(function* (
+  cli: OpenSrcCliService,
+  state: Ref.Ref<readonly Source[]>,
+  lock: Semaphore.Semaphore,
+): Effect.fn.Return<readonly Source[], OpensrcFailure> {
+  return yield* lock.withPermits(1)(refreshSourceStoreStateEffect(cli, state))
+})
+
+const mutateSourceStoreEffect = Effect.fnUntraced(function* <A>(
+  cli: OpenSrcCliService,
+  state: Ref.Ref<readonly Source[]>,
+  lock: Semaphore.Semaphore,
+  operation: (before: readonly Source[]) => Effect.Effect<A, OpensrcFailure>,
+): Effect.fn.Return<SourceStoreMutation<A>, OpensrcFailure> {
+  return yield* lock.withPermits(1)(
     Effect.gen(function* () {
-      const cli = yield* OpenSrcCli
-      const state = yield* Ref.make<readonly Source[]>([])
-      const lock = yield* Semaphore.make(1)
-      const refreshState = Effect.fnUntraced(function* () {
-        const index = yield* cli.list()
-        const sources = yield* normalizeSources(index).pipe(
-          Effect.mapError((cause) =>
-            createOpensrcFailure({
-              _tag: 'parser',
-              operation: 'source-store.refresh',
-              message: cause.message || 'Unable to normalize the source index.',
-              cause,
-            }),
-          ),
-          Effect.map(freezeSources),
-        )
-        yield* Ref.set(state, sources)
-        return sources
-      })
-      const refresh = Effect.fnUntraced(function* () {
-        return yield* lock.withPermits(1)(refreshState())
-      })
-      const mutate: SourceStoreService['mutate'] = Effect.fnUntraced(function* <A>(
-        operation: (before: readonly Source[]) => Effect.Effect<A, OpensrcFailure>,
-      ) {
-        return yield* lock.withPermits(1)(
-          Effect.gen(function* () {
-            const before = yield* Ref.get(state)
-            const value = yield* operation(before)
-            const after = yield* refreshState()
-            return { before, after, value }
-          }),
-        )
-      })
-      const service: SourceStoreService = {
-        current: () => Ref.getUnsafe(state),
-        load: refresh,
-        refresh,
-        mutate,
-        snapshot: Ref.get(state),
-      }
-      return SourceStore.of(service)
+      const before = yield* Ref.get(state)
+      const value = yield* operation(before)
+      const after = yield* refreshSourceStoreStateEffect(cli, state)
+      return { before, after, value }
     }),
   )
+})
+
+const sourceStoreLayerEffect = Effect.gen(function* () {
+  const cli = yield* OpenSrcCli
+  const state = yield* Ref.make<readonly Source[]>([])
+  const lock = yield* Semaphore.make(1)
+  const refresh: SourceStoreService['refresh'] = () => refreshSourceStoreEffect(cli, state, lock)
+  const mutate: SourceStoreService['mutate'] = <A>(
+    operation: (before: readonly Source[]) => Effect.Effect<A, OpensrcFailure>,
+  ) => mutateSourceStoreEffect(cli, state, lock, operation)
+  const service: SourceStoreService = {
+    current: () => Ref.getUnsafe(state),
+    load: refresh,
+    refresh,
+    mutate,
+    snapshot: Ref.get(state),
+  }
+  return SourceStore.of(service)
+})
+
+function SourceStoreLive(): Layer.Layer<SourceStore, never, OpenSrcCli> {
+  return Layer.effect(SourceStore, sourceStoreLayerEffect)
 }
 
 function freezeSources(value: readonly Source[]): readonly Source[] {
@@ -1241,6 +1259,17 @@ const freezeTreeInterruptibleEffect = Effect.fnUntraced(function* (
 
 type QueryState = { count: number }
 
+const queryEventLoopYieldEffect = Effect.callback<void, OpensrcFailure>((resume) => {
+  let immediate: ReturnType<typeof setImmediate>
+  try {
+    immediate = setImmediate(() => resume(Effect.void))
+  } catch (cause) {
+    resume(Effect.fail(failureFromUnknown(cause, 'runtime', 'query', 'The source query failed.')))
+    return
+  }
+  return Effect.sync(() => clearImmediate(immediate))
+})
+
 const queryCheckpoint = Effect.fnUntraced(function* (state: QueryState, signal: AbortSignal) {
   const count = yield* Effect.sync(() => {
     state.count += 1
@@ -1248,10 +1277,7 @@ const queryCheckpoint = Effect.fnUntraced(function* (state: QueryState, signal: 
   })
   yield* ensureQueryActiveEffect(signal)
   if (count % 128 !== 0) return
-  yield* Effect.tryPromise({
-    try: () => new Promise<void>((resolve) => setImmediate(resolve)),
-    catch: (cause: unknown) => failureFromUnknown(cause, 'runtime', 'query', 'The source query failed.'),
-  })
+  yield* queryEventLoopYieldEffect
   yield* ensureQueryActiveEffect(signal)
 })
 
@@ -1494,12 +1520,13 @@ function runAstParserWorker(): void {
   if (parentPort === null) return
   const workerPort = parentPort
   workerPort.once('message', (request: AstParserWorkerRequest) => {
-    Promise.resolve()
-      .then(() => parseAstRequest(request))
-      .then(
-        (message) => workerPort.postMessage(message),
-        (cause) => workerPort.postMessage(serializeAstParserError(cause)),
-      )
+    let message: AstParserWorkerMessage
+    try {
+      message = parseAstRequest(request)
+    } catch (cause) {
+      message = serializeAstParserError(cause)
+    }
+    workerPort.postMessage(message)
   })
 }
 
@@ -1622,6 +1649,310 @@ const CleanOptionsSchema = Schema.Struct({
   crates: Schema.optional(Schema.Boolean),
 }).pipe(Schema.annotate({ message: 'Clean options must be an object.' }))
 
+const listSourcesEffect = (sourceStore: SourceStoreService): ApiEffect<readonly Source[]> =>
+  Effect.sync(() => sourceStore.current())
+
+const hasSourceEffect = Effect.fn('OpensrcApi.has')(function* (
+  sourceStore: SourceStoreService,
+  name: string,
+  version?: string,
+) {
+  const validName = yield* assertStringEffect('source name', name)
+  const validVersion = version === undefined ? undefined : yield* assertStringEffect('source version', version)
+  return sourceStore
+    .current()
+    .some((source) => source.name === validName && (validVersion === undefined || source.version === validVersion))
+})
+
+const getSourceMetadataEffect = Effect.fn('OpensrcApi.get')(function* (sourceStore: SourceStoreService, name: string) {
+  const validName = yield* assertStringEffect('source name', name)
+  return sourceStore.current().find((source) => source.name === validName)
+})
+
+const getSourceEffect = Effect.fnUntraced(function* (sourceStore: SourceStoreService, name: string) {
+  const validName = yield* assertStringEffect('source name', name)
+  const source = sourceStore.current().find((candidate) => candidate.name === validName)
+  return source === undefined ? yield* Effect.fail(sourceNotFound(validName)) : source
+})
+
+const resolveSourceRootEffect = Effect.fnUntraced(
+  function* (fileSystem: FileSystemService, config: OpensrcConfig, source: Source, signal: AbortSignal) {
+    const cacheRoot = yield* fileSystem.realPath(config.home, undefined, signal)
+    return yield* fileSystem.realPath(cacheRoot, source.path, signal)
+  },
+  Effect.mapError((cause) => decodeOpensrcFailure(cause) ?? filesystemFailure('source-root', cause)),
+)
+
+const readSourceFilesEffect = Effect.fnUntraced(function* (
+  fileSystem: FileSystemService,
+  config: OpensrcConfig,
+  source: Source,
+  patternValue: string | undefined,
+  signal: AbortSignal,
+  root?: string,
+) {
+  const pattern = patternValue === undefined ? undefined : yield* assertStringEffect('file glob', patternValue)
+  const sourcePath = root ?? (yield* resolveSourceRootEffect(fileSystem, config, source, signal))
+  return yield* fileSystem.list(sourcePath, pattern, signal)
+})
+
+const readSourceFileEffect = Effect.fnUntraced(function* (
+  fileSystem: FileSystemService,
+  config: OpensrcConfig,
+  source: Source,
+  filePath: string,
+  signal: AbortSignal,
+) {
+  const validPath = yield* assertStringEffect('file path', filePath)
+  const root = yield* resolveSourceRootEffect(fileSystem, config, source, signal)
+  return yield* fileSystem.read(root, validPath, signal)
+})
+
+const listSourceFilesEffect = Effect.fn('OpensrcApi.files')(function* (
+  sourceStore: SourceStoreService,
+  fileSystem: FileSystemService,
+  config: OpensrcConfig,
+  signal: AbortSignal,
+  sourceName: string,
+  globValue?: string,
+) {
+  const source = yield* getSourceEffect(sourceStore, sourceName)
+  return yield* readSourceFilesEffect(fileSystem, config, source, globValue, signal)
+})
+
+const readSourceFileApiEffect = Effect.fn('OpensrcApi.read')(function* (
+  sourceStore: SourceStoreService,
+  fileSystem: FileSystemService,
+  config: OpensrcConfig,
+  signal: AbortSignal,
+  sourceName: string,
+  filePath: string,
+) {
+  const source = yield* getSourceEffect(sourceStore, sourceName)
+  return yield* readSourceFileEffect(fileSystem, config, source, filePath, signal)
+})
+
+const readSourceFilesOrErrorEffect = Effect.fnUntraced(function* (
+  fileSystem: FileSystemService,
+  config: OpensrcConfig,
+  signal: AbortSignal,
+  source: Source,
+  pattern: string,
+  result: Record<string, string>,
+) {
+  return yield* Effect.match(readSourceFilesEffect(fileSystem, config, source, pattern, signal), {
+    onFailure: (cause: OpensrcFailure) => {
+      const stopped = operationStopped(cause)
+      if (stopped !== undefined) return { _tag: 'failure' as const, error: stopped }
+      result[pattern] = formatIndividualError(cause)
+      return { _tag: 'formatted' as const }
+    },
+    onSuccess: (entries: readonly FileEntry[]) => ({ _tag: 'success' as const, entries }),
+  }).pipe(
+    Effect.flatMap((outcome) => {
+      if (outcome._tag === 'failure') return Effect.fail(outcome.error)
+      if (outcome._tag === 'formatted') return Effect.succeed(undefined)
+      return Effect.succeed(outcome.entries)
+    }),
+  )
+})
+
+const readSourceFileOrErrorEffect = Effect.fnUntraced(function* (
+  fileSystem: FileSystemService,
+  config: OpensrcConfig,
+  signal: AbortSignal,
+  source: Source,
+  path: string,
+) {
+  return yield* Effect.match(readSourceFileEffect(fileSystem, config, source, path, signal), {
+    onFailure: (cause: OpensrcFailure) => {
+      const stopped = operationStopped(cause)
+      if (stopped !== undefined) return { _tag: 'failure' as const, error: stopped }
+      return { _tag: 'formatted' as const, value: formatIndividualError(cause) }
+    },
+    onSuccess: (value: string) => ({ _tag: 'success' as const, value }),
+  }).pipe(
+    Effect.flatMap((outcome) => {
+      if (outcome._tag === 'failure') return Effect.fail(outcome.error)
+      return Effect.succeed(outcome.value)
+    }),
+  )
+})
+
+const readManySourceFilesEffect = Effect.fn('OpensrcApi.readMany')(function* (
+  sourceStore: SourceStoreService,
+  fileSystem: FileSystemService,
+  config: OpensrcConfig,
+  signal: AbortSignal,
+  sourceName: string,
+  paths: readonly string[],
+) {
+  const validPaths = yield* assertStringArrayEffect('read paths', paths)
+  const source = yield* getSourceEffect(sourceStore, sourceName)
+  const result: Record<string, string> = {}
+  for (const requestedPath of validPaths) {
+    if (hasGlobMagic(requestedPath)) {
+      const entries = yield* readSourceFilesOrErrorEffect(fileSystem, config, signal, source, requestedPath, result)
+      if (entries === undefined) continue
+      const files = entries.filter((entry) => entry.type === 'file')
+      if (files.length === 0) {
+        result[requestedPath] = `[Error: no files matched ${requestedPath}]`
+        continue
+      }
+      for (const entry of files) {
+        const value = yield* readSourceFileOrErrorEffect(fileSystem, config, signal, source, entry.path)
+        if (value !== undefined) result[entry.path] = value
+      }
+      continue
+    }
+    const value = yield* readSourceFileOrErrorEffect(fileSystem, config, signal, source, requestedPath)
+    if (value !== undefined) result[requestedPath] = value
+  }
+  return result
+})
+
+const resolveSourceSpecEffect = Effect.fn('OpensrcApi.resolve')(function* (spec: string) {
+  const validSpec = yield* assertStringEffect('source spec', spec)
+  return yield* Effect.try({
+    try: () => parseSourceSpec(validSpec),
+    catch: (cause: unknown) => {
+      const failure = decodeOpensrcFailure(cause)
+      return validationFailure(
+        'resolve',
+        failure?.message ?? (cause instanceof Error ? cause.message : 'The source spec could not be parsed.'),
+        failure ?? cause,
+      )
+    },
+  })
+})
+
+const fetchSourceMutationEffect = Effect.fnUntraced(function* (
+  cli: OpenSrcCliService,
+  cwd: string,
+  specs: readonly string[],
+  parsed: readonly ParsedSpec[],
+  before: readonly Source[],
+) {
+  const alreadyExists = parsed.map((spec) => before.some((source) => sourceMatchesSpec(source, spec)))
+  yield* cli.fetch(specs, cwd)
+  return alreadyExists
+})
+
+const removeSourceMutationEffect = Effect.fnUntraced(function* (
+  cli: OpenSrcCliService,
+  names: readonly string[],
+  before: readonly Source[],
+) {
+  yield* cli.remove(names)
+  return before
+})
+
+const cleanSourceMutationEffect = Effect.fnUntraced(function* (
+  cli: OpenSrcCliService,
+  options: CleanOptions,
+  before: readonly Source[],
+) {
+  yield* cli.clean(planClean(options))
+  return before
+})
+
+const fetchSourcesEffect = Effect.fn('OpensrcApi.fetch')(function* (
+  sourceStore: SourceStoreService,
+  cli: OpenSrcCliService,
+  cwd: string,
+  specValues: string | readonly string[],
+) {
+  const specs = yield* normalizeSpecsEffect(specValues)
+  const parsed: ParsedSpec[] = []
+  for (const spec of specs) {
+    parsed.push(
+      yield* parseSourceSpecEffect(spec).pipe(
+        Effect.mapError((cause) => validationFailure('fetch', cause.message, cause)),
+      ),
+    )
+  }
+  const mutation = yield* sourceStore.mutate((before) => fetchSourceMutationEffect(cli, cwd, specs, parsed, before))
+  const fetched: FetchedSource[] = []
+  for (const [index, spec] of parsed.entries()) {
+    const source = mutation.after.find((candidate) => sourceMatchesSpec(candidate, spec))
+    if (source === undefined) return yield* Effect.fail(sourceNotFound(spec.name))
+    fetched.push({ source, alreadyExists: mutation.value[index] })
+  }
+  return fetched
+})
+
+const removeSourcesEffect = Effect.fn('OpensrcApi.remove')(function* (
+  sourceStore: SourceStoreService,
+  cli: OpenSrcCliService,
+  names: readonly string[],
+) {
+  const validNames = yield* assertStringArrayEffect('source names', names)
+  if (validNames.length === 0)
+    return yield* Effect.fail(validationFailure('remove', 'At least one source name is required.'))
+  if (validNames.some((name) => name.startsWith('-') || name.includes('\u0000'))) {
+    return yield* Effect.fail(
+      validationFailure('remove', 'Source names cannot start with a flag or contain a null byte.'),
+    )
+  }
+  const mutation = yield* sourceStore.mutate((before) => removeSourceMutationEffect(cli, validNames, before))
+  const removed = diffSources(mutation.value, mutation.after).removed.map((source) => source.name)
+  return { success: true, removed: [...new Set(removed)] } satisfies RemoveResult
+})
+
+const cleanSourcesEffect = Effect.fn('OpensrcApi.clean')(function* (
+  sourceStore: SourceStoreService,
+  cli: OpenSrcCliService,
+  options: CleanOptions = {},
+) {
+  const cleanOptions = yield* decodeCleanOptionsEffect(options)
+  const mutation = yield* sourceStore.mutate((before) => cleanSourceMutationEffect(cli, cleanOptions, before))
+  const removed = diffSources(mutation.value, mutation.after).removed.map((source) => source.name)
+  return { success: true, removed: [...new Set(removed)] } satisfies RemoveResult
+})
+
+const buildSourceTreeEffect = Effect.fn('OpensrcApi.tree')(function* (
+  sourceStore: SourceStoreService,
+  fileSystem: FileSystemService,
+  config: OpensrcConfig,
+  signal: AbortSignal,
+  sourceName: string,
+  options: TreeOptions = {},
+) {
+  const treeOptions = yield* decodeTreeOptionsEffect(options)
+  const source = yield* getSourceEffect(sourceStore, sourceName)
+  const entries = yield* readSourceFilesEffect(fileSystem, config, source, undefined, signal)
+  return yield* buildTreeInterruptible(source.name, entries, treeOptions, signal)
+})
+
+const grepSourceFilesEffect = Effect.fn('OpensrcApi.grep')(function* (
+  sourceStore: SourceStoreService,
+  fileSystem: FileSystemService,
+  config: OpensrcConfig,
+  signal: AbortSignal,
+  patternValue: string,
+  options: GrepOptions = {},
+) {
+  const patternText = yield* assertStringEffect('grep pattern', patternValue)
+  const grepOptions = yield* decodeGrepOptionsEffect(options)
+  const selected =
+    grepOptions.sources === undefined
+      ? sourceStore.current()
+      : yield* Effect.forEach(grepOptions.sources, (name) => getSourceEffect(sourceStore, name))
+  const sourceFiles: Array<{ readonly source: string; readonly files: readonly SourceFile[] }> = []
+  for (const source of selected) {
+    const root = yield* resolveSourceRootEffect(fileSystem, config, source, signal)
+    const entries = yield* readSourceFilesEffect(fileSystem, config, source, grepOptions.include, signal, root)
+    const files: SourceFile[] = []
+    for (const entry of entries) {
+      if (entry.type !== 'file') continue
+      const content = yield* fileSystem.read(root, entry.path, signal)
+      files.push({ path: entry.path, content })
+    }
+    sourceFiles.push({ source: source.name, files })
+  }
+  return yield* grepFilesInterruptible(sourceFiles, patternText, grepOptions, signal)
+})
+
 const createOpensrcApi = Effect.fnUntraced(function* (
   signal?: AbortSignal,
 ): Effect.fn.Return<
@@ -1638,72 +1969,16 @@ const createOpensrcApi = Effect.fnUntraced(function* (
   const astParser = yield* AstParser
   yield* sourceStore.load()
 
-  const sourceRoot = Effect.fnUntraced(
-    function* (source: Source) {
-      const cacheRoot = yield* fileSystem.realPath(config.home, undefined, callSignal)
-      return yield* fileSystem.realPath(cacheRoot, source.path, callSignal)
-    },
-    Effect.mapError((cause) => decodeOpensrcFailure(cause) ?? filesystemFailure('source-root', cause)),
-  )
-  const getSource = Effect.fnUntraced(function* (name: string) {
-    const validName = yield* assertStringEffect('source name', name)
-    const source = sourceStore.current().find((candidate) => candidate.name === validName)
-    return source === undefined ? yield* Effect.fail(sourceNotFound(validName)) : source
-  })
-  const readFiles = Effect.fnUntraced(function* (source: Source, patternValue: string | undefined, root?: string) {
-    const pattern = patternValue === undefined ? undefined : yield* assertStringEffect('file glob', patternValue)
-    const sourcePath = root ?? (yield* sourceRoot(source))
-    return yield* fileSystem.list(sourcePath, pattern, callSignal)
-  })
-  const readOne = Effect.fnUntraced(function* (source: Source, filePath: string) {
-    const validPath = yield* assertStringEffect('file path', filePath)
-    const root = yield* sourceRoot(source)
-    return yield* fileSystem.read(root, validPath, callSignal)
-  })
   const api: OpensrcApiService = {
-    list: () => Effect.succeed(sourceStore.current()),
-    has: Effect.fn('OpensrcApi.has')(function* (name: string, version?: string) {
-      const validName = yield* assertStringEffect('source name', name)
-      const validVersion = version === undefined ? undefined : yield* assertStringEffect('source version', version)
-      return sourceStore
-        .current()
-        .some((source) => source.name === validName && (validVersion === undefined || source.version === validVersion))
-    }),
-    get: Effect.fn('OpensrcApi.get')(function* (name: string) {
-      const validName = yield* assertStringEffect('source name', name)
-      return sourceStore.current().find((source) => source.name === validName)
-    }),
-    files: Effect.fn('OpensrcApi.files')(function* (sourceName: string, globValue?: string) {
-      const source = yield* getSource(sourceName)
-      return yield* readFiles(source, globValue)
-    }),
-    tree: Effect.fn('OpensrcApi.tree')(function* (sourceName: string, options: TreeOptions = {}) {
-      const treeOptions = yield* decodeTreeOptionsEffect(options)
-      const source = yield* getSource(sourceName)
-      const entries = yield* readFiles(source, undefined)
-      return yield* buildTreeInterruptible(source.name, entries, treeOptions, callSignal)
-    }),
-    grep: Effect.fn('OpensrcApi.grep')(function* (patternValue: string, options: GrepOptions = {}) {
-      const patternText = yield* assertStringEffect('grep pattern', patternValue)
-      const grepOptions = yield* decodeGrepOptionsEffect(options)
-      const selected =
-        grepOptions.sources === undefined
-          ? sourceStore.current()
-          : yield* Effect.forEach(grepOptions.sources, (name) => getSource(name))
-      const sourceFiles: Array<{ readonly source: string; readonly files: readonly SourceFile[] }> = []
-      for (const source of selected) {
-        const root = yield* sourceRoot(source)
-        const entries = yield* readFiles(source, grepOptions.include, root)
-        const files: SourceFile[] = []
-        for (const entry of entries) {
-          if (entry.type !== 'file') continue
-          const content = yield* fileSystem.read(root, entry.path, callSignal)
-          files.push({ path: entry.path, content })
-        }
-        sourceFiles.push({ source: source.name, files })
-      }
-      return yield* grepFilesInterruptible(sourceFiles, patternText, grepOptions, callSignal)
-    }),
+    list: () => listSourcesEffect(sourceStore),
+    has: (name: string, version?: string) => hasSourceEffect(sourceStore, name, version),
+    get: (name: string) => getSourceMetadataEffect(sourceStore, name),
+    files: (sourceName: string, globValue?: string) =>
+      listSourceFilesEffect(sourceStore, fileSystem, config, callSignal, sourceName, globValue),
+    tree: (sourceName: string, options?: TreeOptions) =>
+      buildSourceTreeEffect(sourceStore, fileSystem, config, callSignal, sourceName, options),
+    grep: (patternValue: string, options?: GrepOptions) =>
+      grepSourceFilesEffect(sourceStore, fileSystem, config, callSignal, patternValue, options),
     astGrep: Effect.fn('OpensrcApi.astGrep')(function* (
       sourceName: string,
       patternValue: string,
@@ -1711,9 +1986,9 @@ const createOpensrcApi = Effect.fnUntraced(function* (
     ) {
       const patternText = yield* assertStringEffect('AST pattern', patternValue)
       const astGrepOptions = yield* decodeAstGrepOptionsEffect(options)
-      const source = yield* getSource(sourceName)
-      const root = yield* sourceRoot(source)
-      const entries = yield* readFiles(source, astGrepOptions.glob, root)
+      const source = yield* getSourceEffect(sourceStore, sourceName)
+      const root = yield* resolveSourceRootEffect(fileSystem, config, source, callSignal)
+      const entries = yield* readSourceFilesEffect(fileSystem, config, source, astGrepOptions.glob, callSignal, root)
       const languages = yield* normalizeLanguagesEffect(astGrepOptions.lang)
       const limit = astGrepOptions.limit ?? 100
       const matches: RawAstMatch[] = []
@@ -1735,141 +2010,15 @@ const createOpensrcApi = Effect.fnUntraced(function* (
       }
       return yield* normalizeAstMatchesInterruptible(source.name, matches, callSignal)
     }),
-    read: Effect.fn('OpensrcApi.read')(function* (sourceName: string, filePath: string) {
-      const source = yield* getSource(sourceName)
-      return yield* readOne(source, filePath)
-    }),
-    readMany: Effect.fn('OpensrcApi.readMany')(function* (sourceName: string, paths: readonly string[]) {
-      const validPaths = yield* assertStringArrayEffect('read paths', paths)
-      const source = yield* getSource(sourceName)
-      const result: Record<string, string> = {}
-      for (const requestedPath of validPaths) {
-        if (hasGlobMagic(requestedPath)) {
-          const entries = yield* readFilesOrError(source, requestedPath, result)
-          if (entries === undefined) continue
-          const files = entries.filter((entry) => entry.type === 'file')
-          if (files.length === 0) {
-            result[requestedPath] = `[Error: no files matched ${requestedPath}]`
-            continue
-          }
-          for (const entry of files) {
-            const value = yield* readOneOrError(source, entry.path)
-            if (value !== undefined) result[entry.path] = value
-          }
-          continue
-        }
-        const value = yield* readOneOrError(source, requestedPath)
-        if (value !== undefined) result[requestedPath] = value
-      }
-      return result
-    }),
-    resolve: Effect.fn('OpensrcApi.resolve')(function* (spec: string) {
-      const validSpec = yield* assertStringEffect('source spec', spec)
-      return yield* Effect.try({
-        try: () => parseSourceSpec(validSpec),
-        catch: (cause: unknown) => {
-          const failure = decodeOpensrcFailure(cause)
-          return validationFailure(
-            'resolve',
-            failure?.message ?? (cause instanceof Error ? cause.message : 'The source spec could not be parsed.'),
-            failure ?? cause,
-          )
-        },
-      })
-    }),
-    fetch: Effect.fn('OpensrcApi.fetch')(function* (specValues: string | readonly string[]) {
-      const specs = yield* normalizeSpecsEffect(specValues)
-      const parsed: ParsedSpec[] = []
-      for (const spec of specs) {
-        parsed.push(
-          yield* parseSourceSpecEffect(spec).pipe(
-            Effect.mapError((cause) => validationFailure('fetch', cause.message, cause)),
-          ),
-        )
-      }
-      const mutation = yield* sourceStore.mutate((before) =>
-        Effect.gen(function* () {
-          const existing = parsed.map((spec) => before.some((source) => sourceMatchesSpec(source, spec)))
-          yield* cli.fetch(specs, context.cwd)
-          return existing
-        }),
-      )
-      const fetched: FetchedSource[] = []
-      for (const [index, spec] of parsed.entries()) {
-        const source = mutation.after.find((candidate) => sourceMatchesSpec(candidate, spec))
-        if (source === undefined) return yield* Effect.fail(sourceNotFound(spec.name))
-        fetched.push({ source, alreadyExists: mutation.value[index] })
-      }
-      return fetched
-    }),
-    remove: Effect.fn('OpensrcApi.remove')(function* (names: readonly string[]) {
-      const validNames = yield* assertStringArrayEffect('source names', names)
-      if (validNames.length === 0)
-        return yield* Effect.fail(validationFailure('remove', 'At least one source name is required.'))
-      if (validNames.some((name) => name.startsWith('-') || name.includes('\u0000'))) {
-        return yield* Effect.fail(
-          validationFailure('remove', 'Source names cannot start with a flag or contain a null byte.'),
-        )
-      }
-      const mutation = yield* sourceStore.mutate((before) =>
-        Effect.gen(function* () {
-          yield* cli.remove(validNames)
-          return before
-        }),
-      )
-      const removed = diffSources(mutation.value, mutation.after).removed.map((source) => source.name)
-      return { success: true, removed: [...new Set(removed)] } satisfies RemoveResult
-    }),
-    clean: Effect.fn('OpensrcApi.clean')(function* (options: CleanOptions = {}) {
-      const cleanOptions = yield* decodeCleanOptionsEffect(options)
-      const mutation = yield* sourceStore.mutate((before) =>
-        Effect.gen(function* () {
-          yield* cli.clean(planClean(cleanOptions))
-          return before
-        }),
-      )
-      const removed = diffSources(mutation.value, mutation.after).removed.map((source) => source.name)
-      return { success: true, removed: [...new Set(removed)] } satisfies RemoveResult
-    }),
+    read: (sourceName: string, filePath: string) =>
+      readSourceFileApiEffect(sourceStore, fileSystem, config, callSignal, sourceName, filePath),
+    readMany: (sourceName: string, paths: readonly string[]) =>
+      readManySourceFilesEffect(sourceStore, fileSystem, config, callSignal, sourceName, paths),
+    resolve: (spec: string) => resolveSourceSpecEffect(spec),
+    fetch: (specValues: string | readonly string[]) => fetchSourcesEffect(sourceStore, cli, context.cwd, specValues),
+    remove: (names: readonly string[]) => removeSourcesEffect(sourceStore, cli, names),
+    clean: (options?: CleanOptions) => cleanSourcesEffect(sourceStore, cli, options),
   }
-
-  const readFilesOrError = Effect.fnUntraced(function* (
-    source: Source,
-    pattern: string,
-    result: Record<string, string>,
-  ) {
-    return yield* Effect.match(readFiles(source, pattern), {
-      onFailure: (cause: OpensrcFailure) => {
-        const stopped = operationStopped(cause)
-        if (stopped !== undefined) return { _tag: 'failure' as const, error: stopped }
-        result[pattern] = formatIndividualError(cause)
-        return { _tag: 'formatted' as const }
-      },
-      onSuccess: (entries: readonly FileEntry[]) => ({ _tag: 'success' as const, entries }),
-    }).pipe(
-      Effect.flatMap((outcome) => {
-        if (outcome._tag === 'failure') return Effect.fail(outcome.error)
-        if (outcome._tag === 'formatted') return Effect.succeed(undefined)
-        return Effect.succeed(outcome.entries)
-      }),
-    )
-  })
-
-  const readOneOrError = Effect.fnUntraced(function* (source: Source, path: string) {
-    return yield* Effect.match(readOne(source, path), {
-      onFailure: (cause: OpensrcFailure) => {
-        const stopped = operationStopped(cause)
-        if (stopped !== undefined) return { _tag: 'failure' as const, error: stopped }
-        return { _tag: 'formatted' as const, value: formatIndividualError(cause) }
-      },
-      onSuccess: (value: string) => ({ _tag: 'success' as const, value }),
-    }).pipe(
-      Effect.flatMap((outcome) => {
-        if (outcome._tag === 'failure') return Effect.fail(outcome.error)
-        return Effect.succeed(outcome.value)
-      }),
-    )
-  })
 
   return api
 })
@@ -1879,98 +2028,99 @@ function AstParserLive(): Layer.Layer<AstParser, never, never> {
 }
 
 function createAstParser(): AstParserService {
-  return {
-    find: Effect.fnUntraced(function* (
-      source: string,
-      file: string,
-      content: string,
-      patternText: string,
-      language: string,
-      limit: number,
-    ) {
-      return yield* Effect.tryPromise({
-        try: (signal: AbortSignal) =>
-          evaluateAstParserInWorker(
-            { type: 'parse', source, file, content, pattern: patternText, language, limit },
-            signal,
-          ),
-        catch: (cause: unknown) =>
-          failureFromUnknown(cause, 'parser', 'astGrep', 'The source file could not be parsed.'),
-      })
-    }),
-  }
+  return { find: findAstMatchesEffect }
 }
 
 type AstParserOutcome =
   | { readonly ok: true; readonly matches: readonly RawAstMatch[] }
   | { readonly ok: false; readonly error: OpensrcFailure }
 
-function evaluateAstParserInWorker(
-  request: AstParserWorkerRequest,
-  signal: AbortSignal,
-): Promise<readonly RawAstMatch[]> {
-  if (signal.aborted) return Promise.reject(apiCancellationFailure('astGrep'))
-  const worker = new Worker(new URL('./extension.ts', import.meta.url))
-  return new Promise((resolve, reject) => {
-    let settled = false
-    const abortHandler = (): void => finishFailure(apiCancellationFailure('astGrep'))
-
-    const cleanup = (): void => {
-      signal.removeEventListener('abort', abortHandler)
-    }
-
-    const complete = (outcome: AstParserOutcome): void => {
-      if (outcome.ok) resolve(outcome.matches)
-      else reject(outcome.error)
-    }
-
-    const finish = (outcome: AstParserOutcome): void => {
-      if (settled) return
-      settled = true
-      cleanup()
-      void worker.terminate().then(
-        () => complete(outcome),
-        () => complete(outcome),
-      )
-    }
-
-    const finishSuccess = (matches: readonly RawAstMatch[]): void => finish({ ok: true, matches })
-    const finishFailure = (error: OpensrcFailure): void => finish({ ok: false, error })
-
-    worker.on('message', (message: AstParserWorkerMessage) => {
-      if (message.type === 'result') finishSuccess(message.matches)
-      else
-        finishFailure(
-          createOpensrcFailure({
-            _tag: 'parser',
-            operation: 'astGrep',
-            message: message.message,
-            cause: { name: message.name, stack: message.stack },
-          }),
-        )
-    })
-    worker.on('error', (cause) =>
-      finishFailure(failureFromUnknown(cause, 'parser', 'astGrep', 'The source file could not be parsed.')),
-    )
-    worker.on('exit', (code) => {
-      if (!settled)
-        finishFailure(
-          createOpensrcFailure({
-            _tag: 'parser',
-            operation: 'astGrep',
-            message: `The AST parser worker exited with code ${code}.`,
-          }),
-        )
-    })
-    signal.addEventListener('abort', abortHandler, { once: true })
-
-    Promise.resolve()
-      .then(() => worker.postMessage(request))
-      .catch((cause) =>
-        finishFailure(failureFromUnknown(cause, 'parser', 'postMessage', 'The AST parser worker failed.')),
-      )
+const findAstMatchesEffect = Effect.fnUntraced(function* (
+  source: string,
+  file: string,
+  content: string,
+  patternText: string,
+  language: string,
+  limit: number,
+) {
+  return yield* evaluateAstParserInWorker({
+    type: 'parse',
+    source,
+    file,
+    content,
+    pattern: patternText,
+    language,
+    limit,
   })
-}
+})
+
+const evaluateAstParserInWorker = Effect.fnUntraced(function* (
+  request: AstParserWorkerRequest,
+): Effect.fn.Return<readonly RawAstMatch[], OpensrcFailure> {
+  return yield* Effect.scoped(
+    Effect.gen(function* () {
+      const worker = yield* Effect.acquireRelease(
+        Effect.try({
+          try: () => new Worker(new URL('./extension.ts', import.meta.url)),
+          catch: (cause: unknown) =>
+            failureFromUnknown(cause, 'parser', 'astGrep', 'The source file could not be parsed.'),
+        }),
+        (worker) => Effect.ignore(Effect.tryPromise(() => worker.terminate())),
+      )
+      return yield* Effect.callback<readonly RawAstMatch[], OpensrcFailure>((resume) => {
+        let settled = false
+        let cleanup = (): void => {}
+
+        const complete = (outcome: AstParserOutcome): void => {
+          if (settled) return
+          settled = true
+          cleanup()
+          resume(outcome.ok ? Effect.succeed(outcome.matches) : Effect.fail(outcome.error))
+        }
+        const finishSuccess = (matches: readonly RawAstMatch[]): void => complete({ ok: true, matches })
+        const finishFailure = (error: OpensrcFailure): void => complete({ ok: false, error })
+        const onMessage = (message: AstParserWorkerMessage): void => {
+          if (message.type === 'result') finishSuccess(message.matches)
+          else
+            finishFailure(
+              createOpensrcFailure({
+                _tag: 'parser',
+                operation: 'astGrep',
+                message: message.message,
+                cause: { name: message.name, stack: message.stack },
+              }),
+            )
+        }
+        const onError = (cause: Error): void =>
+          finishFailure(failureFromUnknown(cause, 'parser', 'astGrep', 'The source file could not be parsed.'))
+        const onExit = (code: number): void => {
+          if (!settled)
+            finishFailure(
+              createOpensrcFailure({
+                _tag: 'parser',
+                operation: 'astGrep',
+                message: `The AST parser worker exited with code ${code}.`,
+              }),
+            )
+        }
+        cleanup = (): void => {
+          worker.off('message', onMessage)
+          worker.off('error', onError)
+          worker.off('exit', onExit)
+        }
+        worker.on('message', onMessage)
+        worker.on('error', onError)
+        worker.on('exit', onExit)
+        try {
+          worker.postMessage(request)
+        } catch (cause) {
+          finishFailure(failureFromUnknown(cause, 'parser', 'postMessage', 'The AST parser worker failed.'))
+        }
+        return Effect.sync(cleanup)
+      })
+    }),
+  )
+})
 
 const normalizeSpecsEffect = Effect.fnUntraced(function* (value: string | readonly string[]) {
   const specs = typeof value === 'string' ? [value] : value
@@ -2074,14 +2224,6 @@ function sourceNotFound(name: string): OpensrcFailure {
     _tag: 'source-not-found',
     operation: 'source',
     message: `Cached source not found: ${name}`,
-  })
-}
-
-function apiCancellationFailure(operation = 'api'): OpensrcFailure {
-  return createOpensrcFailure({
-    _tag: 'cancellation',
-    operation,
-    message: 'The opensrc operation was cancelled.',
   })
 }
 

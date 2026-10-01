@@ -507,14 +507,14 @@ type TodoCompleteResult = {
 }
 
 type TodoApi = {
-  add(input: TodoInput): Promise<Todo>
-  update(id: TodoId, patch: TodoPatch): Promise<Todo>
-  show(options?: TodoShowOptions): Promise<readonly Todo[]>
-  next(): Promise<Todo>
-  complete(): Promise<TodoCompleteResult>
-  omit(id: TodoId): Promise<Todo>
-  restore(id: TodoId): Promise<Todo>
-  clear(): Promise<{ readonly cleared: number }>
+  add(input: TodoInput): Effect.Effect<Todo, TodoUpdateError>
+  update(id: TodoId, patch: TodoPatch): Effect.Effect<Todo, TodoUpdateError>
+  show(options?: TodoShowOptions): Effect.Effect<readonly Todo[], TodoUpdateError>
+  next(): Effect.Effect<Todo, TodoUpdateError>
+  complete(): Effect.Effect<TodoCompleteResult, TodoUpdateError>
+  omit(id: TodoId): Effect.Effect<Todo, TodoUpdateError>
+  restore(id: TodoId): Effect.Effect<Todo, TodoUpdateError>
+  clear(): Effect.Effect<{ readonly cleared: number }, TodoUpdateError>
 }
 
 type TodoMutation = 'added' | 'updated' | 'started' | 'completed' | 'omitted' | 'restored' | 'cleared'
@@ -543,10 +543,10 @@ function tryTodoApi<A>(run: () => A): TodoResult<A> {
   }
 }
 
-function promiseResult<A>(result: Result.Failure<A, TodoUpdateError>): Promise<never>
-function promiseResult<A>(result: TodoResult<A>): Promise<A>
-function promiseResult<A>(result: TodoResult<A>): Promise<A> {
-  return Result.isFailure(result) ? Promise.reject(result.failure) : Promise.resolve(result.success)
+function todoResultEffect<A>(result: Result.Failure<A, TodoUpdateError>): Effect.Effect<never, TodoUpdateError>
+function todoResultEffect<A>(result: TodoResult<A>): Effect.Effect<A, TodoUpdateError>
+function todoResultEffect<A>(result: TodoResult<A>): Effect.Effect<A, TodoUpdateError> {
+  return Result.isFailure(result) ? Effect.fail(result.failure) : Effect.succeed(result.success)
 }
 
 function decodeTodoValue<A>(decode: () => Result.Result<A, unknown>, invalidMessage: string): TodoResult<A> {
@@ -626,265 +626,302 @@ function recordMutation(
   return onMutation ? tryTodoApi(() => onMutation(operation, count)) : Result.succeed(undefined)
 }
 
-function createTodoApi({ draft, signal, onMutation, onShow }: TodoApiOptions): TodoApi {
-  const add = (input: unknown): Promise<Todo> => {
-    const aborted = assertNotAborted(signal)
-    if (Result.isFailure(aborted)) return promiseResult(aborted)
-    const valueResult = decodeInput(input)
-    if (Result.isFailure(valueResult)) return promiseResult(valueResult)
-    const value = valueResult.success
-    const content = value.content.trim()
+const addTodoEffect = Effect.fnUntraced(function* (
+  { draft, signal, onMutation }: TodoApiOptions,
+  input: unknown,
+): Effect.fn.Return<Todo, TodoUpdateError> {
+  const aborted = assertNotAborted(signal)
+  if (Result.isFailure(aborted)) return yield* todoResultEffect(aborted)
+  const valueResult = decodeInput(input)
+  if (Result.isFailure(valueResult)) return yield* todoResultEffect(valueResult)
+  const value = valueResult.success
+  const content = value.content.trim()
+  const contentError = validateTodoContent(content)
+  if (contentError) return yield* todoResultEffect(Result.fail(todoUpdateError(contentError)))
+
+  const currentResult = tryTodoApi(() => draft.snapshot())
+  if (Result.isFailure(currentResult)) return yield* todoResultEffect(currentResult)
+  const current = currentResult.success
+  const dependencies = [...(value.dependsOn ?? [])]
+  const existingIds = new Set(current.map((todo) => todo.id))
+  for (const dependency of dependencies) {
+    if (!existingIds.has(dependency)) {
+      return yield* todoResultEffect(
+        Result.fail(todoUpdateError(`Cannot add todo: unknown dependency ID ${dependency}.`)),
+      )
+    }
+  }
+
+  const idResult = generateTodoId(existingIds)
+  if (Result.isFailure(idResult)) return yield* todoResultEffect(idResult)
+  const todo: Todo = {
+    id: idResult.success,
+    content,
+    status: 'pending',
+    dependsOn: dependencies,
+    ...(value.details === undefined ? {} : { details: value.details }),
+  }
+  const nextResult = commitDraft(draft, [...current, todo])
+  if (Result.isFailure(nextResult)) return yield* todoResultEffect(nextResult)
+  const mutation = recordMutation(onMutation, 'added')
+  if (Result.isFailure(mutation)) return yield* todoResultEffect(mutation)
+  const created = findTodo(nextResult.success, idResult.success)
+  if (Result.isFailure(created)) return yield* todoResultEffect(created)
+  return yield* todoResultEffect(tryTodoApi(() => cloneTodos([created.success])[0] as Todo))
+})
+
+const updateTodoEffect = Effect.fnUntraced(function* (
+  { draft, signal, onMutation }: TodoApiOptions,
+  id: unknown,
+  patch: unknown,
+): Effect.fn.Return<Todo, TodoUpdateError> {
+  const aborted = assertNotAborted(signal)
+  if (Result.isFailure(aborted)) return yield* todoResultEffect(aborted)
+  const todoIdResult = assertTodoId(id)
+  if (Result.isFailure(todoIdResult)) return yield* todoResultEffect(todoIdResult)
+  const valueResult = decodePatch(patch)
+  if (Result.isFailure(valueResult)) return yield* todoResultEffect(valueResult)
+  const currentResult = tryTodoApi(() => draft.snapshot())
+  if (Result.isFailure(currentResult)) return yield* todoResultEffect(currentResult)
+  const current = currentResult.success
+  const existingResult = findTodo(current, todoIdResult.success)
+  if (Result.isFailure(existingResult)) return yield* todoResultEffect(existingResult)
+  const existing = existingResult.success
+  const value = valueResult.success
+  if (existing.status === 'completed' && Object.hasOwn(value, 'dependsOn')) {
+    return yield* todoResultEffect(
+      Result.fail(todoUpdateError(`Cannot change dependencies for completed todo ${todoIdResult.success}.`)),
+    )
+  }
+
+  let content = existing.content
+  let details = existing.details
+  let dependsOn = [...existing.dependsOn]
+  if (Object.hasOwn(value, 'content')) {
+    content = value.content?.trim() ?? ''
     const contentError = validateTodoContent(content)
-    if (contentError) return promiseResult(Result.fail(todoUpdateError(contentError)))
-
-    const currentResult = tryTodoApi(() => draft.snapshot())
-    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
-    const current = currentResult.success
-    const dependencies = [...(value.dependsOn ?? [])]
-    const existingIds = new Set(current.map((todo) => todo.id))
-    for (const dependency of dependencies) {
-      if (!existingIds.has(dependency)) {
-        return promiseResult(Result.fail(todoUpdateError(`Cannot add todo: unknown dependency ID ${dependency}.`)))
-      }
-    }
-
-    const idResult = generateTodoId(existingIds)
-    if (Result.isFailure(idResult)) return promiseResult(idResult)
-    const todo: Todo = {
-      id: idResult.success,
-      content,
-      status: 'pending',
-      dependsOn: dependencies,
-      ...(value.details === undefined ? {} : { details: value.details }),
-    }
-    const nextResult = commitDraft(draft, [...current, todo])
-    if (Result.isFailure(nextResult)) return promiseResult(nextResult)
-    const mutation = recordMutation(onMutation, 'added')
-    if (Result.isFailure(mutation)) return promiseResult(mutation)
-    const created = findTodo(nextResult.success, idResult.success)
-    if (Result.isFailure(created)) return promiseResult(created)
-    return promiseResult(tryTodoApi(() => cloneTodos([created.success])[0] as Todo))
-  }
-
-  const update = (id: unknown, patch: unknown): Promise<Todo> => {
-    const aborted = assertNotAborted(signal)
-    if (Result.isFailure(aborted)) return promiseResult(aborted)
-    const todoIdResult = assertTodoId(id)
-    if (Result.isFailure(todoIdResult)) return promiseResult(todoIdResult)
-    const valueResult = decodePatch(patch)
-    if (Result.isFailure(valueResult)) return promiseResult(valueResult)
-    const currentResult = tryTodoApi(() => draft.snapshot())
-    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
-    const current = currentResult.success
-    const existingResult = findTodo(current, todoIdResult.success)
-    if (Result.isFailure(existingResult)) return promiseResult(existingResult)
-    const existing = existingResult.success
-    const value = valueResult.success
-    if (existing.status === 'completed' && Object.hasOwn(value, 'dependsOn')) {
-      return promiseResult(
-        Result.fail(todoUpdateError(`Cannot change dependencies for completed todo ${todoIdResult.success}.`)),
+    if (contentError) {
+      return yield* todoResultEffect(
+        Result.fail(todoUpdateError(`Cannot update todo ${todoIdResult.success}: ${contentError}`)),
       )
     }
+  }
+  if (Object.hasOwn(value, 'details')) details = value.details === null ? undefined : value.details
+  if (Object.hasOwn(value, 'dependsOn')) dependsOn = [...(value.dependsOn ?? [])]
 
-    let content = existing.content
-    let details = existing.details
-    let dependsOn = [...existing.dependsOn]
-    if (Object.hasOwn(value, 'content')) {
-      content = value.content?.trim() ?? ''
-      const contentError = validateTodoContent(content)
-      if (contentError) {
-        return promiseResult(
-          Result.fail(todoUpdateError(`Cannot update todo ${todoIdResult.success}: ${contentError}`)),
-        )
-      }
+  const nextTodo = withDetails({ ...existing, content, dependsOn }, details)
+  const nextResult = commitDraft(
+    draft,
+    current.map((todo) => (todo.id === todoIdResult.success ? nextTodo : todo)),
+  )
+  if (Result.isFailure(nextResult)) return yield* todoResultEffect(nextResult)
+  const mutation = recordMutation(onMutation, 'updated')
+  if (Result.isFailure(mutation)) return yield* todoResultEffect(mutation)
+  const updated = findTodo(nextResult.success, todoIdResult.success)
+  if (Result.isFailure(updated)) return yield* todoResultEffect(updated)
+  return yield* todoResultEffect(tryTodoApi(() => cloneTodos([updated.success])[0] as Todo))
+})
+
+const showTodosEffect = Effect.fnUntraced(function* (
+  { draft, signal, onShow }: TodoApiOptions,
+  options: unknown,
+): Effect.fn.Return<readonly Todo[], TodoUpdateError> {
+  const aborted = assertNotAborted(signal)
+  if (Result.isFailure(aborted)) return yield* todoResultEffect(aborted)
+  const valueResult = decodeShowOptions(options)
+  if (Result.isFailure(valueResult)) return yield* todoResultEffect(valueResult)
+  const currentResult = tryTodoApi(() => draft.snapshot())
+  if (Result.isFailure(currentResult)) return yield* todoResultEffect(currentResult)
+  const current = currentResult.success
+  const value = valueResult.success
+  const ids = value.ids
+  if (value.status !== undefined && ids && ids.length > 0) {
+    return yield* todoResultEffect(
+      Result.fail(todoUpdateError('Invalid todo show options: choose either ids or status, not both.')),
+    )
+  }
+
+  let selected: Todo[]
+  if (ids && ids.length > 0) {
+    const selectedTodos: Todo[] = []
+    for (const id of ids) {
+      const selectedTodo = findTodo(current, id)
+      if (Result.isFailure(selectedTodo)) return yield* todoResultEffect(selectedTodo)
+      selectedTodos.push(selectedTodo.success)
     }
-    if (Object.hasOwn(value, 'details')) details = value.details === null ? undefined : value.details
-    if (Object.hasOwn(value, 'dependsOn')) dependsOn = [...(value.dependsOn ?? [])]
-
-    const nextTodo = withDetails({ ...existing, content, dependsOn }, details)
-    const nextResult = commitDraft(
-      draft,
-      current.map((todo) => (todo.id === todoIdResult.success ? nextTodo : todo)),
-    )
-    if (Result.isFailure(nextResult)) return promiseResult(nextResult)
-    const mutation = recordMutation(onMutation, 'updated')
-    if (Result.isFailure(mutation)) return promiseResult(mutation)
-    const updated = findTodo(nextResult.success, todoIdResult.success)
-    if (Result.isFailure(updated)) return promiseResult(updated)
-    return promiseResult(tryTodoApi(() => cloneTodos([updated.success])[0] as Todo))
+    selected = selectedTodos.sort((left, right) => left.id.localeCompare(right.id))
+  } else {
+    const statuses: readonly Todo['status'][] = value.status ?? ['in_progress', 'pending']
+    selected = current
+      .filter((todo) => statuses.includes(todo.status))
+      .sort((left, right) => left.id.localeCompare(right.id))
+    selected.length = Math.min(selected.length, value.limit ?? 5)
   }
 
-  const show = (options: unknown): Promise<readonly Todo[]> => {
-    const aborted = assertNotAborted(signal)
-    if (Result.isFailure(aborted)) return promiseResult(aborted)
-    const valueResult = decodeShowOptions(options)
-    if (Result.isFailure(valueResult)) return promiseResult(valueResult)
-    const currentResult = tryTodoApi(() => draft.snapshot())
-    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
-    const current = currentResult.success
-    const value = valueResult.success
-    const ids = value.ids
-    if (value.status !== undefined && ids && ids.length > 0) {
-      return promiseResult(
-        Result.fail(todoUpdateError('Invalid todo show options: choose either ids or status, not both.')),
-      )
-    }
+  return yield* todoResultEffect(
+    tryTodoApi(() => {
+      const result = value.includeDetails ? cloneTodos(selected) : selected.map((todo) => withDetails(todo, undefined))
+      onShow?.()
+      return result
+    }),
+  )
+})
 
-    let selected: Todo[]
-    if (ids && ids.length > 0) {
-      const selectedTodos: Todo[] = []
-      for (const id of ids) {
-        const selectedTodo = findTodo(current, id)
-        if (Result.isFailure(selectedTodo)) return promiseResult(selectedTodo)
-        selectedTodos.push(selectedTodo.success)
-      }
-      selected = selectedTodos.sort((left, right) => left.id.localeCompare(right.id))
-    } else {
-      const statuses: readonly Todo['status'][] = value.status ?? ['in_progress', 'pending']
-      selected = current
-        .filter((todo) => statuses.includes(todo.status))
-        .sort((left, right) => left.id.localeCompare(right.id))
-      selected.length = Math.min(selected.length, value.limit ?? 5)
-    }
-
-    return promiseResult(
-      tryTodoApi(() => {
-        const result = value.includeDetails
-          ? cloneTodos(selected)
-          : selected.map((todo) => withDetails(todo, undefined))
-        onShow?.()
-        return result
-      }),
+const startNextTodoEffect = Effect.fnUntraced(function* ({
+  draft,
+  signal,
+  onMutation,
+}: TodoApiOptions): Effect.fn.Return<Todo, TodoUpdateError> {
+  const aborted = assertNotAborted(signal)
+  if (Result.isFailure(aborted)) return yield* todoResultEffect(aborted)
+  const currentResult = tryTodoApi(() => draft.snapshot())
+  if (Result.isFailure(currentResult)) return yield* todoResultEffect(currentResult)
+  const current = currentResult.success
+  const active = current.find((todo) => todo.status === 'in_progress')
+  if (active) {
+    return yield* todoResultEffect(
+      Result.fail(todoUpdateError(`Cannot start next todo: "${active.content}" (${active.id}) is already active.`)),
     )
   }
+  const ready = getNextTodo(current)
+  if (!ready) return yield* todoResultEffect(Result.fail(todoUpdateError('No todo is ready.')))
+  const nextResult = commitDraft(
+    draft,
+    current.map((todo) => (todo.id === ready.id ? { ...todo, status: 'in_progress' as const } : todo)),
+  )
+  if (Result.isFailure(nextResult)) return yield* todoResultEffect(nextResult)
+  const mutation = recordMutation(onMutation, 'started')
+  if (Result.isFailure(mutation)) return yield* todoResultEffect(mutation)
+  const started = findTodo(nextResult.success, ready.id)
+  if (Result.isFailure(started)) return yield* todoResultEffect(started)
+  return yield* todoResultEffect(tryTodoApi(() => cloneTodos([started.success])[0] as Todo))
+})
 
-  const next = (): Promise<Todo> => {
-    const aborted = assertNotAborted(signal)
-    if (Result.isFailure(aborted)) return promiseResult(aborted)
-    const currentResult = tryTodoApi(() => draft.snapshot())
-    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
-    const current = currentResult.success
-    const active = current.find((todo) => todo.status === 'in_progress')
-    if (active) {
-      return promiseResult(
-        Result.fail(todoUpdateError(`Cannot start next todo: "${active.content}" (${active.id}) is already active.`)),
-      )
-    }
-    const ready = getNextTodo(current)
-    if (!ready) return promiseResult(Result.fail(todoUpdateError('No todo is ready.')))
-    const nextResult = commitDraft(
-      draft,
-      current.map((todo) => (todo.id === ready.id ? { ...todo, status: 'in_progress' as const } : todo)),
+const completeTodoEffect = Effect.fnUntraced(function* ({
+  draft,
+  signal,
+  onMutation,
+}: TodoApiOptions): Effect.fn.Return<TodoCompleteResult, TodoUpdateError> {
+  const aborted = assertNotAborted(signal)
+  if (Result.isFailure(aborted)) return yield* todoResultEffect(aborted)
+  const currentResult = tryTodoApi(() => draft.snapshot())
+  if (Result.isFailure(currentResult)) return yield* todoResultEffect(currentResult)
+  const current = currentResult.success
+  const active = current.find((todo) => todo.status === 'in_progress')
+  if (!active) return yield* todoResultEffect(Result.fail(todoUpdateError('No active todo is available to complete.')))
+  const nextResult = commitDraft(
+    draft,
+    current.map((todo) => (todo.id === active.id ? { ...todo, status: 'completed' as const } : todo)),
+  )
+  if (Result.isFailure(nextResult)) return yield* todoResultEffect(nextResult)
+  const mutation = recordMutation(onMutation, 'completed')
+  if (Result.isFailure(mutation)) return yield* todoResultEffect(mutation)
+  const completed = findTodo(nextResult.success, active.id)
+  if (Result.isFailure(completed)) return yield* todoResultEffect(completed)
+  const counts = getTodoCounts(nextResult.success)
+  return yield* todoResultEffect(
+    tryTodoApi(() => ({
+      completed: cloneTodos([completed.success])[0] as Todo,
+      remaining: {
+        pending: counts.pending,
+        inProgress: counts.inProgress,
+        blocked: counts.blocked,
+      },
+      allDone: counts.open === 0,
+    })),
+  )
+})
+
+const omitTodoEffect = Effect.fnUntraced(function* (
+  { draft, signal, onMutation }: TodoApiOptions,
+  id: unknown,
+): Effect.fn.Return<Todo, TodoUpdateError> {
+  const aborted = assertNotAborted(signal)
+  if (Result.isFailure(aborted)) return yield* todoResultEffect(aborted)
+  const todoIdResult = assertTodoId(id)
+  if (Result.isFailure(todoIdResult)) return yield* todoResultEffect(todoIdResult)
+  const currentResult = tryTodoApi(() => draft.snapshot())
+  if (Result.isFailure(currentResult)) return yield* todoResultEffect(currentResult)
+  const current = currentResult.success
+  const existingResult = findTodo(current, todoIdResult.success)
+  if (Result.isFailure(existingResult)) return yield* todoResultEffect(existingResult)
+  const existing = existingResult.success
+  if (existing.status === 'completed' || existing.status === 'omitted') {
+    return yield* todoResultEffect(
+      Result.fail(todoUpdateError(`Cannot omit todo ${todoIdResult.success} with status ${existing.status}.`)),
     )
-    if (Result.isFailure(nextResult)) return promiseResult(nextResult)
-    const mutation = recordMutation(onMutation, 'started')
-    if (Result.isFailure(mutation)) return promiseResult(mutation)
-    const started = findTodo(nextResult.success, ready.id)
-    if (Result.isFailure(started)) return promiseResult(started)
-    return promiseResult(tryTodoApi(() => cloneTodos([started.success])[0] as Todo))
   }
+  const nextResult = commitDraft(
+    draft,
+    current.map((todo) => (todo.id === todoIdResult.success ? { ...todo, status: 'omitted' as const } : todo)),
+  )
+  if (Result.isFailure(nextResult)) return yield* todoResultEffect(nextResult)
+  const mutation = recordMutation(onMutation, 'omitted')
+  if (Result.isFailure(mutation)) return yield* todoResultEffect(mutation)
+  const omitted = findTodo(nextResult.success, todoIdResult.success)
+  if (Result.isFailure(omitted)) return yield* todoResultEffect(omitted)
+  return yield* todoResultEffect(tryTodoApi(() => cloneTodos([omitted.success])[0] as Todo))
+})
 
-  const complete = (): Promise<TodoCompleteResult> => {
-    const aborted = assertNotAborted(signal)
-    if (Result.isFailure(aborted)) return promiseResult(aborted)
-    const currentResult = tryTodoApi(() => draft.snapshot())
-    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
-    const current = currentResult.success
-    const active = current.find((todo) => todo.status === 'in_progress')
-    if (!active) return promiseResult(Result.fail(todoUpdateError('No active todo is available to complete.')))
-    const nextResult = commitDraft(
-      draft,
-      current.map((todo) => (todo.id === active.id ? { ...todo, status: 'completed' as const } : todo)),
-    )
-    if (Result.isFailure(nextResult)) return promiseResult(nextResult)
-    const mutation = recordMutation(onMutation, 'completed')
-    if (Result.isFailure(mutation)) return promiseResult(mutation)
-    const completed = findTodo(nextResult.success, active.id)
-    if (Result.isFailure(completed)) return promiseResult(completed)
-    const counts = getTodoCounts(nextResult.success)
-    return promiseResult(
-      tryTodoApi(() => ({
-        completed: cloneTodos([completed.success])[0] as Todo,
-        remaining: {
-          pending: counts.pending,
-          inProgress: counts.inProgress,
-          blocked: counts.blocked,
-        },
-        allDone: counts.open === 0,
-      })),
+const restoreTodoEffect = Effect.fnUntraced(function* (
+  { draft, signal, onMutation }: TodoApiOptions,
+  id: unknown,
+): Effect.fn.Return<Todo, TodoUpdateError> {
+  const aborted = assertNotAborted(signal)
+  if (Result.isFailure(aborted)) return yield* todoResultEffect(aborted)
+  const todoIdResult = assertTodoId(id)
+  if (Result.isFailure(todoIdResult)) return yield* todoResultEffect(todoIdResult)
+  const currentResult = tryTodoApi(() => draft.snapshot())
+  if (Result.isFailure(currentResult)) return yield* todoResultEffect(currentResult)
+  const current = currentResult.success
+  const existingResult = findTodo(current, todoIdResult.success)
+  if (Result.isFailure(existingResult)) return yield* todoResultEffect(existingResult)
+  const existing = existingResult.success
+  if (existing.status !== 'omitted') {
+    return yield* todoResultEffect(
+      Result.fail(todoUpdateError(`Cannot restore todo ${todoIdResult.success} with status ${existing.status}.`)),
     )
   }
+  const nextResult = commitDraft(
+    draft,
+    current.map((todo) => (todo.id === todoIdResult.success ? { ...todo, status: 'pending' as const } : todo)),
+  )
+  if (Result.isFailure(nextResult)) return yield* todoResultEffect(nextResult)
+  const mutation = recordMutation(onMutation, 'restored')
+  if (Result.isFailure(mutation)) return yield* todoResultEffect(mutation)
+  const restored = findTodo(nextResult.success, todoIdResult.success)
+  if (Result.isFailure(restored)) return yield* todoResultEffect(restored)
+  return yield* todoResultEffect(tryTodoApi(() => cloneTodos([restored.success])[0] as Todo))
+})
 
-  const omit = (id: unknown): Promise<Todo> => {
-    const aborted = assertNotAborted(signal)
-    if (Result.isFailure(aborted)) return promiseResult(aborted)
-    const todoIdResult = assertTodoId(id)
-    if (Result.isFailure(todoIdResult)) return promiseResult(todoIdResult)
-    const currentResult = tryTodoApi(() => draft.snapshot())
-    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
-    const current = currentResult.success
-    const existingResult = findTodo(current, todoIdResult.success)
-    if (Result.isFailure(existingResult)) return promiseResult(existingResult)
-    const existing = existingResult.success
-    if (existing.status === 'completed' || existing.status === 'omitted') {
-      return promiseResult(
-        Result.fail(todoUpdateError(`Cannot omit todo ${todoIdResult.success} with status ${existing.status}.`)),
-      )
-    }
-    const nextResult = commitDraft(
-      draft,
-      current.map((todo) => (todo.id === todoIdResult.success ? { ...todo, status: 'omitted' as const } : todo)),
-    )
-    if (Result.isFailure(nextResult)) return promiseResult(nextResult)
-    const mutation = recordMutation(onMutation, 'omitted')
-    if (Result.isFailure(mutation)) return promiseResult(mutation)
-    const omitted = findTodo(nextResult.success, todoIdResult.success)
-    if (Result.isFailure(omitted)) return promiseResult(omitted)
-    return promiseResult(tryTodoApi(() => cloneTodos([omitted.success])[0] as Todo))
+const clearTodoEffect = Effect.fnUntraced(function* ({
+  draft,
+  signal,
+  onMutation,
+}: TodoApiOptions): Effect.fn.Return<{ readonly cleared: number }, TodoUpdateError> {
+  const aborted = assertNotAborted(signal)
+  if (Result.isFailure(aborted)) return yield* todoResultEffect(aborted)
+  const currentResult = tryTodoApi(() => draft.snapshot())
+  if (Result.isFailure(currentResult)) return yield* todoResultEffect(currentResult)
+  const cleared = currentResult.success.length
+  const replaced = tryTodoApi(() => draft.replace([]))
+  if (Result.isFailure(replaced)) return yield* todoResultEffect(replaced)
+  const mutation = recordMutation(onMutation, 'cleared', cleared)
+  if (Result.isFailure(mutation)) return yield* todoResultEffect(mutation)
+  return { cleared }
+})
+
+function createTodoApi(options: TodoApiOptions): TodoApi {
+  return {
+    add: (input: TodoInput) => addTodoEffect(options, input),
+    update: (id: TodoId, patch: TodoPatch) => updateTodoEffect(options, id, patch),
+    show: (showOptions?: TodoShowOptions) => showTodosEffect(options, showOptions),
+    next: () => startNextTodoEffect(options),
+    complete: () => completeTodoEffect(options),
+    omit: (id: TodoId) => omitTodoEffect(options, id),
+    restore: (id: TodoId) => restoreTodoEffect(options, id),
+    clear: () => clearTodoEffect(options),
   }
-
-  const restore = (id: unknown): Promise<Todo> => {
-    const aborted = assertNotAborted(signal)
-    if (Result.isFailure(aborted)) return promiseResult(aborted)
-    const todoIdResult = assertTodoId(id)
-    if (Result.isFailure(todoIdResult)) return promiseResult(todoIdResult)
-    const currentResult = tryTodoApi(() => draft.snapshot())
-    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
-    const current = currentResult.success
-    const existingResult = findTodo(current, todoIdResult.success)
-    if (Result.isFailure(existingResult)) return promiseResult(existingResult)
-    const existing = existingResult.success
-    if (existing.status !== 'omitted') {
-      return promiseResult(
-        Result.fail(todoUpdateError(`Cannot restore todo ${todoIdResult.success} with status ${existing.status}.`)),
-      )
-    }
-    const nextResult = commitDraft(
-      draft,
-      current.map((todo) => (todo.id === todoIdResult.success ? { ...todo, status: 'pending' as const } : todo)),
-    )
-    if (Result.isFailure(nextResult)) return promiseResult(nextResult)
-    const mutation = recordMutation(onMutation, 'restored')
-    if (Result.isFailure(mutation)) return promiseResult(mutation)
-    const restored = findTodo(nextResult.success, todoIdResult.success)
-    if (Result.isFailure(restored)) return promiseResult(restored)
-    return promiseResult(tryTodoApi(() => cloneTodos([restored.success])[0] as Todo))
-  }
-
-  const clear = (): Promise<{ readonly cleared: number }> => {
-    const aborted = assertNotAborted(signal)
-    if (Result.isFailure(aborted)) return promiseResult(aborted)
-    const currentResult = tryTodoApi(() => draft.snapshot())
-    if (Result.isFailure(currentResult)) return promiseResult(currentResult)
-    const cleared = currentResult.success.length
-    const replaced = tryTodoApi(() => draft.replace([]))
-    if (Result.isFailure(replaced)) return promiseResult(replaced)
-    const mutation = recordMutation(onMutation, 'cleared', cleared)
-    if (Result.isFailure(mutation)) return promiseResult(mutation)
-    return Promise.resolve({ cleared })
-  }
-
-  return { add, update, show, next, complete, omit, restore, clear }
 }
 
 const PLANNOTATOR_REQUEST_CHANNEL = 'plannotator:request'
@@ -973,67 +1010,62 @@ class TodoUi extends Context.Service<
   }
 >()('todo/TodoUi') {}
 
-function transactTodo<A, R>(
+const transactTodo = Effect.fnUntraced(function* <A, R>(
   run: (draft: TodoTransactionDraft, signal: AbortSignal) => Effect.Effect<A, TodoUpdateError, R>,
   signal: AbortSignal | undefined,
   operation: string,
-): Effect.Effect<TodoTransactionResult<A>, TodoUiError, TodoEffectsRequirements | R> {
-  return Effect.gen(function* () {
-    const session = yield* PiSession
-    const store = yield* TodoStore
-    const ui = yield* TodoUi
-    if (yield* store.isSuspended) {
-      return yield* Effect.fail(new TodoUiError({ operation, message: SUSPENDED_TODO_ERROR }))
-    }
+): Effect.fn.Return<TodoTransactionResult<A>, TodoUiError, TodoEffectsRequirements | R> {
+  const session = yield* PiSession
+  const store = yield* TodoStore
+  const ui = yield* TodoUi
+  if (yield* store.isSuspended) {
+    return yield* Effect.fail(new TodoUiError({ operation, message: SUSPENDED_TODO_ERROR }))
+  }
 
-    const before = yield* store.snapshot
-    const outcome = yield* Effect.match(store.transact(run, signal), {
-      onFailure: (error: TodoUpdateError) => ({ error }),
-      onSuccess: (result: TodoTransactionResult<A>) => ({ result }),
-    })
-    if ('error' in outcome) {
-      return yield* Effect.fail(
-        new TodoUiError({
-          operation,
-          message: outcome.error.message,
-          cause: outcome.error.cause ?? outcome.error,
-        }),
-      )
-    }
-
-    if (outcome.result.changed) {
-      const persisted = yield* Effect.match(
-        mapTodoEffect(
-          'append-entry',
-          session.appendEntry(TODO_STATE_ENTRY, { todos: cloneTodos(outcome.result.todos) }),
-        ),
-        {
-          onFailure: (error: TodoUiError) => ({ error }),
-          onSuccess: () => ({ success: true as const }),
-        },
-      )
-      if ('error' in persisted) {
-        const rollback = yield* Effect.match(store.replace(before), {
-          onFailure: (error: TodoUpdateError) => ({ error }),
-          onSuccess: () => ({ success: true as const }),
-        })
-        if ('error' in rollback) {
-          return yield* Effect.fail(
-            new TodoUiError({
-              operation: `${operation}-rollback`,
-              message: rollback.error.message,
-              cause: rollback.error,
-            }),
-          )
-        }
-        return yield* Effect.fail(persisted.error)
-      }
-      yield* ui.update(outcome.result.todos)
-    }
-
-    return outcome.result
+  const before = yield* store.snapshot
+  const outcome = yield* Effect.match(store.transact(run, signal), {
+    onFailure: (error: TodoUpdateError) => ({ error }),
+    onSuccess: (result: TodoTransactionResult<A>) => ({ result }),
   })
-}
+  if ('error' in outcome) {
+    return yield* Effect.fail(
+      new TodoUiError({
+        operation,
+        message: outcome.error.message,
+        cause: outcome.error.cause ?? outcome.error,
+      }),
+    )
+  }
+
+  if (outcome.result.changed) {
+    const persisted = yield* Effect.match(
+      mapTodoEffect('append-entry', session.appendEntry(TODO_STATE_ENTRY, { todos: cloneTodos(outcome.result.todos) })),
+      {
+        onFailure: (error: TodoUiError) => ({ error }),
+        onSuccess: () => ({ success: true as const }),
+      },
+    )
+    if ('error' in persisted) {
+      const rollback = yield* Effect.match(store.replace(before), {
+        onFailure: (error: TodoUpdateError) => ({ error }),
+        onSuccess: () => ({ success: true as const }),
+      })
+      if ('error' in rollback) {
+        return yield* Effect.fail(
+          new TodoUiError({
+            operation: `${operation}-rollback`,
+            message: rollback.error.message,
+            cause: rollback.error,
+          }),
+        )
+      }
+      return yield* Effect.fail(persisted.error)
+    }
+    yield* ui.update(outcome.result.todos)
+  }
+
+  return outcome.result
+})
 
 const suspendTracking = Effect.fnUntraced(function* (): Effect.fn.Return<void, TodoUiError, TodoEffectsRequirements> {
   const store = yield* TodoStore
@@ -1205,37 +1237,32 @@ const prepareAgentStart = Effect.fn('prepareAgentStart')(function* (): Effect.fn
   yield* scheduleSessionPhaseSync()
 })
 
-const withTodoRun = <A, E, R>(
+const withTodoRun = Effect.fnUntraced(function* <A, E, R>(
   operation: string,
   run: (api: TodoApi) => Effect.Effect<A, E, R>,
   signal?: AbortSignal,
-): Effect.Effect<A, TodoUiError, TodoEffectsRequirements | R> =>
-  Effect.gen(function* () {
-    const outcome = yield* transactTodo(
-      (draft, transactionSignal) => {
-        const api = createTodoApi({ draft, signal: transactionSignal })
-        return run(api).pipe(
-          Effect.mapError((cause) =>
-            cause instanceof TodoUpdateError
-              ? cause
-              : new TodoUpdateError({ message: cause instanceof Error ? cause.message : String(cause), cause }),
-          ),
-        )
-      },
-      signal,
-      operation,
-    )
-    return outcome.value
-  })
+): Effect.fn.Return<A, TodoUiError, TodoEffectsRequirements | R> {
+  const outcome = yield* transactTodo(
+    (draft, transactionSignal) => {
+      const api = createTodoApi({ draft, signal: transactionSignal })
+      return run(api).pipe(
+        Effect.mapError((cause) =>
+          cause instanceof TodoUpdateError
+            ? cause
+            : new TodoUpdateError({ message: cause instanceof Error ? cause.message : String(cause), cause }),
+        ),
+      )
+    },
+    signal,
+    operation,
+  )
+  return outcome.value
+})
 
 const clearTodos = Effect.fn('clearTodos')(function* (
   signal?: AbortSignal,
 ): Effect.fn.Return<number, TodoUiError, TodoEffectsRequirements> {
-  const result = yield* withTodoRun(
-    'execute',
-    (api) => Effect.tryPromise({ try: () => api.clear(), catch: (cause: unknown) => cause }),
-    signal,
-  )
+  const result = yield* withTodoRun('execute', (api) => api.clear(), signal)
   return result.cleared
 })
 

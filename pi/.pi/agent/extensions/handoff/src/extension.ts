@@ -177,7 +177,7 @@ Files involved:
 
 I will give you the next instruction after you read this handoff.`
 
-type TodoStateModule = typeof import('../../todo/src/state.ts')
+type TodoStateModule = typeof import('../../todo/src/extension.ts')
 
 class HandoffGenerationError extends Schema.TaggedError<HandoffGenerationError>()('HandoffGenerationError', {
   message: Schema.String,
@@ -214,7 +214,7 @@ function tryPi<A>(operation: string, evaluate: () => A): Effect.Effect<A, Handof
 }
 
 const loadTodoState = Effect.tryPromise<TodoStateModule, string>({
-  try: () => import('../../todo/src/state.ts'),
+  try: () => import('../../todo/src/extension.ts'),
   catch: errorMessage,
 }).pipe(
   Effect.tapError((message) => Effect.logError(`[handoff] todo-state-import-failed: ${message}`)),

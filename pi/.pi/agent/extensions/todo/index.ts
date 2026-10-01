@@ -50,14 +50,14 @@ const addTodoParameters = Type.Object({
   details: Type.Optional(Type.String()),
   dependsOn: Type.Optional(Type.Array(todoIdParameter)),
 })
-const updateTodoParameters = Type.Tuple([
-  todoIdParameter,
-  Type.Object({
+const updateTodoParameters = Type.Object({
+  id: todoIdParameter,
+  patch: Type.Object({
     content: Type.Optional(Type.String()),
     details: Type.Optional(Type.Union([Type.String(), Type.Null()])),
     dependsOn: Type.Optional(Type.Array(todoIdParameter)),
   }),
-])
+})
 const showTodoParameters = Type.Object({
   ids: Type.Optional(Type.Union([Type.Array(todoIdParameter), Type.Null()])),
   status: Type.Optional(Type.Array(todoStatusParameter)),
@@ -115,11 +115,7 @@ const todoShowTool: EffectToolDefinition<
     Effect.gen(function* () {
       const tool = yield* PiToolContext
       const effects = yield* TodoEffects
-      const todos = yield* effects.withRun(
-        'show',
-        (api) => Effect.tryPromise({ try: () => api.show(options), catch: (cause: unknown) => cause }),
-        tool.toolSignal,
-      )
+      const todos = yield* effects.withRun('show', (api) => api.show(options), tool.toolSignal)
       return {
         content: [{ type: 'text', text: JSON.stringify(todos) }],
         details: { count: todos.length },
@@ -148,11 +144,7 @@ const todoAddTool: EffectToolDefinition<
     Effect.gen(function* () {
       const tool = yield* PiToolContext
       const effects = yield* TodoEffects
-      const todo = yield* effects.withRun(
-        'add',
-        (api) => Effect.tryPromise({ try: () => api.add(input), catch: (cause: unknown) => cause }),
-        tool.toolSignal,
-      )
+      const todo = yield* effects.withRun('add', (api) => api.add(input), tool.toolSignal)
       return {
         content: [{ type: 'text', text: JSON.stringify(todo) }],
         details: { id: todo.id },
@@ -176,15 +168,11 @@ const todoUpdateTool: EffectToolDefinition<
   exposure: 'codemode',
   namespace: todoToolNamespace,
   outputSchema: todoOutputSchema,
-  execute: ([id, patch]: [TodoId, TodoPatch]) =>
+  execute: ({ id, patch }: { id: TodoId; patch: TodoPatch }) =>
     Effect.gen(function* () {
       const tool = yield* PiToolContext
       const effects = yield* TodoEffects
-      const todo = yield* effects.withRun(
-        'update',
-        (api) => Effect.tryPromise({ try: () => api.update(id, patch), catch: (cause: unknown) => cause }),
-        tool.toolSignal,
-      )
+      const todo = yield* effects.withRun('update', (api) => api.update(id, patch), tool.toolSignal)
       return {
         content: [{ type: 'text', text: JSON.stringify(todo) }],
         details: { id: todo.id },
@@ -212,11 +200,7 @@ const todoNextTool: EffectToolDefinition<
     Effect.gen(function* () {
       const tool = yield* PiToolContext
       const effects = yield* TodoEffects
-      const todo = yield* effects.withRun(
-        'next',
-        (api) => Effect.tryPromise({ try: () => api.next(), catch: (cause: unknown) => cause }),
-        tool.toolSignal,
-      )
+      const todo = yield* effects.withRun('next', (api) => api.next(), tool.toolSignal)
       return {
         content: [{ type: 'text', text: JSON.stringify(todo) }],
         details: { id: todo.id },
@@ -245,11 +229,7 @@ const todoCompleteTool: EffectToolDefinition<
     Effect.gen(function* () {
       const tool = yield* PiToolContext
       const effects = yield* TodoEffects
-      const result: TodoCompleteResult = yield* effects.withRun(
-        'complete',
-        (api) => Effect.tryPromise({ try: () => api.complete(), catch: (cause: unknown) => cause }),
-        tool.toolSignal,
-      )
+      const result: TodoCompleteResult = yield* effects.withRun('complete', (api) => api.complete(), tool.toolSignal)
       return {
         content: [{ type: 'text', text: JSON.stringify(result) }],
         details: { id: result.completed.id },
@@ -277,11 +257,7 @@ const todoOmitTool: EffectToolDefinition<
     Effect.gen(function* () {
       const tool = yield* PiToolContext
       const effects = yield* TodoEffects
-      const todo = yield* effects.withRun(
-        'omit',
-        (api) => Effect.tryPromise({ try: () => api.omit(id), catch: (cause: unknown) => cause }),
-        tool.toolSignal,
-      )
+      const todo = yield* effects.withRun('omit', (api) => api.omit(id), tool.toolSignal)
       return {
         content: [{ type: 'text', text: JSON.stringify(todo) }],
         details: { id: todo.id },
@@ -309,11 +285,7 @@ const todoRestoreTool: EffectToolDefinition<
     Effect.gen(function* () {
       const tool = yield* PiToolContext
       const effects = yield* TodoEffects
-      const todo = yield* effects.withRun(
-        'restore',
-        (api) => Effect.tryPromise({ try: () => api.restore(id), catch: (cause: unknown) => cause }),
-        tool.toolSignal,
-      )
+      const todo = yield* effects.withRun('restore', (api) => api.restore(id), tool.toolSignal)
       return {
         content: [{ type: 'text', text: JSON.stringify(todo) }],
         details: { id: todo.id },
@@ -341,11 +313,7 @@ const todoClearTool: EffectToolDefinition<
     Effect.gen(function* () {
       const tool = yield* PiToolContext
       const effects = yield* TodoEffects
-      const result = yield* effects.withRun(
-        'clear',
-        (api) => Effect.tryPromise({ try: () => api.clear(), catch: (cause: unknown) => cause }),
-        tool.toolSignal,
-      )
+      const result = yield* effects.withRun('clear', (api) => api.clear(), tool.toolSignal)
       return {
         content: [{ type: 'text', text: JSON.stringify(result) }],
         details: { cleared: result.cleared },

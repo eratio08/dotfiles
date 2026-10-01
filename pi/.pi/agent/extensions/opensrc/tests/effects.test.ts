@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { Worker } from 'node:worker_threads'
 import { PiProcess } from '@eratio/pi-effect'
 import { Effect, Exit, Layer, ManagedRuntime } from 'effect'
 import type {
@@ -126,22 +127,43 @@ describe('opensrc effects', () => {
     await dispose()
   })
 
-  test('should terminate the AST parser worker given interrupted parsing', async () => {
+  test('should terminate AST workers after matches, parser errors, and cancellation', async () => {
     //given
-    const controller = new AbortController()
+    const originalTerminate = Worker.prototype.terminate
+    let terminationCount = 0
+    Worker.prototype.terminate = function (this: Worker): Promise<number> {
+      terminationCount += 1
+      return originalTerminate.call(this)
+    }
     const parser = createAstParser()
-    const content = Array.from({ length: 100000 }, () => 'const value = parse()').join('\n')
-    const evaluation = Effect.runPromiseExit(
-      parser.find('zod', 'src/index.ts', content, 'parse()', 'typescript', 100),
-      { signal: controller.signal },
-    )
 
-    //when
-    controller.abort()
-    const exit = await evaluation
+    try {
+      //when
+      const matches = await Effect.runPromise(
+        parser.find('zod', 'src/index.ts', 'const value = parse()', 'parse()', 'typescript', 100),
+      )
+      const failure = await Effect.runPromiseExit(
+        parser.find('zod', 'src/index.ts', 'const value = parse()', 'parse()', 'python', 100),
+      )
+      const controller = new AbortController()
+      const content = Array.from({ length: 100000 }, () => 'const value = parse()').join('\n')
+      const evaluation = Effect.runPromiseExit(
+        parser.find('zod', 'src/index.ts', content, 'parse()', 'typescript', 100),
+        { signal: controller.signal },
+      )
+      await new Promise<void>((resolve) => setTimeout(resolve, 10))
+      controller.abort()
+      const exit = await evaluation
 
-    //then
-    expect(Exit.hasInterrupts(exit)).toBe(true)
+      //then
+      expect(matches.map((match) => match.text)).toEqual(['parse()'])
+      expect(Exit.isFailure(failure)).toBe(true)
+      if (Exit.isFailure(failure)) expect(String(failure.cause)).toContain('Unsupported AST language')
+      expect(Exit.hasInterrupts(exit)).toBe(true)
+      expect(terminationCount).toBe(3)
+    } finally {
+      Worker.prototype.terminate = originalTerminate
+    }
   })
 
   test('should pass environment values to a child without changing the parent environment given a child process launch', async () => {
@@ -153,13 +175,18 @@ describe('opensrc effects', () => {
     const result = await Effect.runPromise(
       host.exec({
         command: process.execPath,
-        args: ['-e', 'process.stdout.write(process.env.OPENSRC_HOME ?? "")'],
+        args: ['-e', 'process.stdout.write(process.env.OPENSRC_HOME ?? ""); process.stderr.write("child-warning")'],
         environment: { OPENSRC_HOME: '/tmp/opensrc-effect-home' },
       }),
     )
 
     //then
-    expect(result.stdout).toBe('/tmp/opensrc-effect-home')
+    expect(result).toEqual({
+      stdout: '/tmp/opensrc-effect-home',
+      stderr: 'child-warning',
+      code: 0,
+      killed: false,
+    })
     expect(process.env.OPENSRC_HOME).toBe(previousHome)
     await dispose()
   })
@@ -181,32 +208,73 @@ describe('opensrc effects', () => {
     await dispose()
   })
 
-  test('should interrupt a child process given caller cancellation while it waits', async () => {
+  test('should send SIGTERM then SIGKILL after five seconds given caller cancellation', async () => {
     //given
+    const root = await mkdtemp(join(tmpdir(), 'opensrc-child-cancel-'))
+    const marker = join(root, 'signal')
+    const childPidPath = join(root, 'pid')
+    const script = [
+      'const { writeFileSync } = require("node:fs")',
+      `process.on("SIGTERM", () => writeFileSync(${JSON.stringify(marker)}, "terminated"))`,
+      `writeFileSync(${JSON.stringify(childPidPath)}, String(process.pid))`,
+      `writeFileSync(${JSON.stringify(marker)}, "ready")`,
+      'setInterval(() => {}, 1000)',
+    ].join(';')
     const controller = new AbortController()
     const { host, dispose } = await makePiHost()
+    let childPid: number | undefined
     const evaluation = Effect.runPromiseExit(
       host.exec({
         command: process.execPath,
-        args: ['-e', 'setTimeout(() => {}, 1000)'],
+        args: ['-e', script],
         environment: { OPENSRC_HOME: '/tmp/opensrc-effect-home' },
       }),
       { signal: controller.signal },
     )
+    const waitForMarker = async (expected: string): Promise<void> => {
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        if ((await readFile(marker, 'utf8').catch(() => '')) === expected) return
+        await new Promise<void>((resolve) => setTimeout(resolve, 10))
+      }
+      throw new Error(`Child process did not write ${expected}.`)
+    }
+    const isChildRunning = (pid: number): boolean => {
+      try {
+        process.kill(pid, 0)
+        return true
+      } catch (cause) {
+        if (cause instanceof Error && 'code' in cause && cause.code === 'ESRCH') return false
+        throw cause
+      }
+    }
+    const waitForChildExit = async (pid: number): Promise<void> => {
+      for (let attempt = 0; attempt < 650; attempt += 1) {
+        if (!isChildRunning(pid)) return
+        await new Promise<void>((resolve) => setTimeout(resolve, 10))
+      }
+      throw new Error('Child process was not killed after the SIGTERM grace period.')
+    }
 
-    //when
-    await new Promise<void>((resolve) =>
-      setTimeout(() => {
-        controller.abort()
-        resolve()
-      }, 10),
-    )
-    const exit = await evaluation
+    try {
+      //when
+      await waitForMarker('ready')
+      childPid = Number(await readFile(childPidPath, 'utf8'))
+      const cancelledAt = Date.now()
+      controller.abort()
+      const exit = await evaluation
+      await waitForMarker('terminated')
+      await waitForChildExit(childPid)
 
-    //then
-    expect(Exit.hasInterrupts(exit)).toBe(true)
-    await dispose()
-  })
+      //then
+      expect(Exit.hasInterrupts(exit)).toBe(true)
+      expect(Date.now() - cancelledAt).toBeGreaterThanOrEqual(4_500)
+    } finally {
+      if (!controller.signal.aborted) controller.abort()
+      if (childPid !== undefined && isChildRunning(childPid)) process.kill(childPid, 'SIGKILL')
+      await dispose()
+      await rm(root, { recursive: true, force: true })
+    }
+  }, 10_000)
 
   test('should keep the parent environment unchanged given a child failure', async () => {
     //given
@@ -223,7 +291,8 @@ describe('opensrc effects', () => {
     )
 
     //then
-    expect(result.code).toBe(1)
+    expect(result).toMatchObject({ stdout: '', code: 1, killed: false })
+    expect(result.stderr).toContain('opensrc-command-that-does-not-exist')
     expect(process.env.OPENSRC_HOME).toBe(previousHome)
     await dispose()
   })
@@ -305,7 +374,8 @@ describe('opensrc effects', () => {
         const second = yield* store.refresh()
         const failed = yield* Effect.exit(store.refresh())
         const preserved = yield* store.snapshot
-        return { first, second, failed, preserved }
+        const current = store.current()
+        return { first, second, failed, preserved, current }
       }),
     )
     await runtime.dispose()
@@ -315,6 +385,7 @@ describe('opensrc effects', () => {
     expect(result.second[0].version).toBe('4.0.0')
     expect(Exit.isFailure(result.failed)).toBe(true)
     expect(result.preserved[0].version).toBe('4.0.0')
+    expect(result.current[0].version).toBe('4.0.0')
   })
 
   test('should reject filesystem traversal before reading outside the source root given an escaping path', async () => {

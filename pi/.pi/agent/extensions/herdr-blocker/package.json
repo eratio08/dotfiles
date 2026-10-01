@@ -1,0 +1,25 @@
+{
+  "name": "herdr-blocker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "test": "bun test tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@eratio/pi-effect": "file:../lib/pi-effect",
+    "effect": "4.0.0-rc.112"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.12",
+    "@types/bun": "^1.4.2",
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  }
+}

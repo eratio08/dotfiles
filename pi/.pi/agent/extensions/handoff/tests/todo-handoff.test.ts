@@ -8,10 +8,10 @@ const handoffSourceDir = resolve(handoffDir, 'src')
 const source = readFileSync(resolve(handoffSourceDir, 'extension.ts'), 'utf8')
 
 const specifiers = [...source.matchAll(/import\((['"])([^'"]+)\1\)/g)].map((match) => match[2])
-const todoSpecifier = specifiers.find((specifier) => specifier.includes('todo') && specifier.endsWith('state.ts'))
-assert.ok(todoSpecifier, 'handoff/src/extension.ts must dynamically import the todo state module')
+const todoSpecifier = specifiers.find((specifier) => specifier.includes('todo') && specifier.endsWith('extension.ts'))
+assert.ok(todoSpecifier, 'handoff/src/extension.ts must dynamically import the todo extension module')
 
-const todoState: typeof import('../../todo/src/state.ts') = await import(
+const todoState: typeof import('../../todo/src/extension.ts') = await import(
   pathToFileURL(resolve(handoffSourceDir, todoSpecifier)).href
 )
 for (const name of ['extractLatestTodoSnapshot', 'getTodoHandoffSnapshot', 'formatTodoContext'] as const) {

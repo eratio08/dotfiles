@@ -176,6 +176,30 @@ describe('opensrc core', () => {
     expect(result).toEqual([{ source: 'zod', file: 'src/a.ts', line: 1, column: 3, text: 'Parse' }])
   })
 
+  test('should sort grep matches by source and path given unsorted source files', () => {
+    //given
+    const sources = [
+      {
+        source: 'zod',
+        files: [
+          { path: 'src/z.ts', content: 'parse z' },
+          { path: 'src/a.ts', content: 'parse a' },
+        ],
+      },
+      { source: 'alpha', files: [{ path: 'src/b.ts', content: 'parse alpha' }] },
+    ]
+
+    //when
+    const result = Effect.runSync(grepFiles(sources, 'parse'))
+
+    //then
+    expect(result).toEqual([
+      { source: 'alpha', file: 'src/b.ts', line: 1, column: 1, text: 'parse alpha' },
+      { source: 'zod', file: 'src/a.ts', line: 1, column: 1, text: 'parse a' },
+      { source: 'zod', file: 'src/z.ts', line: 1, column: 1, text: 'parse z' },
+    ])
+  })
+
   test('should stop CPU-heavy queries given a cancellation signal', async () => {
     //given
     const controller = new AbortController()

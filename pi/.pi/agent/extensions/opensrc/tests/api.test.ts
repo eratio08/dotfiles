@@ -153,6 +153,7 @@ describe('opensrc API', () => {
           const invalidClean = yield* captureEffectResult(api.clean({ packages: 'yes' } as never))
           const invalidPaths = yield* captureEffectResult(api.readMany('zod', [''] as never))
           const invalidSpecs = yield* captureEffectResult(api.fetch([''] as never))
+          const invalidResolve = yield* captureEffectResult(api.resolve(''))
           return {
             listed,
             hasSource,
@@ -175,6 +176,7 @@ describe('opensrc API', () => {
             invalidClean,
             invalidPaths,
             invalidSpecs,
+            invalidResolve,
           }
         }).pipe(Effect.provide(layer)),
       ),
@@ -206,6 +208,7 @@ describe('opensrc API', () => {
     expect(observed.invalidClean).toMatchObject({ _tag: 'Left', left: { _tag: 'validation', operation: 'clean' } })
     expect(observed.invalidPaths).toMatchObject({ _tag: 'Left', left: { _tag: 'validation' } })
     expect(observed.invalidSpecs).toMatchObject({ _tag: 'Left', left: { _tag: 'validation', operation: 'validation' } })
+    expect(observed.invalidResolve).toMatchObject({ _tag: 'Left', left: { _tag: 'validation' } })
     expect(fetchCalls).toBe(1)
   })
 
