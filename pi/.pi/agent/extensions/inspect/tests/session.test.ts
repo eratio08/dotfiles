@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { SessionManager } from '@earendil-works/pi-coding-agent'
-import { parseSavedSession, selectCurrentSession } from '../src/session.ts'
+import { parseSavedSession, selectCurrentSession } from '../src/extension.ts'
 
 const sessionJsonl = [
   '{"type":"session","version":3,"id":"session-1","timestamp":"2026-01-01T00:00:00.000Z","cwd":"/project"}',

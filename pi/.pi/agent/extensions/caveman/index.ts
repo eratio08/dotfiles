@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 import { Effect, ManagedRuntime } from 'effect'
-import { Caveman, CavemanContext, CavemanLayer } from './src/effects.ts'
+import { Caveman, CavemanContext, CavemanLayer } from './src/extension.ts'
 
 function cavemanExtension(pi: ExtensionAPI): void {
   const runtime = ManagedRuntime.make(CavemanLayer(pi))

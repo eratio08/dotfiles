@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createWebSearchTool } from '../index.ts'
+
 import {
   hasWebSearchCredentials,
   parseSearchResponse,
   selectProvider,
   previewLines as webSearchPreviewLines,
-} from '../src/core/websearch.ts'
+} from '../src/extension.ts'
 
 test('should gate websearch registration on credentials given provider configuration', () => {
   assert.equal(hasWebSearchCredentials({} as NodeJS.ProcessEnv), false)

@@ -16,8 +16,12 @@ import {
   type SessionSummary,
   selectSessionSlug,
   TUICR_COMPLETION_MARKER,
-} from '../src/core.ts'
-import { Tuicr, TuicrConfig, TuicrLayer, type TuicrLayerOptions, TuicrPi } from '../src/effects.ts'
+  Tuicr,
+  TuicrConfig,
+  TuicrLayer,
+  type TuicrLayerOptions,
+  TuicrPi,
+} from '../src/extension.ts'
 
 type ExecCall = {
   readonly command: string
@@ -66,8 +70,8 @@ function session(slug: string, active: boolean): SessionSummary {
 function comment(id: string, author?: string): CommentData {
   return {
     id,
-    location: 'src/core.ts:10',
-    path: 'src/core.ts',
+    location: 'src/extension.ts:10',
+    path: 'src/extension.ts',
     start_line: 10,
     end_line: 10,
     side: 'new',
@@ -464,7 +468,7 @@ test('should render collapsed and expanded comment results given both display st
     bold: (text: string): string => text,
   }
   const result: ToolResultLike = {
-    content: [{ type: 'text', text: 'src/core.ts:10: fix this' }],
+    content: [{ type: 'text', text: 'src/extension.ts:10: fix this' }],
     details: {
       paneId: 'window:pane',
       sessionSlug: 'session',

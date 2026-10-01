@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { ManagedRuntime } from 'effect'
+
 import {
   createWebToolsTemporaryOutputTestLayer,
   type TemporaryOutputWrite,
   WebToolsTemporaryOutput,
-} from '../src/effects/services/temporary-output.ts'
+} from '../src/extension.ts'
 
 test('should write complete temporary output given the current path layout', async () => {
   //given

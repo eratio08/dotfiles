@@ -12,25 +12,27 @@ import {
 } from '@eratio/pi-effect'
 import { Effect, Layer, Ref, Result, Schema, Semaphore } from 'effect'
 import { Type } from 'typebox'
-import type { TodoCompleteResult } from './src/api.ts'
 import {
-  TodoEffects,
-  TodoEffectsLayer,
-  TodoStatusRequestVersion,
-  TodoUi,
-  type TodoUiError,
-  todoHostError,
-} from './src/effects.ts'
-import {
+  getTodoCounts,
+  isOpenTodo,
   TODO_ID_PATTERN,
   TODO_STATUSES,
+  type Todo,
+  type TodoCompleteResult,
+  TodoEffects,
+  TodoEffectsLayer,
   type TodoId,
   type TodoInput,
   type TodoPatch,
   type TodoShowOptions,
-} from './src/model.ts'
-import { getTodoCounts, isOpenTodo, type Todo, type TodoStatus, todoDescriptionLines } from './src/state.ts'
-import { TodoStore } from './src/store.ts'
+  type TodoStatus,
+  TodoStatusRequestVersion,
+  TodoStore,
+  TodoUi,
+  type TodoUiError,
+  todoDescriptionLines,
+  todoHostError,
+} from './src/extension.ts'
 
 const PLAN_SUBMIT_TOOL_NAME = 'plannotator_submit_plan'
 const decodeApprovedPlanSubmissionDetails = Schema.decodeUnknownResult(

@@ -1,8 +1,6 @@
 import { describe, test } from 'bun:test'
 import { strict as assert } from 'node:assert'
-import { SimpleFrontmatterCodec } from '../../src/frontmatter/parser.ts'
-import { MinimalFrontmatterPatcher } from '../../src/frontmatter/patcher.ts'
-import { getDuplicateFrontmatterKeys } from '../../src/frontmatter/validation.ts'
+import { getDuplicateFrontmatterKeys, MinimalFrontmatterPatcher, SimpleFrontmatterCodec } from '../../src/extension.ts'
 
 const codec = new SimpleFrontmatterCodec()
 const patcher = new MinimalFrontmatterPatcher()

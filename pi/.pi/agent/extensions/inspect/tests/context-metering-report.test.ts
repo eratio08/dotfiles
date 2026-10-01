@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { Usage } from '@earendil-works/pi-ai'
-import type { Contribution, SessionAnalysis, ToolStatistics } from '../src/analysis.ts'
-import { renderContextMeteringReport } from '../src/context-metering-report.ts'
+import {
+  type Contribution,
+  renderContextMeteringReport,
+  type SessionAnalysis,
+  type ToolStatistics,
+} from '../src/extension.ts'
 
 function providerUsage(): Usage {
   return {

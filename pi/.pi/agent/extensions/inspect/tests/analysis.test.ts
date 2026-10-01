@@ -2,9 +2,13 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { Usage } from '@earendil-works/pi-ai'
 import { SessionManager } from '@earendil-works/pi-coding-agent'
-import { analyzeSession, buildCurrentSystemMessage } from '../src/analysis.ts'
-import { renderContextMeteringReport } from '../src/context-metering-report.ts'
-import { parseSavedSession, selectCurrentSession } from '../src/session.ts'
+import {
+  analyzeSession,
+  buildCurrentSystemMessage,
+  parseSavedSession,
+  renderContextMeteringReport,
+  selectCurrentSession,
+} from '../src/extension.ts'
 
 function serializeSession(entries: readonly Record<string, unknown>[]): string {
   const header = {

@@ -3,9 +3,8 @@ import test from 'node:test'
 import { visibleWidth } from '@earendil-works/pi-tui'
 import { PiToolError } from '@eratio/pi-effect'
 import todoExtension from '../index.ts'
-import { TodoUiError } from '../src/effects.ts'
-import type { Todo } from '../src/model.ts'
-import { extractLatestTodoSnapshot, TODO_STATE_ENTRY } from '../src/state.ts'
+import type { Todo } from '../src/extension.ts'
+import { extractLatestTodoSnapshot, TODO_STATE_ENTRY, TodoUiError } from '../src/extension.ts'
 
 type EventHandler = (event: unknown, ctx: unknown) => Promise<unknown> | unknown
 type Renderable = { render: (width: number) => string[] }

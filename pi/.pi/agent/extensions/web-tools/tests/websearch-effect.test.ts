@@ -1,15 +1,21 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Effect, Layer } from 'effect'
-import { NO_RESULTS } from '../src/core/websearch.ts'
-import { createWebToolsHttpTestLayer, type WebToolsFetch, type WebToolsHttp } from '../src/effects/services/http.ts'
+
 import {
+  createWebToolsHttpTestLayer,
   createWebToolsTemporaryOutputTestLayer,
+  NO_RESULTS,
+  runWebSearch,
   type TemporaryOutputWrite,
+  WebSearchConfig,
+  type WebSearchEnvironment,
+  WebSearchParseError,
+  WebSearchResponseError,
+  type WebToolsFetch,
+  type WebToolsHttp,
   type WebToolsTemporaryOutput,
-} from '../src/effects/services/temporary-output.ts'
-import { WebSearchConfig, type WebSearchEnvironment } from '../src/effects/services/websearch-config.ts'
-import { runWebSearch, WebSearchParseError, WebSearchResponseError } from '../src/effects/websearch.ts'
+} from '../src/extension.ts'
 
 type JsonRpcBody = {
   params: {

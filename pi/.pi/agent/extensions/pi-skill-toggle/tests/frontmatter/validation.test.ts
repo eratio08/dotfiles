@@ -1,11 +1,11 @@
 import { describe, test } from 'bun:test'
 import { strict as assert } from 'node:assert'
-import { SimpleFrontmatterCodec } from '../../src/frontmatter/parser.ts'
 import {
   deriveSkillMetadata,
   getDuplicateFrontmatterKeys,
   hasDuplicateDisableModelInvocation,
-} from '../../src/frontmatter/validation.ts'
+  SimpleFrontmatterCodec,
+} from '../../src/extension.ts'
 
 const codec = new SimpleFrontmatterCodec()
 

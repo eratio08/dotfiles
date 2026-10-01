@@ -2,12 +2,17 @@ import { describe, test } from 'bun:test'
 import { strict as assert } from 'node:assert'
 import { PiCommandContext, PiContext, PiUi } from '@eratio08/pi-effect'
 import { Effect, Layer, ManagedRuntime, Option } from 'effect'
-import { SkillTogglePlanner } from '../src/apply/planner.ts'
-import { SkillChangeWriter } from '../src/apply/writer.ts'
-import { runToggleSkillsCommand } from '../src/command.ts'
-import { SkillInventory } from '../src/inventory/loader.ts'
-import { FileSystemError } from '../src/ports/fs.ts'
-import type { ApplyResult, SkillChange, SkillRecord, SkillToggleUiResult } from '../src/types.ts'
+import {
+  type ApplyResult,
+  FileSystemError,
+  runToggleSkillsCommand,
+  type SkillChange,
+  SkillChangeWriter,
+  SkillInventory,
+  type SkillRecord,
+  SkillTogglePlanner,
+  type SkillToggleUiResult,
+} from '../src/extension.ts'
 
 const skill: SkillRecord = {
   id: 'skill',

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { ManagedRuntime } from 'effect'
+
 import {
   createWebToolsHttpTestLayer,
   type WebToolsFetch,
@@ -9,7 +10,7 @@ import {
   WebToolsHttpResponseBodyError,
   WebToolsHttpResponseTooLargeError,
   WebToolsHttpTimeoutError,
-} from '../src/effects/services/http.ts'
+} from '../src/extension.ts'
 
 test('should forward request data and return native response data given an HTTP request', async () => {
   //given

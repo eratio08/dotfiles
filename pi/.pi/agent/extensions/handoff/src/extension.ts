@@ -1,20 +1,160 @@
-import type { Api, Message, Model } from '@earendil-works/pi-ai/compat'
-import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from '@earendil-works/pi-coding-agent'
+import type { Api, AssistantMessage, Message, Model } from '@earendil-works/pi-ai/compat'
+import type {
+  ExtensionAPI,
+  ExtensionCommandContext,
+  ExtensionContext,
+  SessionEntry,
+} from '@earendil-works/pi-coding-agent'
 import { BorderedLoader, convertToLlm, serializeConversation } from '@earendil-works/pi-coding-agent'
-import { Context, Effect, Layer, Schema } from 'effect'
-import {
-  getBranchPointId,
-  getHandoffMessages,
-  getPromptText,
-  type HandoffRestoreResult,
-  type HandoffRunResult,
-} from './core.ts'
-import {
-  getPendingHandoffModel,
-  HANDOFF_MODEL_APPLIED_ENTRY,
-  HANDOFF_MODEL_ENTRY,
-  type HandoffModelState,
-} from './handoff-model.ts'
+import { Context, Effect, Layer, ManagedRuntime, Schema } from 'effect'
+
+type SessionMessage = Extract<SessionEntry, { type: 'message' }>['message']
+
+type CompactionMessage = {
+  role: 'compactionSummary'
+  summary: string
+  tokensBefore: number
+  timestamp: number
+}
+
+type HandoffMessage = SessionMessage | CompactionMessage
+
+type HandoffRunResult =
+  | { readonly status: 'completed'; readonly branchPointId: string }
+  | { readonly status: 'cancelled'; readonly stage: 'generation' | 'navigation' }
+  | { readonly status: 'skipped'; readonly reason: 'no-model' | 'no-conversation' }
+
+type HandoffRestoreResult =
+  | { readonly status: 'none' }
+  | { readonly status: 'restored' }
+  | { readonly status: 'warning'; readonly message: string }
+
+const HANDOFF_MODEL_ENTRY = 'handoff-model'
+const HANDOFF_MODEL_APPLIED_ENTRY = 'handoff-model-applied'
+
+type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+
+type HandoffModelState = { provider: string; modelId: string; thinkingLevel: ThinkingLevel }
+
+const THINKING_LEVELS: readonly ThinkingLevel[] = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
+
+function isThinkingLevel(value: unknown): value is ThinkingLevel {
+  return typeof value === 'string' && THINKING_LEVELS.includes(value as ThinkingLevel)
+}
+
+function parseHandoffModelState(value: unknown): HandoffModelState | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined
+  }
+
+  const provider = (value as { provider?: unknown }).provider
+  const modelId = (value as { modelId?: unknown }).modelId
+  const thinkingLevel = (value as { thinkingLevel?: unknown }).thinkingLevel
+  if (typeof provider !== 'string' || typeof modelId !== 'string' || !isThinkingLevel(thinkingLevel)) {
+    return undefined
+  }
+
+  return { provider, modelId, thinkingLevel }
+}
+
+function getPendingHandoffModel(entries: readonly unknown[]): { id: string; state: HandoffModelState } | undefined {
+  let pending: { id: string; state: HandoffModelState } | undefined
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object' || (entry as { type?: unknown }).type !== 'custom') {
+      continue
+    }
+
+    const customType = (entry as { customType?: unknown }).customType
+    if (customType === HANDOFF_MODEL_ENTRY) {
+      const id = (entry as { id?: unknown }).id
+      const state = parseHandoffModelState((entry as { data?: unknown }).data)
+      pending = typeof id === 'string' && state ? { id, state } : undefined
+      continue
+    }
+    if (customType === HANDOFF_MODEL_APPLIED_ENTRY && pending) {
+      const sourceId = ((entry as { data?: unknown }).data as { sourceId?: unknown } | undefined)?.sourceId
+      if (sourceId === pending.id) {
+        pending = undefined
+      }
+    }
+  }
+  return pending
+}
+
+function runResultMessage(result: HandoffRunResult): { message: string; type: 'info' | 'error' } | undefined {
+  if (result.status === 'cancelled') {
+    return {
+      message: result.stage === 'navigation' ? 'Branch cancelled' : 'Cancelled',
+      type: 'info',
+    }
+  }
+  if (result.status === 'skipped') {
+    const messages = {
+      'no-model': 'No model selected',
+      'no-conversation': 'No conversation to hand off',
+    } as const
+    return { message: messages[result.reason], type: 'error' }
+  }
+  return undefined
+}
+
+function restoreResultMessage(result: HandoffRestoreResult): string | undefined {
+  return result.status === 'warning' ? result.message : undefined
+}
+
+function entryToMessage(entry: SessionEntry): HandoffMessage | undefined {
+  if (entry.type === 'message') {
+    return entry.message
+  }
+  if (entry.type === 'compaction') {
+    return {
+      role: 'compactionSummary',
+      summary: entry.summary,
+      tokensBefore: entry.tokensBefore,
+      timestamp: new Date(entry.timestamp).getTime(),
+    }
+  }
+  return undefined
+}
+
+function getHandoffMessages(branch: readonly SessionEntry[]): HandoffMessage[] {
+  let compactionIndex = -1
+  for (let i = branch.length - 1; i >= 0; i--) {
+    if (branch[i].type === 'compaction') {
+      compactionIndex = i
+      break
+    }
+  }
+  if (compactionIndex < 0) {
+    return branch.map(entryToMessage).filter((message): message is HandoffMessage => message !== undefined)
+  }
+
+  const compaction = branch[compactionIndex]
+  const firstKeptIndex =
+    compaction.type === 'compaction' ? branch.findIndex((entry) => entry.id === compaction.firstKeptEntryId) : -1
+  const compactedBranch = [
+    compaction,
+    ...(firstKeptIndex >= 0 ? branch.slice(firstKeptIndex, compactionIndex) : []),
+    ...branch.slice(compactionIndex + 1),
+  ]
+  return compactedBranch.map(entryToMessage).filter((message): message is HandoffMessage => message !== undefined)
+}
+
+function getBranchPointId(branch: readonly SessionEntry[]): string | undefined {
+  return branch[0]?.id
+}
+
+function getPromptText(response: AssistantMessage): string {
+  if (response.stopReason === 'error') {
+    throw new Error(response.errorMessage ?? 'Handoff generation failed')
+  }
+
+  return response.content
+    .filter((content) => content.type === 'text')
+    .map((content) => content.text)
+    .join('\n')
+    .trim()
+}
 
 const SYSTEM_PROMPT = `You are a context transfer assistant. Given a conversation history, generate a focused handoff prompt for a new thread that:
 
@@ -299,13 +439,101 @@ const HandoffEffectsLayer: Layer.Layer<HandoffEffects, never, never> = Layer.suc
   HandoffEffects.of({ run, restoreModel }),
 )
 
+function notify(ctx: ExtensionContext, message: string, type: 'info' | 'warning' | 'error'): void {
+  if (ctx.hasUI) {
+    ctx.ui.notify(message, type)
+  }
+}
+
+function handoffExtension(pi: ExtensionAPI): void {
+  const runtime = ManagedRuntime.make(Layer.mergeAll(HandoffEffectsLayer, Layer.succeed(HandoffPi, pi)))
+  let shuttingDown = false
+
+  const runCommand = (ctx: ExtensionCommandContext): Promise<HandoffRunResult> =>
+    runtime.runPromise(
+      HandoffEffects.use((effects) => effects.run()).pipe(Effect.provide(Layer.succeed(HandoffCommandContext, ctx))),
+      { signal: ctx.signal },
+    )
+
+  const restoreModel = (ctx: ExtensionContext): Promise<HandoffRestoreResult> =>
+    runtime.runPromise(
+      HandoffEffects.use((effects) => effects.restoreModel()).pipe(Effect.provide(Layer.succeed(HandoffContext, ctx))),
+      { signal: ctx.signal },
+    )
+
+  pi.on('before_agent_start', async (_event, ctx) => {
+    if (shuttingDown) {
+      return
+    }
+
+    try {
+      const result = await restoreModel(ctx)
+      const message = restoreResultMessage(result)
+      if (message) {
+        notify(ctx, message, 'warning')
+      }
+    } catch (error) {
+      notify(ctx, error instanceof Error ? error.message : String(error), 'warning')
+    }
+  })
+
+  pi.registerCommand('handoff', {
+    description: 'Compact the current conversation so a fresh session can continue the work',
+    handler: async (_args: string, ctx: ExtensionCommandContext) => {
+      if (ctx.mode !== 'tui') {
+        notify(ctx, 'handoff requires interactive mode', 'error')
+        return
+      }
+
+      try {
+        const result = await runCommand(ctx)
+        const message = runResultMessage(result)
+        if (message) {
+          notify(ctx, message.message, message.type)
+        }
+      } catch (error) {
+        notify(ctx, error instanceof Error ? error.message : 'Handoff failed', 'error')
+      }
+    },
+  })
+
+  pi.on('session_shutdown', async (_event, ctx) => {
+    if (shuttingDown) {
+      return
+    }
+    shuttingDown = true
+    try {
+      await runtime.runPromise(Effect.void, { signal: ctx.signal })
+    } finally {
+      await runtime.dispose()
+    }
+  })
+}
+
 export {
+  getBranchPointId,
+  getHandoffMessages,
+  getPendingHandoffModel,
+  getPromptText,
+  HANDOFF_MODEL_APPLIED_ENTRY,
+  HANDOFF_MODEL_ENTRY,
   HandoffCommandContext,
   HandoffContext,
   HandoffEffects,
   HandoffEffectsLayer,
   HandoffGenerationError,
+  type HandoffMessage,
+  type HandoffModelState,
   HandoffNavigationError,
   HandoffPi,
   HandoffPiError,
+  type HandoffRestoreResult,
+  type HandoffRunResult,
+  handoffExtension as default,
+  isThinkingLevel,
+  parseHandoffModelState,
+  restoreResultMessage,
+  runResultMessage,
+  type SessionMessage,
+  type ThinkingLevel,
 }

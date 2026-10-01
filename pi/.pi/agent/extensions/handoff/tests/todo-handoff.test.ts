@@ -5,11 +5,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const handoffDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const handoffSourceDir = resolve(handoffDir, 'src')
-const source = readFileSync(resolve(handoffSourceDir, 'effects.ts'), 'utf8')
+const source = readFileSync(resolve(handoffSourceDir, 'extension.ts'), 'utf8')
 
 const specifiers = [...source.matchAll(/import\((['"])([^'"]+)\1\)/g)].map((match) => match[2])
 const todoSpecifier = specifiers.find((specifier) => specifier.includes('todo') && specifier.endsWith('state.ts'))
-assert.ok(todoSpecifier, 'handoff/src/effects.ts must dynamically import the todo state module')
+assert.ok(todoSpecifier, 'handoff/src/extension.ts must dynamically import the todo state module')
 
 const todoState: typeof import('../../todo/src/state.ts') = await import(
   pathToFileURL(resolve(handoffSourceDir, todoSpecifier)).href
@@ -18,7 +18,7 @@ for (const name of ['extractLatestTodoSnapshot', 'getTodoHandoffSnapshot', 'form
   assert.equal(
     typeof todoState[name],
     'function',
-    `todo state module must export ${name}; check the import path in handoff/src/effects.ts`,
+    `todo state module must export ${name}; check the import path in handoff/src/extension.ts`,
   )
 }
 

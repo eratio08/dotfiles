@@ -1,9 +1,13 @@
 import { describe, test } from 'bun:test'
 import { strict as assert } from 'node:assert'
 import { Effect, Layer } from 'effect'
-import { SkillChangeWriter, SkillChangeWriterLive } from '../../src/apply/writer.ts'
-import { MemoryFileSystem } from '../../src/testing/memory-fs.ts'
-import type { SkillChange, SkillRecord } from '../../src/types.ts'
+import {
+  MemoryFileSystem,
+  type SkillChange,
+  SkillChangeWriter,
+  SkillChangeWriterLive,
+  type SkillRecord,
+} from '../../src/extension.ts'
 
 function run<A, E>(fs: MemoryFileSystem, effect: Effect.Effect<A, E, SkillChangeWriter>): Promise<A> {
   const layer = SkillChangeWriterLive.pipe(Layer.provide(fs.layer))

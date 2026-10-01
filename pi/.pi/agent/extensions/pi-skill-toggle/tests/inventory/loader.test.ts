@@ -1,11 +1,14 @@
 import { describe, test } from 'bun:test'
 import { strict as assert } from 'node:assert'
 import { Effect, Layer } from 'effect'
-import { SkillLocator } from '../../src/discovery/skill-locator.ts'
-import { SimpleFrontmatterCodec } from '../../src/frontmatter/parser.ts'
-import { SkillInventory, SkillInventoryLive } from '../../src/inventory/loader.ts'
-import { MemoryFileSystem } from '../../src/testing/memory-fs.ts'
-import type { LocatedSkillFile } from '../../src/types.ts'
+import {
+  type LocatedSkillFile,
+  MemoryFileSystem,
+  SimpleFrontmatterCodec,
+  SkillInventory,
+  SkillInventoryLive,
+  SkillLocator,
+} from '../../src/extension.ts'
 
 function run<A, E>(
   fs: MemoryFileSystem,

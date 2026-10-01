@@ -14,17 +14,15 @@ import {
   GPT_CONTEXT_LOW_WINDOWS,
   GPT5_HIGH_CONTEXT_WINDOW,
   type GptContextMode,
-  isGptContextModel,
-  modelKey,
-  parseGptContextCommand,
-  restoreGptContextMode,
-} from '../src/core.ts'
-import {
   type GptContextModeError,
   GptContextModeLayer,
   GptContextModeService,
   GptContextModeState,
-} from '../src/effects.ts'
+  isGptContextModel,
+  modelKey,
+  parseGptContextCommand,
+  restoreGptContextMode,
+} from '../src/extension.ts'
 
 type Gpt5Model = Model<'openai-responses'>
 type NotificationType = 'info' | 'warning' | 'error'

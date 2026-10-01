@@ -18,7 +18,8 @@ Export the default factory function that receives `ExtensionAPI`.
 Do not hard-code Pi defaults that users can configure.
 Add return types to all non-test code.
 Prefer functions over closures.
-When designing modules you must read the [module design guidelines](references/modules.md).
+
+An extension consists of two files: `index.ts` containing integration layer; `src/extension.ts` containing the rest.
 
 ## Custom tools
 

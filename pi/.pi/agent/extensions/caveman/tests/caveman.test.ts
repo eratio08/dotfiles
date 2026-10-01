@@ -6,7 +6,7 @@ import {
   parseCavemanCommand,
   parseModeChange,
   resolveSessionMode,
-} from '../src/core.ts'
+} from '../src/extension.ts'
 
 test('should parse command modes given command input', () => {
   assert.deepEqual(parseCavemanCommand(''), { type: 'set-mode', mode: DEFAULT_MODE })

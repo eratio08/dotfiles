@@ -1,7 +1,7 @@
 import { test } from 'bun:test'
 import { strict as assert } from 'node:assert'
 import { KeybindingsManager, TUI_KEYBINDINGS } from '@earendil-works/pi-tui'
-import { SkillToggleOverlay } from '../src/ui/overlay.ts'
+import { SkillToggleOverlay } from '../src/extension.ts'
 
 test("should cancel through Pi's remapped binding given a custom key", () => {
   //given

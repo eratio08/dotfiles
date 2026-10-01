@@ -15,8 +15,16 @@ import {
 import { Text } from '@earendil-works/pi-tui'
 import { type Effect, Layer, ManagedRuntime, Schema } from 'effect'
 import { type Static, Type } from 'typebox'
-import { type CommentData, type TuicrToolInput, TuicrToolInputSchema } from './src/core.ts'
-import { Tuicr, TuicrConfig, TuicrLayer, type TuicrOpenResult, TuicrPi } from './src/effects.ts'
+import {
+  type CommentData,
+  Tuicr,
+  TuicrConfig,
+  TuicrLayer,
+  type TuicrOpenResult,
+  TuicrPi,
+  type TuicrToolInput,
+  TuicrToolInputSchema,
+} from './src/extension.ts'
 
 const Parameters = Type.Object({
   scope: Type.Union([

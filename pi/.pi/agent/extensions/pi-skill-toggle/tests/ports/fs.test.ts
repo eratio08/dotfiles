@@ -4,7 +4,7 @@ import { chmod, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Cause, Effect, Exit } from 'effect'
-import { FileSystem, FileSystemError, FileSystemLive } from '../../src/ports/fs.ts'
+import { FileSystem, FileSystemError, FileSystemLive } from '../../src/extension.ts'
 
 function runLive<A, E>(effect: Effect.Effect<A, E, FileSystem>): Promise<A> {
   return Effect.runPromise(effect.pipe(Effect.provide(FileSystemLive)))

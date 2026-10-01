@@ -4,39 +4,37 @@ import { Container, Markdown, Spacer, Text } from '@earendil-works/pi-tui'
 import { type EffectToolDefinition, PiExtension, type PiRegistrationContext, PiToolContext } from '@eratio08/pi-effect'
 import { Effect, Layer, Predicate } from 'effect'
 import { type Static, Type } from 'typebox'
+
 import {
   assertSafePublicHttpUrl,
   DEFAULT_TIMEOUT_SECONDS,
   FORMAT_VALUES,
-  MAX_TIMEOUT_SECONDS,
-  WEBFETCH_NAME,
-  type WebFetchDetails,
-} from './src/core/webfetch.ts'
-import {
   hasWebSearchCredentials,
   LIVECRAWL_VALUES,
   MAX_CONTEXT_CHARACTERS,
   MAX_NUM_RESULTS,
+  MAX_TIMEOUT_SECONDS,
+  runWebFetch,
+  runWebSearch,
   SEARCH_TYPE_VALUES,
   truncateInline,
+  WEBFETCH_NAME,
   WEBSEARCH_NAME,
-  type WebSearchDetails,
-} from './src/core/websearch.ts'
-import { type WebToolsHttp, WebToolsHttpLive } from './src/effects/services/http.ts'
-import { type WebToolsTemporaryOutput, WebToolsTemporaryOutputLive } from './src/effects/services/temporary-output.ts'
-import { type WebSearchConfig, WebSearchConfigLive } from './src/effects/services/websearch-config.ts'
-import {
-  runWebFetch,
+  type WebFetchDetails,
   type WebFetchEffectRunner,
   type WebFetchError,
   type WebFetchResult,
-} from './src/effects/webfetch.ts'
-import {
-  runWebSearch,
+  type WebSearchConfig,
+  WebSearchConfigLive,
+  type WebSearchDetails,
   type WebSearchEffectRunner,
   type WebSearchError,
   type WebSearchResult,
-} from './src/effects/websearch.ts'
+  type WebToolsHttp,
+  WebToolsHttpLive,
+  type WebToolsTemporaryOutput,
+  WebToolsTemporaryOutputLive,
+} from './src/extension.ts'
 
 const webFetchParameters = Type.Object({
   url: Type.String({ description: 'The HTTP or HTTPS URL to fetch content from' }),

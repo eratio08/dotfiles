@@ -9,15 +9,13 @@ import { Effect, Layer } from 'effect'
 import {
   GPT5_HIGH_CONTEXT_WINDOW,
   type GptContextMode,
-  parseGptContextCommand,
-  restoreGptContextMode,
-} from './src/core.ts'
-import {
   type GptContextModeError,
   GptContextModeLayer,
   GptContextModeService,
   GptContextModeState,
-} from './src/effects.ts'
+  parseGptContextCommand,
+  restoreGptContextMode,
+} from './src/extension.ts'
 
 type GptContextModeServices = GptContextModeService | GptContextModeState
 type GptContextModeEventEffect = Effect.Effect<undefined, GptContextModeError, GptContextModeServices | PiServices>

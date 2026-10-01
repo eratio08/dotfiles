@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, test } from 'bun:test'
 import { strict as assert } from 'node:assert'
 import { Effect, Layer } from 'effect'
-import { SkillLocator, SkillLocatorLive } from '../../src/discovery/skill-locator.ts'
-import { MemoryFileSystem } from '../../src/testing/memory-fs.ts'
+import { MemoryFileSystem, SkillLocator, SkillLocatorLive } from '../../src/extension.ts'
 
 const originalHome: string | undefined = process.env.HOME
 const originalAgentDir: string | undefined = process.env.PI_CODING_AGENT_DIR

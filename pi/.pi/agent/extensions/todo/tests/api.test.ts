@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createTodoApi } from '../src/api.ts'
-import type { Todo } from '../src/model.ts'
-import { cloneTodos } from '../src/state-engine.ts'
-import type { TodoTransactionDraft } from '../src/store.ts'
+import type { Todo, TodoTransactionDraft } from '../src/extension.ts'
+import { cloneTodos, createTodoApi } from '../src/extension.ts'
 
 type TodoMutation = Parameters<NonNullable<Parameters<typeof createTodoApi>[0]['onMutation']>>[0]
 

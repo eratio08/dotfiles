@@ -8,9 +8,17 @@ import { type ExtensionAPI, initTheme } from '@earendil-works/pi-coding-agent'
 import { Cause, Effect, Exit, Layer, ManagedRuntime } from 'effect'
 
 import readPdfExtension from '../index.ts'
-import { type PdfReaderDetails, pagesToMarkdown, readPdf } from '../src/effects.ts'
-import { FileSystem, FileSystemError, FileSystemLive } from '../src/services/fs.ts'
-import { PdfExtractionError, PdfExtractor, PdfExtractorLive } from '../src/services/pdf.ts'
+import {
+  FileSystem,
+  FileSystemError,
+  FileSystemLive,
+  PdfExtractionError,
+  PdfExtractor,
+  PdfExtractorLive,
+  type PdfReaderDetails,
+  pagesToMarkdown,
+  readPdf,
+} from '../src/extension.ts'
 
 function pdfWithText(text: string): Buffer {
   const stream = `BT\n/F1 12 Tf\n72 720 Td\n(${text}) Tj\nET\n`

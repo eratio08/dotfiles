@@ -1,76 +1,66 @@
+import { test } from 'bun:test'
 import assert from 'node:assert/strict'
-import test from 'node:test'
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
+import { createFakeExtensionApi, createFakeExtensionContext } from '@eratio/pi-effect/testing'
 import rtk from '../index.ts'
-
-type Handler = (...args: unknown[]) => unknown
 
 type FakePiOptions = {
   versionCode?: number
+  versionFailure?: boolean
   rewriteCode?: number
   rewriteStdout?: string
   rewriteFailure?: boolean
 }
 
-function createPi(options: FakePiOptions = {}): {
+type FakePi = ReturnType<typeof createFakeExtensionApi> & {
   calls: string[][]
   signals: (AbortSignal | undefined)[]
-  handlers: Map<string, Handler>
-  pi: ExtensionAPI
-} {
+}
+
+function createPi(options: FakePiOptions = {}): FakePi {
+  const fake = createFakeExtensionApi()
   const calls: string[][] = []
   const signals: (AbortSignal | undefined)[] = []
-  const handlers = new Map<string, Handler>()
-  const pi = {
-    exec: async (
-      _command: string,
-      args: string[],
-      execOptions?: { signal?: AbortSignal },
-    ): Promise<{ code: number; killed: boolean; stderr: string; stdout: string }> => {
-      calls.push(args)
-      signals.push(execOptions?.signal)
-      if (args[0] === '--version') {
-        return { code: options.versionCode ?? 0, killed: false, stderr: '', stdout: 'rtk 0.48.0\n' }
+
+  fake.api.exec = async (
+    _command: Parameters<ExtensionAPI['exec']>[0],
+    args: Parameters<ExtensionAPI['exec']>[1],
+    execOptions?: Parameters<ExtensionAPI['exec']>[2],
+  ): ReturnType<ExtensionAPI['exec']> => {
+    calls.push(args)
+    signals.push(execOptions?.signal)
+    if (args[0] === '--version') {
+      if (options.versionFailure) {
+        throw new Error('version check failed')
       }
-      if (options.rewriteFailure) {
-        throw new Error('rewrite failed')
-      }
-      return {
-        code: options.rewriteCode ?? 0,
-        killed: false,
-        stderr: '',
-        stdout: options.rewriteStdout ?? `rtk ${args[1]}\n`,
-      }
-    },
-    on: (event: string, handler: Handler): void => {
-      handlers.set(event, handler)
-    },
+      return { code: options.versionCode ?? 0, killed: false, stderr: '', stdout: 'rtk 0.48.0\n' }
+    }
+    if (options.rewriteFailure) {
+      throw new Error('rewrite failed')
+    }
+    return {
+      code: options.rewriteCode ?? 0,
+      killed: false,
+      stderr: '',
+      stdout: options.rewriteStdout ?? `rtk ${args[1]}\n`,
+    }
   }
 
-  return { calls, signals, handlers, pi: pi as unknown as ExtensionAPI }
+  return { ...fake, calls, signals }
 }
 
-async function startPi(options: FakePiOptions = {}): Promise<{
-  calls: string[][]
-  signals: (AbortSignal | undefined)[]
-  handlers: Map<string, Handler>
-  pi: ExtensionAPI
-}> {
-  const testPi = createPi(options)
-  await rtk(testPi.pi)
-  return testPi
+async function startPi(options: FakePiOptions = {}): Promise<FakePi> {
+  const fake = createPi(options)
+  await rtk(fake.api)
+  return fake
 }
 
-async function invoke(handlers: Map<string, Handler>, event: string, ...args: unknown[]): Promise<void> {
-  const handler = handlers.get(event)
-  if (!handler) {
-    throw new Error(`Missing ${event} handler`)
-  }
-  await handler(...args)
+async function shutdown(fake: FakePi): Promise<void> {
+  await fake.invokeEvent('session_shutdown', { type: 'session_shutdown', reason: 'quit' })
 }
 
-async function captureWarnings(action: () => Promise<unknown>): Promise<unknown[][]> {
+async function captureWarnings(action: () => Promise<void> | void): Promise<unknown[][]> {
   const warnings: unknown[][] = []
   const originalWarn = console.warn
   console.warn = (...args: Parameters<typeof console.warn>): void => {
@@ -88,101 +78,140 @@ async function captureWarnings(action: () => Promise<unknown>): Promise<unknown[
 
 test('should validate RTK given extension startup', async () => {
   // given
-  const { calls, handlers, pi } = createPi()
+  const fake = createPi()
 
   // when
-  await rtk(pi)
+  await rtk(fake.api)
 
   // then
-  assert.deepEqual(calls, [['--version']])
-  assert.equal(handlers.has('tool_call'), true)
-  assert.equal(handlers.has('session_shutdown'), true)
+  assert.deepEqual(fake.calls, [['--version']])
+  assert.equal(fake.events.has('tool_call'), true)
+  assert.equal(fake.events.has('session_shutdown'), true)
+  await shutdown(fake)
 })
 
 test('should ignore non-Bash tool calls given another tool type', async () => {
   // given
-  const { calls, handlers } = await startPi()
+  const fake = await startPi()
 
   // when
-  await invoke(handlers, 'tool_call', { toolName: 'read', input: {} }, { signal: new AbortController().signal })
+  await fake.invokeEvent('tool_call', { type: 'tool_call', toolName: 'read', input: {} })
 
   // then
-  assert.deepEqual(calls, [['--version']])
+  assert.deepEqual(fake.calls, [['--version']])
+  await shutdown(fake)
+})
+
+test('should ignore empty commands given an empty Bash command', async () => {
+  // given
+  const fake = await startPi()
+  const event = { type: 'tool_call', toolName: 'bash', input: { command: '' } }
+
+  // when
+  await fake.invokeEvent('tool_call', event)
+
+  // then
+  assert.equal(event.input.command, '')
+  assert.deepEqual(fake.calls, [['--version']])
+  await shutdown(fake)
 })
 
 test('should rewrite Bash commands given the RTK dependency', async () => {
   // given
-  const { calls, signals, handlers } = await startPi({ rewriteCode: 3 })
-  const event = { toolName: 'bash', input: { command: 'ls -la' } }
-  const signal = new AbortController().signal
+  const fake = await startPi({ rewriteCode: 3 })
+  const event = { type: 'tool_call', toolName: 'bash', input: { command: 'ls -la' } }
+  const controller = new AbortController()
+  const context = { ...createFakeExtensionContext(), signal: controller.signal }
 
   // when
-  await invoke(handlers, 'tool_call', event, { signal })
+  await fake.invokeEvent('tool_call', event, context)
 
   // then
   assert.equal(event.input.command, 'rtk ls -la')
-  assert.deepEqual(calls, [['--version'], ['rewrite', 'ls -la']])
-  assert.equal(signal.aborted, false)
-  assert.ok(signals[1])
+  assert.deepEqual(fake.calls, [['--version'], ['rewrite', 'ls -la']])
+  assert.ok(fake.signals[1])
+  assert.equal(fake.signals[1]?.aborted, false)
+  controller.abort()
+  assert.equal(fake.signals[1]?.aborted, true)
+  await shutdown(fake)
 })
 
 test('should ignore rewrite output given empty output', async () => {
   // given
-  const { handlers } = await startPi({ rewriteStdout: '' })
-  const event = { toolName: 'bash', input: { command: 'ls -la' } }
+  const fake = await startPi({ rewriteStdout: '' })
+  const event = { type: 'tool_call', toolName: 'bash', input: { command: 'ls -la' } }
 
   // when
-  await invoke(handlers, 'tool_call', event, { signal: new AbortController().signal })
+  await fake.invokeEvent('tool_call', event)
 
   // then
   assert.equal(event.input.command, 'ls -la')
+  await shutdown(fake)
 })
 
 test('should ignore rewrite output given an unchanged command', async () => {
   // given
-  const { handlers } = await startPi({ rewriteStdout: 'ls -la\n' })
-  const event = { toolName: 'bash', input: { command: 'ls -la' } }
+  const fake = await startPi({ rewriteStdout: 'ls -la\n' })
+  const event = { type: 'tool_call', toolName: 'bash', input: { command: 'ls -la' } }
 
   // when
-  await invoke(handlers, 'tool_call', event, { signal: new AbortController().signal })
+  await fake.invokeEvent('tool_call', event)
 
   // then
   assert.equal(event.input.command, 'ls -la')
+  await shutdown(fake)
 })
 
 test('should ignore rewrite failures given a failed rewrite', async () => {
   // given
-  const { handlers } = await startPi({ rewriteFailure: true })
-  const event = { toolName: 'bash', input: { command: 'ls -la' } }
+  const fake = await startPi({ rewriteFailure: true })
+  const event = { type: 'tool_call', toolName: 'bash', input: { command: 'ls -la' } }
 
   // when
-  await invoke(handlers, 'tool_call', event, { signal: new AbortController().signal })
+  await fake.invokeEvent('tool_call', event)
 
   // then
   assert.equal(event.input.command, 'ls -la')
+  await shutdown(fake)
 })
 
 test('should dispose the extension given session shutdown', async () => {
   // given
-  const { calls, handlers } = await startPi()
+  const fake = await startPi()
 
   // when
-  await invoke(handlers, 'session_shutdown')
+  await shutdown(fake)
 
   // then
-  assert.deepEqual(calls, [['--version']])
+  assert.deepEqual(fake.calls, [['--version']])
 })
 
 test('should disable RTK given an unavailable RTK binary', async () => {
   // given
-  const { calls, handlers, pi } = createPi({ versionCode: 1 })
+  const fake = createPi({ versionCode: 1 })
 
   // when
-  const warnings = await captureWarnings(() => rtk(pi))
+  const warnings = await captureWarnings(() => rtk(fake.api))
 
   // then
-  assert.deepEqual(calls, [['--version']])
-  assert.equal(handlers.has('tool_call'), false)
+  assert.deepEqual(fake.calls, [['--version']])
+  assert.equal(fake.events.has('tool_call'), false)
   assert.equal(warnings.length, 1)
   assert.equal(warnings[0]?.[0], '[rtk] rtk binary not found in PATH — extension disabled')
+  await shutdown(fake)
+})
+
+test('should disable RTK given a rejected version check', async () => {
+  // given
+  const fake = createPi({ versionFailure: true })
+
+  // when
+  const warnings = await captureWarnings(() => rtk(fake.api))
+
+  // then
+  assert.deepEqual(fake.calls, [['--version']])
+  assert.equal(fake.events.has('tool_call'), false)
+  assert.equal(warnings.length, 1)
+  assert.equal(warnings[0]?.[0], '[rtk] rtk binary not found in PATH — extension disabled')
+  await shutdown(fake)
 })

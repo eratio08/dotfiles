@@ -375,21 +375,19 @@ function createOpensrcNativePlugin(config: OpensrcConfig): PiPlugin<OpensrcServi
   })
 }
 
-function runOpensrcApi<Value extends JsonValue>(
+const runOpensrcApi = Effect.fnUntraced(function* <Value extends JsonValue>(
   operation: (api: OpensrcApiService) => Effect.Effect<Value, OpensrcFailure>,
-): Effect.Effect<PiToolResult<Value>, OpensrcFailure, OpensrcServices | PiToolContextTag> {
-  return Effect.gen(function* () {
-    const context = yield* PiToolContext
-    return yield* Effect.scoped(
-      Effect.gen(function* () {
-        const api = yield* createOpensrcApi(context.toolSignal ?? context.signal).pipe(
-          Effect.provideService(OpensrcContext, { cwd: context.cwd }),
-        )
-        return createOpensrcToolResult(yield* operation(api))
-      }),
-    )
-  })
-}
+): Effect.fn.Return<PiToolResult<Value>, OpensrcFailure, OpensrcServices | PiToolContextTag> {
+  const context = yield* PiToolContext
+  return yield* Effect.scoped(
+    Effect.gen(function* () {
+      const api = yield* createOpensrcApi(context.toolSignal ?? context.signal).pipe(
+        Effect.provideService(OpensrcContext, { cwd: context.cwd }),
+      )
+      return createOpensrcToolResult(yield* operation(api))
+    }),
+  )
+})
 
 function createOpensrcToolResult<Value extends JsonValue>(value: Value): PiToolResult<Value> {
   return {

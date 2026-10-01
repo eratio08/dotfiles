@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import type { Todo, TodoStatus } from '../src/model.ts'
-import { getActiveTodo, getNextTodo, reevaluateTodoStates, validateTodoGraph } from '../src/state-engine.ts'
+import type { Todo, TodoStatus } from '../src/extension.ts'
+import { getActiveTodo, getNextTodo, reevaluateTodoStates, validateTodoGraph } from '../src/extension.ts'
 
 const firstId = '018f0000-0000-7000-8000-000000000001'
 const secondId = '018f0000-0001-7000-8000-000000000002'

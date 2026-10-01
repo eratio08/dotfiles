@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import type { execFile } from 'node:child_process'
 import test from 'node:test'
-import { openReportUrl, startMeteringReportServer } from '../src/report-server.ts'
+import { openReportUrl, startMeteringReportServer } from '../src/extension.ts'
 
 test('should serve report HTML over a private loopback URL given generated HTML', async () => {
   //given

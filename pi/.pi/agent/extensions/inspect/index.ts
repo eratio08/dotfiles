@@ -1,10 +1,16 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent'
-import { analyzeSession, buildCurrentSystemMessage } from './src/analysis.ts'
-import { renderContextMeteringReport } from './src/context-metering-report.ts'
-import { type MeteringReportServer, openReportUrl, startMeteringReportServer } from './src/report-server.ts'
-import { parseSavedSession, selectCurrentSession } from './src/session.ts'
+import {
+  analyzeSession,
+  buildCurrentSystemMessage,
+  type MeteringReportServer,
+  openReportUrl,
+  parseSavedSession,
+  renderContextMeteringReport,
+  selectCurrentSession,
+  startMeteringReportServer,
+} from './src/extension.ts'
 
 type InspectArguments = { sessionFile?: string; leafId?: string }
 

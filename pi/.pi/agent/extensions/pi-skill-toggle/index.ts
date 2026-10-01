@@ -1,15 +1,20 @@
 import { PiExtension, type PiExtensionError, type PiRegistrationContext } from '@eratio08/pi-effect'
 import { Effect, Layer } from 'effect'
-import { type SkillTogglePlanner, SkillTogglePlannerLive } from './src/apply/planner.ts'
-import { type SkillChangeWriter, SkillChangeWriterLive } from './src/apply/writer.ts'
-import { runToggleSkillsCommand } from './src/command.ts'
-import type { SkillLocator } from './src/discovery/skill-locator.ts'
-import { SkillLocatorLive } from './src/discovery/skill-locator.ts'
-import { SimpleFrontmatterCodec } from './src/frontmatter/parser.ts'
-import { MinimalFrontmatterPatcher } from './src/frontmatter/patcher.ts'
-import { type SkillInventory, SkillInventoryLive } from './src/inventory/loader.ts'
-import type { FileSystem } from './src/ports/fs.ts'
-import { FileSystemLive } from './src/ports/fs.ts'
+import {
+  type FileSystem,
+  FileSystemLive,
+  MinimalFrontmatterPatcher,
+  runToggleSkillsCommand,
+  SimpleFrontmatterCodec,
+  type SkillChangeWriter,
+  SkillChangeWriterLive,
+  type SkillInventory,
+  SkillInventoryLive,
+  type SkillLocator,
+  SkillLocatorLive,
+  type SkillTogglePlanner,
+  SkillTogglePlannerLive,
+} from './src/extension.ts'
 
 const codec = new SimpleFrontmatterCodec()
 const locatorLayer: Layer.Layer<SkillLocator, never, FileSystem> = SkillLocatorLive

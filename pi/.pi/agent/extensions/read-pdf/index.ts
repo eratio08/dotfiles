@@ -14,9 +14,7 @@ import {
 import { Text } from '@earendil-works/pi-tui'
 import { Layer, ManagedRuntime } from 'effect'
 import { type Static, Type } from 'typebox'
-import { type PdfReaderDetails, pagesToMarkdown, readPdf } from './src/effects.ts'
-import { FileSystemLive } from './src/services/fs.ts'
-import { PdfExtractorLive } from './src/services/pdf.ts'
+import { FileSystemLive, PdfExtractorLive, type PdfReaderDetails, pagesToMarkdown, readPdf } from './src/extension.ts'
 
 const parameters = Type.Object({
   path: Type.String({ description: 'Path to a PDF file, relative to the current working directory' }),

@@ -1,11 +1,14 @@
 import { describe, test } from 'bun:test'
 import { strict as assert } from 'node:assert'
 import { Effect, Layer } from 'effect'
-import { SkillTogglePlanner, SkillTogglePlannerLive } from '../../src/apply/planner.ts'
-import { SimpleFrontmatterCodec } from '../../src/frontmatter/parser.ts'
-import { MinimalFrontmatterPatcher } from '../../src/frontmatter/patcher.ts'
-import { MemoryFileSystem } from '../../src/testing/memory-fs.ts'
-import type { SkillRecord } from '../../src/types.ts'
+import {
+  MemoryFileSystem,
+  MinimalFrontmatterPatcher,
+  SimpleFrontmatterCodec,
+  type SkillRecord,
+  SkillTogglePlanner,
+  SkillTogglePlannerLive,
+} from '../../src/extension.ts'
 
 const codec = new SimpleFrontmatterCodec()
 const patcher = new MinimalFrontmatterPatcher()

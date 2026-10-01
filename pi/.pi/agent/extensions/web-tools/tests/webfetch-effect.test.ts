@@ -1,21 +1,23 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Effect, Layer } from 'effect'
-import { acceptHeaderForFormat, MAX_RESPONSE_BYTES } from '../src/core/webfetch.ts'
-import { createWebToolsHttpTestLayer, type WebToolsFetch, type WebToolsHttp } from '../src/effects/services/http.ts'
+
 import {
+  acceptHeaderForFormat,
+  createWebToolsHttpTestLayer,
   createWebToolsTemporaryOutputTestLayer,
-  type TemporaryOutputWrite,
-  WebToolsFilesystemError,
-  WebToolsTemporaryOutput,
-} from '../src/effects/services/temporary-output.ts'
-import {
+  MAX_RESPONSE_BYTES,
   runWebFetch,
+  type TemporaryOutputWrite,
   WebFetchResponseTooLargeError,
   WebFetchStatusError,
   WebFetchUnsupportedContentError,
   WebFetchValidationError,
-} from '../src/effects/webfetch.ts'
+  type WebToolsFetch,
+  WebToolsFilesystemError,
+  type WebToolsHttp,
+  WebToolsTemporaryOutput,
+} from '../src/extension.ts'
 
 function webFetchLayer(
   fetchImplementation: WebToolsFetch,

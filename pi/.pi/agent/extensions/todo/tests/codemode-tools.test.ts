@@ -3,11 +3,8 @@ import test from 'node:test'
 import { PiToolError } from '@eratio/pi-effect'
 import { createFakeExtensionContext, installFakePlugin } from '@eratio/pi-effect/testing'
 import todoExtension from '../index.ts'
-import type { TodoCompleteResult } from '../src/api.ts'
-import { TodoUiError } from '../src/effects.ts'
-import type { Todo } from '../src/model.ts'
-import { TODO_ID_PATTERN } from '../src/model.ts'
-import { TODO_STATE_ENTRY } from '../src/state.ts'
+import type { Todo, TodoCompleteResult } from '../src/extension.ts'
+import { TODO_ID_PATTERN, TODO_STATE_ENTRY, TodoUiError } from '../src/extension.ts'
 
 test('should register native Todo tools in the todo codemode namespace given an installed extension', async () => {
   //given
