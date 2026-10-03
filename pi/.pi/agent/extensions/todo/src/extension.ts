@@ -808,7 +808,16 @@ const completeTodoEffect = Effect.fnUntraced(function* ({
   if (Result.isFailure(currentResult)) return yield* todoResultEffect(currentResult)
   const current = currentResult.success
   const active = current.find((todo) => todo.status === 'in_progress')
-  if (!active) return yield* todoResultEffect(Result.fail(todoUpdateError('No active todo is available to complete.')))
+  if (!active) {
+    const pending = getTodoCounts(current).pending
+    const pendingMessage =
+      pending > 0
+        ? ` There are still ${pending} pending task${pending === 1 ? '' : 's'}. Call todo_next to continue.`
+        : ''
+    return yield* todoResultEffect(
+      Result.fail(todoUpdateError(`No active todo is available to complete.${pendingMessage}`)),
+    )
+  }
   const nextResult = commitDraft(
     draft,
     current.map((todo) => (todo.id === active.id ? { ...todo, status: 'completed' as const } : todo)),

@@ -223,6 +223,15 @@ test('should start and complete ready todos through native tools given pending w
   const secondAdded = (await fake.invokeTool('todo_add', 'add-second-call', { content: 'second ready task' })) as {
     structuredContent: Todo
   }
+  await assert.rejects(fake.invokeTool('todo_complete', 'complete-before-start-call', {}), (error: unknown) => {
+    const failure = error instanceof PiToolError ? error.cause : error
+    assert.ok(failure instanceof TodoUiError)
+    assert.equal(failure.operation, 'complete')
+    assert.match(failure.message, /There are still 2 pending tasks\. Call todo_next to continue\./)
+    return true
+  })
+  assert.equal(persistedEntries.length, 2)
+
   const startedResult = (await fake.invokeTool('todo_next', 'start-call', {})) as {
     details: { id: string }
     structuredContent: Todo
