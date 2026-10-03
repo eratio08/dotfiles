@@ -20,6 +20,6 @@
   },
   "dependencies": {
     "@eratio08/pi-effect": "file:../lib/pi-effect",
-    "effect": "4.0.0-rc.112"
+    "effect": "4.0.0"
   }
 }

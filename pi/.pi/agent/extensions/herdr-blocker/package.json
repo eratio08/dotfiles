@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@eratio/pi-effect": "file:../lib/pi-effect",
-    "effect": "4.0.0-rc.112"
+    "effect": "4.0.0"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"

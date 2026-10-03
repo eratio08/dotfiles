@@ -611,7 +611,11 @@ test('should restore the live plan in a fresh runtime given navigation to an old
   assert.equal(value.sentMessages[0]?.options?.triggerTurn, false)
   assert.match(message.content, /Current task: none/)
   assert.match(message.content, /Tasks: 0 remaining, 0 blocked, 2 complete, 0 omitted\./)
-  assert.equal(value.widgets.get('todo'), undefined)
+  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
+  assert.ok(widgetFactory)
+  const widgetLines = widgetFactory(undefined, value.theme).render(120)
+  assert.match(widgetLines[0] ?? '', /^ {2}\[✓\] finished child task/)
+  assert.match(widgetLines[1] ?? '', /^ {4}↳ \[✓\] finished child follow-up/)
 
   const freshRuntime = harness([ancestorEntry, ...value.appendedEntries], true)
   await restoreTodos(freshRuntime)
@@ -1224,6 +1228,68 @@ test('should indent expanded todo details by dependency depth given nested tasks
     lines.find((line) => line.includes('second details')),
     '      second details',
   )
+})
+
+test('should show blocked tasks under pending dependencies given completed prerequisites', async () => {
+  const serveId = '018f0000-0000-7000-8000-000000000001'
+  const transcodeId = '018f0000-0001-7000-8000-000000000002'
+  const verifyId = '018f0000-0002-7000-8000-000000000003'
+  const ffmpegId = '018f0000-0003-7000-8000-000000000004'
+  const value = harness(
+    [
+      {
+        type: 'custom',
+        customType: TODO_STATE_ENTRY,
+        data: {
+          todos: [
+            {
+              id: serveId,
+              content: 'Demo: Serve a sample WAV endpoint',
+              status: 'completed',
+              dependsOn: [],
+            },
+            {
+              id: transcodeId,
+              content: 'Demo: Transcode the sample browser recording',
+              status: 'completed',
+              dependsOn: [serveId],
+            },
+            {
+              id: verifyId,
+              content: 'Demo: Verify the desktop setup',
+              status: 'blocked',
+              dependsOn: [transcodeId, ffmpegId],
+            },
+            {
+              id: ffmpegId,
+              content: 'Demo: Provide a real FFmpeg executable',
+              status: 'pending',
+              dependsOn: [],
+            },
+          ],
+        },
+      },
+    ],
+    true,
+  )
+  await restoreTodos(value)
+  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
+  assert.ok(widgetFactory)
+
+  const lines = widgetFactory(undefined, value.theme).render(120)
+  const serveIndex = lines.findIndex((line) => line.includes('Demo: Serve a sample WAV endpoint'))
+  const transcodeIndex = lines.findIndex((line) => line.includes('Demo: Transcode the sample browser recording'))
+  const ffmpegIndex = lines.findIndex((line) => line.includes('Demo: Provide a real FFmpeg executable'))
+  const verifyIndex = lines.findIndex((line) => line.includes('Demo: Verify the desktop setup'))
+
+  assert.equal(serveIndex, 0)
+  assert.match(lines[serveIndex] ?? '', /^ {2}\[✓\] Demo: Serve a sample WAV endpoint/)
+  assert.equal(transcodeIndex, serveIndex + 1)
+  assert.match(lines[transcodeIndex] ?? '', /^ {4}↳ \[✓\] Demo: Transcode the sample browser recording/)
+  assert.equal(ffmpegIndex, transcodeIndex + 1)
+  assert.equal(verifyIndex, ffmpegIndex + 1)
+  assert.match(lines[verifyIndex] ?? '', /^ {4}↳ \[!\] Demo: Verify the desktop setup/)
+  assert.doesNotMatch(lines.join('\n'), /Blocked by:/)
 })
 
 test('should render todo details given tool output expanded after widget creation', async () => {

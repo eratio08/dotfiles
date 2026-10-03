@@ -43,7 +43,7 @@
     "@eratio/pi-codemode-core": "file:../pi-codemode-core",
     "@types/bun": "^1.4.2",
     "@types/node": "^24.10.1",
-    "effect": "4.0.0-rc.112",
+    "effect": "4.0.0",
     "rolldown": "^1.2.10",
     "rolldown-plugin-dts": "^0.28.6",
     "typebox": "1.3.7",

@@ -14,7 +14,6 @@ import { Effect, Layer, Ref, Result, Schema, Semaphore } from 'effect'
 import { Type } from 'typebox'
 import {
   getTodoCounts,
-  isOpenTodo,
   TODO_ID_PATTERN,
   TODO_STATUSES,
   type Todo,
@@ -368,9 +367,8 @@ class TodoViewer {
     if (this.todos.length === 0) {
       lines.push(truncateToWidth(`  ${this.theme.fg('dim', 'No todos')}`, width))
     } else {
-      const depths = getTodoDepths(this.todos)
-      for (const todo of this.todos) {
-        lines.push(truncateToWidth(`  ${renderTodoLine(todo, this.theme, depths.get(todo.id) ?? 0)}`, width))
+      for (const { todo, depth } of getTodoDisplayTree(this.todos)) {
+        lines.push(truncateToWidth(`  ${renderTodoLine(todo, this.theme, depth)}`, width))
       }
     }
 
@@ -423,28 +421,41 @@ function renderContent(todo: Todo, theme: TodoTheme): string {
   return theme.fg('muted', todo.content)
 }
 
-function getTodoDepths(todos: readonly Todo[]): ReadonlyMap<string, number> {
+function getTodoDisplayTree(todos: readonly Todo[]): Array<{ todo: Todo; depth: number }> {
   const byId = new Map(todos.map((todo) => [todo.id, todo]))
-  const depths = new Map<string, number>()
-  const visiting = new Set<string>()
+  const children = new Map<string, Todo[]>()
+  const roots: Todo[] = []
 
-  const getDepth = (todo: Todo): number => {
-    const cached = depths.get(todo.id)
-    if (cached !== undefined) return cached
-    if (visiting.has(todo.id)) return 0
+  for (const todo of todos) {
+    const blockers =
+      todo.status === 'blocked'
+        ? todo.dependsOn.filter((dependencyId) => byId.get(dependencyId)?.status !== 'completed')
+        : []
+    const parentId = blockers.at(-1) ?? todo.dependsOn.at(-1)
+    const parent = parentId ? byId.get(parentId) : undefined
+    if (!parent) {
+      roots.push(todo)
+      continue
+    }
 
-    visiting.add(todo.id)
-    const depth = todo.dependsOn.reduce((maximum, dependencyId) => {
-      const dependency = byId.get(dependencyId)
-      return dependency ? Math.max(maximum, getDepth(dependency) + 1) : maximum
-    }, 0)
-    visiting.delete(todo.id)
-    depths.set(todo.id, depth)
-    return depth
+    const siblings = children.get(parent.id) ?? []
+    siblings.push(todo)
+    children.set(parent.id, siblings)
   }
 
-  for (const todo of todos) getDepth(todo)
-  return depths
+  const rows: Array<{ todo: Todo; depth: number }> = []
+  const visited = new Set<string>()
+  const visit = (todo: Todo, depth: number): void => {
+    if (visited.has(todo.id)) return
+
+    visited.add(todo.id)
+    rows.push({ todo, depth })
+    for (const child of children.get(todo.id) ?? []) visit(child, depth + 1)
+  }
+
+  for (const root of roots) visit(root, 0)
+  for (const todo of todos) visit(todo, 0)
+  return rows
 }
 
 function renderTodoLine(todo: Todo, theme: TodoTheme, depth = 0): string {
@@ -464,24 +475,19 @@ const updateUi = Effect.fnUntraced(function* (
     return
   }
 
-  const unfinished = todos.filter(isOpenTodo)
-  if (unfinished.length === 0) {
-    yield* hostUi.setWidget('todo', undefined).pipe(Effect.mapError((cause) => todoHostError('update', cause)))
-    return
-  }
+  const displayTree = getTodoDisplayTree(todos)
 
   let toolsExpanded = yield* hostUi.getToolsExpanded().pipe(Effect.mapError((cause) => todoHostError('update', cause)))
   yield* hostUi
     .setWidget('todo', (_tui, theme) => ({
       render(width: number): string[] {
         toolsExpanded = hostUi.getToolsExpandedValue()
-        const visible = unfinished.slice(0, 8)
-        const depths = getTodoDepths(todos)
+        const visible = displayTree.slice(0, 8)
         const lines: string[] = []
-        for (const todo of visible) {
-          lines.push(truncateToWidth(`  ${renderTodoLine(todo, theme, depths.get(todo.id) ?? 0)}`, width))
+        for (const { todo, depth } of visible) {
+          lines.push(truncateToWidth(`  ${renderTodoLine(todo, theme, depth)}`, width))
           if (toolsExpanded) {
-            const detailsIndent = '  '.repeat((depths.get(todo.id) ?? 0) + 2)
+            const detailsIndent = '  '.repeat(depth + 2)
             for (const line of todoDescriptionLines(todo)) {
               for (const wrapped of wrapTextWithAnsi(line, Math.max(1, width - detailsIndent.length))) {
                 lines.push(truncateToWidth(`${detailsIndent}${theme.fg('dim', wrapped)}`, width))
@@ -489,7 +495,7 @@ const updateUi = Effect.fnUntraced(function* (
             }
           }
         }
-        if (unfinished.length > 8) lines.push(theme.fg('dim', `… ${unfinished.length - 8} more`))
+        if (displayTree.length > 8) lines.push(theme.fg('dim', `… ${displayTree.length - 8} more`))
         return lines
       },
       invalidate(): void {},
