@@ -124,7 +124,7 @@ function createProgramRunner<R, E>(): Program.ProgramRunner<R, E> {
       })
 
       function runInProcess(): Effect.Effect<unknown, Program.ProgramFailure | E, R> {
-        return Effect.tryPromise({
+        return Effect.tryPromise<unknown, Program.ProgramFailure | E>({
           try: () =>
             Vm.runCodeModeVm(
               transformed,

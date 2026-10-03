@@ -85,6 +85,3 @@ export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 
 # pi
 export PATH="$HOME/.bun/bin:$PATH"
-
-# Collie
-export COLLIE_MUX=herdr

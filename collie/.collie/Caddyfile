@@ -1,0 +1,6 @@
+http://10.77.0.1:8787 {
+	bind 10.77.0.1
+	reverse_proxy 127.0.0.1:8787 {
+		header_up Host {hostport}
+	}
+}

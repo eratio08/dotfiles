@@ -1,0 +1,315 @@
+# /Users/el/.collie/config.toml
+# the environment and your .env always override this file; run `collie config show` to see what is active
+
+# ── Bridge ──────────────────────────────────────────────────────
+# How often the bridge looks, how much it reads, and where its state lives.
+[bridge]
+
+# How often the bridge polls the multiplexer, in milliseconds.
+# at least 250
+# env: COLLIE_POLL_MS
+#poll_ms = 1500
+
+# The relaxed poll used while the event stream is healthy, in milliseconds.
+# at least 1000
+# env: COLLIE_POLL_IDLE_MS
+#poll_idle_ms = 12000
+
+# How long a blocked or done pane waits before it becomes a push, in milliseconds.
+# at least 0
+# env: COLLIE_NOTIFY_DELAY_MS
+#notify_delay_ms = 30000
+
+# How many lines of the pane the detail view pulls.
+# at least 1
+# env: COLLIE_READ_LINES
+#read_lines = 200
+
+# The key sequence sent after a reply's text to submit it.
+# env: COLLIE_SUBMIT_KEYS
+#submit_keys = ["Enter"]
+
+# Front every running session this collie discovers, not only the primary one.
+# env: COLLIE_MULTI_SESSION
+#multi_session = true
+
+# Serve agent history from the agent's own on-disk session log.
+# env: COLLIE_TRANSCRIPT
+#transcript = true
+
+# Where runtime state lives. Empty takes ~/.local/state/collie.
+# env: COLLIE_STATE_DIR
+#state_dir = ""
+
+# ── Network ─────────────────────────────────────────────────────
+# The listener, the bind address and which hosts and origins may reach it.
+[network]
+
+# The loopback port the bridge listens on.
+# 1 to 65535
+# env: COLLIE_PORT
+port = 8787
+
+# The bind address. Loopback is required unless allow_non_loopback_bind is set.
+# env: COLLIE_HOST
+# host = "0.0.0.0"
+host = "127.0.0.1"
+# host = "10.77.0.1"
+
+# Permit a bind that is not loopback. Every browser-side write gate loses its basis.
+# env: COLLIE_ALLOW_NON_LOOPBACK_BIND
+allow_non_loopback_bind = false
+
+# Turn Host validation off entirely. This is the DNS-rebinding hole.
+# env: COLLIE_ALLOW_ANY_HOST
+#allow_any_host = false
+
+# Extra request origins beyond loopback.
+# env: COLLIE_ALLOWED_ORIGINS
+allowed_origins = ["http://10.77.0.1:8787", "http://127.0.0.1:8787"]
+
+# Extra Host header values beyond loopback and the discovered Tailscale names.
+# env: COLLIE_PUBLIC_HOSTS
+public_hosts = ["10.77.0.1:8787", "127.0.0.1"]
+
+# Discovered and injected by the CLI. Operators do not set this.
+# env: COLLIE_TAILSCALE_HOSTS
+#tailscale_hosts = []
+
+# The URL this collie is reached at when Collie did not publish the front door itself.
+# env: COLLIE_PUBLIC_URL
+public_url = "http://10.77.0.1:8787"
+
+# ── Mux ─────────────────────────────────────────────────────────
+# Which multiplexer this collie mirrors and where that multiplexer lives.
+[mux]
+
+# Which multiplexer this collie mirrors: herdr, tmux or zellij.
+# env: COLLIE_MUX
+mux = "herdr"
+
+# Herdr's control socket. Empty takes Herdr's own default location.
+# env: HERDR_SOCKET_PATH
+#socket_path = ""
+
+# Which dialer opens the Herdr socket. auto is correct everywhere.
+# one of: auto, net, bun
+# env: COLLIE_HERDR_DIAL
+#herdr_dial = "auto"
+
+# Absolute path to the tmux binary, when it sits somewhere unusual.
+# env: COLLIE_TMUX_BIN
+#tmux_bin = ""
+
+# Absolute path to the zellij binary, when it sits somewhere unusual.
+# env: COLLIE_ZELLIJ_BIN
+#zellij_bin = ""
+
+# The tmux server to drive. Empty takes tmux's own default server.
+# env: COLLIE_MUX_ENDPOINT_TMUX
+#mux_endpoint_tmux = ""
+
+# The zellij session to drive. Empty works only when exactly one is running.
+# env: COLLIE_MUX_ENDPOINT_ZELLIJ
+#mux_endpoint_zellij = ""
+
+# ── Access ──────────────────────────────────────────────────────
+# Who may write: the Tailscale identity gate, the device header and the audit trail.
+[access]
+
+# The Tailscale login a request must carry. Empty leaves the gate off.
+# env: COLLIE_TRUSTED_USER
+#trusted_user = ""
+
+# Accept a request with no Tailscale-User-Login header. Re-opens the tagged-node gap.
+# env: COLLIE_TRUSTED_USER_OPTIONAL
+#trusted_user_optional = false
+
+# The request header a trusted proxy puts a device identifier in.
+# env: COLLIE_DEVICE_HEADER
+#device_header = ""
+
+# The device identifiers allowed to write. Everything else carrying the header reads only.
+# env: COLLIE_DEVICE_ALLOWLIST
+#device_allowlist = []
+
+# How much of each value the audit trail keeps.
+# one of: preview, none
+# env: COLLIE_AUDIT_CONTENT
+#audit_content = "preview"
+
+# ── Push ────────────────────────────────────────────────────────
+# Web Push (VAPID). All three are needed before a phone can be notified.
+[push]
+
+# The Web Push public key. All three push settings are needed before push works.
+# env: COLLIE_VAPID_PUBLIC
+#vapid_public = ""
+
+# The Web Push signing key. A file holding it must be mode 600.
+# env: COLLIE_VAPID_PRIVATE
+#vapid_private = ""
+
+# The mailto: or https: subject the push service is told to reach you at.
+# env: COLLIE_VAPID_SUBJECT
+#vapid_subject = "mailto:admin@example.com"
+
+# Seconds before a watched pane's prompt cache expires that the warning push is sent.
+# 30 to 3600
+# env: COLLIE_CACHE_WARN_SECONDS
+#cache_warn_seconds = 300
+
+# ── Uploads ─────────────────────────────────────────────────────
+# The attachment size cap and the extra text types the upload route accepts.
+[uploads]
+
+# The largest attachment the upload route accepts, in whole megabytes.
+# 1 to 512
+# env: COLLIE_MAX_UPLOAD_MB
+#max_upload_mb = 10
+
+# Extra text extensions the upload route accepts, bare and lowercase.
+# env: COLLIE_UPLOAD_EXTRA_TYPES
+#upload_extra_types = []
+
+# ── Journal ─────────────────────────────────────────────────────
+# Where each harness keeps its own session log, per harness.
+[journal]
+
+# Where Claude keeps its session logs. Empty takes ~/.claude/projects.
+# env: COLLIE_TRANSCRIPT_ROOT
+#transcript_root = []
+
+# Where Codex keeps its session logs. Empty follows CODEX_HOME.
+# env: COLLIE_CODEX_ROOT
+#codex_root = []
+
+# Where pi keeps its session logs. Empty follows PI_CODING_AGENT_DIR.
+# env: COLLIE_PI_ROOT
+#pi_root = []
+
+# Where OpenCode keeps its database. Empty follows XDG_DATA_HOME.
+# env: COLLIE_OPENCODE_ROOT
+#opencode_root = []
+
+# Where Grok keeps its session logs. Empty follows GROK_HOME.
+# env: COLLIE_GROK_ROOT
+#grok_root = []
+
+# Where Hermes keeps its session logs. Empty takes ~/.hermes.
+# env: COLLIE_HERMES_ROOT
+#hermes_root = []
+
+# ── Crew ────────────────────────────────────────────────────────
+# The budgets a lead gives a member, and whether a peer keeps its own browser.
+[crew]
+
+# How long a member has to answer a lead's poll. Clamped to 0.8 of poll_ms.
+# at least 1
+# env: COLLIE_CREW_TIMEOUT_MS
+#crew_timeout_ms = 1200
+
+# How long a hello probe may take before the lead calls a member gone.
+# at least 1
+# env: COLLIE_CREW_HELLO_TIMEOUT_MS
+#crew_hello_timeout_ms = 5000
+
+# Keep this peer's own browser front door up. Peer mode only.
+# env: COLLIE_PEER_BROWSER
+#peer_browser = false
+
+# ── Standby ─────────────────────────────────────────────────────
+# The deputy's second door: its port, its bind address and when it arms.
+[standby]
+
+# The deputy's standby door. Absent means no door is bound at all.
+# 1 to 65535
+# env: COLLIE_STANDBY_PORT
+#standby_port = 0
+
+# Where the standby door binds.
+# env: COLLIE_STANDBY_HOST
+#standby_host = "127.0.0.1"
+
+# How long the lead may be silent before the door arms. Empty uses the formula.
+# at least 1
+# env: COLLIE_STANDBY_ARM_MS
+#standby_arm_ms = 0
+
+# ── Update ──────────────────────────────────────────────────────
+# Where releases come from, how many old versions stay, and the health budget.
+[update]
+
+# The owner/repo releases are taken from. Set it only when you run a fork on purpose.
+# env: COLLIE_UPDATE_REPO
+#update_repo = "AltanS/collie"
+
+# A GitHub token for the release check, so the API rate limit is yours and not your network's. No scopes are needed. GH_TOKEN and GITHUB_TOKEN are read too.
+# env: COLLIE_GITHUB_TOKEN
+#github_token = ""
+
+# How many installed versions a binary install keeps, the current one included.
+# at least 1
+# env: COLLIE_KEEP_VERSIONS
+#keep_versions = 2
+
+# How long an update waits for the restarted bridge to answer.
+# at least 1
+# env: COLLIE_UPDATE_HEALTH_TIMEOUT_MS
+#update_health_timeout_ms = 30000
+
+# ── Serve ───────────────────────────────────────────────────────
+# The managed front door: whether Collie publishes it, and on what.
+[serve]
+
+# Publish no front door. Your own reverse proxy owns the ingress instead.
+# env: COLLIE_SKIP_SERVE
+skip_serve = true
+
+# The path Collie is mounted under when a proxy gives it one, such as /collie. Empty means the root.
+# env: COLLIE_BASE_PATH
+#base_path = ""
+
+# Whether tailscale serve terminates TLS. Use http on Headscale or .internal domains.
+# one of: https, http
+# env: COLLIE_SERVE_MODE
+#serve_mode = "https"
+
+# The https listener port. Inert under serve_mode = http.
+# 1 to 65535
+# env: COLLIE_SERVE_PORT
+#serve_port = 443
+
+# ── Stt ─────────────────────────────────────────────────────────
+# Speech-to-text, which is absent until `collie stt setup` writes it.
+[stt]
+
+# Which speech-to-text provider to build. Absent leaves the feature off.
+# one of: openai-compatible, codex
+# env: COLLIE_STT_PROVIDER
+#stt_provider = ""
+
+# The OpenAI-compatible API base, its version prefix included and no trailing slash.
+# env: COLLIE_STT_URL
+#stt_url = ""
+
+# The transcription model that endpoint understands.
+# env: COLLIE_STT_MODEL
+#stt_model = "gpt-transcribe"
+
+# The bearer credential for that endpoint. A file holding it must be mode 600.
+# env: COLLIE_STT_KEY
+#stt_key = ""
+
+# The language you speak, as ISO-639-1. Empty lets the model detect it.
+# env: COLLIE_STT_LANG
+#stt_lang = ""
+
+# Which identity the codex provider wears on the wire.
+# one of: honest, codex-cli
+# env: COLLIE_STT_WIRE_IDENTITY
+#stt_wire_identity = "honest"
+
+# The codex binary the codex provider borrows your session from.
+# env: COLLIE_CODEX_BIN
+#codex_bin = "codex"
