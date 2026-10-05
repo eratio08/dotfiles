@@ -482,7 +482,8 @@ const updateUi = Effect.fnUntraced(function* (
     .setWidget('todo', (_tui, theme) => ({
       render(width: number): string[] {
         toolsExpanded = hostUi.getToolsExpandedValue()
-        const visible = displayTree.slice(0, 8)
+        const maxVisible = 6
+        const visible = displayTree.slice(0, maxVisible)
         const lines: string[] = []
         for (const { todo, depth } of visible) {
           lines.push(truncateToWidth(`  ${renderTodoLine(todo, theme, depth)}`, width))
@@ -495,7 +496,7 @@ const updateUi = Effect.fnUntraced(function* (
             }
           }
         }
-        if (displayTree.length > 8) lines.push(theme.fg('dim', `… ${displayTree.length - 8} more`))
+        if (displayTree.length > maxVisible) lines.push(theme.fg('dim', `… ${displayTree.length - maxVisible} more`))
         return lines
       },
       invalidate(): void {},
