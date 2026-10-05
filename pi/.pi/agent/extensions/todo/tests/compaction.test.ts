@@ -633,6 +633,101 @@ test('should restore the live plan in a fresh runtime given navigation to an old
   )
 })
 
+test('should center the compact widget on the active task given a long task list', async () => {
+  const todos: Todo[] = Array.from({ length: 20 }, (_, index) => ({
+    id: `018f0000-0000-7000-8000-${String(index + 1).padStart(12, '0')}`,
+    content: `task ${index + 1}`,
+    status: index < 9 ? 'completed' : index === 9 ? 'in_progress' : 'pending',
+    dependsOn: [],
+  }))
+  const value = harness([{ type: 'custom', customType: TODO_STATE_ENTRY, data: { todos } }], true)
+  await restoreTodos(value)
+  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
+  assert.ok(widgetFactory)
+
+  const lines = widgetFactory(undefined, value.theme).render(120)
+
+  assert.deepEqual(lines, [
+    '  [✓] task 8',
+    '  [✓] task 9',
+    '  [•] task 10',
+    '  [ ] task 11',
+    '  [ ] task 12',
+    '… 15 more',
+  ])
+})
+
+test('should shift the compact widget window at the task list boundaries', async () => {
+  for (const activeIndex of [-1, 0, 6]) {
+    const todos: Todo[] = Array.from({ length: 7 }, (_, index) => ({
+      id: `018f0000-0000-7000-8000-${String(index + 21).padStart(12, '0')}`,
+      content: `task ${index + 1}`,
+      status: index === activeIndex ? 'in_progress' : 'pending',
+      dependsOn: [],
+    }))
+    const value = harness([{ type: 'custom', customType: TODO_STATE_ENTRY, data: { todos } }], true)
+    await restoreTodos(value)
+    const widgetFactory = value.widgets.get('todo') as unknown as
+      | ((tui: unknown, theme: Theme) => Renderable)
+      | undefined
+    assert.ok(widgetFactory)
+
+    const lines = widgetFactory(undefined, value.theme).render(120)
+
+    if (activeIndex < 0) {
+      assert.deepEqual(lines.slice(0, 5), [
+        '  [ ] task 1',
+        '  [ ] task 2',
+        '  [ ] task 3',
+        '  [ ] task 4',
+        '  [ ] task 5',
+      ])
+    } else {
+      assert.equal(
+        lines.findIndex((line) => line.includes('[•]')),
+        activeIndex === 0 ? 0 : 4,
+      )
+    }
+    assert.equal(lines.at(-1), '… 2 more')
+  }
+})
+
+test('should show omitted history without orphaned indentation given a centered nested window', async () => {
+  const todos: Todo[] = [
+    { id: firstId, content: 'hidden prerequisite', status: 'completed', dependsOn: [] },
+    { id: secondId, content: 'completed context', status: 'completed', dependsOn: [firstId] },
+    { id: '018f0000-0002-7000-8000-000000000003', content: 'omitted context', status: 'omitted', dependsOn: [firstId] },
+    { id: '018f0000-0003-7000-8000-000000000004', content: 'active task', status: 'in_progress', dependsOn: [firstId] },
+    {
+      id: '018f0000-0004-7000-8000-000000000005',
+      content: 'next pending task',
+      status: 'pending',
+      dependsOn: [firstId],
+    },
+    {
+      id: '018f0000-0005-7000-8000-000000000006',
+      content: 'following pending task',
+      status: 'pending',
+      dependsOn: [firstId],
+    },
+  ]
+  const value = harness([{ type: 'custom', customType: TODO_STATE_ENTRY, data: { todos } }], true)
+  await restoreTodos(value)
+  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
+  assert.ok(widgetFactory)
+
+  const lines = widgetFactory(undefined, value.theme).render(120)
+
+  assert.deepEqual(lines, [
+    '  [✓] completed context',
+    '  [-] omitted context',
+    '  [•] active task',
+    '  [ ] next pending task',
+    '  [ ] following pending task',
+    '… 1 more',
+  ])
+})
+
 test('should preserve open task states given tree navigation with a branch summary', async () => {
   //given
   const value = harness(

@@ -482,13 +482,21 @@ const updateUi = Effect.fnUntraced(function* (
     .setWidget('todo', (_tui, theme) => ({
       render(width: number): string[] {
         toolsExpanded = hostUi.getToolsExpandedValue()
-        const maxVisible = 6
-        const visible = displayTree.slice(0, maxVisible)
+        const maxVisible = 5
+        const visibleCount = Math.min(displayTree.length, maxVisible)
+        const activeIndex = displayTree.findIndex(({ todo }) => todo.status === 'in_progress')
+        const startIndex =
+          activeIndex < 0
+            ? 0
+            : Math.max(0, Math.min(activeIndex - Math.floor(maxVisible / 2), displayTree.length - visibleCount))
+        const visible = displayTree.slice(startIndex, startIndex + visibleCount)
+        const baseDepth = visible[0]?.depth ?? 0
         const lines: string[] = []
         for (const { todo, depth } of visible) {
-          lines.push(truncateToWidth(`  ${renderTodoLine(todo, theme, depth)}`, width))
+          const visibleDepth = Math.max(0, depth - baseDepth)
+          lines.push(truncateToWidth(`  ${renderTodoLine(todo, theme, visibleDepth)}`, width))
           if (toolsExpanded) {
-            const detailsIndent = '  '.repeat(depth + 2)
+            const detailsIndent = '  '.repeat(visibleDepth + 2)
             for (const line of todoDescriptionLines(todo)) {
               for (const wrapped of wrapTextWithAnsi(line, Math.max(1, width - detailsIndent.length))) {
                 lines.push(truncateToWidth(`${detailsIndent}${theme.fg('dim', wrapped)}`, width))
@@ -496,7 +504,9 @@ const updateUi = Effect.fnUntraced(function* (
             }
           }
         }
-        if (displayTree.length > maxVisible) lines.push(theme.fg('dim', `… ${displayTree.length - maxVisible} more`))
+        if (displayTree.length > visible.length) {
+          lines.push(theme.fg('dim', `… ${displayTree.length - visible.length} more`))
+        }
         return lines
       },
       invalidate(): void {},
