@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.0.1",
+  "lastChangelogVersion": "1.0.4",
   "theme": "rose-pine-moon",
   "defaultProvider": "github-copilot",
   "defaultModel": "gpt-6-luna",
@@ -37,6 +37,7 @@
   ],
   "enableInstallTelemetry": false,
   "hideThinkingBlock": true,
+  "treeFilterMode": "no-tools",
   "enabledModels": [
     "github-copilot/kimi-k3",
     "github-copilot/gpt-6-luna",
