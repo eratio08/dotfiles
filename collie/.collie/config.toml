@@ -66,11 +66,15 @@ allow_non_loopback_bind = false
 
 # Extra request origins beyond loopback.
 # env: COLLIE_ALLOWED_ORIGINS
-allowed_origins = ["http://10.77.0.1:8787", "http://127.0.0.1:8787"]
+allowed_origins = [
+  "http://10.77.0.1:8787",
+  "http://127.0.0.1:8787",
+  "https://10.77.0.1",
+]
 
 # Extra Host header values beyond loopback and the discovered Tailscale names.
 # env: COLLIE_PUBLIC_HOSTS
-public_hosts = ["10.77.0.1:8787", "127.0.0.1"]
+public_hosts = ["10.77.0.1:8787", "127.0.0.1", "10.77.0.1", "10.77.0.1:443"]
 
 # Discovered and injected by the CLI. Operators do not set this.
 # env: COLLIE_TAILSCALE_HOSTS
@@ -281,21 +285,24 @@ skip_serve = true
 #serve_port = 443
 
 # ── Stt ─────────────────────────────────────────────────────────
-# Speech-to-text, which is absent until `collie stt setup` writes it.
+# Speech-to-text provider and command settings.
 [stt]
+
+# The local-cli executable accepts the recording path directly.
 
 # Which speech-to-text provider to build. Absent leaves the feature off.
 # one of: openai-compatible, codex
 # env: COLLIE_STT_PROVIDER
-#stt_provider = ""
+stt_provider = "local-cli"
+stt_command = "/Users/el/src/collie-hex/dist/collie-stt-hex"
 
 # The OpenAI-compatible API base, its version prefix included and no trailing slash.
 # env: COLLIE_STT_URL
-#stt_url = ""
+# stt_url = "http://127.0.0.1:8788/v1"
 
 # The transcription model that endpoint understands.
 # env: COLLIE_STT_MODEL
-#stt_model = "gpt-transcribe"
+stt_model = "parakeet_unified_en"
 
 # The bearer credential for that endpoint. A file holding it must be mode 600.
 # env: COLLIE_STT_KEY
@@ -303,7 +310,7 @@ skip_serve = true
 
 # The language you speak, as ISO-639-1. Empty lets the model detect it.
 # env: COLLIE_STT_LANG
-#stt_lang = ""
+stt_lang = "en"
 
 # Which identity the codex provider wears on the wire.
 # one of: honest, codex-cli

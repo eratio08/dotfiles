@@ -1,0 +1,17 @@
+services:
+  step-ca:
+    image: smallstep/step-ca:latest
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      DOCKER_STEPCA_INIT_NAME: "Collie WireGuard CA"
+      DOCKER_STEPCA_INIT_DNS_NAMES: 127.0.0.1
+      DOCKER_STEPCA_INIT_ADDRESS: "127.0.0.1:9000"
+      DOCKER_STEPCA_INIT_ACME: "true"
+      DOCKER_STEPCA_INIT_WITH_CA_URL: https://127.0.0.1:9000
+    volumes:
+      - step_ca_data:/home/step
+      - .:/home/step/caddy-certs
+
+volumes:
+  step_ca_data:

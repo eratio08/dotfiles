@@ -1,6 +1,16 @@
-http://10.77.0.1:8787 {
-	bind 10.77.0.1
+(collie_upstream) {
 	reverse_proxy 127.0.0.1:8787 {
 		header_up Host {hostport}
 	}
+}
+
+http://10.77.0.1:8787 {
+	bind 10.77.0.1
+	import collie_upstream
+}
+
+https://10.77.0.1 {
+	bind 10.77.0.1
+	tls /Users/el/dotfiles/collie/.collie/collie.crt /Users/el/dotfiles/collie/.collie/collie.key
+	import collie_upstream
 }

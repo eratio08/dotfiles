@@ -1,0 +1,38 @@
+cert_dir := justfile_directory()
+cert_file := cert_dir + "/collie.crt"
+key_file := cert_dir + "/collie.key"
+container_cert_file := "/home/step/caddy-certs/collie.crt"
+container_key_file := "/home/step/caddy-certs/collie.key"
+
+default:
+  just --list
+
+cert-prepare:
+  docker compose up -d --wait step-ca
+  docker compose exec -T step-ca sh -c 'test -w /home/step/caddy-certs'
+
+cert-issue: cert-prepare
+  test ! -e "{{ cert_file }}" && test ! -e "{{ key_file }}"
+  docker compose exec -it step-ca sh -c 'umask 077; step ca certificate --issuer admin --ca-url https://127.0.0.1:9000 --root /home/step/certs/root_ca.crt --san 10.77.0.1 10.77.0.1 /home/step/caddy-certs/collie.crt /home/step/caddy-certs/collie.key'
+  just caddy-reload
+
+cert-renew: cert-prepare
+  test -s "{{ cert_file }}" && test -s "{{ key_file }}"
+  docker compose exec -it step-ca step ca renew --mtls=false --force --ca-url https://127.0.0.1:9000 --root /home/step/certs/root_ca.crt {{ container_cert_file }} {{ container_key_file }}
+  just caddy-reload
+
+cert-info:
+  docker compose exec -T step-ca step certificate inspect --format json {{ container_cert_file }}
+
+caddy-reload:
+  caddy validate
+  caddy reload
+
+# Get the password from logs
+init:
+  docker compose down -v
+  docker compose up -d step-ca
+  docker compose logs -f --no-log-prefix step-ca
+
+export-cert:
+  docker compose exec -T step-ca cat /home/step/certs/root_ca.crt > step-ca-root.crt
