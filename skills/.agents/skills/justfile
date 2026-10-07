@@ -1,0 +1,9 @@
+default:
+  just --list
+
+clean:
+  rm -rf ./*/agents/
+
+update:
+  bunx skills update --global
+  just clean

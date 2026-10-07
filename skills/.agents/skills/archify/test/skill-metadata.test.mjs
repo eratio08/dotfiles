@@ -3,17 +3,23 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { parse } from 'yaml';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.join(here, '..');
 const skill = readFileSync(path.join(skillRoot, 'SKILL.md'), 'utf8');
+const defaults = readFileSync(path.join(skillRoot, 'references', 'authoring-defaults.md'), 'utf8');
+const updateAwareness = readFileSync(path.join(skillRoot, 'references', 'update-awareness.md'), 'utf8');
 const authoringContract = readFileSync(path.join(skillRoot, 'references', 'authoring-contract.md'), 'utf8');
-const frontmatter = skill.match(/^---\n([\s\S]*?)\n---/);
+const frontmatter = skill.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
 
 test('skill description is portable across 1024-character runtimes and remains searchable', () => {
   assert.ok(frontmatter, 'SKILL.md must start with YAML frontmatter');
-  const description = frontmatter[1].match(/^description:\s*(.+)$/m)?.[1]?.trim();
-  assert.ok(description, 'frontmatter must include a one-line description');
+  const metadata = parse(frontmatter[1]);
+  assert.equal(metadata.name, 'archify');
+  const description = metadata.description;
+  assert.equal(typeof description, 'string', 'frontmatter description must be a YAML string');
+  assert.ok(description.trim(), 'frontmatter must include a nonempty description');
   assert.ok(description.length <= 1024, `description is ${description.length} characters; maximum is 1024`);
   assert.ok(Buffer.byteLength(description, 'utf8') <= 1024, 'description must also fit a 1024-byte runtime limit');
 
@@ -49,27 +55,26 @@ test('main skill stays a bounded authoring router with progressive references', 
 });
 
 test('update awareness is notification-only and never replaces the requested workflow', () => {
-  assert.match(skill, /`scripts\/check-update\.mjs`/);
-  assert.match(skill, /`silent`[\s\S]*without mentioning/i);
-  assert.match(skill, /`update_available`[\s\S]*compact notice/i);
-  assert.match(skill, /information, not permission/i);
-  assert.match(skill, /`severity` is `security`[\s\S]*security update[\s\S]*emphasis only, never user autonomy/i);
-  assert.match(skill, /continue the user's original task/i);
-  assert.match(skill, /installed version unchanged/i);
+  assert.match(skill + updateAwareness, /`finalize` and standalone `deliver` include `update`/);
+  assert.match(skill + updateAwareness, /`update\.noticeRequired`[\s\S]*final response/i);
+  assert.match(skill + updateAwareness, /several diagrams[\s\S]*once in the final response/i);
+  assert.match(skill + updateAwareness, /information, not permission/i);
+  assert.match(skill, /Snooze or ignore a reminder only when the user explicitly asks/);
+  assert.match(updateAwareness, /explicitly asks to pause or stop[\s\S]*--snooze "<eventKey>"[\s\S]*--ignore "<eventKey>"[\s\S]*Never run them on your own initiative/);
+  assert.match(skill + updateAwareness, /installed Skill has not changed/i);
   assert.doesNotMatch(skill, /npx skills update|gh skill update/i);
 });
 
 test('language behavior stays within the bounded locale contract', () => {
-  assert.match(skill, /one primary authored language/);
-  assert.match(skill, /explicit user choice; otherwise follow the request or conversation's dominant language/);
-  assert.match(skill, /`meta\.locale` controls only renderer-owned Viewer UI/);
-  assert.match(skill, /use `"en"` or `"zh-CN"`/);
-  assert.match(skill, /For every other language, omit `meta\.locale`/);
-  assert.match(skill, /fixed Viewer UI and `<html lang>` fall back to English/);
-  assert.match(skill, /renderer never translates authored content/i);
-  assert.match(skill, /product names.*code identifiers.*protocols.*API paths.*environment names/);
+  assert.match(defaults, /one primary authored language/);
+  assert.match(defaults, /user's choice or the request\/conversation/);
+  assert.match(defaults, /English \(`en`\) or Simplified Chinese \(`zh-CN`\)/);
+  assert.match(defaults, /meta\.translations/);
+  assert.match(defaults, /exact product, code, protocol, command, API, and environment names/);
+  assert.match(defaults, /Language consistency\]\(authoring-contract\.md#language-consistency\)/);
   assert.match(authoringContract, /`meta\.locale` controls only renderer-owned reader surfaces/);
-  assert.match(authoringContract, /outside `en` and `zh-CN`/);
+  assert.match(authoringContract, /every other `meta\.locale`, also set `meta\.translations`/);
+  assert.match(authoringContract, /Reuse suitable translations/);
   assert.match(authoringContract, /artifact is\s+not fully localized/);
   assert.match(authoringContract, /Do not silently substitute\s+`zh-CN` for another language or Chinese locale/);
   assert.match(authoringContract, /It never translates authored content/);
@@ -78,7 +83,22 @@ test('language behavior stays within the bounded locale contract', () => {
 });
 
 test('skill keeps the title hierarchy compact by default', () => {
-  assert.match(skill, /Omit `meta\.subtitle` by default/);
-  assert.match(skill, /Never invent a subtitle that restates the title, nodes, or cards/);
+  assert.match(defaults, /`meta\.subtitle` for a title-only header/);
+  assert.match(defaults, /Explicit styles and a subtitle require a user request/);
+  assert.match(authoringContract, /never use it to restate the title, nodes, edges,\s+or cards/);
   assert.match(authoringContract, /omitted or blank subtitle must not leave an empty visual row/);
+});
+
+// The review Skill remains available to repository maintainers, but must not
+// enter an unfiltered consumer install from the repository root.
+test('contributor review skill is internal and retains its repository references', () => {
+  const reviewRoot = path.resolve(skillRoot, '..', '.agents', 'skills', 'archify-review');
+  const review = readFileSync(path.join(reviewRoot, 'SKILL.md'), 'utf8');
+  const metadata = parse(review.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)[1]);
+  assert.equal(metadata.name, 'archify-review');
+  assert.equal(metadata.metadata?.internal, true);
+  for (const document of ['../../../REVIEWING.md', '../../../CONTRIBUTING.md']) {
+    assert.ok(review.includes(document));
+    assert.ok(existsSync(path.resolve(reviewRoot, document)));
+  }
 });
