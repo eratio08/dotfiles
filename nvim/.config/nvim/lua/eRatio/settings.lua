@@ -27,8 +27,8 @@ vim.opt.background     = 'dark'                         -- opt.background color 
 vim.opt.undofile       = true                           -- enable undo file
 vim.opt.scrolloff      = 15                             --- opt.undo file location- add scroll offset
 vim.opt.colorcolumn    = { 80, 120 }                    -- vertical marker at column
-vim.opt.list           = false                          -- show invisible characters
-vim.opt.listchars      = { tab = '<->', trail = '_', nbsp = '␣', eol = '⏎', space = '·' }
+vim.opt.list           = true                           -- show invisible characters
+vim.opt.listchars      = { tab = '<->', trail = '_', nbsp = '␣', --[[eol = '⏎', space = '·']] }
 vim.opt.guicursor      = ''                             -- disable cursor styles
 vim.opt.termguicolors  = true                           -- disable to prevent tmux overlay
 vim.opt.splitright     = true                           -- horizontal split windows to the right
@@ -74,9 +74,6 @@ vim.opt.laststatus        = 3 -- 3 mean global status lines
 
 -- Sync clipboard between OS and Neovim.
 -- Schedule the setting after `UiEnter` because it can increase startup-time.
-vim.schedule(function ()
+vim.schedule(function()
   vim.opt.clipboard = 'unnamedplus'
 end)
-
--- Enable virtual text diagnostics
-vim.diagnostic.config({ virtual_text = true })
