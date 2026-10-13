@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.0.4",
+  "lastChangelogVersion": "1.2.0",
   "theme": "rose-pine-moon",
   "defaultProvider": "github-copilot",
   "defaultModel": "gpt-6-luna",
@@ -36,7 +36,6 @@
     "ssh://git@github.com/eratio08/pi-spa.git"
   ],
   "enableInstallTelemetry": false,
-  "hideThinkingBlock": true,
   "treeFilterMode": "no-tools",
   "enabledModels": [
     "github-copilot/kimi-k3",
@@ -77,6 +76,8 @@
     "-skills/triage/SKILL.md"
   ],
   "extensions": [
-    "-extensions/caveman/index.ts"
-  ]
+    "-extensions/caveman/index.ts",
+    "-extensions/herdr-blocker/index.ts"
+  ],
+  "hideThinkingBlock": true
 }
