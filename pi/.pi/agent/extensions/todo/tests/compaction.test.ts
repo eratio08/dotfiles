@@ -633,7 +633,7 @@ test('should restore the live plan in a fresh runtime given navigation to an old
   )
 })
 
-test('should center the compact widget on the active task given a long task list', async () => {
+test('centers the active task through completion and shows the completed tail', async () => {
   const todos: Todo[] = Array.from({ length: 20 }, (_, index) => ({
     id: `018f0000-0000-7000-8000-${String(index + 1).padStart(12, '0')}`,
     content: `task ${index + 1}`,
@@ -644,20 +644,52 @@ test('should center the compact widget on the active task given a long task list
   await restoreTodos(value)
   const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
   assert.ok(widgetFactory)
-
-  const lines = widgetFactory(undefined, value.theme).render(120)
-
-  assert.deepEqual(lines, [
+  assert.deepEqual(widgetFactory(undefined, value.theme).render(120), [
+    '↑ 7 earlier tasks',
     '  [✓] task 8',
     '  [✓] task 9',
     '  [•] task 10',
     '  [ ] task 11',
     '  [ ] task 12',
-    '… 15 more',
+    '↓ 8 later tasks',
+  ])
+
+  await executeTodoTool(value, 'todo_complete')
+  const updatedWidgetFactory = value.widgets.get('todo') as unknown as
+    | ((tui: unknown, theme: Theme) => Renderable)
+    | undefined
+  assert.ok(updatedWidgetFactory)
+  assert.deepEqual(updatedWidgetFactory(undefined, value.theme).render(120), [
+    '↑ 7 earlier tasks',
+    '  [✓] task 8',
+    '  [✓] task 9',
+    '  [✓] task 10',
+    '  [ ] task 11',
+    '  [ ] task 12',
+    '↓ 8 later tasks',
+  ])
+
+  const completedTodos: Todo[] = todos.map((todo) => ({ ...todo, status: 'completed' as const }))
+  const completedRuntime = harness(
+    [{ type: 'custom', customType: TODO_STATE_ENTRY, data: { todos: completedTodos } }],
+    true,
+  )
+  await restoreTodos(completedRuntime)
+  const completedWidgetFactory = completedRuntime.widgets.get('todo') as unknown as
+    | ((tui: unknown, theme: Theme) => Renderable)
+    | undefined
+  assert.ok(completedWidgetFactory)
+  assert.deepEqual(completedWidgetFactory(undefined, completedRuntime.theme).render(120), [
+    '↑ 15 earlier tasks',
+    '  [✓] task 16',
+    '  [✓] task 17',
+    '  [✓] task 18',
+    '  [✓] task 19',
+    '  [✓] task 20',
   ])
 })
 
-test('should shift the compact widget window at the task list boundaries', async () => {
+test('marks hidden tasks at the compact widget boundaries', async () => {
   for (const activeIndex of [-1, 0, 6]) {
     const todos: Todo[] = Array.from({ length: 7 }, (_, index) => ({
       id: `018f0000-0000-7000-8000-${String(index + 21).padStart(12, '0')}`,
@@ -685,10 +717,15 @@ test('should shift the compact widget window at the task list boundaries', async
     } else {
       assert.equal(
         lines.findIndex((line) => line.includes('[•]')),
-        activeIndex === 0 ? 0 : 4,
+        activeIndex === 0 ? 0 : 5,
       )
     }
-    assert.equal(lines.at(-1), '… 2 more')
+    if (activeIndex === 6) {
+      assert.equal(lines[0], '↑ 2 earlier tasks')
+      assert.equal(lines.at(-1), '  [•] task 7')
+    } else {
+      assert.equal(lines.at(-1), '↓ 2 later tasks')
+    }
   }
 })
 
@@ -719,12 +756,12 @@ test('should show omitted history without orphaned indentation given a centered 
   const lines = widgetFactory(undefined, value.theme).render(120)
 
   assert.deepEqual(lines, [
+    '↑ 1 earlier task',
     '  [✓] completed context',
     '  [-] omitted context',
     '  [•] active task',
     '  [ ] next pending task',
     '  [ ] following pending task',
-    '… 1 more',
   ])
 })
 

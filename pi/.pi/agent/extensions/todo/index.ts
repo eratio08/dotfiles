@@ -458,10 +458,37 @@ function getTodoDisplayTree(todos: readonly Todo[]): Array<{ todo: Todo; depth: 
   return rows
 }
 
+function getTodoDisplayWindow(
+  displayTree: Array<{ todo: Todo; depth: number }>,
+  lastActiveTodoId: Todo['id'] | undefined,
+  allDone: boolean,
+  theme: TodoTheme,
+): {
+  visible: Array<{ todo: Todo; depth: number }>
+  before: string[]
+  after: string[]
+} {
+  const maxVisible = 5
+  const visibleCount = Math.min(displayTree.length, maxVisible)
+  const activeIndex = displayTree.findIndex(({ todo }) => todo.status === 'in_progress')
+  const targetIndex = activeIndex >= 0 ? activeIndex : displayTree.findIndex(({ todo }) => todo.id === lastActiveTodoId)
+  const startIndex = allDone
+    ? Math.max(0, displayTree.length - visibleCount)
+    : Math.max(0, Math.min(targetIndex - Math.floor(maxVisible / 2), displayTree.length - visibleCount))
+  const endIndex = startIndex + visibleCount
+  const visible = displayTree.slice(startIndex, endIndex)
+  const before = startIndex > 0 ? [theme.fg('dim', `↑ ${startIndex} earlier task${startIndex === 1 ? '' : 's'}`)] : []
+  const afterCount = displayTree.length - endIndex
+  const after = afterCount > 0 ? [theme.fg('dim', `↓ ${afterCount} later task${afterCount === 1 ? '' : 's'}`)] : []
+  return { visible, before, after }
+}
+
 function renderTodoLine(todo: Todo, theme: TodoTheme, depth = 0): string {
   const prefix = depth > 0 ? `${'  '.repeat(depth)}↳ ` : ''
   return `${prefix}${renderMarker(todo.status, theme)} ${renderContent(todo, theme)}`
 }
+
+let lastActiveTodoId: Todo['id'] | undefined
 
 const updateUi = Effect.fnUntraced(function* (
   todos: readonly Todo[],
@@ -469,6 +496,7 @@ const updateUi = Effect.fnUntraced(function* (
 ): Effect.fn.Return<void, TodoUiError, PiContextTag | PiUi> {
   const context = yield* PiContext
   const hostUi = yield* PiUi
+  if (todos.length === 0) lastActiveTodoId = undefined
   if (!context.hasUI) return
   if (suspended || todos.length === 0) {
     yield* hostUi.setWidget('todo', undefined).pipe(Effect.mapError((cause) => todoHostError('update', cause)))
@@ -476,22 +504,19 @@ const updateUi = Effect.fnUntraced(function* (
   }
 
   const displayTree = getTodoDisplayTree(todos)
+  const activeTodo = displayTree.find(({ todo }) => todo.status === 'in_progress')
+  const allDone = getTodoCounts(todos).open === 0
+  if (activeTodo) lastActiveTodoId = activeTodo.todo.id
+  if (allDone) lastActiveTodoId = undefined
 
   let toolsExpanded = yield* hostUi.getToolsExpanded().pipe(Effect.mapError((cause) => todoHostError('update', cause)))
   yield* hostUi
     .setWidget('todo', (_tui, theme) => ({
       render(width: number): string[] {
         toolsExpanded = hostUi.getToolsExpandedValue()
-        const maxVisible = 5
-        const visibleCount = Math.min(displayTree.length, maxVisible)
-        const activeIndex = displayTree.findIndex(({ todo }) => todo.status === 'in_progress')
-        const startIndex =
-          activeIndex < 0
-            ? 0
-            : Math.max(0, Math.min(activeIndex - Math.floor(maxVisible / 2), displayTree.length - visibleCount))
-        const visible = displayTree.slice(startIndex, startIndex + visibleCount)
+        const { visible, before, after } = getTodoDisplayWindow(displayTree, lastActiveTodoId, allDone, theme)
         const baseDepth = visible[0]?.depth ?? 0
-        const lines: string[] = []
+        const lines: string[] = [...before]
         for (const { todo, depth } of visible) {
           const visibleDepth = Math.max(0, depth - baseDepth)
           lines.push(truncateToWidth(`  ${renderTodoLine(todo, theme, visibleDepth)}`, width))
@@ -504,9 +529,7 @@ const updateUi = Effect.fnUntraced(function* (
             }
           }
         }
-        if (displayTree.length > visible.length) {
-          lines.push(theme.fg('dim', `… ${displayTree.length - visible.length} more`))
-        }
+        lines.push(...after)
         return lines
       },
       invalidate(): void {},
