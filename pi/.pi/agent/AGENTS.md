@@ -46,6 +46,8 @@ Call each nested Ripwire tool from `codemode` with `await`.
 - Use vertical space to separate logical units in logic.
 - Never roll back changes not done by yourself without explicit consent.
 - Never manually edit generated files e.g. bun.lock or package-lock.json; these files must be regenerated.
+- Use `tools.todo_add` to record todo tasks for complex, non-trivial work with more than 3 tasks.
+- Always check `tools.todo_show` before reporting all task have been completed.
 
 ## Markdown
 - In Markdown and pull request descriptions always use `ASD-STE100 Simplified Technical English`.
