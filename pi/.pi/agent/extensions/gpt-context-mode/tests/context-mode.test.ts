@@ -11,7 +11,6 @@ import gptContextModeExtension, {
 import {
   contextModeEmoji,
   contextModel,
-  GPT_CONTEXT_LOW_WINDOWS,
   GPT5_HIGH_CONTEXT_WINDOW,
   type GptContextMode,
   type GptContextModeError,
@@ -288,23 +287,27 @@ test('should change only the context window given a mode transition', () => {
   assert.equal(changed.contextWindow, GPT5_HIGH_CONTEXT_WINDOW)
 })
 
-test('should detect configured models and build stable keys given model configuration', () => {
+test('should detect GPT-prefixed models and build stable keys given model configuration', () => {
   //given
   const supported = model()
-  const unsupported = { ...supported, id: 'gpt-5.5' }
+  const gpt55 = { ...supported, id: 'gpt-5.5' }
+  const unsupported = { ...supported, id: 'o3' }
+  const otherApi = { ...supported, id: 'gpt-other-api', api: 'other-api' }
 
   //when
   const gpt6 = { ...supported, id: 'gpt-6-luna', contextWindow: 1_000_000 }
   const result = [
     isGptContextModel(supported),
     isGptContextModel(gpt6),
+    isGptContextModel(gpt55),
     isGptContextModel(unsupported),
+    isGptContextModel(otherApi),
     modelKey(supported),
     contextModeEmoji('high'),
   ]
 
   //then
-  assert.deepEqual(result, [true, true, false, 'github-copilot/gpt-5.6-sol', '🚀'])
+  assert.deepEqual(result, [true, true, true, false, true, 'github-copilot/gpt-5.6-sol', '🚀'])
 })
 
 test('should apply and persist high mode and update status given shared services', async () => {
@@ -323,7 +326,7 @@ test('should apply and persist high mode and update status given shared services
   assert.match(outcome.statuses.at(-1)?.value ?? '', /context: 🚀/)
 })
 
-test('should use the model-specific low window given a transition from high mode', async () => {
+test('should use the shared low window given a transition from high mode', async () => {
   //given
   const source = model(GPT5_HIGH_CONTEXT_WINDOW, 'gpt-5.6-luna')
 
@@ -334,21 +337,25 @@ test('should use the model-specific low window given a transition from high mode
   })
 
   //then
-  assert.equal(outcome.modelChanges.at(-1)?.contextWindow, GPT_CONTEXT_LOW_WINDOWS.get(source.id))
+  assert.equal(outcome.modelChanges.at(-1)?.contextWindow, 272_000)
 })
 
-test('should use the default context window given a GPT-6 model', async () => {
+test('should set any GPT model to the shared low window and restore its original window', async () => {
   //given
-  const source = model(1_000_000, 'gpt-6-luna')
+  const source = model(1_000_000, 'gpt-6.1-sol')
 
   //when
   const outcome = await withLayerHarness(async (harness) => {
     await harness.run((service) => service.applyModel(source))
+    await harness.run((service) => service.handleCommand('high'))
     return harness.snapshot()
   })
 
   //then
-  assert.equal(outcome.modelChanges.at(-1)?.contextWindow, 272000)
+  assert.deepEqual(
+    outcome.modelChanges.map((changed) => changed.contextWindow),
+    [272_000, 1_000_000],
+  )
 })
 
 test('should restore saved mode given the shared session service', async () => {
@@ -437,7 +444,7 @@ test('should reapply saved mode given session start and model selection', async 
 
 test('should warn given a selected model that is not a supported GPT model', async () => {
   //given
-  const harness = await createExtensionHarness({ initialModel: { ...model(), id: 'gpt-5.5' } })
+  const harness = await createExtensionHarness({ initialModel: { ...model(), id: 'o3' } })
   const command = harness.commands.get('gpt-context-mode')
   assert.ok(command)
 

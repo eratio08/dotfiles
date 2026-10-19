@@ -5,13 +5,7 @@ import { Context, Effect, Layer, Ref, Schema } from 'effect'
 const GPT5_HIGH_CONTEXT_WINDOW = 1_050_000
 const GPT6_HIGH_CONTEXT_WINDOW = 1_000_000
 
-const GPT_CONTEXT_LOW_WINDOWS: ReadonlyMap<string, number> = new Map([
-  ['gpt-5.6-luna', 200_000],
-  ['gpt-5.6-sol', 272_000],
-  ['gpt-5.6-terra', 272_000],
-  ['gpt-6-luna', 272_000],
-  ['gpt-6-sol', 272_000],
-])
+const GPT_CONTEXT_LOW_WINDOW = 272_000
 
 const GPT_CONTEXT_HIGH_WINDOWS: ReadonlyMap<string, number> = new Map([
   ['gpt-5.6-luna', GPT5_HIGH_CONTEXT_WINDOW],
@@ -70,7 +64,7 @@ function restoreGptContextMode(branch: readonly unknown[], fallback: GptContextM
 }
 
 function isGptContextModel<T extends GptContextModeModel>(model: T | undefined): model is T {
-  return model?.api === 'openai-responses' && GPT_CONTEXT_LOW_WINDOWS.has(model.id)
+  return model?.id.startsWith('gpt-') ?? false
 }
 
 function modelKey(model: GptContextModeModel): string {
@@ -95,15 +89,15 @@ class GptContextModeState extends Context.Service<
   GptContextModeState,
   {
     readonly mode: Ref.Ref<GptContextMode>
-    readonly lowContextWindows: Ref.Ref<ReadonlyMap<string, number>>
+    readonly originalContextWindows: Ref.Ref<ReadonlyMap<string, number>>
   }
 >()('gpt-context-mode/State') {
   static readonly layer = Layer.effect(
     GptContextModeState,
     Effect.gen(function* () {
       const mode = yield* Ref.make<GptContextMode>('low')
-      const lowContextWindows = yield* Ref.make<ReadonlyMap<string, number>>(new Map())
-      return GptContextModeState.of({ mode, lowContextWindows })
+      const originalContextWindows = yield* Ref.make<ReadonlyMap<string, number>>(new Map())
+      return GptContextModeState.of({ mode, originalContextWindows })
     }),
   )
 }
@@ -176,12 +170,12 @@ const applyModel = Effect.fnUntraced(function* (
   }
 
   const key = modelKey(model)
-  const cachedWindows = yield* Ref.get(state.lowContextWindows)
-  const lowContextWindow = cachedWindows.get(key) ?? GPT_CONTEXT_LOW_WINDOWS.get(model.id) ?? model.contextWindow
-  const highContextWindow = GPT_CONTEXT_HIGH_WINDOWS.get(model.id) ?? model.contextWindow
-  yield* Ref.set(state.lowContextWindows, new Map(cachedWindows).set(key, lowContextWindow))
+  const cachedWindows = yield* Ref.get(state.originalContextWindows)
+  const originalContextWindow = cachedWindows.get(key) ?? model.contextWindow
+  const highContextWindow = GPT_CONTEXT_HIGH_WINDOWS.get(model.id) ?? originalContextWindow
+  yield* Ref.set(state.originalContextWindows, new Map(cachedWindows).set(key, originalContextWindow))
 
-  const nextModel = contextModel(model, mode, lowContextWindow, highContextWindow)
+  const nextModel = contextModel(model, mode, GPT_CONTEXT_LOW_WINDOW, highContextWindow)
   if (nextModel !== model) {
     const applied = yield* setModel(nextModel).pipe(
       Effect.as(true),
@@ -263,7 +257,6 @@ export {
   contextModeEmoji,
   contextModel,
   GPT_CONTEXT_HIGH_WINDOWS,
-  GPT_CONTEXT_LOW_WINDOWS,
   GPT_CONTEXT_MODE_ENTRY,
   GPT5_HIGH_CONTEXT_WINDOW,
   type GptContextMode,
