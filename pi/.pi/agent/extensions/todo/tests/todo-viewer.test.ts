@@ -68,3 +68,20 @@ test('should order blocked tasks after pending dependencies given completed prer
   assert.match(lines[setupIndex] ?? '', /^ {4}↳ \[!\] Run and verify the Collie-to-HEX Desktop setup/)
   assert.doesNotMatch(lines.join('\n'), /Blocked by:/)
 })
+
+test('should show task details in the viewer given a todo with details', () => {
+  const todo: Todo = {
+    id: '018f0000-0000-7000-8000-000000000001',
+    content: 'Task with details',
+    details: 'First detail line\nSecond detail line',
+    status: 'pending',
+    dependsOn: [],
+  }
+  const viewer = new TodoViewer([todo], theme, new KeybindingsManager(TUI_KEYBINDINGS, {}), () => {})
+
+  const output = viewer.render(80).join('\n')
+
+  assert.match(output, /Task with details/)
+  assert.match(output, /First detail line/)
+  assert.match(output, /Second detail line/)
+})

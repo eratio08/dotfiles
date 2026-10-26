@@ -369,6 +369,7 @@ class TodoViewer {
     } else {
       for (const { todo, depth } of getTodoDisplayTree(this.todos)) {
         lines.push(truncateToWidth(`  ${renderTodoLine(todo, this.theme, depth)}`, width))
+        lines.push(...renderTodoDetailLines(todo, depth, width, this.theme))
       }
     }
 
@@ -411,6 +412,17 @@ function renderMarker(status: TodoStatus, theme: TodoTheme): string {
     case 'omitted':
       return theme.fg('dim', '[-]')
   }
+}
+
+function renderTodoDetailLines(todo: Todo, depth: number, width: number, theme: TodoTheme): string[] {
+  const detailsIndent = '  '.repeat(depth + 2)
+  const lines: string[] = []
+  for (const line of todoDescriptionLines(todo)) {
+    for (const wrapped of wrapTextWithAnsi(line, Math.max(1, width - detailsIndent.length))) {
+      lines.push(truncateToWidth(`${detailsIndent}${theme.fg('dim', wrapped)}`, width))
+    }
+  }
+  return lines
 }
 
 function renderContent(todo: Todo, theme: TodoTheme): string {
@@ -520,14 +532,7 @@ const updateUi = Effect.fnUntraced(function* (
         for (const { todo, depth } of visible) {
           const visibleDepth = Math.max(0, depth - baseDepth)
           lines.push(truncateToWidth(`  ${renderTodoLine(todo, theme, visibleDepth)}`, width))
-          if (toolsExpanded) {
-            const detailsIndent = '  '.repeat(visibleDepth + 2)
-            for (const line of todoDescriptionLines(todo)) {
-              for (const wrapped of wrapTextWithAnsi(line, Math.max(1, width - detailsIndent.length))) {
-                lines.push(truncateToWidth(`${detailsIndent}${theme.fg('dim', wrapped)}`, width))
-              }
-            }
-          }
+          if (toolsExpanded) lines.push(...renderTodoDetailLines(todo, visibleDepth, width, theme))
         }
         lines.push(...after)
         return lines
