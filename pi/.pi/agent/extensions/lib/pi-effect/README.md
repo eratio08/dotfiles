@@ -6,10 +6,10 @@ It gives extension code typed services, typed errors, and managed lifecycle hand
 ## Requirements
 
 You need Bun and a Pi extension project.
-You need the EffectJS 4 release candidate.
+You need EffectJS 4.
 The package declares these peer dependencies:
 
-- `effect` with the range `^4.0.0-0`.
+- `effect` with the range `^4.0.0`.
 - `@earendil-works/pi-coding-agent` for Pi extension types and APIs.
 - `@earendil-works/pi-ai` for model and provider types.
 - `@earendil-works/pi-tui` for TUI types.
@@ -18,7 +18,7 @@ The package declares these peer dependencies:
 Install the adapter and EffectJS:
 
 ```bash
-bun add @eratio/pi-effect effect@rc
+bun add @eratio/pi-effect effect@^4.0.0
 ```
 
 Pi provides its API packages and TypeBox at runtime.

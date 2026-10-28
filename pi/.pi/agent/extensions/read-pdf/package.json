@@ -21,7 +21,7 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
-    "effect": "4.0.0",
+    "effect": "4.0.6",
     "unpdf": "^1.8.0"
   }
 }

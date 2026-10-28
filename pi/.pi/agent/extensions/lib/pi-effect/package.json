@@ -32,7 +32,7 @@
     "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*",
-    "effect": "*",
+    "effect": "^4.0.0",
     "typebox": "*"
   },
   "overrides": {
@@ -45,7 +45,7 @@
     "@earendil-works/pi-tui": "^0.99.1",
     "@types/bun": "^1.4.2",
     "@types/node": "^24.10.1",
-    "effect": "4.0.0",
+    "effect": "4.0.6",
     "rolldown": "^1.2.10",
     "rolldown-plugin-dts": "^0.28.6",
     "typebox": "1.3.27",

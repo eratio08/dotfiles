@@ -15,12 +15,13 @@
   },
   "dependencies": {
     "@eratio08/pi-effect": "file:../lib/pi-effect",
-    "effect": "4.0.0",
+    "effect": "4.0.6",
     "htmlparser2": "^12.0.0",
     "turndown": "^7.2.4"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.12",
+    "@types/node": "^24.10.1",
     "@types/turndown": "^5.0.6",
     "typescript": "^5.9.3"
   }

@@ -726,6 +726,8 @@ function baseContext(raw: ExtensionContext): PiApi.PiContext {
     isProjectTrusted: () => PiApi.piOperationTry('isProjectTrusted', () => raw.isProjectTrusted()),
     hasPendingMessages: () => PiApi.piOperationTry('hasPendingMessages', () => raw.hasPendingMessages()),
     contextUsage: () => PiApi.piOperationTry('contextUsage', () => raw.getContextUsage()),
+    findModel: (provider: string, id: string) =>
+      PiApi.piOperationTry('findModel', () => raw.modelRegistry.find(provider, id)),
     abort: () => PiApi.piOperationTry('abort', () => raw.abort()),
     shutdown: () => PiApi.piOperationTry('shutdown', () => raw.shutdown()),
     compact: (options: Parameters<PiApi.PiContext['compact']>[0]) =>
@@ -1066,6 +1068,7 @@ function trustInvocation(
     isProjectTrusted: () => Effect.succeed(false),
     hasPendingMessages: () => Effect.succeed(false),
     contextUsage: () => Effect.succeed(undefined),
+    findModel: () => Effect.succeed(undefined),
     abort: () => PiApi.piOperationTry('abort', () => undefined),
     shutdown: () => PiApi.piOperationTry('shutdown', () => undefined),
     compact: () => PiApi.piOperationTry('compact', () => undefined),
@@ -1435,6 +1438,7 @@ function emptyInvocationContext(): PiApi.PiContext {
     isProjectTrusted: () => Effect.succeed(false),
     hasPendingMessages: () => Effect.succeed(false),
     contextUsage: () => Effect.succeed(undefined),
+    findModel: () => Effect.succeed(undefined),
     abort: () => Effect.succeed(undefined),
     shutdown: () => Effect.succeed(undefined),
     compact: () => Effect.succeed(undefined),

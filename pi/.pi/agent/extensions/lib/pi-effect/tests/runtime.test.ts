@@ -17,6 +17,7 @@ function contextValue(cwd: string): PiContext {
     isProjectTrusted: () => Effect.succeed(true),
     hasPendingMessages: () => Effect.succeed(false),
     contextUsage: () => Effect.succeed(undefined),
+    findModel: () => Effect.succeed(undefined),
     abort: () => Effect.succeed(undefined),
     shutdown: () => Effect.succeed(undefined),
     compact: () => Effect.succeed(undefined),

@@ -119,6 +119,7 @@ type PiContext = {
   readonly hasPendingMessages: () => Effect.Effect<boolean, PiOperationsError>
   /** Reads context-window usage, if Pi can provide it. */
   readonly contextUsage: () => Effect.Effect<PiContextUsage | undefined, PiOperationsError>
+  readonly findModel: (provider: string, id: string) => Effect.Effect<Model<Api> | undefined, PiOperationsError>
   /** Requests that Pi abort the current agent operation. */
   readonly abort: () => Effect.Effect<void, PiOperationsError>
   /** Requests that Pi shut down the current process. */

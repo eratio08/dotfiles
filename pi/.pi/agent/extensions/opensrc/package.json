@@ -26,7 +26,7 @@
   "dependencies": {
     "@ast-grep/napi": "latest",
     "@eratio/pi-effect": "file:../lib/pi-effect",
-    "effect": "4.0.0",
+    "effect": "4.0.6",
     "glob": "latest",
     "opensrc": "0.7.3"
   }
