@@ -51,9 +51,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/github/gh-stack.git",
       "skillPath": "skills/gh-stack/SKILL.md",
-      "skillFolderHash": "bde7bcf5a96697d31aa55b33565fa0ff002167ca",
+      "skillFolderHash": "1f58c48379bc9fcab68e8a37cb41aad3ad937419",
       "installedAt": "2026-08-13T06:02:38Z",
-      "updatedAt": "2026-10-07T10:12:33.147Z"
+      "updatedAt": "2026-10-28T13:03:08.970Z"
     },
     "grill-me": {
       "source": "mattpocock/skills",
@@ -127,9 +127,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/setup-matt-pocock-skills/SKILL.md",
-      "skillFolderHash": "aafaabf96fa3945d8a4069317a7a6d36b7169670",
+      "skillFolderHash": "b644b684781fd5baae57f6be000a180a4d4448d7",
       "installedAt": "2026-08-05T06:24:01.850Z",
-      "updatedAt": "2026-10-12T08:35:49.731Z"
+      "updatedAt": "2026-10-28T13:03:06.679Z"
     },
     "skill-creator": {
       "source": "openai/skills",
@@ -219,9 +219,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/tt-a1i/archify.git",
       "skillPath": "archify/SKILL.md",
-      "skillFolderHash": "a38bc1bc9e97804aa5d23f09c357ac23e096eb54",
+      "skillFolderHash": "d5fc699feb186e8be4e2d9e86f850a8ea1b6959e",
       "installedAt": "2026-09-14T06:08:49.137Z",
-      "updatedAt": "2026-10-12T08:36:01.838Z"
+      "updatedAt": "2026-10-28T13:03:16.398Z"
     },
     "git-guardrails-claude-code": {
       "source": "mattpocock/skills",

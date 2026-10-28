@@ -1,3 +1,4 @@
+import { softwareNoticesHtml } from '../renderers/shared/software-notices.mjs';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
@@ -25,7 +26,7 @@ const defaultDebounceMs = 400;
 const defaultPollMs = 800;
 const defaultStopGraceMs = 3000;
 const defaultStopKillMs = 750;
-const diagramTypes = new Set(['architecture', 'workflow', 'sequence', 'dataflow', 'lifecycle']);
+const diagramTypes = new Set(['architecture', 'workflow', 'sequence', 'dataflow', 'lifecycle', 'erd', 'tree', 'class', 'timeline', 'waterfall']);
 let previewCommitSequence = 0;
 
 function sha256(value) {
@@ -58,7 +59,7 @@ function previewPage() {
   return `<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8">${softwareNoticesHtml}
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Archify Live Preview</title>
   <style>
