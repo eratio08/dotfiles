@@ -8,6 +8,8 @@ macos-titlebar-proxy-icon = hidden
 macos-option-as-alt = false
 mouse-hide-while-typing = true
 
+copy-on-select = clipboard
+
 # Workaround emoji display issue in NVIM
 grapheme-width-method = legacy
 
