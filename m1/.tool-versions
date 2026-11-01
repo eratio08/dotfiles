@@ -1,9 +1,9 @@
 rust 1.94.1
-nodejs 26.8.1
+nodejs 26.13.0
 golang 1.27.0
 opentofu 1.12.6
 uv 0.9.3
-bun 1.4.2
+bun 1.4.4
 mvnd 1.0.6
 just 1.58.0
 tree-sitter 0.26.13
