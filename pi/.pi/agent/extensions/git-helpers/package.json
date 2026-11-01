@@ -1,0 +1,24 @@
+{
+  "name": "git-helpers",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "bun test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "biome check .",
+    "check:fix": "biome check --write ."
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.12",
+    "@types/bun": "^1.4.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@eratio/pi-effect": "file:../lib/pi-effect",
+    "effect": "4.0.6"
+  }
+}
