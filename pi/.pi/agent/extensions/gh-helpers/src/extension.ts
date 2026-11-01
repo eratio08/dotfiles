@@ -12,6 +12,7 @@ const runGitProcess = Effect.fn('runGitProcess')(function* (
 
   if (result.killed || (result.code !== 0 && !(allowMissing && result.code === 1))) {
     const details = [result.stderr.trim(), result.stdout.trim()].filter(Boolean).join('\n')
+
     return yield* new PiOperationsError({
       operation: command,
       message: details || `${command} failed or is not installed. Check the command and its authentication.`,
@@ -50,14 +51,14 @@ const currentPushDestination = Effect.fn('currentPushDestination')(function* (br
     return { remote, setUpstream: false }
   }
 
-  if (remotes.length !== 1) {
+  if (remotes.length !== 1 || remotes[0] === undefined) {
     return yield* new PiOperationsError({
       operation: 'git',
       message: 'The branch has no upstream and the push remote is ambiguous. Configure an upstream before pushing.',
     })
   }
 
-  return { remote: remotes[0] as string, setUpstream: true }
+  return { remote: remotes[0], setUpstream: true }
 })
 
 const createPullRequest = Effect.fn('createPullRequest')(function* (draft: boolean) {
@@ -77,6 +78,7 @@ const createPullRequest = Effect.fn('createPullRequest')(function* (draft: boole
   }
 
   const pushArgs = ['push', '--no-follow-tags']
+
   if (destination.setUpstream) pushArgs.push('--set-upstream')
   pushArgs.push('--', destination.remote, `refs/heads/${branch}:refs/heads/${branch}`)
   yield* runGitProcess('git', pushArgs)
@@ -86,6 +88,7 @@ const createPullRequest = Effect.fn('createPullRequest')(function* (draft: boole
     ['symbolic-ref', '--quiet', '--short', 'HEAD'],
     true,
   )).stdout.trim()
+
   if (currentBranch !== branch) {
     return yield* new PiOperationsError({
       operation: 'git',
@@ -94,7 +97,9 @@ const createPullRequest = Effect.fn('createPullRequest')(function* (draft: boole
   }
 
   const createArgs = ['pr', 'create', '--fill']
+
   if (draft) createArgs.push('--draft')
+
   const result = yield* runGitProcess('gh', createArgs).pipe(
     Effect.mapError(
       (error) =>
@@ -104,6 +109,7 @@ const createPullRequest = Effect.fn('createPullRequest')(function* (draft: boole
         }),
     ),
   )
+
   const url = result.stdout.trim()
 
   if (!/^https:\/\/[^/\s]+\/[^/\s]+\/[^/\s]+\/pull\/\d+$/.test(url)) {

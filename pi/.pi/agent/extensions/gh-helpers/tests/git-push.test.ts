@@ -5,12 +5,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ExecResult } from '@earendil-works/pi-coding-agent'
 import { createFakeExtensionContext, installFakePlugin } from '@eratio/pi-effect/testing'
-import gitHelpersExtension from '../index.ts'
+import ghHelpersExtension from '../index.ts'
 
 test('should push only the current branch given a local bare remote', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'git-helpers-'))
+  const directory = await mkdtemp(join(tmpdir(), 'gh-helpers-'))
   const repository = join(directory, 'repo')
   const remote = join(directory, 'remote.git')
+
   const git = (args: string[], cwd = directory): string =>
     execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
 
@@ -20,15 +21,17 @@ test('should push only the current branch given a local bare remote', async () =
   git(['config', 'user.email', 'test@example.com'], repository)
   git(['-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-m', 'Initial'], repository)
   git(['remote', 'add', 'origin', remote], repository)
-  const fake = await installFakePlugin(gitHelpersExtension)
+  const fake = await installFakePlugin(ghHelpersExtension)
   const context = createFakeExtensionContext(repository)
   fake.api.exec = async (command: string, args: string[]): Promise<ExecResult> => {
     if (command === 'git') {
       const result = spawnSync('git', args, { cwd: repository, encoding: 'utf8' })
+
       return { stdout: result.stdout ?? '', stderr: result.stderr ?? '', code: result.status ?? 1, killed: false }
     }
 
     const stdout = args[0] === 'pr' && args[1] === 'create' ? 'https://github.com/owner/repo/pull/42\n' : ''
+
     return { stdout, stderr: '', code: 0, killed: false }
   }
 

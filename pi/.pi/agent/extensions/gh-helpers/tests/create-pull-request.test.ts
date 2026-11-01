@@ -1,9 +1,10 @@
 import { afterEach, expect, test } from 'bun:test'
 import type { ExecOptions, ExecResult } from '@earendil-works/pi-coding-agent'
 import { createFakeExtensionContext, installFakePlugin } from '@eratio/pi-effect/testing'
-import gitHelpersExtension from '../index.ts'
+import ghHelpersExtension from '../index.ts'
 
 type ProcessCall = { command: string; args: string[]; cwd: string | undefined }
+
 type TestOptions = {
   remote?: string
   merge?: string
@@ -27,7 +28,7 @@ async function setupPullRequestTest(options: TestOptions = {}): Promise<{
   calls: ProcessCall[]
   notifications: string[]
 }> {
-  const fake = await installFakePlugin(gitHelpersExtension)
+  const fake = await installFakePlugin(ghHelpersExtension)
   installed.push(fake)
   const context = createFakeExtensionContext('/repo')
   const calls: ProcessCall[] = []
@@ -39,26 +40,34 @@ async function setupPullRequestTest(options: TestOptions = {}): Promise<{
   fake.api.exec = async (command: string, args: string[], execOptions?: ExecOptions): Promise<ExecResult> => {
     calls.push({ command, args: [...args], cwd: execOptions?.cwd })
     const key = [command, ...args].join(' ')
+
     if (options.failure && key.startsWith(options.failure)) {
       return { stdout: '', stderr: 'simulated failure', code: 1, killed: false }
     }
 
     let stdout = ''
     let code = 0
+
     if (key === 'git symbolic-ref --quiet --short HEAD') {
       stdout = calls.some(({ args }) => args[0] === 'push') ? (options.branchAfterPush ?? 'feature\n') : 'feature\n'
     }
+
     if (key === 'git config --get branch.feature.remote') {
       stdout = options.remote ?? ''
       code = stdout ? 0 : 1
     }
+
     if (key === 'git config --get branch.feature.merge') {
       stdout = options.merge ?? ''
       code = stdout ? 0 : 1
     }
+
     if (key === 'git remote') stdout = options.remotes ?? 'origin\n'
+
     if (key.startsWith('git status')) stdout = options.status ?? ''
+
     if (key.startsWith('gh pr create')) stdout = 'https://github.com/owner/repo/pull/42\n'
+
     return { stdout, stderr: '', code, killed: false }
   }
 
@@ -144,6 +153,15 @@ test('should stop without pushing given a detached HEAD', async () => {
 
 test('should stop without pushing given an ambiguous remote', async () => {
   const { fake, context, calls, notifications } = await setupPullRequestTest({ remotes: 'origin\nupstream\n' })
+
+  await fake.invokeCommand('ghpr', '', context)
+
+  expect(calls.some(({ args }) => args[0] === 'push')).toBe(false)
+  expect(notifications.join('\n')).toContain('push remote is ambiguous')
+})
+
+test('should stop without pushing given no remotes', async () => {
+  const { fake, context, calls, notifications } = await setupPullRequestTest({ remotes: '' })
 
   await fake.invokeCommand('ghpr', '', context)
 

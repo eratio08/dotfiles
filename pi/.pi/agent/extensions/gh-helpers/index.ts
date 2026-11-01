@@ -2,8 +2,8 @@ import { PiExtension, type PiRegistrationContext } from '@eratio/pi-effect'
 import { Effect } from 'effect'
 import { handleCreatePullRequest, openCurrentPullRequest } from './src/extension.ts'
 
-const gitHelpersPlugin = PiExtension.define({
-  id: 'git-helpers',
+const ghHelpersPlugin = PiExtension.define({
+  id: 'gh-helpers',
   effect: ({ commands }: PiRegistrationContext<never>) =>
     Effect.gen(function* () {
       yield* commands.register('ghpr', {
@@ -21,6 +21,6 @@ const gitHelpersPlugin = PiExtension.define({
     }),
 })
 
-const gitHelpersExtension = PiExtension.install(gitHelpersPlugin)
+const ghHelpersExtension = PiExtension.install(ghHelpersPlugin)
 
-export { gitHelpersExtension as default }
+export { ghHelpersExtension as default }

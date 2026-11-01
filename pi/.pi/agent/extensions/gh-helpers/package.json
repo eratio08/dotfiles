@@ -1,20 +1,23 @@
 {
-  "name": "git-helpers",
+  "name": "gh-helpers",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
     "test": "bun test tests/*.test.ts",
+    "lint": "oxlint --config .oxlintrc.json .",
     "typecheck": "tsc --noEmit",
-    "check": "biome check .",
-    "check:fix": "biome check --write ."
+    "check": "biome check --vcs-enabled=true --vcs-client-kind=git --vcs-use-ignore-file=true .",
+    "check:fix": "biome check --vcs-enabled=true --vcs-client-kind=git --vcs-use-ignore-file=true --write ."
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.12",
+    "@oxlint/plugins": "1.90.0",
     "@types/bun": "^1.4.2",
+    "oxlint": "1.90.0",
     "typescript": "^5.9.3"
   },
   "dependencies": {

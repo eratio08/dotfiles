@@ -1,4 +1,4 @@
-# Git helpers
+# gh-helpers
 
 This Pi extension adds commands for GitHub pull requests.
 A pull request asks reviewers to merge a branch.
@@ -9,9 +9,9 @@ Install Git and GitHub CLI.
 Authenticate GitHub CLI for the repository.
 Make sure that a browser is available.
 
-Run `bun install` in the `git-helpers` directory.
+Run `bun install` in the `gh-helpers` directory.
 Build `../lib/pi-effect` if its `dist` directory does not exist.
-Load `git-helpers/index.ts` in Pi and run `/reload`.
+Load `gh-helpers/index.ts` in Pi and run `/reload`.
 
 ## Commands
 
@@ -35,6 +35,6 @@ If the browser cannot open the new pull request, the extension reports its URL.
 
 ## Checks
 
-Run `bun test tests/*.test.ts` in the `git-helpers` directory.
-Run `bun run typecheck` in the `git-helpers` directory.
-Run `bun run check` in the `git-helpers` directory.
+Run `bun test tests/*.test.ts` in the `gh-helpers` directory.
+Run `bun run typecheck` in the `gh-helpers` directory.
+Run `bun run check` in the `gh-helpers` directory.
