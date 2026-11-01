@@ -27,7 +27,7 @@ vim.opt.background     = 'dark'                         -- opt.background color 
 vim.opt.undofile       = true                           -- enable undo file
 vim.opt.scrolloff      = 15                             --- opt.undo file location- add scroll offset
 vim.opt.colorcolumn    = { 80, 120 }                    -- vertical marker at column
-vim.opt.list           = true                           -- show invisible characters
+vim.opt.list           = false                          -- show invisible characters
 vim.opt.listchars      = { tab = '» ', trail = '_', nbsp = '␣', --[[eol = '⏎', space = '·']] }
 vim.opt.guicursor      = ''                             -- disable cursor styles
 vim.opt.termguicolors  = true                           -- disable to prevent tmux overlay
