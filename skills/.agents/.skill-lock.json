@@ -15,18 +15,18 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/code-review/SKILL.md",
-      "skillFolderHash": "fee7bb5fdddc069d58cbea09b2c36b5a859eac05",
+      "skillFolderHash": "a8ef561571acbb611de8ff19ba6da75b197c63a8",
       "installedAt": "2026-06-19T05:57:31.559Z",
-      "updatedAt": "2026-10-12T08:35:44.523Z"
+      "updatedAt": "2026-11-01T20:18:33.718Z"
     },
     "codebase-design": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/codebase-design/SKILL.md",
-      "skillFolderHash": "07ba1cd60efc12d0d3a083005c1d9651cf15e39a",
+      "skillFolderHash": "4cbe1c131e1ea54109cb1e4e5f3c505810db6606",
       "installedAt": "2026-06-26T05:51:16.140Z",
-      "updatedAt": "2026-10-07T10:12:15.206Z"
+      "updatedAt": "2026-11-01T20:18:34.930Z"
     },
     "diagnosing-bugs": {
       "source": "mattpocock/skills",
@@ -80,9 +80,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/productivity/grilling/SKILL.md",
-      "skillFolderHash": "28aceb4c9567b985cb47f7db88cf23c9f33af8b8",
+      "skillFolderHash": "f551b6e0d219fdda0b6abf277f8f915b3127d1e9",
       "installedAt": "2026-06-26T05:51:16.142Z",
-      "updatedAt": "2026-10-12T08:35:46.902Z"
+      "updatedAt": "2026-11-01T20:18:36.218Z"
     },
     "implement": {
       "source": "mattpocock/skills",
@@ -98,9 +98,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
-      "skillFolderHash": "39bd9cc130f7dfcc4e3ea0b3613f6ebed0d0ad2b",
+      "skillFolderHash": "587147dd230da299cc5e84971cb0a33f6676f8a6",
       "installedAt": "2026-06-26T05:51:16.145Z",
-      "updatedAt": "2026-10-07T10:12:20.047Z"
+      "updatedAt": "2026-11-01T20:18:37.438Z"
     },
     "prototype": {
       "source": "mattpocock/skills",
@@ -117,10 +117,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/research/SKILL.md",
-      "skillFolderHash": "0a6796c5667e95ed2301ba7381c123b4acb2ae1a",
-      "pluginName": "mattpocock-skills",
+      "skillFolderHash": "2f8f36af48796faed5c687c75bb650071631a984",
       "installedAt": "2026-07-08T18:57:04.651Z",
-      "updatedAt": "2026-09-16T18:29:51.894Z"
+      "updatedAt": "2026-11-01T20:18:38.721Z"
     },
     "setup-matt-pocock-skills": {
       "source": "mattpocock/skills",
@@ -309,9 +308,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/implement-spec/SKILL.md",
-      "skillFolderHash": "0cfefc751d0cb64f0c948ffcb17e13b94e778f08",
+      "skillFolderHash": "407c196f5c88af53c71efc8f31ee37c02dbb12e7",
       "installedAt": "2026-09-16T18:29:51.901Z",
-      "updatedAt": "2026-10-07T10:12:31.187Z"
+      "updatedAt": "2026-11-01T20:18:39.914Z"
     },
     "web-design-guidelines": {
       "source": "vercel-labs/agent-skills",
@@ -321,6 +320,16 @@
       "skillFolderHash": "3116f3e62dbd02b44a598b1aa690d2a8938e8f89",
       "installedAt": "2026-09-26T16:17:44.468Z",
       "updatedAt": "2026-09-26T16:17:44.468Z"
+    },
+    "install-anti-slop": {
+      "source": "dmmulroy/anti-slop",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/dmmulroy/anti-slop.git",
+      "ref": "main",
+      "skillPath": "skills/install-anti-slop/SKILL.md",
+      "skillFolderHash": "97962dc9fad565ca7695bf57805d9d0138ce1def",
+      "installedAt": "2026-11-01T20:19:10.363Z",
+      "updatedAt": "2026-11-01T20:19:10.363Z"
     }
   },
   "dismissed": {
@@ -332,11 +341,13 @@
     "codex",
     "cursor",
     "droid",
+    "fx",
     "gemini-cli",
     "github-copilot",
     "kilo",
     "kimi-code-cli",
     "opencode",
+    "pi",
     "warp",
     "zed"
   ]
