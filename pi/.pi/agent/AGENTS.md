@@ -4,7 +4,8 @@ Call each nested Ripwire tool from `codemode` with `await`.
 - Orient on a task with `tools.mcp__ripwire__for`. It returns a ranked, signatures-only inventory.
   Paste symbol/file names from the issue verbatim; named mentions get anchored.
 - Map one task with `tools.mcp__ripwire__explore`.
-  If you split one task across agents, read each lane's `execution` instructions.
+  For parallel agents, set `partition` to the number of agents, from 2 to 16.
+  Review `overlap_max` and `split` before you distribute the shared core and agent slices.
 - Map a stack trace or build error with `tools.mcp__ripwire__from_trace`.
   Pass the raw trace text. Do not paraphrase it into a query.
   If the trace is in a file, use Pi `read` first.
@@ -15,13 +16,14 @@ Call each nested Ripwire tool from `codemode` with `await`.
   Insert before or after a symbol with `tools.mcp__ripwire__insert_before_symbol` or `tools.mcp__ripwire__insert_after_symbol`.
   The receipt carries the `post-edit` span, `edit_check`, and `tests_to_run` by default.
   Use the receipt. Do not re-read the file.
-  Check a contract with `tools.mcp__ripwire__edit_check`.
+  For a contract check without an edit receipt, use `tools.mcp__ripwire__edit_check`.
 - Before writing a new function, method, class, struct, interface, or variable, use `tools.mcp__ripwire__exemplar`.
   Duplicates are born on small tasks.
 - Before calling work done, run `tools.mcp__ripwire__quality_delta`.
   Then run `tools.mcp__ripwire__situational_awareness` to get `tests_to_run`.
   Run the returned test commands with Pi `bash`.
 - Trust notes: counts marked `counts_floor` are floors, not totals; a zero means "none found", never "none exists".
+- If an MCP tool supports `legend` and a definition needs explanation, use `legend: "full"`.
 
 - Do NOT open a file you have not located first.
   Use `tools.mcp__ripwire__for` or `tools.mcp__ripwire__grep`, then read what it names.
