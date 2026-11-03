@@ -63,7 +63,7 @@
       "skillFolderHash": "3df14e2d3a89459bf300614be9247e3ce74798f8",
       "pluginName": "mattpocock-skills",
       "installedAt": "2026-06-26T05:51:16.142Z",
-      "updatedAt": "2026-09-16T06:41:49.297Z"
+      "updatedAt": "2026-11-03T06:54:43.452Z"
     },
     "grill-with-docs": {
       "source": "mattpocock/skills",
@@ -137,7 +137,7 @@
       "skillPath": "skills/.system/skill-creator/SKILL.md",
       "skillFolderHash": "8bfb6b8774d223eea3e788cfdfa1e4209e5e2ae9",
       "installedAt": "2026-03-24T16:14:04.979Z",
-      "updatedAt": "2026-03-24T16:14:04.979Z"
+      "updatedAt": "2026-11-03T06:54:44.444Z"
     },
     "tdd": {
       "source": "mattpocock/skills",
@@ -156,7 +156,7 @@
       "skillFolderHash": "46dfbeeba12a9e52eef446676f42e7551023d9a9",
       "pluginName": "mattpocock-skills",
       "installedAt": "2026-08-10T14:15:10.292Z",
-      "updatedAt": "2026-09-16T18:29:51.896Z"
+      "updatedAt": "2026-11-03T06:54:43.533Z"
     },
     "to-tickets": {
       "source": "mattpocock/skills",
@@ -229,7 +229,7 @@
       "skillPath": "skills/misc/git-guardrails-claude-code/SKILL.md",
       "skillFolderHash": "ceed97af09633b300826d0ca0b1464c527ec9a35",
       "installedAt": "2026-09-16T06:41:49.309Z",
-      "updatedAt": "2026-09-16T06:41:49.309Z"
+      "updatedAt": "2026-11-03T06:54:43.628Z"
     },
     "migrate-to-shoehorn": {
       "source": "mattpocock/skills",
@@ -238,7 +238,7 @@
       "skillPath": "skills/misc/migrate-to-shoehorn/SKILL.md",
       "skillFolderHash": "0aea91a3599a4bf7aeec17e3262d4cbcfcbeec23",
       "installedAt": "2026-09-16T06:41:49.311Z",
-      "updatedAt": "2026-09-16T06:41:49.311Z"
+      "updatedAt": "2026-11-03T06:54:43.715Z"
     },
     "retro": {
       "source": "mattpocock/skills",
@@ -256,7 +256,7 @@
       "skillPath": "skills/misc/scaffold-exercises/SKILL.md",
       "skillFolderHash": "44a0ee332b9d67ebbd59389c7eb4e5aff1ce845c",
       "installedAt": "2026-09-16T06:41:49.312Z",
-      "updatedAt": "2026-09-16T06:41:49.312Z"
+      "updatedAt": "2026-11-03T06:54:43.804Z"
     },
     "setup-pre-commit": {
       "source": "mattpocock/skills",
@@ -265,7 +265,7 @@
       "skillPath": "skills/misc/setup-pre-commit/SKILL.md",
       "skillFolderHash": "5b63f9f665bacc9be04cae51982e9ef1469d6699",
       "installedAt": "2026-09-16T06:41:49.312Z",
-      "updatedAt": "2026-09-16T06:41:49.312Z"
+      "updatedAt": "2026-11-03T06:54:43.898Z"
     },
     "setup-ts-deep-modules": {
       "source": "mattpocock/skills",
@@ -274,7 +274,7 @@
       "skillPath": "skills/in-progress/setup-ts-deep-modules/SKILL.md",
       "skillFolderHash": "b32508a8a7d62c07d32d7c5cff84d357719def7f",
       "installedAt": "2026-09-16T06:41:49.313Z",
-      "updatedAt": "2026-09-16T06:41:49.313Z"
+      "updatedAt": "2026-11-03T06:54:43.999Z"
     },
     "writing-beats": {
       "source": "mattpocock/skills",
@@ -283,7 +283,7 @@
       "skillPath": "skills/in-progress/writing-beats/SKILL.md",
       "skillFolderHash": "3a28fb076fdaaec0927080718abb98fc0f340011",
       "installedAt": "2026-09-16T06:41:49.313Z",
-      "updatedAt": "2026-09-16T06:41:49.313Z"
+      "updatedAt": "2026-11-03T06:54:44.082Z"
     },
     "writing-fragments": {
       "source": "mattpocock/skills",
@@ -292,7 +292,7 @@
       "skillPath": "skills/in-progress/writing-fragments/SKILL.md",
       "skillFolderHash": "98e500e0097ec80f52f6a024c5a2ff6d15235bdb",
       "installedAt": "2026-09-16T06:41:49.314Z",
-      "updatedAt": "2026-09-16T06:41:49.314Z"
+      "updatedAt": "2026-11-03T06:54:44.169Z"
     },
     "writing-shape": {
       "source": "mattpocock/skills",
@@ -301,7 +301,7 @@
       "skillPath": "skills/in-progress/writing-shape/SKILL.md",
       "skillFolderHash": "ac92229646fccf7315ae139c37b479b3790617f2",
       "installedAt": "2026-09-16T06:41:49.314Z",
-      "updatedAt": "2026-09-16T06:41:49.314Z"
+      "updatedAt": "2026-11-03T06:54:44.260Z"
     },
     "implement-spec": {
       "source": "mattpocock/skills",
