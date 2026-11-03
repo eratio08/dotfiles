@@ -1,0 +1,9 @@
+{
+  "plugins": [
+    "file:///Users/el/.opencode/herdr-opencode",
+    "file:///Users/el/.local/share/sparness/spa-ai-hub/sparness/plugins/sparness-status/dist/sparness-status"
+  ],
+  "theme": {
+    "name": "tokyonight"
+  }
+}

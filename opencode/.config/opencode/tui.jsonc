@@ -1,7 +1,4 @@
 {
   "$schema": "https://opencode.ai/tui.json",
-  "theme": "rosepine",
-  "plugin": [
-    // "opencode-landstrip"
-  ],
+  "theme": "rosepine"
 }
