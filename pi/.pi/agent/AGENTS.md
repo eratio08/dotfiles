@@ -35,11 +35,11 @@ Call each nested Ripwire tool from `codemode` with `await`.
 
 ## General
 - Use `tools.ast_grep_search` for structural searches and `tools.ast_grep_rewrite` for structural edits.
-* Use `tools.opensrc_fetch` to fetch public github repositories.
-* Use `tools.opensrc_list`, `tools.opensrc_files`, or `tools.opensrc_tree` to locate public github sources and files.
-* Use `tools.opensrc_grep` or `tools.opensrc_ast_grep` to search public github sources.
-* Use `tools.opensrc_read` or `tools.opensrc_read_many` to read public github files.
-* Use the `gh` cli to access private repositories source code.
+* Use `tools.opensrc_fetch` to fetch  github repositories.
+* Use `tools.opensrc_list`, `tools.opensrc_files`, or `tools.opensrc_tree` to locate  github sources and files.
+* Use `tools.opensrc_grep` or `tools.opensrc_ast_grep` to search  github sources.
+* Use `tools.opensrc_read` or `tools.opensrc_read_many` to read  github files.
+* Use the `gh` cli to access repositories source code if opensrc fails.
 * Never commit anything to Git without the user's explicit instruction.
 - Do not write any code comments, unless explicitly instructed.
 - Do not remove any existing code comments which have not been introduced by yourself.
