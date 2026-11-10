@@ -17,6 +17,7 @@ import {
   createAstParser,
   createFileSystem,
   createOpensrcFailure,
+  GithubLogin,
   OpenSrcCli,
   OpenSrcCliLive,
   OpensrcConfiguration,
@@ -125,6 +126,45 @@ describe('opensrc effects', () => {
     //then
     expect(versionCalls).toBe(1)
     await dispose()
+  })
+
+  test('should use each layer’s CLI dependencies given concurrent source fetches', async () => {
+    const requests: PiExecutionRequest[][] = [[], []]
+    const clients = await Promise.all(
+      requests.map((calls, index) =>
+        makeCli(
+          {
+            exec: (request: PiExecutionRequest) => {
+              calls.push(request)
+              return Effect.succeed({
+                stdout: request.args[0] === '--version' ? 'opensrc 0.7.3' : '',
+                stderr: '',
+                code: 0,
+                killed: false,
+              })
+            },
+          },
+          { ...config, bin: `opensrc-${index}`, environment: { OPENSRC_HOME: `/tmp/opensrc-${index}` } },
+        ),
+      ),
+    )
+
+    try {
+      await Promise.all(
+        clients.map(({ cli }, index) => Effect.runPromise(cli.fetch([`owner/repo-${index}`], '/tmp/project'))),
+      )
+
+      for (const [index, calls] of requests.entries()) {
+        expect(calls).toHaveLength(2)
+        expect(calls[1]).toMatchObject({
+          command: `opensrc-${index}`,
+          args: ['fetch', `owner/repo-${index}`, '--cwd', '/tmp/project', '--quiet'],
+          environment: { OPENSRC_HOME: `/tmp/opensrc-${index}` },
+        })
+      }
+    } finally {
+      await Promise.all(clients.map(({ dispose }) => dispose()))
+    }
   })
 
   test('should terminate AST workers after matches, parser errors, and cancellation', async () => {
@@ -314,6 +354,222 @@ describe('opensrc effects', () => {
     //then
     expect(requests.at(-1)).toEqual({ args: ['fetch', 'zod', '--cwd', '/tmp/project', '--quiet'], cwd: '/tmp/project' })
     await dispose()
+  })
+
+  test('does not request a GitHub token for a public repository', async () => {
+    const requests: PiExecutionRequest[] = []
+    const host: PiHostService = {
+      exec: (request: PiExecutionRequest) => {
+        requests.push(request)
+        return Effect.succeed({
+          stdout: request.args[0] === '--version' ? 'opensrc 0.7.3' : '',
+          stderr: '',
+          code: 0,
+          killed: false,
+        })
+      },
+    }
+    const cliConfig: OpensrcConfig = {
+      ...config,
+      environment: { ...config.environment, GH_TOKEN: 'ambient-gh-token', GITHUB_TOKEN: 'ambient-github-token' },
+    }
+    const { cli, dispose } = await makeCli(host, cliConfig)
+
+    try {
+      await Effect.runPromise(cli.fetch(['owner/public'], '/tmp/project'))
+
+      const fetch = requests.find((request) => request.command === 'opensrc-test' && request.args[0] === 'fetch')
+      expect(fetch?.environment.GH_TOKEN).toBeUndefined()
+      expect(fetch?.environment.GITHUB_TOKEN).toBeUndefined()
+      expect(requests.filter((request) => request.command === 'gh')).toHaveLength(0)
+    } finally {
+      await dispose()
+    }
+  })
+
+  test('uses a refreshable gh token only for a confirmed private repository retry', async () => {
+    const token = 'gho-short-token'
+    const requests: PiExecutionRequest[] = []
+    let fetchCount = 0
+    const host: PiHostService = {
+      exec: (request: PiExecutionRequest) => {
+        requests.push(request)
+        if (request.command === 'opensrc-test' && request.args[0] === '--version') {
+          return Effect.succeed({ stdout: 'opensrc 0.7.3', stderr: '', code: 0, killed: false })
+        }
+        if (request.command === 'opensrc-test' && request.args[0] === 'fetch') {
+          fetchCount += 1
+          if (request.environment.GITHUB_TOKEN === token) {
+            const failed = fetchCount === 4
+            return Effect.succeed({
+              stdout: '',
+              stderr: failed ? `clone failed with ${token}` : '',
+              code: failed ? 2 : 0,
+              killed: false,
+            })
+          }
+          return Effect.succeed({
+            stdout: '',
+            stderr: 'Repository not found on GitHub. If this is a private repo, set GITHUB_TOKEN.',
+            code: 1,
+            killed: false,
+          })
+        }
+        if (request.command === 'gh' && request.args[0] === 'repo') {
+          return Effect.succeed({ stdout: 'true', stderr: '', code: 0, killed: false })
+        }
+        if (request.command === 'gh' && request.args[0] === 'auth' && request.args[1] === 'status') {
+          return Effect.succeed({
+            stdout: JSON.stringify({
+              hosts: { 'github.com': [{ active: true, state: 'success', refreshable: true }] },
+            }),
+            stderr: '',
+            code: 0,
+            killed: false,
+          })
+        }
+        if (request.command === 'gh' && request.args[0] === 'auth' && request.args[1] === 'token') {
+          return Effect.succeed({ stdout: token, stderr: '', code: 0, killed: false })
+        }
+        return Effect.succeed({ stdout: '', stderr: 'unexpected command', code: 99, killed: false })
+      },
+    }
+    const { cli, dispose } = await makeCli(host, config)
+
+    try {
+      await Effect.runPromise(cli.fetch(['owner/private'], '/tmp/project'))
+      const failedRetry = await Effect.runPromise(Effect.exit(cli.fetch(['owner/private'], '/tmp/project')))
+
+      expect(Exit.isFailure(failedRetry)).toBe(true)
+      if (Exit.isFailure(failedRetry)) expect(String(failedRetry.cause)).not.toContain(token)
+
+      const fetches = requests.filter((request) => request.command === 'opensrc-test' && request.args[0] === 'fetch')
+      expect(fetches).toHaveLength(4)
+      expect(fetches[0]?.environment.GITHUB_TOKEN).toBeUndefined()
+      expect(fetches[0]?.environment.GH_TOKEN).toBeUndefined()
+      expect(fetches[1]?.environment.GITHUB_TOKEN).toBe(token)
+      expect(fetches[1]?.args).not.toContain(token)
+      expect(fetches[2]?.environment.GITHUB_TOKEN).toBeUndefined()
+      expect(fetches[2]?.environment.GH_TOKEN).toBeUndefined()
+      expect(fetches[3]?.environment.GITHUB_TOKEN).toBe(token)
+      expect(
+        requests.filter(
+          (request) => request.command === 'gh' && request.args[0] === 'auth' && request.args[1] === 'token',
+        ),
+      ).toHaveLength(2)
+      expect(requests.flatMap((request) => request.args)).not.toContain(token)
+    } finally {
+      await dispose()
+    }
+  })
+
+  test('should not use a token given a failed post-login credential or visibility check', async () => {
+    for (const failure of ['credential', 'visibility'] as const) {
+      const requests: PiExecutionRequest[] = []
+      let loggedIn = false
+      const host: PiHostService = {
+        exec: (request: PiExecutionRequest) => {
+          requests.push(request)
+          if (request.command === 'opensrc-test' && request.args[0] === '--version')
+            return Effect.succeed({ stdout: 'opensrc 0.7.3', stderr: '', code: 0, killed: false })
+          if (request.command === 'opensrc-test' && request.args[0] === 'fetch')
+            return Effect.succeed({
+              stdout: '',
+              stderr: 'Repository not found on GitHub. If this is a private repo, set GITHUB_TOKEN.',
+              code: 1,
+              killed: false,
+            })
+          if (request.args[0] === 'repo')
+            return Effect.succeed({
+              stdout: loggedIn && failure === 'visibility' ? 'false' : 'true',
+              stderr: '',
+              code: 0,
+              killed: false,
+            })
+          if (request.args[1] === 'status')
+            return Effect.succeed({
+              stdout: JSON.stringify({
+                hosts: {
+                  'github.com': [{ active: true, state: 'success', refreshable: loggedIn && failure !== 'credential' }],
+                },
+              }),
+              stderr: '',
+              code: 0,
+              killed: false,
+            })
+          return Effect.succeed({ stdout: '', stderr: 'unexpected command', code: 99, killed: false })
+        },
+      }
+      const { cli, dispose } = await makeCli(host, config)
+
+      try {
+        const result = await Effect.runPromiseExit(
+          cli.fetch(['owner/private'], '/tmp/project').pipe(
+            Effect.provideService(
+              GithubLogin,
+              Effect.sync(() => {
+                loggedIn = true
+              }),
+            ),
+          ),
+        )
+
+        expect(Exit.isFailure(result)).toBe(true)
+        expect(requests.some((request) => request.args[0] === 'auth' && request.args[1] === 'token')).toBe(false)
+        expect(requests.filter((request) => request.args[0] === 'fetch')).toHaveLength(1)
+      } finally {
+        await dispose()
+      }
+    }
+  })
+
+  test('does not fetch a private repository when gh has no refreshable login', async () => {
+    const requests: PiExecutionRequest[] = []
+    const host: PiHostService = {
+      exec: (request: PiExecutionRequest) => {
+        requests.push(request)
+        if (request.command === 'opensrc-test' && request.args[0] === '--version') {
+          return Effect.succeed({ stdout: 'opensrc 0.7.3', stderr: '', code: 0, killed: false })
+        }
+        if (request.command === 'opensrc-test' && request.args[0] === 'fetch') {
+          return Effect.succeed({
+            stdout: '',
+            stderr: 'Repository not found on GitHub. If this is a private repo, set GITHUB_TOKEN.',
+            code: 1,
+            killed: false,
+          })
+        }
+        if (request.command === 'gh' && request.args[0] === 'repo') {
+          return Effect.succeed({ stdout: 'true', stderr: '', code: 0, killed: false })
+        }
+        if (request.command === 'gh' && request.args[0] === 'auth' && request.args[1] === 'status') {
+          return Effect.succeed({
+            stdout: JSON.stringify({
+              hosts: { 'github.com': [{ active: true, state: 'success', refreshable: false }] },
+            }),
+            stderr: '',
+            code: 0,
+            killed: false,
+          })
+        }
+        return Effect.succeed({ stdout: '', stderr: '', code: 0, killed: false })
+      },
+    }
+    const { cli, dispose } = await makeCli(host, config)
+
+    try {
+      const result = await Effect.runPromise(Effect.exit(cli.fetch(['owner/private'], '/tmp/project')))
+
+      expect(Exit.isFailure(result)).toBe(true)
+      if (Exit.isFailure(result)) expect(String(result.cause)).toContain('refreshable')
+      expect(
+        requests.filter(
+          (request) => request.command === 'gh' && request.args[0] === 'auth' && request.args[1] === 'token',
+        ),
+      ).toHaveLength(0)
+    } finally {
+      await dispose()
+    }
   })
 
   test('should map a failed CLI command to a typed failure given a nonzero exit', async () => {

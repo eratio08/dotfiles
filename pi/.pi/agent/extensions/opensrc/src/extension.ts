@@ -5,8 +5,8 @@ import { homedir } from 'node:os'
 import { dirname, extname, isAbsolute, resolve } from 'node:path'
 import { isMainThread, parentPort, Worker } from 'node:worker_threads'
 import { Lang, parse, pattern } from '@ast-grep/napi'
-import { PiProcess } from '@eratio/pi-effect'
-import { Context, Effect, Layer, Option, Ref, Schema, type Scope, Semaphore } from 'effect'
+import { PiProcess, PiUi } from '@eratio/pi-effect'
+import { Context, Deferred, Effect, Fiber, Layer, Option, Ref, Schema, type Scope, Semaphore } from 'effect'
 import { glob } from 'glob'
 
 type SourceType = 'npm' | 'pypi' | 'crates' | 'repo'
@@ -143,6 +143,8 @@ type PiExecutionRequest = {
   readonly args: readonly string[]
   readonly cwd?: string
   readonly environment: Readonly<Record<string, string | undefined>>
+  readonly detached?: boolean
+  readonly onStderr?: (chunk: string) => void
 }
 
 type SourceFile = { readonly path: string; readonly content: string }
@@ -712,6 +714,7 @@ const PiHostLive: Layer.Layer<PiHost, never, PiProcess> = Layer.effect(
     const piProcess = yield* PiProcess
     return PiHost.of({
       exec: Effect.fnUntraced(function* (request: PiExecutionRequest) {
+        if (request.detached) return yield* executeDetachedCommand(request)
         return yield* Object.keys(request.environment).length === 0
           ? piProcess
               .exec(request.command, [...request.args], { cwd: request.cwd })
@@ -721,6 +724,27 @@ const PiHostLive: Layer.Layer<PiHost, never, PiProcess> = Layer.effect(
     })
   }),
 )
+
+function executeDetachedCommand(request: PiExecutionRequest): Effect.Effect<PiExecutionResult, OpensrcFailure> {
+  return Effect.callback<PiExecutionResult, OpensrcFailure>((resume) => {
+    try {
+      const child = spawn(request.command, [...request.args], {
+        cwd: '/',
+        env: createChildEnvironment(request.environment),
+        stdio: 'ignore',
+        detached: true,
+        shell: false,
+      })
+      child.once('error', (cause) => resume(Effect.fail(mapPiFailure(request.command, cause))))
+      child.once('spawn', () => {
+        child.unref()
+        resume(Effect.succeed({ stdout: '', stderr: '', code: 0, killed: false }))
+      })
+    } catch (cause) {
+      resume(Effect.fail(mapPiFailure(request.command, cause)))
+    }
+  })
+}
 
 function executeCommandWithEnvironment(request: PiExecutionRequest): Effect.Effect<PiExecutionResult, OpensrcFailure> {
   return Effect.callback<PiExecutionResult, OpensrcFailure>((resume) => {
@@ -762,7 +786,9 @@ function executeCommandWithEnvironment(request: PiExecutionRequest): Effect.Effe
       stdout += chunk.toString()
     })
     child.stderr?.on('data', (chunk: Buffer | string) => {
-      stderr += chunk.toString()
+      const text = chunk.toString()
+      stderr += text
+      request.onStderr?.(text)
     })
     child.once('error', (cause) => {
       const message = cause instanceof Error ? cause.message : String(cause)
@@ -832,22 +858,260 @@ function resolveOpensrcConfig(
   }
 }
 
+const tokenlessGithubEnvironment = { GH_TOKEN: undefined, GITHUB_TOKEN: undefined }
+const githubCliEnvironment: Readonly<Record<string, string | undefined>> = {
+  GH_HOST: 'github.com',
+  ...tokenlessGithubEnvironment,
+}
+
+function unauthenticatedGithubEnvironment(config: OpensrcConfig): Readonly<Record<string, string | undefined>> {
+  const hasInheritedGithubToken =
+    process.env.GH_TOKEN !== undefined ||
+    process.env.GITHUB_TOKEN !== undefined ||
+    config.environment.GH_TOKEN !== undefined ||
+    config.environment.GITHUB_TOKEN !== undefined
+  return hasInheritedGithubToken ? tokenlessGithubEnvironment : {}
+}
+
+const runOpensrcCommandEffect = Effect.fnUntraced(function* (
+  plan: CliCommandPlan,
+  cwd?: string,
+  environment: Readonly<Record<string, string | undefined>> = {},
+): Effect.fn.Return<PiExecutionResult, OpensrcFailure, PiHost | OpensrcConfiguration> {
+  const piHost = yield* PiHost
+  const config = yield* OpensrcConfiguration
+  return yield* piHost.exec({
+    command: config.bin,
+    args: plan.args,
+    cwd,
+    environment: { ...config.environment, ...environment },
+  })
+})
+
+const GithubLogin = Context.Reference<Effect.Effect<void, OpensrcFailure, PiHost>>('opensrc/GithubLogin', {
+  defaultValue: () =>
+    Effect.fail(
+      createOpensrcFailure({
+        _tag: 'cli',
+        operation: 'fetch',
+        message:
+          'A refreshable GitHub CLI login is required to fetch private repositories. Run `gh auth login --hostname github.com --expiring` and try again.',
+      }),
+    ),
+})
+
+const loginGithubEffect: Effect.Effect<void, OpensrcFailure, PiHost | PiUi> = Effect.scoped(
+  Effect.gen(function* () {
+    const piHost = yield* PiHost
+    const ui = yield* PiUi
+    const approved = yield* ui
+      .confirm(
+        'GitHub sign-in',
+        'A refreshable GitHub CLI login is required. Sign in with your browser? This can replace the existing GitHub CLI credential.',
+      )
+      .pipe(
+        Effect.mapError(() =>
+          createOpensrcFailure({ _tag: 'cli', operation: 'fetch', message: 'GitHub sign-in is unavailable.' }),
+        ),
+      )
+    if (!approved) return yield* Effect.fail(cancellationFailure('fetch'))
+
+    const deviceCode = yield* Deferred.make<string>()
+    let output = ''
+    const login = yield* piHost
+      .exec({
+        command: 'gh',
+        args: ['auth', 'login', '--hostname', 'github.com', '--web', '--expiring', '--clipboard=false'],
+        environment: { ...githubCliEnvironment, NO_COLOR: '1' },
+        onStderr: (chunk: string) => {
+          output = (output + chunk).slice(-4096)
+          const code = /First copy your one-time code:\s*([A-Z0-9]{4}-[A-Z0-9]{4})/.exec(output)?.[1]
+          if (code !== undefined) Deferred.doneUnsafe(deviceCode, Effect.succeed(code))
+        },
+      })
+      .pipe(Effect.forkScoped)
+
+    const code = yield* Effect.raceFirst(
+      Deferred.await(deviceCode),
+      Fiber.join(login).pipe(
+        Effect.flatMap(() =>
+          Effect.fail(
+            createOpensrcFailure({
+              _tag: 'cli',
+              operation: 'fetch',
+              message: 'GitHub sign-in did not provide a device code.',
+            }),
+          ),
+        ),
+      ),
+    ).pipe(
+      Effect.timeout('30 seconds'),
+      Effect.mapError(() =>
+        createOpensrcFailure({
+          _tag: 'cli',
+          operation: 'fetch',
+          message: 'GitHub sign-in did not provide a device code.',
+        }),
+      ),
+    )
+
+    const browserCommand =
+      process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'rundll32' : 'xdg-open'
+    const browserArgs =
+      process.platform === 'win32'
+        ? ['url.dll,FileProtocolHandler', 'https://github.com/login/device']
+        : ['https://github.com/login/device']
+    yield* piHost
+      .exec({
+        command: browserCommand,
+        args: browserArgs,
+        environment: tokenlessGithubEnvironment,
+        detached: true,
+      })
+      .pipe(Effect.ignore)
+
+    const completed = yield* ui
+      .confirm(
+        'GitHub sign-in',
+        `Open https://github.com/login/device and enter ${code}. Select Yes after you authorize GitHub CLI.`,
+      )
+      .pipe(
+        Effect.mapError(() =>
+          createOpensrcFailure({ _tag: 'cli', operation: 'fetch', message: 'GitHub sign-in is unavailable.' }),
+        ),
+      )
+    if (!completed) return yield* Effect.fail(cancellationFailure('fetch'))
+
+    const result = yield* Fiber.join(login).pipe(
+      Effect.timeout('5 minutes'),
+      Effect.mapError(() =>
+        createOpensrcFailure({ _tag: 'cli', operation: 'fetch', message: 'GitHub sign-in did not complete.' }),
+      ),
+    )
+    if (result.killed) return yield* Effect.fail(cancellationFailure('fetch'))
+    if (result.code !== 0)
+      return yield* Effect.fail(
+        createOpensrcFailure({ _tag: 'cli', operation: 'fetch', message: 'GitHub sign-in failed.' }),
+      )
+  }),
+)
+
+const fetchOneOpensrcSourceEffect = Effect.fnUntraced(function* (
+  spec: string,
+  cwd: string,
+): Effect.fn.Return<void, OpensrcFailure, PiHost | OpensrcConfiguration> {
+  const piHost = yield* PiHost
+  const config = yield* OpensrcConfiguration
+  const result = yield* runOpensrcCommandEffect(planFetch([spec], cwd), cwd, unauthenticatedGithubEnvironment(config))
+  if (!result.killed && result.code === 0) return
+  if (result.killed || !result.stderr.includes('If this is a private repo, set GITHUB_TOKEN.')) {
+    return yield* validateResult('fetch', result)
+  }
+
+  const parsedSpec = parseSourceSpec(spec)
+  if (parsedSpec.type !== 'repo' || !parsedSpec.name.startsWith('github.com/')) {
+    return yield* validateResult('fetch', result)
+  }
+
+  const visibility = yield* piHost.exec({
+    command: 'gh',
+    args: ['repo', 'view', parsedSpec.name.slice('github.com/'.length), '--json', 'isPrivate', '--jq', '.isPrivate'],
+    cwd,
+    environment: githubCliEnvironment,
+  })
+  if (visibility.killed) return yield* Effect.fail(cancellationFailure('fetch'))
+  if (visibility.code !== 0) {
+    const detail = result.stderr.trim().split('\n')[0] || 'OpenSrc could not fetch the repository.'
+    return yield* Effect.fail(
+      createOpensrcFailure({
+        _tag: 'cli',
+        operation: 'fetch',
+        message: `${detail} The GitHub CLI could not confirm repository visibility. Make sure that gh is installed and signed in to an account that can view the repository.`,
+      }),
+    )
+  }
+  if (visibility.stdout.trim() !== 'true') return yield* validateResult('fetch', result)
+
+  const authStatus = yield* piHost.exec({
+    command: 'gh',
+    args: ['auth', 'status', '--hostname', 'github.com', '--active', '--json', 'hosts'],
+    cwd,
+    environment: githubCliEnvironment,
+  })
+  if (authStatus.killed) return yield* Effect.fail(cancellationFailure('fetch'))
+  if (authStatus.code !== 0 || !hasRefreshableGithubCredential(authStatus.stdout)) {
+    yield* yield* GithubLogin
+    const refreshedStatus = yield* piHost.exec({
+      command: 'gh',
+      args: ['auth', 'status', '--hostname', 'github.com', '--active', '--json', 'hosts'],
+      cwd,
+      environment: githubCliEnvironment,
+    })
+    if (refreshedStatus.killed) return yield* Effect.fail(cancellationFailure('fetch'))
+    if (refreshedStatus.code !== 0 || !hasRefreshableGithubCredential(refreshedStatus.stdout)) {
+      return yield* Effect.fail(
+        createOpensrcFailure({
+          _tag: 'cli',
+          operation: 'fetch',
+          message:
+            'GitHub did not issue a refreshable credential. Private fetching requires a refreshable GitHub CLI login.',
+        }),
+      )
+    }
+
+    const refreshedVisibility = yield* piHost.exec({
+      command: 'gh',
+      args: ['repo', 'view', parsedSpec.name.slice('github.com/'.length), '--json', 'isPrivate', '--jq', '.isPrivate'],
+      cwd,
+      environment: githubCliEnvironment,
+    })
+    if (refreshedVisibility.killed) return yield* Effect.fail(cancellationFailure('fetch'))
+    if (refreshedVisibility.code !== 0 || refreshedVisibility.stdout.trim() !== 'true') {
+      return yield* Effect.fail(
+        createOpensrcFailure({
+          _tag: 'cli',
+          operation: 'fetch',
+          message: 'The new GitHub CLI login cannot confirm that the repository is private.',
+        }),
+      )
+    }
+  }
+
+  const tokenResult = yield* piHost.exec({
+    command: 'gh',
+    args: ['auth', 'token', '--hostname', 'github.com'],
+    cwd,
+    environment: githubCliEnvironment,
+  })
+  if (tokenResult.killed) return yield* Effect.fail(cancellationFailure('fetch'))
+  const token = tokenResult.stdout.trim()
+  if (tokenResult.code !== 0 || token.length === 0) {
+    return yield* Effect.fail(
+      createOpensrcFailure({
+        _tag: 'cli',
+        operation: 'fetch',
+        message: 'The GitHub CLI did not return a token. Run `gh auth status --hostname github.com` and try again.',
+      }),
+    )
+  }
+
+  const retry = yield* runOpensrcCommandEffect(planFetch([spec], cwd), cwd, {
+    ...tokenlessGithubEnvironment,
+    GITHUB_TOKEN: token,
+  })
+  const safeRetry = { ...retry, stderr: retry.stderr.replaceAll(token, '[redacted]') }
+  yield* validateResult('fetch', safeRetry)
+})
+
 const OpenSrcCliLive: Layer.Layer<OpenSrcCli, never, PiHost | OpensrcConfiguration> = Layer.effect(
   OpenSrcCli,
   Effect.gen(function* () {
     const piHost = yield* PiHost
     const config = yield* OpensrcConfiguration
-    const run = Effect.fnUntraced(function* (plan: CliCommandPlan, cwd?: string) {
-      return yield* piHost.exec({
-        command: config.bin,
-        args: plan.args,
-        cwd,
-        environment: config.environment,
-      })
-    })
+    const cliContext = Context.make(PiHost, piHost).pipe(Context.add(OpensrcConfiguration, config))
     const ensurePreflight = yield* Effect.cached(
       Effect.gen(function* () {
-        const result = yield* run(planVersion())
+        const result = yield* runOpensrcCommandEffect(planVersion()).pipe(Effect.provideContext(cliContext))
         yield* validateResult('preflight', result)
         const version = parseVersion(result.stdout)
         if (version === undefined || compareVersion(version, MINIMUM_VERSION) < 0) {
@@ -867,7 +1131,7 @@ const OpenSrcCliLive: Layer.Layer<OpenSrcCli, never, PiHost | OpensrcConfigurati
       }),
       list: Effect.fnUntraced(function* () {
         yield* ensurePreflight
-        const result = yield* run(planList())
+        const result = yield* runOpensrcCommandEffect(planList()).pipe(Effect.provideContext(cliContext))
         yield* validateResult('list', result)
         return yield* parseSourceIndex(result.stdout).pipe(
           Effect.mapError((cause) =>
@@ -882,24 +1146,78 @@ const OpenSrcCliLive: Layer.Layer<OpenSrcCli, never, PiHost | OpensrcConfigurati
       }),
       fetch: Effect.fnUntraced(function* (specs: readonly string[], cwd: string) {
         yield* ensurePreflight
-        const result = yield* run(planFetch(specs, cwd), cwd)
-        yield* validateResult('fetch', result)
+        if (specs.length === 0) {
+          const result = yield* runOpensrcCommandEffect(
+            planFetch(specs, cwd),
+            cwd,
+            unauthenticatedGithubEnvironment(config),
+          ).pipe(Effect.provideContext(cliContext))
+          yield* validateResult('fetch', result)
+          return
+        }
+        if (specs.length === 1 && specs[0] !== undefined)
+          return yield* fetchOneOpensrcSourceEffect(specs[0], cwd).pipe(Effect.provideContext(cliContext))
+
+        const result = yield* runOpensrcCommandEffect(
+          planFetch(specs, cwd),
+          cwd,
+          unauthenticatedGithubEnvironment(config),
+        ).pipe(Effect.provideContext(cliContext))
+        if (
+          result.killed ||
+          result.code === 0 ||
+          !result.stderr.includes('If this is a private repo, set GITHUB_TOKEN.')
+        ) {
+          return yield* validateResult('fetch', result)
+        }
+
+        let firstFailure: OpensrcFailure | undefined
+        for (const spec of specs) {
+          const outcome = yield* Effect.match(
+            fetchOneOpensrcSourceEffect(spec, cwd).pipe(Effect.provideContext(cliContext)),
+            {
+              onFailure: (failure: OpensrcFailure) => ({ _tag: 'failure' as const, failure }),
+              onSuccess: () => ({ _tag: 'success' as const }),
+            },
+          )
+          if (outcome._tag !== 'failure') continue
+          if (outcome.failure._tag === 'cancellation') return yield* Effect.fail(outcome.failure)
+          firstFailure ??= outcome.failure
+        }
+        if (firstFailure !== undefined) return yield* Effect.fail(firstFailure)
       }),
       remove: Effect.fnUntraced(function* (names: readonly string[]) {
         yield* ensurePreflight
-        const result = yield* run(planRemove(names))
+        const result = yield* runOpensrcCommandEffect(planRemove(names)).pipe(Effect.provideContext(cliContext))
         yield* validateResult('remove', result)
       }),
       clean: Effect.fnUntraced(function* (plans: readonly CliCommandPlan[]) {
         yield* ensurePreflight
         for (const plan of plans) {
-          const result = yield* run(plan)
+          const result = yield* runOpensrcCommandEffect(plan).pipe(Effect.provideContext(cliContext))
           yield* validateResult('clean', result)
         }
       }),
     })
   }),
 )
+
+function hasRefreshableGithubCredential(output: string): boolean {
+  try {
+    const status: unknown = JSON.parse(output)
+    if (!isRecord(status) || !isRecord(status.hosts)) return false
+    const accounts = status.hosts['github.com']
+    return (
+      Array.isArray(accounts) &&
+      accounts.some(
+        (account) =>
+          isRecord(account) && account.active === true && account.state === 'success' && account.refreshable === true,
+      )
+    )
+  } catch {
+    return false
+  }
+}
 
 const validateResult = Effect.fnUntraced(function* (operation: string, result: PiExecutionResult) {
   if (result.killed) return yield* Effect.fail(cancellationFailure(operation))
@@ -1834,8 +2152,17 @@ const fetchSourceMutationEffect = Effect.fnUntraced(function* (
   before: readonly Source[],
 ) {
   const alreadyExists = parsed.map((spec) => before.some((source) => sourceMatchesSpec(source, spec)))
-  yield* cli.fetch(specs, cwd)
-  return alreadyExists
+  const outcome = yield* Effect.match(cli.fetch(specs, cwd), {
+    onFailure: (failure: OpensrcFailure) => ({ _tag: 'failure' as const, failure }),
+    onSuccess: () => ({ _tag: 'success' as const }),
+  })
+  if (outcome._tag === 'failure') {
+    if (outcome.failure._tag === 'cancellation' || outcome.failure.operation !== 'fetch') {
+      return yield* Effect.fail(outcome.failure)
+    }
+    return { alreadyExists, failure: outcome.failure }
+  }
+  return { alreadyExists, failure: undefined }
 })
 
 const removeSourceMutationEffect = Effect.fnUntraced(function* (
@@ -1872,11 +2199,12 @@ const fetchSourcesEffect = Effect.fn('OpensrcApi.fetch')(function* (
     )
   }
   const mutation = yield* sourceStore.mutate((before) => fetchSourceMutationEffect(cli, cwd, specs, parsed, before))
+  if (mutation.value.failure !== undefined) return yield* Effect.fail(mutation.value.failure)
   const fetched: FetchedSource[] = []
   for (const [index, spec] of parsed.entries()) {
     const source = mutation.after.find((candidate) => sourceMatchesSpec(candidate, spec))
     if (source === undefined) return yield* Effect.fail(sourceNotFound(spec.name))
-    fetched.push({ source, alreadyExists: mutation.value[index] })
+    fetched.push({ source, alreadyExists: mutation.value.alreadyExists[index] })
   }
   return fetched
 })
@@ -2242,8 +2570,12 @@ function filesystemFailure(operation: string, cause: unknown): OpensrcFailure {
 
 type OpensrcServices = FileSystem | AstParser | OpensrcConfiguration | PiHost | OpenSrcCli | SourceStore
 
-function createOpensrcServiceLayer(config: OpensrcConfig): Layer.Layer<OpensrcServices, never, PiProcess> {
-  const hostLayer = Layer.mergeAll(PiHostLive, Layer.succeed(OpensrcConfiguration, config))
+function createOpensrcServiceLayer(
+  config: OpensrcConfig,
+  piHost?: PiHostService,
+): Layer.Layer<OpensrcServices, never, PiProcess> {
+  const piHostLayer = piHost === undefined ? PiHostLive : Layer.succeed(PiHost, piHost)
+  const hostLayer = Layer.mergeAll(piHostLayer, Layer.succeed(OpensrcConfiguration, config))
   const cliLayer = OpenSrcCliLive.pipe(Layer.provideMerge(hostLayer))
   const storeLayer = SourceStoreLive().pipe(Layer.provideMerge(cliLayer))
   return Layer.mergeAll(FileSystemLive(), AstParserLive(), storeLayer)
@@ -2278,12 +2610,14 @@ export {
   FileSystemLive,
   type FileSystemService,
   filterFileEntries,
+  GithubLogin,
   type GrepOptions,
   type GrepResult,
   grepFiles,
   grepFilesInterruptible,
   isContainedPath,
   isSafeRelativePath,
+  loginGithubEffect,
   matchesGlob,
   normalizeAstMatches,
   normalizeAstMatchesInterruptible,

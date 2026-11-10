@@ -7,8 +7,9 @@ import {
   PiToolContext,
   type PiToolContextTag,
   type PiToolResult,
+  PiUi,
 } from '@eratio/pi-effect'
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 import { type Static, Type } from 'typebox'
 import {
   type AstGrepMatch,
@@ -16,13 +17,16 @@ import {
   createOpensrcServiceLayer,
   type FetchedSource,
   type FileEntry,
+  GithubLogin,
   type GrepResult,
+  loginGithubEffect,
   type OpensrcApiService,
   type OpensrcConfig,
   OpensrcContext,
   type OpensrcFailure,
   type OpensrcServices,
   type ParsedSpec,
+  type PiHostService,
   type RemoveResult,
   resolveOpensrcConfig,
   type Source,
@@ -368,10 +372,10 @@ const registerOpensrcNativeToolsEffect = Effect.fnUntraced(function* (context: P
   yield* context.tools.register(opensrcCleanTool)
 })
 
-function createOpensrcNativePlugin(config: OpensrcConfig): PiPlugin<OpensrcServices> {
+function createOpensrcNativePlugin(config: OpensrcConfig, piHost?: PiHostService): PiPlugin<OpensrcServices> {
   return PiExtension.define({
     id: 'opensrc',
-    layer: createOpensrcServiceLayer(config),
+    layer: createOpensrcServiceLayer(config, piHost),
     effect: registerOpensrcNativeToolsEffect,
   })
 }
@@ -383,7 +387,11 @@ const runOpensrcApiInScopeEffect = Effect.fnUntraced(function* <Value extends Js
   const api = yield* createOpensrcApi(context.toolSignal ?? context.signal).pipe(
     Effect.provideService(OpensrcContext, { cwd: context.cwd }),
   )
-  return createOpensrcToolResult(yield* operation(api))
+  if (!context.hasUI) return createOpensrcToolResult(yield* operation(api))
+  const ui = yield* Effect.serviceOption(PiUi)
+  if (Option.isNone(ui)) return createOpensrcToolResult(yield* operation(api))
+  const login = loginGithubEffect.pipe(Effect.provideService(PiUi, ui.value))
+  return createOpensrcToolResult(yield* operation(api).pipe(Effect.provideService(GithubLogin, login)))
 })
 
 const runOpensrcApi = Effect.fnUntraced(function* <Value extends JsonValue>(

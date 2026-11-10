@@ -4,9 +4,18 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ExecResult } from '@earendil-works/pi-coding-agent'
 import { PiExtension } from '@eratio/pi-effect'
-import { createFakeExtensionApi, type FakeExtension } from '@eratio/pi-effect/testing'
+import { createFakeExtensionApi, createFakeExtensionContext, type FakeExtension } from '@eratio/pi-effect/testing'
+import { Effect } from 'effect'
 import { createOpensrcNativePlugin } from '../index.ts'
-import type { OpensrcConfig } from '../src/extension.ts'
+import type {
+  OpensrcConfig,
+  OpensrcFailure,
+  PiExecutionRequest,
+  PiExecutionResult,
+  PiHostService,
+  Source,
+} from '../src/extension.ts'
+import { createOpensrcFailure } from '../src/extension.ts'
 
 const source = {
   type: 'npm' as const,
@@ -18,7 +27,37 @@ const source = {
 const readme = '# Zod\nA schema parser.'
 const sourceFile = 'export const parse = () => 1\nparse()\n'
 
-async function createOpensrcNativeHarness(): Promise<{
+function createNativePiHost(exec: FakeExtension['api']['exec']): PiHostService {
+  return {
+    exec: (request: PiExecutionRequest) =>
+      Effect.callback<PiExecutionResult, OpensrcFailure>((resume) => {
+        const controller = new AbortController()
+        void exec(request.command, [...request.args], { cwd: request.cwd, signal: controller.signal }).then(
+          (result) =>
+            resume(
+              Effect.succeed({
+                stdout: result.stdout,
+                stderr: result.stderr,
+                code: result.code,
+                killed: result.killed ?? false,
+              }),
+            ),
+          (cause) =>
+            resume(
+              Effect.succeed({
+                stdout: '',
+                stderr: cause instanceof Error ? cause.message : String(cause),
+                code: 1,
+                killed: controller.signal.aborted,
+              }),
+            ),
+        )
+        return Effect.sync(() => controller.abort())
+      }),
+  }
+}
+
+async function createOpensrcNativeHarness(piHost?: PiHostService): Promise<{
   readonly fake: FakeExtension
   readonly requests: string[][]
   readonly maxConcurrentFetches: () => number
@@ -97,7 +136,8 @@ async function createOpensrcNativeHarness(): Promise<{
     }
   }
   const config: OpensrcConfig = { bin: 'opensrc-test', home, environment: {} }
-  await PiExtension.install(createOpensrcNativePlugin(config))(fake.api)
+  const host = piHost ?? createNativePiHost(fake.api.exec)
+  await PiExtension.install(createOpensrcNativePlugin(config, host))(fake.api)
   return {
     fake,
     requests,
@@ -347,6 +387,340 @@ test('should fetch sources and report cache status given a native codemode call'
     //then
     expect(result).toMatchObject({ structuredContent: [{ source, alreadyExists: true }] })
     expect(harness.requests.map(([operation]) => operation)).toContain('fetch')
+  } finally {
+    await harness.shutdown()
+  }
+})
+
+test('isolates private GitHub tokens in a mixed native fetch', async () => {
+  const token = 'gho-mixed-test-token'
+  const privateSource: Source = {
+    type: 'repo',
+    name: 'github.com/acme/private',
+    version: 'main',
+    path: 'repos/acme/private',
+    fetchedAt: '2026-01-02',
+  }
+  const publicSource: Source = {
+    type: 'repo',
+    name: 'github.com/acme/public',
+    version: 'main',
+    path: 'repos/acme/public',
+    fetchedAt: '2026-01-02',
+  }
+  const lockedSource: Source = {
+    type: 'repo',
+    name: 'github.com/acme/locked',
+    version: 'main',
+    path: 'repos/acme/locked',
+    fetchedAt: '2026-01-02',
+  }
+  const newPublicSource: Source = {
+    type: 'repo',
+    name: 'github.com/acme/new-public',
+    version: 'main',
+    path: 'repos/acme/new-public',
+    fetchedAt: '2026-01-02',
+  }
+  const gitlabSource: Source = {
+    type: 'repo',
+    name: 'gitlab.com/team/project',
+    version: 'main',
+    path: 'repos/team/project',
+    fetchedAt: '2026-01-02',
+  }
+  const sourcesBySpec = new Map<string, Source>([
+    ['acme/private', privateSource],
+    ['acme/public', publicSource],
+    ['acme/locked', lockedSource],
+    ['acme/new-public', newPublicSource],
+    ['zod', source],
+    ['gitlab:team/project', gitlabSource],
+  ])
+  const cachedSources: Source[] = [source]
+  const requests: PiExecutionRequest[] = []
+  const host: PiHostService = {
+    exec: (request: PiExecutionRequest) => {
+      requests.push(request)
+      if (request.command === 'opensrc-test' && request.args[0] === '--version') {
+        return Effect.succeed({ stdout: 'opensrc 0.7.3', stderr: '', code: 0, killed: false })
+      }
+      if (request.command === 'opensrc-test' && request.args[0] === 'list') {
+        return Effect.succeed({
+          stdout: JSON.stringify({
+            packages: cachedSources.filter((cached) => cached.type !== 'repo'),
+            repos: cachedSources.filter((cached) => cached.type === 'repo'),
+          }),
+          stderr: '',
+          code: 0,
+          killed: false,
+        })
+      }
+      if (request.command === 'opensrc-test' && request.args[0] === 'fetch') {
+        const cwdIndex = request.args.indexOf('--cwd')
+        const specs = request.args.slice(1, cwdIndex)
+        if (specs.length > 1) {
+          return Effect.succeed({
+            stdout: '',
+            stderr: 'Repository not found on GitHub. If this is a private repo, set GITHUB_TOKEN.',
+            code: 1,
+            killed: false,
+          })
+        }
+        const spec = specs[0]
+        if ((spec === 'acme/private' || spec === 'acme/locked') && request.environment.GITHUB_TOKEN !== token) {
+          return Effect.succeed({
+            stdout: '',
+            stderr: 'Repository not found on GitHub. If this is a private repo, set GITHUB_TOKEN.',
+            code: 1,
+            killed: false,
+          })
+        }
+        if (request.environment.GITHUB_TOKEN !== undefined && spec !== 'acme/private') {
+          return Effect.succeed({ stdout: '', stderr: 'token reached an unrelated source', code: 1, killed: false })
+        }
+        const fetched = spec === undefined ? undefined : sourcesBySpec.get(spec)
+        if (fetched === undefined) {
+          return Effect.succeed({ stdout: '', stderr: 'unknown source spec', code: 2, killed: false })
+        }
+        if (!cachedSources.some((cached) => cached.name === fetched.name)) cachedSources.push(fetched)
+        return Effect.succeed({ stdout: '', stderr: '', code: 0, killed: false })
+      }
+      if (request.command === 'gh' && request.args[0] === 'repo') {
+        if (request.args[2] === 'acme/locked') {
+          return Effect.succeed({ stdout: '', stderr: 'repository access denied', code: 1, killed: false })
+        }
+        return Effect.succeed({ stdout: 'true', stderr: '', code: 0, killed: false })
+      }
+      if (request.command === 'gh' && request.args[0] === 'auth' && request.args[1] === 'status') {
+        return Effect.succeed({
+          stdout: JSON.stringify({
+            hosts: { 'github.com': [{ active: true, state: 'success', refreshable: true }] },
+          }),
+          stderr: '',
+          code: 0,
+          killed: false,
+        })
+      }
+      if (request.command === 'gh' && request.args[0] === 'auth' && request.args[1] === 'token') {
+        return Effect.succeed({ stdout: token, stderr: '', code: 0, killed: false })
+      }
+      return Effect.succeed({ stdout: '', stderr: 'unexpected command', code: 99, killed: false })
+    },
+  }
+  const harness = await createOpensrcNativeHarness(host)
+
+  try {
+    const result = (await harness.invoke('opensrc_fetch', {
+      specs: ['acme/private', 'acme/public', 'zod', 'gitlab:team/project'],
+    })) as { structuredContent: { source: Source; alreadyExists: boolean }[] }
+
+    expect(result.structuredContent.map(({ source: fetched }) => fetched.name)).toEqual([
+      'github.com/acme/private',
+      'github.com/acme/public',
+      'zod',
+      'gitlab.com/team/project',
+    ])
+    expect(result.structuredContent.map(({ alreadyExists }) => alreadyExists)).toEqual([false, false, true, false])
+
+    const fetches = requests.filter((request) => request.command === 'opensrc-test' && request.args[0] === 'fetch')
+    expect(fetches.map((request) => request.args.slice(1, request.args.indexOf('--cwd')))).toEqual([
+      ['acme/private', 'acme/public', 'zod', 'gitlab:team/project'],
+      ['acme/private'],
+      ['acme/private'],
+      ['acme/public'],
+      ['zod'],
+      ['gitlab:team/project'],
+    ])
+    expect(
+      fetches.filter((request) => request.environment.GITHUB_TOKEN !== undefined).map((request) => request.args[1]),
+    ).toEqual(['acme/private'])
+    expect(requests.flatMap((request) => request.args)).not.toContain(token)
+    const ghRequests = requests.filter((request) => request.command === 'gh')
+    expect(ghRequests.map((request) => request.args.slice(0, 2))).toEqual([
+      ['repo', 'view'],
+      ['auth', 'status'],
+      ['auth', 'token'],
+    ])
+    expect(
+      ghRequests.every(
+        (request) => request.environment.GH_TOKEN === undefined && request.environment.GITHUB_TOKEN === undefined,
+      ),
+    ).toBe(true)
+
+    await expect(harness.invoke('opensrc_fetch', { specs: ['acme/locked', 'acme/new-public'] })).rejects.toThrow(
+      'GitHub CLI could not confirm repository visibility',
+    )
+    const listed = (await harness.invoke('opensrc_list', {})) as { structuredContent: Source[] }
+    expect(listed.structuredContent.map(({ name }) => name)).toContain(newPublicSource.name)
+    expect(
+      requests.filter(
+        (request) => request.command === 'gh' && request.args[0] === 'auth' && request.args[1] === 'token',
+      ),
+    ).toHaveLength(1)
+  } finally {
+    await harness.shutdown()
+  }
+})
+
+test('should complete a private fetch given an interactive refreshable GitHub login', async () => {
+  const requests: PiExecutionRequest[] = []
+  const prompts: string[] = []
+  const privateSource: Source = {
+    type: 'repo',
+    name: 'github.com/acme/private',
+    version: 'main',
+    path: 'repos/acme/private',
+    fetchedAt: '2026-01-02',
+  }
+  let loggedIn = false
+  let fetched = false
+  let completeLogin: (() => void) | undefined
+  let loginCancelled = false
+  let browserOpenedBeforeCodePrompt = false
+  const host: PiHostService = {
+    exec: (request: PiExecutionRequest) => {
+      requests.push(request)
+      if (request.detached)
+        return Effect.fail(createOpensrcFailure({ _tag: 'cli', operation: 'browser', message: 'browser unavailable' }))
+      if (request.command === 'opensrc-test' && request.args[0] === '--version')
+        return Effect.succeed({ stdout: 'opensrc 0.7.3', stderr: '', code: 0, killed: false })
+      if (request.command === 'opensrc-test' && request.args[0] === 'list')
+        return Effect.succeed({
+          stdout: JSON.stringify({ packages: [source], repos: fetched ? [privateSource] : [] }),
+          stderr: '',
+          code: 0,
+          killed: false,
+        })
+      if (request.command === 'opensrc-test' && request.args[0] === 'fetch') {
+        if (request.environment.GITHUB_TOKEN === 'short-lived-token') {
+          fetched = true
+          return Effect.succeed({ stdout: '', stderr: '', code: 0, killed: false })
+        }
+        return Effect.succeed({
+          stdout: '',
+          stderr: 'Repository not found on GitHub. If this is a private repo, set GITHUB_TOKEN.',
+          code: 1,
+          killed: false,
+        })
+      }
+      if (request.command === 'gh' && request.args[0] === 'repo')
+        return Effect.succeed({ stdout: 'true', stderr: '', code: 0, killed: false })
+      if (request.command === 'gh' && request.args[1] === 'status')
+        return Effect.succeed({
+          stdout: JSON.stringify({
+            hosts: { 'github.com': [{ active: true, state: 'success', refreshable: loggedIn }] },
+          }),
+          stderr: '',
+          code: 0,
+          killed: false,
+        })
+      if (request.command === 'gh' && request.args[1] === 'login')
+        return Effect.callback((resume) => {
+          completeLogin = () => {
+            loggedIn = true
+            resume(Effect.succeed({ stdout: '', stderr: '', code: 0, killed: false }))
+          }
+          queueMicrotask(() => request.onStderr?.('First copy your one-time code: ABCD-1234\n'))
+          return Effect.sync(() => {
+            loginCancelled = true
+          })
+        })
+      if (request.command === 'gh' && request.args[1] === 'token')
+        return Effect.succeed({ stdout: 'short-lived-token', stderr: '', code: 0, killed: false })
+      return Effect.succeed({ stdout: '', stderr: 'unexpected command', code: 99, killed: false })
+    },
+  }
+  const harness = await createOpensrcNativeHarness(host)
+  const context = createFakeExtensionContext()
+  context.ui.confirm = async (title: string, message: string): Promise<boolean> => {
+    prompts.push(`${title}: ${message}`)
+    if (prompts.length === 2) {
+      browserOpenedBeforeCodePrompt = requests.some((request) => request.detached === true)
+      completeLogin?.()
+    }
+    return true
+  }
+
+  try {
+    const result = await harness.fake.invokeTool(
+      'opensrc_fetch',
+      'login-test',
+      { specs: 'acme/private' },
+      {
+        ...context,
+        tools: [],
+        executeTool: async () => {
+          throw new Error('unexpected nested tool')
+        },
+      },
+    )
+
+    expect(result).toMatchObject({ structuredContent: [{ source: { name: privateSource.name } }] })
+    expect(prompts).toHaveLength(2)
+    expect(prompts[1]).toContain('ABCD-1234')
+    expect(browserOpenedBeforeCodePrompt).toBe(true)
+    expect(requests).toContainEqual(
+      expect.objectContaining({
+        command: process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'rundll32' : 'xdg-open',
+        args:
+          process.platform === 'win32'
+            ? ['url.dll,FileProtocolHandler', 'https://github.com/login/device']
+            : ['https://github.com/login/device'],
+        detached: true,
+      }),
+    )
+    expect(JSON.stringify(result)).not.toContain('ABCD-1234')
+    expect(requests.filter((request) => request.command === 'gh').map((request) => request.args.slice(0, 2))).toEqual([
+      ['repo', 'view'],
+      ['auth', 'status'],
+      ['auth', 'login'],
+      ['auth', 'status'],
+      ['repo', 'view'],
+      ['auth', 'token'],
+    ])
+
+    loggedIn = false
+    fetched = false
+    context.ui.confirm = async (): Promise<boolean> => false
+    await expect(
+      harness.fake.invokeTool(
+        'opensrc_fetch',
+        'login-declined-test',
+        { specs: 'acme/private' },
+        {
+          ...context,
+          tools: [],
+          executeTool: async () => {
+            throw new Error('unexpected nested tool')
+          },
+        },
+      ),
+    ).rejects.toThrow('cancelled')
+    expect(requests.filter((request) => request.args[0] === 'auth' && request.args[1] === 'login')).toHaveLength(1)
+    expect(requests.find((request) => request.args[1] === 'login')?.args).toContain('--clipboard=false')
+
+    loginCancelled = false
+    let confirmationCount = 0
+    context.ui.confirm = async (): Promise<boolean> => {
+      confirmationCount += 1
+      return confirmationCount === 1
+    }
+    await expect(
+      harness.fake.invokeTool(
+        'opensrc_fetch',
+        'login-code-declined-test',
+        { specs: 'acme/private' },
+        {
+          ...context,
+          tools: [],
+          executeTool: async () => {
+            throw new Error('unexpected nested tool')
+          },
+        },
+      ),
+    ).rejects.toThrow('cancelled')
+    expect(loginCancelled).toBe(true)
   } finally {
     await harness.shutdown()
   }
