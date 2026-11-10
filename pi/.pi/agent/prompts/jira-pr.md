@@ -117,8 +117,8 @@ PR body must be exactly:
 ```markdown
 Jira: ABC-123
 
-## WHY
-Explain motivation for change.
+## WHY - Problem statement
+Explain motivation/problem statement for change.
 
 ## WHAT
 Summarize implemented changes concisely.
