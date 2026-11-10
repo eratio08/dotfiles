@@ -1,9 +1,9 @@
 {
-  "lastChangelogVersion": "1.2.0",
+  "lastChangelogVersion": "1.5.1",
   "theme": "rose-pine-moon",
   "defaultProvider": "github-copilot",
   "defaultModel": "gpt-6-luna",
-  "defaultThinkingLevel": "max",
+  "defaultThinkingLevel": "high",
   "defaultTools": [
     "+codemode"
   ],
@@ -39,10 +39,13 @@
   "treeFilterMode": "no-tools",
   "enabledModels": [
     "github-copilot/gpt-6-luna",
-    "github-copilot/gpt-6.1-sol"
+    "github-copilot/gpt-6.1-sol",
+    "github-copilot/claude-haiku-5.5",
+    "github-copilot/gpt-6.1-terra"
   ],
   "skills": [
     "~/.local/state/sparness/opencode/skills",
+    "~/.opencode/skills",
     "-skills/cavecrew/SKILL.md",
     "-skills/aws-billing-and-cost-management/SKILL.md",
     "-skills/aws-blocks/SKILL.md",
@@ -72,7 +75,8 @@
     "-skills/setup-matt-pocock-skills/SKILL.md",
     "-skills/to-spec/SKILL.md",
     "-skills/to-tickets/SKILL.md",
-    "-skills/triage/SKILL.md"
+    "-skills/triage/SKILL.md",
+    "+skills/ripwire-write-tests/SKILL.md"
   ],
   "extensions": [
     "-extensions/caveman/index.ts",
