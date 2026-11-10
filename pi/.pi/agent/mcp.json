@@ -18,11 +18,14 @@
 			"exposure": "codemode"
 		},
 		"aws-mcp": {
-			"enabled": false,
+			"enabled": true,
 			"command": "uvx",
 			"args": [
-				"mcp-proxy-for-aws==1.6.4",
-				"https://aws-mcp.eu-central-1.api.aws/mcp"
+				"mcp-proxy-for-aws-cli@1.7.0",
+				"https://aws-mcp.eu-central-1.api.aws/mcp",
+				"--metadata",
+				"AWS_REGION=eu-central-1",
+        "--skip-auth"
 			],
 			"exposure": "codemode"
 		},
@@ -32,13 +35,13 @@
 			"exposure": "codemode"
 		},
 		"playwright": {
-			"enabled": false,
+			"enabled": true,
 			"command": "bunx",
-			"args": ["-y", "@playwright/mcp@1.63.0"],
+			"args": ["-y", "@playwright/mcp@0.0.83"],
 			"exposure": "codemode"
 		},
 		"chrome-devtools": {
-			"enabled": true,
+			"enabled": false,
 			"command": "bunx",
 			"args": ["-y", "chrome-devtools-mcp@1.9.0", "--no-usage-statistics"],
 			"exposure": "codemode"
