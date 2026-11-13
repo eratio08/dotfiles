@@ -1,0 +1,25 @@
+{
+  "name": "biome-anti-slop",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests assets/anti-slop/tests",
+    "check": "biome check ."
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@biomejs/biome": "2.6.4",
+    "@biomejs/runtime": "2.6.4",
+    "@eratio/pi-effect": "file:../lib/pi-effect"
+  },
+  "peerDependencies": {
+    "typescript": "^7",
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "dependencies": {
+    "jsonc-parser": "3.3.1",
+    "yaml": "2.9.0"
+  }
+}
