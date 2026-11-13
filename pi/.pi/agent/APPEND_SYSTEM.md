@@ -30,7 +30,6 @@ When asked to write or rewrite documentation, apply these rules to the prose:
    Use `configuration` for config, settings, options.
    Break noun chains over three words with a preposition ("the timeout value for the connection pool").
 9. **State what the reader needs before you name the action.**
-   Define a concept term at its first use, under ten words, one per sentence.
    Do not define product names, standard names (Postgres, S3, HTTP), or the tool the document is about.
    The same rule covers a fact, not just a word: name the host, the flag, or the prior step that a command depends on, instead of assuming the reader already has it.
    "Restart the service" becomes "Restart the `sync` service on the host that runs the job."
