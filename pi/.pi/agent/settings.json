@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.5.1",
+  "lastChangelogVersion": "1.5.2",
   "theme": "rose-pine-moon",
   "defaultProvider": "github-copilot",
   "defaultModel": "gpt-6-luna",
@@ -39,8 +39,6 @@
   "treeFilterMode": "no-tools",
   "enabledModels": [
     "github-copilot/gpt-6-luna",
-    "github-copilot/gpt-6.1-sol",
-    "github-copilot/claude-haiku-5.5",
     "github-copilot/gpt-6.1-terra"
   ],
   "skills": [
@@ -80,7 +78,8 @@
   ],
   "extensions": [
     "-extensions/caveman/index.ts",
-    "-extensions/herdr-blocker/index.ts"
+    "-extensions/herdr-blocker/index.ts",
+    "-extensions/anti-slop/index.ts"
   ],
   "hideThinkingBlock": true
 }
