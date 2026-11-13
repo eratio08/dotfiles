@@ -40,9 +40,10 @@ For every custom tool with visible output:
 - Preserve enough structured data in `details` for rendering and state restoration.
 - Throw from `execute` when the tool must report an error.
 - Module inter-dependencies must be kept low, when you have to import more than 5 types of another module, better merge them into one.
-Use vertical space to separate logical block in logic.
-Use guard-clause style programming, the happy path goes last.
-The happy path is considered a logical block.
+- Use vertical space to separate logical block in logic.
+- A final return statement at the end of a code block must always be visually separated by an empty line.
+- Use guard-clause style programming, the happy path goes last.
+- The happy path is considered a logical block.
 
 ## TUI, cancellation, and tests
 
