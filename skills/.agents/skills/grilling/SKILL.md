@@ -7,7 +7,11 @@ Interview the user relentlessly until you reach a shared understanding. Map this
 
 Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the user's answers before the next round.
 
-Format a round like so:
+Load the `plannotator` skill for each grilling session.
+Write each round as question blocks in a Markdown file that the current mode permits.
+Use the `plannotator` skill to open the file and receive the answers.
+If the `plannotator` tool opens the file, end the turn and wait for the answers.
+If Plannotator is unavailable, ask the questions in chat with this format:
 
 ```
 ❓ **Q1** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
