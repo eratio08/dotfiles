@@ -1,25 +1,3 @@
 {
-  "extends": "//",
-  "plugins": [
-    "./tools/biome/anti-slop/rules/no-reflect-apply.ts",
-    "./tools/biome/anti-slop/rules/no-runtime-typeof.ts",
-    "./tools/biome/anti-slop/rules/no-array-filter-map.ts",
-    "./tools/biome/anti-slop/rules/no-reduce-accumulator-copy.ts",
-    "./tools/biome/anti-slop/rules/no-accumulating-spread.ts",
-    "./tools/biome/anti-slop/rules/no-widen-then-assert.ts",
-    "./tools/biome/anti-slop/rules/no-known-value-widening.ts",
-    "./tools/biome/anti-slop/rules/no-unsafe-dictionary-type.ts",
-    "./tools/biome/anti-slop/rules/no-object-parameters.ts",
-    "./tools/biome/anti-slop/rules/no-unknown-parameters.ts",
-    "./tools/biome/anti-slop/rules/no-unknown-returns.ts",
-    "./tools/biome/anti-slop/rules/no-unknown-type-aliases.ts",
-    "./tools/biome/anti-slop/rules/no-shape-in-symbol-names.ts",
-    "./tools/biome/anti-slop/rules/no-reflect-get.ts",
-    "./tools/biome/anti-slop/rules/no-module-mocking.ts",
-    "./tools/biome/anti-slop/rules/no-chained-type-assertions.ts",
-    "./tools/biome/anti-slop/rules/no-conditional-empty-object-spread.ts"
-  ],
-  "files": {
-    "includes": ["**", "!**/tools/biome/anti-slop"]
-  }
+  "extends": "//"
 }

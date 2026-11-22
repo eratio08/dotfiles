@@ -39,21 +39,108 @@ function appendConfigurationItem(source: string, container: Jsonc.Node, item: st
   return source.slice(0, end) + afterLast + source.slice(end, close) + insertion + source.slice(close)
 }
 
-function appendBiomePlugins(source: string, pluginPaths: string[]): string {
+type BiomePluginReferences = {
+  plugins: string[]
+  overrides: string[]
+  inherited: boolean
+}
+
+function inspectBiomePluginReferences(source: string): BiomePluginReferences {
   const errors: Jsonc.ParseError[] = []
   const root = Jsonc.parseTree(source, errors, { allowTrailingComma: true })
-  if (errors.length || root?.type !== 'object') throw new Error('Biome configuration is not valid JSONC.')
-  const keys = (root.children ?? []).map((property) => property.children?.[0]?.value)
-  if (new Set(keys).size !== keys.length) throw new Error('Biome configuration has duplicate keys.')
+  if (errors.length || root?.type !== 'object') throw new Error('The Biome configuration cannot be reviewed safely.')
+  function propertyNames(node: Jsonc.Node): void {
+    const keys = node.children?.map((property) => property.children?.[0]?.value) ?? []
+    if (new Set(keys).size !== keys.length) throw new Error('The Biome configuration has duplicate keys.')
+  }
+  function pluginPaths(node: Jsonc.Node | undefined): string[] {
+    if (!node || node.type === 'null') return []
+    if (node.type !== 'array') throw new Error('The Biome plugins cannot be reviewed safely.')
+    const paths = (node.children ?? []).map((entry) => {
+      if (entry.type === 'string') return entry.value as string
+      if (entry.type !== 'object') throw new Error('The Biome plugins cannot be reviewed safely.')
+      propertyNames(entry)
+      const path = Jsonc.findNodeAtLocation(entry, ['path'])
+      const resolution = Jsonc.findNodeAtLocation(entry, ['resolutionKind'])
+      if (
+        path?.type !== 'string' ||
+        (resolution &&
+          resolution.type !== 'null' &&
+          (resolution.type !== 'string' || !['config', 'project'].includes(resolution.value)))
+      )
+        throw new Error('The Biome plugins cannot be reviewed safely.')
+      return path.value as string
+    })
+    if (paths.some((path) => /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(path)))
+      throw new Error('The Biome plugin path contains unsafe characters.')
+    return paths
+  }
+  propertyNames(root)
+  const plugins = pluginPaths(Jsonc.findNodeAtLocation(root, ['plugins']))
+  const overridesNode = Jsonc.findNodeAtLocation(root, ['overrides'])
+  const overrides: string[] = []
+  if (overridesNode && overridesNode.type !== 'null') {
+    if (overridesNode.type !== 'array') throw new Error('The Biome overrides cannot be reviewed safely.')
+    for (const override of overridesNode.children ?? []) {
+      if (override.type !== 'object') throw new Error('The Biome overrides cannot be reviewed safely.')
+      propertyNames(override)
+      overrides.push(...pluginPaths(Jsonc.findNodeAtLocation(override, ['plugins'])))
+    }
+  }
+  const rootSetting = Jsonc.findNodeAtLocation(root, ['root'])
+  const extended = Jsonc.findNodeAtLocation(root, ['extends'])
+  if (rootSetting && !['boolean', 'null'].includes(rootSetting.type))
+    throw new Error('The Biome root setting cannot be reviewed safely.')
+  if (
+    extended &&
+    extended.type !== 'null' &&
+    !(extended.type === 'string' && extended.value === '//') &&
+    !(extended.type === 'array' && (extended.children ?? []).every((node) => node.type === 'string'))
+  )
+    throw new Error('The Biome extends setting cannot be reviewed safely.')
+  const inherited =
+    rootSetting?.value === false ||
+    !!(extended && extended.type !== 'null' && (extended.type !== 'array' || (extended.children?.length ?? 0) > 0))
+  return { plugins, overrides, inherited }
+}
+
+function removeAntiSlopRegistration(source: string, pluginPath: string): string {
+  const errors: Jsonc.ParseError[] = []
+  const root = Jsonc.parseTree(source, errors, { allowTrailingComma: true })
+  if (errors.length || root?.type !== 'object') throw new Error('The Biome configuration cannot be reviewed safely.')
+  const keys = root.children?.map((property) => property.children?.[0]?.value) ?? []
+  if (new Set(keys).size !== keys.length) throw new Error('The Biome configuration has duplicate keys.')
   const plugins = Jsonc.findNodeAtLocation(root, ['plugins'])
-  if (plugins && plugins.type !== 'array') throw new Error('Biome plugins must be an array.')
-  const existing = new Set(plugins?.children?.map((node) => node.value))
-  const added = pluginPaths.filter((path) => !existing.has(path))
-  if (!added.length) return source
-  const entries = added.map((path) => JSON.stringify(path)).join(', ')
-  return plugins
-    ? appendConfigurationItem(source, plugins, entries)
-    : appendConfigurationItem(source, root, `"plugins": [${entries}]`)
+  if (plugins?.type !== 'array') throw new Error('The Biome plugins cannot be reviewed safely.')
+  const entries = plugins.children ?? []
+  const matches = entries.flatMap((entry, index) => (entry.value === pluginPath ? [index] : []))
+  if (matches.length !== 1) throw new Error('The anti-slop registration cannot be identified safely.')
+  const index = matches[0] ?? -1
+  const item = entries[index]
+  if (!item) throw new Error('The anti-slop registration cannot be identified safely.')
+  const previous = entries[index - 1]
+  const next = entries[index + 1]
+  const start = next || !previous ? item.offset + item.length : previous.offset + previous.length
+  const end = next ? next.offset : previous ? item.offset : plugins.offset + plugins.length - 1
+  const scanner = Jsonc.createScanner(source.slice(start, end))
+  let comma = -1
+  while (scanner.scan() !== Jsonc.SyntaxKind.EOF) {
+    if (scanner.getToken() === Jsonc.SyntaxKind.CommaToken) {
+      comma = start + scanner.getTokenOffset()
+      break
+    }
+  }
+  if (comma < 0 && entries.length > 1) throw new Error('The Biome plugins cannot be edited safely.')
+  const edits = [{ offset: item.offset, length: item.length }]
+  if (comma >= 0) edits.push({ offset: comma, length: 1 })
+  const after = Jsonc.applyEdits(
+    source,
+    edits.map(({ offset, length }) => ({ offset, length, content: '' })),
+  )
+  const check: Jsonc.ParseError[] = []
+  const tree = Jsonc.parseTree(after, check, { allowTrailingComma: true })
+  if (check.length || !tree) throw new Error('The Biome plugins cannot be edited safely.')
+  return after
 }
 
 function editBiomeConfiguration(source: string, pluginPaths: string[]): BiomeConfigurationEdit {
@@ -106,4 +193,4 @@ function editBiomeConfiguration(source: string, pluginPaths: string[]): BiomeCon
   return { before: source, after, nested }
 }
 
-export { appendBiomePlugins, type BiomeConfigurationEdit, editBiomeConfiguration }
+export { type BiomeConfigurationEdit, editBiomeConfiguration, inspectBiomePluginReferences, removeAntiSlopRegistration }

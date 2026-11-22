@@ -6,7 +6,7 @@ import {
   link,
   lstat,
   mkdir,
-  mkdtemp,
+  readdir,
   readFile,
   realpath,
   rename,
@@ -14,13 +14,14 @@ import {
   unlink,
   writeFile,
 } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { type ExtensionAPI, withFileMutationQueue } from '@earendil-works/pi-coding-agent'
+import { createRequire } from 'node:module'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { withFileMutationQueue } from '@earendil-works/pi-coding-agent'
 import * as Jsonc from 'jsonc-parser'
 import { Type } from 'typebox'
 import { Value } from 'typebox/value'
-import { appendBiomePlugins } from './biome-config.ts'
+import { antiSlopEntrypointPath, formatAntiSlopEntrypoint, parseAntiSlopEntrypoint } from './anti-slop-entrypoint.ts'
+import { inspectBiomePluginReferences, removeAntiSlopRegistration } from './biome-config.ts'
 
 type PortSnapshot = {
   format: 1
@@ -33,8 +34,8 @@ type PortSnapshot = {
 }
 
 type UpdateDecisions = {
-  conflicts?: Record<string, 'incoming' | 'local'>
-  rules?: Record<string, 'enable' | 'disabled'>
+  conflicts?: Record<string, 'incoming'>
+  rules?: Record<string, 'enable'>
 }
 
 type FileState = { data: string; mode: number; uid: number; gid: number; dev: number; ino: number } | null
@@ -45,15 +46,11 @@ type UpdateComparison = { name: string; base: string | null; local: string | nul
 
 type UpdatePreview = {
   root: string
-  baseAvailable: boolean
-  baseRevision: string | null
-  incomingRevision: string
   effectEnabled: boolean | null
   changes: UpdateChange[]
   comparisons: UpdateComparison[]
   pending: string[]
   issues: string[]
-  backupDirectory: string
   snapshotBefore: FileState
   snapshotAfter: string | null
   hash: string
@@ -162,9 +159,8 @@ type PluginConfiguration = { plugins?: unknown; extends?: unknown; root?: unknow
 type AssetUpdateInput = {
   name: string
   destination: string
-  base: PortSnapshot | null
+  base: PortSnapshot
   nextFiles: Map<string, Buffer>
-  hasFocusedTest: boolean
   pluginPaths: string[]
   decisions: UpdateDecisions
   config: PluginConfiguration
@@ -178,31 +174,16 @@ type AssetUpdatePlan = { change?: UpdateChange; activate?: string; pending: stri
 function planAssetUpdate(input: AssetUpdateInput): AssetUpdatePlan {
   const { name, destination, base, nextFiles, pluginPaths, decisions, config, enabledPaths, unresolvedPlugins, local } =
     input
-  const before = base?.files[name]
+  const before = base.files[name]
   const after = nextFiles.get(name)?.toString('base64')
   const current = local?.data
   const candidatePath = `./tools/biome/anti-slop/rules/${name}`
   const configured = enabledPaths.has(join(destination, name))
   const pluginPath =
-    pluginPaths.includes(candidatePath) || base?.plugins.includes(candidatePath) || configured
+    pluginPaths.includes(candidatePath) || base.plugins.includes(candidatePath) || configured
       ? candidatePath
       : undefined
   const pending: string[] = []
-  if (!base) {
-    if (after === current || decisions.conflicts?.[name] === 'local') return { pending }
-    if (
-      decisions.conflicts?.[name] === 'incoming' &&
-      pluginPaths.includes(candidatePath) &&
-      after !== undefined &&
-      input.hasFocusedTest
-    ) {
-      return {
-        pending,
-        change: { path: join(destination, name), action: local ? 'change' : 'add', before: local, after },
-      }
-    }
-    return { pending: [`Review the unknown-base change: ${name}`] }
-  }
   let activate: string | undefined
   if (before === undefined && after !== undefined && pluginPath && !configured) {
     const rule = decisions.rules?.[name]
@@ -214,8 +195,6 @@ function planAssetUpdate(input: AssetUpdateInput): AssetUpdatePlan {
     }
   }
   if (before === after || after === current) return { pending, activate }
-  if (before !== undefined && after === undefined && decisions.conflicts?.[name] === 'local')
-    return { pending, activate }
   if (
     before !== undefined &&
     after === undefined &&
@@ -231,7 +210,6 @@ function planAssetUpdate(input: AssetUpdateInput): AssetUpdatePlan {
       pending.push(`Choose how to resolve the local conflict: ${name}`)
       return { pending, activate }
     }
-    if (decision === 'local') return { pending, activate }
   }
   return {
     pending,
@@ -251,7 +229,8 @@ async function inspectPortUpdate(
   genericNames: string[],
   effectNames: string[],
   pluginPaths: string[],
-  decisions: UpdateDecisions = {},
+  decisions: UpdateDecisions,
+  configurationPath: string,
 ): Promise<UpdatePreview> {
   const destination = join(root, 'tools/biome/anti-slop/rules')
   const snapshotPath = join(root, 'tools/biome/anti-slop/port-base.snapshot')
@@ -262,39 +241,27 @@ async function inspectPortUpdate(
   const changes: UpdateChange[] = []
   const observed: Record<string, FileState> = {}
   const comparisons: UpdateComparison[] = []
-  const backupDirectory = join(dirname(snapshotPath), 'backups')
-  if (!base) pending.push('The installed base is unknown. Unreviewed changes remain pending.')
-  const selected = new Set(
-    (base?.effectEnabled === false ? genericNames : [...genericNames, ...effectNames]).filter(
-      (name) => !name.startsWith('tests/'),
-    ),
-  )
+  if (!base) throw new Error('The installed anti-slop ownership is unknown. No files changed.')
+  const selected = new Set(base.effectEnabled ? [...genericNames, ...effectNames] : genericNames)
   for (const [name, decision] of Object.entries(decisions.conflicts ?? {})) {
-    if (!validAssetName(name) || (decision !== 'incoming' && decision !== 'local'))
-      issues.push(`Invalid conflict decision: ${name}`)
+    if (!validAssetName(name) || decision !== 'incoming') issues.push(`Invalid conflict decision: ${name}`)
   }
   for (const [name, decision] of Object.entries(decisions.rules ?? {})) {
-    if (!base) issues.push(`Rule enablement requires a known base: ${name}`)
-    if (
-      !pluginPaths.includes(`./tools/biome/anti-slop/rules/${name}`) ||
-      (decision !== 'enable' && decision !== 'disabled')
-    )
+    if (!pluginPaths.includes(`./tools/biome/anti-slop/rules/${name}`) || decision !== 'enable')
       issues.push(`Invalid rule decision: ${name}`)
   }
   const nextFiles = new Map([...incoming].filter(([name]) => selected.has(name)))
   const nextSnapshot = makePortSnapshot(
     nextFiles,
-    base?.effectEnabled ?? false,
+    base.effectEnabled,
     pluginPaths.filter((path) => nextFiles.has(path.slice('./tools/biome/anti-slop/rules/'.length))),
   )
-  const incomingSnapshot = JSON.parse(nextSnapshot) as PortSnapshot
-  const names = [...new Set([...Object.keys(base?.files ?? {}), ...nextFiles.keys()])].sort()
-  const configurationPaths = [join(root, 'biome.json'), join(root, 'biome.jsonc')]
-  const configurations = await Promise.all(configurationPaths.map(safeFile))
+  const names = [...new Set([...Object.keys(base.files), ...nextFiles.keys()])].sort()
+  const configurations = [await safeFile(configurationPath)]
   const configIndex = configurations.findIndex(Boolean)
   if (configurations.filter(Boolean).length !== 1)
     issues.push('The target must have exactly one safe Biome configuration.')
-  const configPath = configurationPaths[configIndex] ?? configurationPaths[0] ?? ''
+
   const configBefore = configurations[configIndex] ?? null
   const configText = configBefore ? Buffer.from(configBefore.data, 'base64').toString('utf8') : ''
   const parseErrors: Jsonc.ParseError[] = []
@@ -307,15 +274,11 @@ async function inspectPortUpdate(
     extends?: unknown
     root?: unknown
   } | null
-  if (
-    parseErrors.length ||
-    !Value.Check(Type.Object({}), config) ||
-    (config.plugins !== undefined &&
-      (!Array.isArray(config.plugins) || config.plugins.some((item) => !Value.Check(Type.String(), item))))
-  ) {
+  if (parseErrors.length || !Value.Check(Type.Object({}), config)) {
     issues.push('The Biome configuration cannot be reviewed safely.')
   }
-  const enabled = Array.isArray(config?.plugins) ? (config.plugins as string[]) : []
+  const references = inspectBiomePluginReferences(configText)
+  const enabled = [...references.plugins, ...references.overrides]
   const enabledPaths = new Set<string>()
   let unresolvedPlugins = false
   for (const plugin of enabled) {
@@ -327,19 +290,31 @@ async function inspectPortUpdate(
       unresolvedPlugins = true
     }
   }
+  const entrypoint = await safeFile(join(root, antiSlopEntrypointPath))
+  if (!entrypoint || !enabledPaths.has(join(root, antiSlopEntrypointPath))) {
+    issues.push('The anti-slop entry point is not configured. Manual review is required.')
+  } else {
+    try {
+      for (const name of parseAntiSlopEntrypoint(Buffer.from(entrypoint.data, 'base64').toString('utf8'))) {
+        enabledPaths.add(join(destination, name))
+      }
+    } catch (error) {
+      issues.push(String(error))
+    }
+  }
   const activate: string[] = []
   for (const name of names) {
     if (!validAssetName(name)) {
       issues.push(`Invalid asset path: ${name}`)
       continue
     }
-    const before = base?.files[name]
+    const before = base.files[name]
     const after = nextFiles.get(name)?.toString('base64')
     const assetDirectory = name.endsWith('.ts') ? destination : dirname(snapshotPath)
     const local = await safeFile(join(assetDirectory, name))
     observed[name] = local
     const current = local?.data
-    if (base ? before !== after || before !== current : current !== after) {
+    if (before !== after || before !== current) {
       comparisons.push({ name, base: before ?? null, local: current ?? null, incoming: after ?? null })
     }
     const plan = planAssetUpdate({
@@ -347,7 +322,6 @@ async function inspectPortUpdate(
       destination: assetDirectory,
       base,
       nextFiles,
-      hasFocusedTest: incoming.has(`tests/${name.replace(/\.ts$/, '.test.ts')}`),
       pluginPaths,
       decisions,
       config,
@@ -362,18 +336,18 @@ async function inspectPortUpdate(
   const safeActivation = activate.filter(
     (path) => !pending.some((entry) => entry.includes(path.slice('./tools/biome/anti-slop/rules/'.length))),
   )
-  if (safeActivation.length && configBefore) {
-    const after = appendBiomePlugins(configText, safeActivation)
-    if (after !== configText)
-      changes.push({
-        path: configPath,
-        action: 'change',
-        before: configBefore,
-        after: Buffer.from(after).toString('base64'),
-      })
+  if (safeActivation.length && entrypoint && issues.length === 0) {
+    const source = Buffer.from(entrypoint.data, 'base64').toString('utf8')
+    const after = `${source}${source.endsWith('\n') ? '' : '\n'}${formatAntiSlopEntrypoint(safeActivation)}`
+    changes.push({
+      path: join(root, antiSlopEntrypointPath),
+      action: 'change',
+      before: entrypoint,
+      after: Buffer.from(after).toString('base64'),
+    })
   }
   const snapshotAfter =
-    base && pending.length === 0 && issues.length === 0 ? Buffer.from(nextSnapshot).toString('base64') : null
+    pending.length === 0 && issues.length === 0 ? Buffer.from(nextSnapshot).toString('base64') : null
   const digest = createHash('sha256')
     .update(
       JSON.stringify({
@@ -382,7 +356,9 @@ async function inspectPortUpdate(
         snapshotBefore,
         nextSnapshot,
         decisions,
+        configurationPath,
         configurations,
+        entrypoint,
         observed,
         changes,
         pending,
@@ -392,139 +368,14 @@ async function inspectPortUpdate(
     .digest('hex')
   return {
     root,
-    baseAvailable: !!base,
-    baseRevision: base?.portRevision ?? null,
-    incomingRevision: incomingSnapshot.portRevision,
-    effectEnabled: base?.effectEnabled ?? null,
+    effectEnabled: base.effectEnabled,
     changes,
     comparisons,
     pending,
     issues,
-    backupDirectory,
     snapshotBefore,
     snapshotAfter,
     hash: digest,
-  }
-}
-
-type ReadableContent = string | { base64: string } | null
-
-type UpdateSummary = Omit<UpdatePreview, 'changes' | 'comparisons' | 'snapshotBefore' | 'snapshotAfter'> & {
-  comparisons: { name: string; base: ReadableContent; local: ReadableContent; incoming: ReadableContent }[]
-  changes: {
-    path: string
-    action: UpdateChange['action']
-    before: string | { base64: string } | null
-    after: string | { base64: string } | null
-  }[]
-}
-
-async function inspectTypeofConfiguration(
-  root: string,
-  incoming: Map<string, Buffer>,
-  allow: boolean,
-): Promise<UpdatePreview> {
-  const destination = join(root, 'tools/biome/anti-slop/rules')
-  const path = join(destination, 'no-runtime-typeof.ts')
-  const snapshotPath = join(root, 'tools/biome/anti-slop/port-base.snapshot')
-  const snapshotBefore = await safeFile(snapshotPath)
-  const base = parsePortSnapshot(snapshotBefore)
-  const local = await safeFile(path)
-  const issues: string[] = []
-  const changes: UpdateChange[] = []
-  const dependencies: Record<string, FileState> = {}
-  for (const name of incoming.keys()) {
-    if (!validAssetName(name)) issues.push(`Invalid asset path: ${name}`)
-    else dependencies[name] = await safeFile(join(name.endsWith('.ts') ? destination : dirname(snapshotPath), name))
-  }
-  const configurations = await Promise.all([safeFile(join(root, 'biome.json')), safeFile(join(root, 'biome.jsonc'))])
-  const templateBytes = base?.files['no-runtime-typeof.ts']
-    ? Buffer.from(base.files['no-runtime-typeof.ts'], 'base64')
-    : incoming.get('no-runtime-typeof.ts')
-  const template = templateBytes?.toString('utf8') ?? ''
-  const matches = [...template.matchAll(/^const allowInTypeGuards = (true|false);?$/gm)]
-  if (matches.length !== 1 || !local || !templateBytes || !Buffer.from(template).equals(templateBytes)) {
-    issues.push('The type-guard option cannot be identified safely.')
-  } else {
-    const sourceBytes = Buffer.from(local.data, 'base64')
-    const source = sourceBytes.toString('utf8')
-    const marker = matches[0]
-    const prefix = `${template.slice(0, marker?.index ?? 0)}const allowInTypeGuards = `
-    const value = source.slice(prefix.length).match(/^(true|false);?(?=\r?\n|$)/)?.[1]
-    if (!Buffer.from(source).equals(sourceBytes) || !source.startsWith(prefix) || !value) {
-      issues.push('The type-guard option or its preceding code was customized. Review it manually.')
-    } else if ((value === 'true') !== allow) {
-      const after = source.slice(0, prefix.length) + String(allow) + source.slice(prefix.length + value.length)
-      changes.push({ path, action: 'change', before: local, after: Buffer.from(after).toString('base64') })
-    }
-  }
-  const hash = createHash('sha256')
-    .update(
-      JSON.stringify({
-        root,
-        snapshotPath,
-        snapshotBefore,
-        local,
-        dependencies,
-        configurations,
-        template: templateBytes?.toString('base64'),
-        allow,
-        changes,
-        issues,
-      }),
-    )
-    .digest('hex')
-  return {
-    root,
-    baseAvailable: !!base,
-    baseRevision: base?.portRevision ?? null,
-    incomingRevision: base?.portRevision ?? 'unknown',
-    effectEnabled: base?.effectEnabled ?? null,
-    changes,
-    comparisons: changes.map((change) => ({
-      name: 'no-runtime-typeof.ts',
-      base: base?.files['no-runtime-typeof.ts'] ?? null,
-      local: local?.data ?? null,
-      incoming: change.after,
-    })),
-    pending: [],
-    issues,
-    backupDirectory: join(dirname(snapshotPath), 'backups'),
-    snapshotBefore,
-    snapshotAfter: null,
-    hash,
-  }
-}
-
-function summarizePortUpdate(preview: UpdatePreview): UpdateSummary {
-  function readable(data: string | null): string | { base64: string } | null {
-    if (data === null) return null
-    const bytes = Buffer.from(data, 'base64')
-    const text = bytes.toString('utf8')
-    return Buffer.from(text).equals(bytes) ? text : { base64: data }
-  }
-  return {
-    root: preview.root,
-    baseAvailable: preview.baseAvailable,
-    baseRevision: preview.baseRevision,
-    incomingRevision: preview.incomingRevision,
-    effectEnabled: preview.effectEnabled,
-    changes: preview.changes.map((change) => ({
-      path: change.path,
-      action: change.action,
-      before: readable(change.before?.data ?? null),
-      after: readable(change.after),
-    })),
-    comparisons: preview.comparisons.map((item) => ({
-      name: item.name,
-      base: readable(item.base),
-      local: readable(item.local),
-      incoming: readable(item.incoming),
-    })),
-    pending: preview.pending,
-    issues: preview.issues,
-    backupDirectory: preview.backupDirectory,
-    hash: preview.hash,
   }
 }
 
@@ -547,205 +398,188 @@ async function ensureUpdateParent(root: string, parent: string, completed: strin
   }
 }
 
-type FocusedUpdateCheck = {
-  rule: string
-  status: 'passed' | 'failed' | 'unavailable'
-  command: string[]
-  output: string
+type RemovalPreview = {
+  root: string
+  changes: UpdateChange[]
+  retained: string[]
+  hash: string
 }
 
-async function checkUnknownBaseChanges(
-  preview: UpdatePreview,
-  incoming: Map<string, Buffer>,
-  biomeBinary: string,
-  biomeVersion: string,
-  pi: ExtensionAPI,
-  signal?: AbortSignal,
-): Promise<FocusedUpdateCheck[]> {
-  const checks: FocusedUpdateCheck[] = []
-  if (preview.changes.length === 0) return checks
-  if (biomeVersion !== '2.6.4' || !biomeBinary)
-    return [
-      {
-        rule: 'all',
-        status: 'unavailable',
-        command: [],
-        output: 'Biome 2.6.4 is required for focused tests.',
-      },
-    ]
-  const destination = join(preview.root, 'tools/biome/anti-slop/rules')
-  const cwd = dirname(dirname(dirname(biomeBinary)))
-  for (const change of preview.changes) {
-    signal?.throwIfAborted()
-    const name = relative(destination, change.path)
-    const testName = `tests/${name.replace(/\.ts$/, '.test.ts')}`
-    const upstreamTest = incoming.get(testName)
-    const command: string[] = []
-    let temp = ''
+async function pluginUsesAntiSlop(root: string, destination: string, plugin: string): Promise<boolean> {
+  let candidate: string
+  if (isAbsolute(plugin) || plugin.startsWith('./') || plugin.startsWith('../')) {
+    candidate = resolve(root, plugin)
+  } else {
     try {
-      if (!validAssetName(name) || !upstreamTest || change.after === null)
-        throw new Error('The focused rule test is unavailable.')
-      temp = await mkdtemp(join(tmpdir(), 'biome-anti-slop-update-test-'))
-      for (const assetName of incoming.keys()) {
-        if (!validAssetName(assetName)) throw new Error(`Invalid asset path: ${assetName}`)
-        const state = await safeFile(join(destination, assetName))
-        const data = state
-          ? Buffer.from(state.data, 'base64')
-          : assetName === 'tests/run-biome-cases.ts'
-            ? incoming.get(assetName)
-            : undefined
-        if (!data) continue
-        const path = join(temp, assetName)
-        await mkdir(dirname(path), { recursive: true })
-        await writeFile(path, data, { flag: 'wx' })
-      }
-      const stagedRule = join(temp, name)
-      await mkdir(dirname(stagedRule), { recursive: true })
-      await writeFile(stagedRule, Buffer.from(change.after, 'base64'))
-      const stagedTest = join(temp, testName)
-      const localTest = await safeFile(join(destination, testName))
-      if (!localTest) {
-        await mkdir(dirname(stagedTest), { recursive: true })
-        await writeFile(stagedTest, upstreamTest, { flag: 'wx' })
-      }
-      const testPaths = [stagedTest]
-      if (localTest && localTest.data !== upstreamTest.toString('base64')) {
-        const incomingTest = join(dirname(stagedTest), `incoming-${name.replace(/\.ts$/, '.test.ts')}`)
-        await writeFile(incomingTest, upstreamTest, { flag: 'wx' })
-        testPaths.push(incomingTest)
-      }
-      command.push('env', '-u', 'ANTI_SLOP_BIOME', '-u', 'ANTI_SLOP_INSTALLED_ROOT', 'bun', 'test', ...testPaths)
-      const result = await pi.exec('env', command.slice(1), { cwd, signal, timeout: 120000 })
-      checks.push({
-        rule: name,
-        status: result.code === 0 && !result.killed ? 'passed' : 'failed',
-        command,
-        output: result.stdout + result.stderr,
-      })
-    } catch (error) {
-      checks.push({ rule: name, status: 'unavailable', command, output: String(error) })
-    } finally {
-      if (temp) await rm(temp, { recursive: true, force: true })
+      candidate = createRequire(join(root, 'package.json')).resolve(plugin)
+      if (!isAbsolute(candidate)) throw new Error('The plugin does not resolve to a file.')
+    } catch {
+      throw new Error(`The plugin path requires manual review: ${plugin}`)
     }
   }
-  return checks
+  let actual = candidate
+  try {
+    actual = await realpath(candidate)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
+  const within = relative(destination, actual)
+  return within === '' || (within !== '..' && !within.startsWith(`..${sep}`) && !isAbsolute(within))
 }
 
-async function applyPortUpdate(preview: UpdatePreview, focusedPassed: boolean, signal?: AbortSignal): Promise<string> {
-  const destination = join(preview.root, 'tools/biome/anti-slop')
-  const backupRoot = preview.backupDirectory
-  if (preview.issues.length || (!preview.baseAvailable && !focusedPassed))
+async function inspectCommandRemoval(root: string, configurationPath: string): Promise<RemovalPreview> {
+  const destination = join(root, 'tools/biome/anti-slop')
+  const snapshotPath = join(destination, 'port-base.snapshot')
+  const snapshot = await safeFile(snapshotPath)
+  const base = parsePortSnapshot(snapshot)
+  if (!base || !snapshot) throw new Error('The installed anti-slop ownership is unknown. No files changed.')
+  const config = await safeFile(configurationPath)
+  if (!config) throw new Error('The selected Biome configuration does not exist.')
+  const configBytes = Buffer.from(config.data, 'base64')
+  const configText = configBytes.toString('utf8')
+  if (!Buffer.from(configText).equals(configBytes)) throw new Error('The Biome configuration is not valid UTF-8.')
+  const references = inspectBiomePluginReferences(configText)
+  if (references.inherited) throw new Error('The inherited Biome configuration requires manual review.')
+  if (references.plugins.filter((path) => path === antiSlopEntrypointPath).length !== 1)
+    throw new Error('The anti-slop registration cannot be identified safely.')
+  const after = removeAntiSlopRegistration(configText, antiSlopEntrypointPath)
+  for (const plugin of [
+    ...references.plugins.filter((path) => path !== antiSlopEntrypointPath),
+    ...references.overrides,
+  ]) {
+    if (await pluginUsesAntiSlop(root, destination, plugin))
+      throw new Error(`Another plugin refers to the anti-slop directory: ${plugin}`)
+  }
+  const siblingPath = join(root, basename(configurationPath) === 'biome.json' ? 'biome.jsonc' : 'biome.json')
+  const sibling = await safeFile(siblingPath)
+  if (sibling) {
+    const bytes = Buffer.from(sibling.data, 'base64')
+    const source = bytes.toString('utf8')
+    if (!Buffer.from(source).equals(bytes)) throw new Error('Another Biome configuration cannot be reviewed safely.')
+    const other = inspectBiomePluginReferences(source)
+    if (other.inherited) throw new Error('Another Biome configuration requires manual review.')
+    for (const plugin of [...other.plugins, ...other.overrides]) {
+      if (await pluginUsesAntiSlop(root, destination, plugin))
+        throw new Error(`Another Biome configuration refers to the anti-slop directory: ${siblingPath}`)
+    }
+  }
+  const expected = new Map<string, string>()
+  for (const [name, content] of Object.entries(base.files)) {
+    const path = join(destination, name.endsWith('.ts') ? 'rules' : '', name)
+    if (path === join(root, antiSlopEntrypointPath) || path === snapshotPath || expected.has(path))
+      throw new Error('The installed anti-slop ownership is ambiguous.')
+    expected.set(path, content)
+  }
+  expected.set(
+    join(root, antiSlopEntrypointPath),
+    Buffer.from(formatAntiSlopEntrypoint(base.plugins)).toString('base64'),
+  )
+  expected.set(snapshotPath, snapshot.data)
+  const observed: Record<string, FileState | number[]> = {}
+  const queue = [destination]
+  let count = 0
+  while (queue.length) {
+    const directory = queue.shift()
+    if (!directory) break
+    const info = await lstat(directory)
+    if (!info.isDirectory() || info.isSymbolicLink() || (await realpath(directory)) !== directory)
+      throw new Error(`The anti-slop directory is unsafe: ${directory}`)
+    observed[directory] = [info.dev, info.ino, info.mode, info.uid, info.gid]
+    for (const entry of (await readdir(directory)).sort()) {
+      if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(entry))
+        throw new Error('The anti-slop directory contains an unsafe filename.')
+      if (++count > 2000) throw new Error('The anti-slop directory is too large to inspect safely.')
+      const path = join(directory, entry)
+      const stat = await lstat(path)
+      if (stat.isDirectory() && !stat.isSymbolicLink()) queue.push(path)
+      else observed[path] = await safeFile(path)
+    }
+  }
+  const changes: UpdateChange[] = [
+    {
+      path: configurationPath,
+      action: 'change',
+      before: config,
+      after: Buffer.from(after).toString('base64'),
+    },
+  ]
+  const retained: string[] = []
+  for (const [path, state] of Object.entries(observed)) {
+    if (Array.isArray(state)) continue
+    if (!state) throw new Error(`The anti-slop file changed during inspection: ${path}`)
+    if (expected.get(path) === state.data) changes.push({ path, action: 'remove', before: state, after: null })
+    else retained.push(relative(destination, path))
+  }
+  changes.sort((a, b) => Number(a.path === snapshotPath) - Number(b.path === snapshotPath))
+  const hash = createHash('sha256')
+    .update(JSON.stringify({ root, configurationPath, config, siblingPath, sibling, observed, changes, retained }))
+    .digest('hex')
+  return { root, changes, retained, hash }
+}
+
+async function applyCommandRemoval(preview: RemovalPreview): Promise<void> {
+  await applyApprovedChanges(preview.root, preview.changes, false)
+}
+
+async function applyCommandUpdate(preview: UpdatePreview): Promise<void> {
+  if (preview.issues.length || preview.pending.length || !preview.snapshotAfter)
     throw new Error('The update preview is blocked.')
-  const backup = join(backupRoot, randomUUID())
   const changes = [...preview.changes]
-  if (preview.snapshotAfter && preview.snapshotAfter !== preview.snapshotBefore?.data)
+  if (preview.snapshotAfter !== preview.snapshotBefore?.data) {
     changes.push({
       path: join(preview.root, 'tools/biome/anti-slop/port-base.snapshot'),
       action: 'change',
       before: preview.snapshotBefore,
       after: preview.snapshotAfter,
     })
+  }
+  await applyApprovedChanges(preview.root, changes, true)
+}
+
+async function applyApprovedChanges(root: string, changes: UpdateChange[], createParents: boolean): Promise<void> {
   const completed: string[] = []
   try {
-    signal?.throwIfAborted()
-    const destinationInfo = await lstat(destination)
-    if (
-      !destinationInfo.isDirectory() ||
-      destinationInfo.isSymbolicLink() ||
-      (await realpath(destination)) !== destination
-    )
-      throw new Error('The asset directory is unsafe.')
-    await ensureUpdateParent(preview.root, dirname(backupRoot), completed)
-    try {
-      await mkdir(backupRoot)
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
-    }
-    const directory = await lstat(backupRoot)
-    if (!directory.isDirectory() || directory.isSymbolicLink() || (await realpath(backupRoot)) !== backupRoot)
-      throw new Error('The backup directory is unsafe.')
-    await mkdir(backup)
-    for (const [index, change] of changes.entries()) {
-      if (change.before)
-        await writeFile(join(backup, `${index}.before`), Buffer.from(change.before.data, 'base64'), {
-          flag: 'wx',
-          mode: 0o600,
-        })
-      if (change.after !== null)
-        await writeFile(join(backup, `${index}.after`), Buffer.from(change.after, 'base64'), {
-          flag: 'wx',
-          mode: 0o600,
-        })
-    }
-    if (preview.snapshotBefore)
-      await writeFile(join(backup, 'previous-base.backup'), Buffer.from(preview.snapshotBefore.data, 'base64'), {
-        flag: 'wx',
-        mode: 0o600,
-      })
-    await writeFile(
-      join(backup, 'manifest.backup'),
-      JSON.stringify(
-        {
-          previewHash: preview.hash,
-          baseAvailable: preview.baseAvailable,
-          baseRevision: preview.baseRevision,
-          incomingRevision: preview.incomingRevision,
-          pending: preview.pending,
-          changes,
-          verification: 'not-run',
-        },
-        null,
-        2,
-      ),
-      { flag: 'wx', mode: 0o600 },
-    )
-    for (const [index, change] of changes.entries()) {
-      signal?.throwIfAborted()
+    for (const change of changes) {
       await withFileMutationQueue(change.path, async () => {
         if (!sameState(await safeFile(change.path), change.before))
           throw new Error(`The file changed after approval: ${change.path}`)
         const parent = dirname(change.path)
-        await ensureUpdateParent(preview.root, parent, completed)
+        if (createParents) await ensureUpdateParent(root, parent, completed)
         const info = await lstat(parent)
         if (!info.isDirectory() || info.isSymbolicLink() || (await realpath(parent)) !== parent)
           throw new Error(`The parent directory is unsafe: ${parent}`)
         if (change.after === null) {
           await unlink(change.path)
-        } else {
-          const temporary = join(parent, `.biome-anti-slop-${randomUUID()}.tmp`)
-          try {
-            const mode = change.before ? change.before.mode & 0o7777 : 0o644
-            await writeFile(temporary, await readFile(join(backup, `${index}.after`)), { flag: 'wx', mode })
-            await chmod(temporary, mode)
-            const prepared = await lstat(temporary)
-            if (change.before && (prepared.uid !== change.before.uid || prepared.gid !== change.before.gid))
-              await chown(temporary, change.before.uid, change.before.gid)
-            if (!sameState(await safeFile(change.path), change.before))
-              throw new Error(`The file changed while preparing the update: ${change.path}`)
-            if (change.before) await rename(temporary, change.path)
-            else await link(temporary, change.path)
-          } finally {
-            await rm(temporary, { force: true })
-          }
+          return
+        }
+        const temporary = join(parent, `.biome-anti-slop-${randomUUID()}.tmp`)
+        try {
+          const mode = change.before ? change.before.mode & 0o7777 : 0o644
+          await writeFile(temporary, Buffer.from(change.after, 'base64'), { flag: 'wx', mode })
+          await chmod(temporary, mode)
+          const prepared = await lstat(temporary)
+          if (change.before && (prepared.uid !== change.before.uid || prepared.gid !== change.before.gid))
+            await chown(temporary, change.before.uid, change.before.gid)
+          if (!sameState(await safeFile(change.path), change.before))
+            throw new Error(`The file changed while preparing the update: ${change.path}`)
+          if (change.before) await rename(temporary, change.path)
+          else await link(temporary, change.path)
+        } finally {
+          await rm(temporary, { force: true })
         }
       })
       completed.push(change.path)
     }
-    return backup
   } catch (error) {
-    throw new Error(
-      `Biome anti-slop update failed. Backup: ${backup}. Changed paths: ${completed.join(', ') || 'none'}. ${String(error)}`,
-    )
+    throw new Error(`Biome anti-slop change failed. Changed paths: ${completed.join(', ') || 'none'}. ${String(error)}`)
   }
 }
 
 export {
-  applyPortUpdate,
-  checkUnknownBaseChanges,
+  applyCommandRemoval,
+  applyCommandUpdate,
+  inspectCommandRemoval,
   inspectPortUpdate,
-  inspectTypeofConfiguration,
   makePortSnapshot,
-  summarizePortUpdate,
-  type UpdateDecisions,
   type UpdatePreview,
 }

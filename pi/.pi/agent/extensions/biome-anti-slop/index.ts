@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
-import { registerBiomeAntiSlopTool } from './src/extension.ts'
+import { registerBiomeAntiSlopCommands } from './src/extension.ts'
 
 function biomeAntiSlopExtension(pi: ExtensionAPI): void {
-  registerBiomeAntiSlopTool(pi)
+  registerBiomeAntiSlopCommands(pi)
 }
 
 export { biomeAntiSlopExtension as default }

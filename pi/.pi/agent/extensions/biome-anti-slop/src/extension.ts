@@ -17,27 +17,20 @@ import {
 import { tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import {
-  type AgentToolUpdateCallback,
-  type ExtensionAPI,
-  type ExtensionToolContext,
-  withFileMutationQueue,
-} from '@earendil-works/pi-coding-agent'
+import { type ExtensionAPI, type ExtensionContext, withFileMutationQueue } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
 import { Value } from 'typebox/value'
 import { parseDocument } from 'yaml'
+import { antiSlopEntrypointPath, formatAntiSlopEntrypoint } from './anti-slop-entrypoint.ts'
 import { editBiomeConfiguration } from './biome-config.ts'
 import {
-  applyPortUpdate,
-  checkUnknownBaseChanges,
+  applyCommandRemoval,
+  applyCommandUpdate,
+  inspectCommandRemoval,
   inspectPortUpdate,
-  inspectTypeofConfiguration,
   makePortSnapshot,
-  summarizePortUpdate,
-  type UpdateDecisions,
   type UpdatePreview,
 } from './update.ts'
-import { type VerifyResult, verifyBiomeAntiSlop } from './verification.ts'
 
 const bundledDirectory = fileURLToPath(new URL('../assets/anti-slop/', import.meta.url))
 const pluginPaths = [
@@ -68,16 +61,11 @@ const effectPluginPaths = [
 ]
 const effectBundledFiles = [
   'no-service-constructor-imports.ts',
-  'tests/no-service-constructor-imports.test.ts',
   'tagged-values.ts',
   'no-manual-effect-error-tag.ts',
-  'tests/no-manual-effect-error-tag.test.ts',
   'no-manual-tag-comparison.ts',
-  'tests/no-manual-tag-comparison.test.ts',
   'no-manual-tagged-construction.ts',
-  'tests/no-manual-tagged-construction.test.ts',
   'prefer-effect-match.ts',
-  'tests/prefer-effect-match.test.ts',
 ]
 const bundledFiles = [
   'LICENSE',
@@ -93,36 +81,18 @@ const bundledFiles = [
   'no-unsafe-dictionary-type.ts',
   'parameter-contract.ts',
   'no-reflect-get.ts',
-  'tests/no-reflect-get.test.ts',
   'no-module-mocking.ts',
-  'tests/no-module-mocking.test.ts',
   'no-chained-type-assertions.ts',
-  'tests/no-chained-type-assertions.test.ts',
   'no-conditional-empty-object-spread.ts',
-  'tests/no-conditional-empty-object-spread.test.ts',
   'no-object-parameters.ts',
-  'tests/no-object-parameters.test.ts',
   'no-unknown-parameters.ts',
-  'tests/no-unknown-parameters.test.ts',
   'no-unknown-returns.ts',
-  'tests/no-unknown-returns.test.ts',
   'no-unknown-type-aliases.ts',
-  'tests/no-unknown-type-aliases.test.ts',
   'no-shape-in-symbol-names.ts',
-  'tests/no-shape-in-symbol-names.test.ts',
-  'tests/no-unsafe-dictionary-type.test.ts',
-  'tests/run-biome-cases.ts',
   'widening-types.ts',
-  'tests/no-known-value-widening.test.ts',
-  'tests/no-widen-then-assert.test.ts',
-  'tests/no-accumulating-spread.test.ts',
-  'tests/no-reduce-accumulator-copy.test.ts',
   'no-array-filter-map.ts',
-  'tests/no-array-filter-map.test.ts',
   'no-reflect-apply.ts',
   'no-runtime-typeof.ts',
-  'tests/no-reflect-apply.test.ts',
-  'tests/no-runtime-typeof.test.ts',
 ]
 const missingRules = ['require-readable-spacing', 'require-safety-comment-for-type-assertion']
 
@@ -136,8 +106,6 @@ type InstallPreview = {
   packageManager: string | null
   biomeVersion: string | null
   effectEnabled: boolean
-  effectSelection: 'automatic' | 'explicit'
-  effectManifests: string[]
   assetNames: string[]
   repositoryFiles: { path: string; content: string }[]
   bundleHash: string
@@ -148,23 +116,6 @@ type InstallPreview = {
   resolvedConfiguration: string
   resolvedConfigurationScope: 'workspace-root' | 'target'
   hash: string
-}
-
-type UpdateResult = {
-  content: [{ type: 'text'; text: string }]
-  details: {
-    status: string
-    message: string
-    preview: ReturnType<typeof summarizePortUpdate>
-    backup?: string
-    verification?: VerifyResult['details']
-    focusedTests?: Awaited<ReturnType<typeof checkUnknownBaseChanges>>
-  }
-}
-
-type InstallResult = {
-  content: [{ type: 'text'; text: string }]
-  details: { status: string; message: string; preview: InstallPreview }
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -268,22 +219,23 @@ async function inspectBiomeConfiguration(
   directories: string[],
   pi: ExtensionAPI,
   signal?: AbortSignal,
-  selectedPluginPaths = pluginPaths,
+  selectedPluginPaths = [antiSlopEntrypointPath],
+  selectedConfiguration?: string,
 ): Promise<ConfigurationInspection> {
   const issues: string[] = []
   const json = join(target, 'biome.json')
   const jsonc = join(target, 'biome.jsonc')
   const hasJson = await pathExists(json)
   const hasJsonc = await pathExists(jsonc)
-  if (hasJson && hasJsonc) issues.push('Both Biome configuration files exist.')
-  const configurationPath = hasJsonc ? jsonc : json
+  if (!selectedConfiguration && hasJson && hasJsonc) issues.push('Both Biome configuration files exist. Use --config.')
+  const configurationPath = selectedConfiguration ?? (hasJsonc ? jsonc : json)
   let configurationBefore: string | null = null
   let configurationAfter = ''
   let resolvedConfiguration = ''
   let nestedConfiguration = false
   let configurationMetadata: number[] | null = null
 
-  if (hasJson || hasJsonc) {
+  if (await pathExists(configurationPath)) {
     const info = await lstat(configurationPath)
     if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1) {
       issues.push('The Biome configuration is not a regular unlinked file.')
@@ -350,11 +302,15 @@ async function inspectBiomeConfiguration(
   if (configurationBefore !== null && version === '2.6.4') {
     try {
       const args = ['inspect', 'config', '--colors=off']
-      if (!nestedConfiguration) args.push('--config-path', target)
+      if (!nestedConfiguration) args.push('--config-path', configurationPath)
       const inspected = await pi.exec(biomeBinary, args, { cwd: target, signal })
       if (inspected.code !== 0) issues.push('Biome could not resolve the existing configuration.')
       resolvedConfiguration = inspected.stdout + inspected.stderr
-      if ([...pluginPaths, ...effectPluginPaths].some((path) => resolvedConfiguration.includes(path.slice(2)))) {
+      if (
+        [antiSlopEntrypointPath, ...pluginPaths, ...effectPluginPaths].some((path) =>
+          resolvedConfiguration.includes(path.slice(2)),
+        )
+      ) {
         issues.push('The effective Biome configuration already includes an anti-slop plugin.')
       }
       if (resolvedConfiguration.length > 12000)
@@ -374,25 +330,6 @@ async function inspectBiomeConfiguration(
     version,
     biomeBinary,
     issues,
-  }
-}
-
-function declaresEffect(content: string): boolean {
-  try {
-    const manifest = JSON.parse(content) as {
-      dependencies?: unknown
-      devDependencies?: unknown
-      peerDependencies?: unknown
-      optionalDependencies?: unknown
-    }
-    return (['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'] as const).some(
-      (section) => {
-        const dependencies = manifest[section]
-        return Value.Check(Type.Object({}), dependencies) && Object.hasOwn(dependencies, 'effect')
-      },
-    )
-  } catch {
-    return false
   }
 }
 
@@ -480,12 +417,13 @@ async function inspectBiomeAntiSlop(
   root: string,
   pi: ExtensionAPI,
   signal?: AbortSignal,
-  effect?: boolean,
+  effect = false,
+  selectedConfiguration?: string,
 ): Promise<InstallPreview> {
   const target = await realpath(root)
   const gaps = [
     'Only upstream examples and selected edge cases are verified for the installed rules.',
-    'Only the no-runtime-typeof type-guard option supports Pi reconfiguration. Per-rule severity configuration and fixes are not implemented.',
+    'Per-rule severity configuration and fixes are not implemented.',
     'Biome noAccumulatingSpread can duplicate the reducer copy and spread diagnostics.',
     'The accumulating-spread companion covers selected Oxc examples; identical argument text and multiple writes can differ from Oxc.',
     'no-widen-then-assert skips ambiguous repeated source text because the Biome JavaScript AST exposes no source offsets.',
@@ -493,23 +431,24 @@ async function inspectBiomeAntiSlop(
     'Biome 2.6.4 omits initial leading comments from the JavaScript plugin AST, so the safety-comment rule is not installed.',
     'Targets that rely on a parent configuration without a local configuration require manual review.',
     'Projects that typecheck vendored assets need compatible @biomejs/runtime declarations; dependency changes are not automatic.',
-    'Verification runs only supported read-only lint and typecheck commands. Focused update tests require Bun.',
+    'Installed rules run through Biome without Pi.',
     'Targets outside the trusted Git repository require a session in that target.',
   ]
   const repository = await inspectRepository(target, pi, signal)
   const { gitStatus, repositoryFiles } = repository
 
   await inspectWorkspaceManifests(target, repositoryFiles, repository.issues)
-  const effectManifests = repositoryFiles
-    .filter((file) => file.path.endsWith('/package.json') && declaresEffect(file.content))
-    .map((file) => file.path)
-  const effectEnabled = effect ?? effectManifests.length > 0
-  const effectSelection = effect === undefined ? 'automatic' : 'explicit'
-  const assetNames = (effectEnabled ? [...bundledFiles, ...effectBundledFiles] : bundledFiles).filter(
-    (name) => !name.startsWith('tests/'),
-  )
+  const effectEnabled = effect
+  const assetNames = effectEnabled ? [...bundledFiles, ...effectBundledFiles] : bundledFiles
   const selectedPluginPaths = effectEnabled ? [...pluginPaths, ...effectPluginPaths] : pluginPaths
-  const config = await inspectBiomeConfiguration(target, repository.directories, pi, signal, selectedPluginPaths)
+  const config = await inspectBiomeConfiguration(
+    target,
+    repository.directories,
+    pi,
+    signal,
+    [antiSlopEntrypointPath],
+    selectedConfiguration,
+  )
   if (effectEnabled) gaps.push('Effect constructor imports through package aliases are not detected.')
   const {
     version,
@@ -559,6 +498,7 @@ async function inspectBiomeAntiSlop(
     ...assetNames.map((name) =>
       join(target, name.endsWith('.ts') ? 'tools/biome/anti-slop/rules' : 'tools/biome/anti-slop', name),
     ),
+    join(target, antiSlopEntrypointPath),
     join(target, 'tools/biome/anti-slop/port-base.snapshot'),
     ...(configurationBefore === null ? [] : [join(target, 'tools/biome/anti-slop/biome-config.backup')]),
   ]
@@ -576,9 +516,8 @@ async function inspectBiomeAntiSlop(
         missingRules,
         gaps,
         bundleHash,
+        entrypoint: formatAntiSlopEntrypoint(selectedPluginPaths),
         effectEnabled,
-        effectSelection,
-        effectManifests,
         assetNames,
         configurationPath,
         configurationBefore,
@@ -600,8 +539,6 @@ async function inspectBiomeAntiSlop(
     packageManager,
     biomeVersion: version || null,
     effectEnabled,
-    effectSelection,
-    effectManifests,
     assetNames,
     repositoryFiles,
     bundleHash,
@@ -661,6 +598,13 @@ async function installBiomeAntiSlop(preview: InstallPreview, signal?: AbortSigna
       })
       changed.push(file)
     }
+
+    const entrypoint = join(preview.root, antiSlopEntrypointPath)
+    const selectedRules = preview.effectEnabled ? [...pluginPaths, ...effectPluginPaths] : pluginPaths
+    await withFileMutationQueue(entrypoint, async () => {
+      await writeFile(entrypoint, formatAntiSlopEntrypoint(selectedRules), { flag: 'wx' })
+    })
+    changed.push(entrypoint)
 
     const snapshot = join(destination, 'port-base.snapshot')
     await withFileMutationQueue(snapshot, async () => {
@@ -738,30 +682,9 @@ async function installBiomeAntiSlop(preview: InstallPreview, signal?: AbortSigna
   }
 }
 
-function hasExplicitApproval(
-  ctx: ExtensionToolContext,
-  operation: 'install' | 'update' | 'configure',
-  hash: string,
-): boolean {
-  const entry = ctx.sessionManager
-    .getBranch()
-    .findLast((item) => item.type === 'message' && item.message.role === 'user')
-  if (entry?.type !== 'message' || entry.message.role !== 'user') return false
-  const content = entry.message.content
-  const text = Value.Check(Type.String(), content)
-    ? content
-    : Array.isArray(content) &&
-        content.length === 1 &&
-        content[0]?.type === 'text' &&
-        Value.Check(Type.String(), content[0].text)
-      ? content[0].text
-      : ''
-  return text.trim() === `approve biome-anti-slop ${operation} ${hash}`
-}
-
 async function isTrustedTarget(
   root: string,
-  ctx: ExtensionToolContext,
+  ctx: ExtensionContext,
   pi: ExtensionAPI,
   signal?: AbortSignal,
 ): Promise<boolean> {
@@ -773,231 +696,313 @@ async function isTrustedTarget(
   return path === '' || (path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path))
 }
 
-type BiomeToolParams = {
-  operation: 'inspect' | 'install' | 'check' | 'inspect-update' | 'update' | 'inspect-configure' | 'configure'
-  root?: string
-  previewHash?: string
-  effect?: boolean
-  allowInTypeGuards?: boolean
-  decisions?: UpdateDecisions
+type AntiSlopArguments = { config?: string; effect: boolean }
+
+function parseAntiSlopArguments(args: string, allowEffect: boolean): AntiSlopArguments {
+  const tokens: string[] = []
+  let token = ''
+  let quote = ''
+  let started = false
+  for (let i = 0; i < args.length; i++) {
+    const char = args[i] ?? ''
+    if (char === '\\' && quote !== "'") {
+      if (++i === args.length) throw new Error('Invalid command arguments.')
+      token += args[i]
+      started = true
+    } else if (quote) {
+      if (char === quote) quote = ''
+      else token += char
+    } else if (char === '"' || char === "'") {
+      quote = char
+      started = true
+    } else if (/\s/.test(char)) {
+      if (started) tokens.push(token)
+      token = ''
+      started = false
+    } else {
+      token += char
+      started = true
+    }
+  }
+  if (quote) throw new Error('Invalid command arguments.')
+  if (started) tokens.push(token)
+  let config: string | undefined
+  let effect = false
+  for (let i = 0; i < tokens.length; i++) {
+    const arg = tokens[i]
+    if (arg === '--effect' && allowEffect && !effect) effect = true
+    else if (arg === '--config' && config === undefined) config = tokens[++i] ?? ''
+    else if (arg?.startsWith('--config=') && config === undefined) config = arg.slice(9)
+    else throw new Error(`Unknown or repeated argument: ${arg}`)
+  }
+  if (config !== undefined && (!config || config.startsWith('--')))
+    throw new Error('Specify a configuration path after --config.')
+  return { config, effect }
 }
 
-async function executePortChange(
-  pi: ExtensionAPI,
+async function selectAntiSlopConfiguration(
+  cwd: string,
+  config?: string,
+  requireExisting = false,
+): Promise<{ root: string; path?: string }> {
+  const current = await realpath(cwd)
+  if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(current + (config ?? '')))
+    throw new Error('The configuration path contains unsafe characters.')
+  if (config === undefined) {
+    if (!requireExisting) return { root: current }
+    const candidates = [join(current, 'biome.json'), join(current, 'biome.jsonc')]
+    const present = (await Promise.all(candidates.map(pathExists))).flatMap((exists, index) =>
+      exists ? [candidates[index]] : [],
+    )
+    if (present.length !== 1) throw new Error('Select exactly one existing Biome configuration with --config.')
+    return { root: current, path: present[0] }
+  }
+  const logical = resolve(cwd)
+  const requested = resolve(logical, config)
+  const fromCurrent = relative(logical, requested)
+  const withinCurrent = fromCurrent !== '..' && !fromCurrent.startsWith(`..${sep}`) && !isAbsolute(fromCurrent)
+  const path = withinCurrent ? resolve(current, fromCurrent) : resolve(current, config)
+  if (!['biome.json', 'biome.jsonc'].includes(basename(path)))
+    throw new Error('--config must select biome.json or biome.jsonc.')
+  const root = dirname(path)
+  if ((await realpath(root)) !== root) throw new Error('The configuration directory has an unsafe path.')
+  if (!(await pathExists(path))) throw new Error('The selected Biome configuration does not exist.')
+  return { root, path }
+}
+
+async function inspectCommandUpdate(
   root: string,
-  params: BiomeToolParams,
-  ctx: ExtensionToolContext,
-  signal?: AbortSignal,
-): Promise<UpdateResult | VerifyResult> {
-  const configuring = params.operation === 'inspect-configure' || params.operation === 'configure'
-  if (configuring && !Value.Check(Type.Boolean(), params.allowInTypeGuards)) {
-    const details = { status: 'blocked', message: 'Specify allowInTypeGuards.', checks: [] }
-    return { content: [{ type: 'text', text: JSON.stringify(details) }], details }
-  }
-  const incoming = await readBundledAntiSlop([...bundledFiles, ...effectBundledFiles])
-  const inspect = (files: Map<string, Buffer>): Promise<UpdatePreview> =>
-    configuring
-      ? inspectTypeofConfiguration(root, files, params.allowInTypeGuards === true)
-      : inspectPortUpdate(
-          root,
-          files,
-          bundledFiles,
-          effectBundledFiles,
-          [...pluginPaths, ...effectPluginPaths],
-          params.decisions,
-        )
-  const preview = await inspect(incoming.files)
-  const updateResult = (
-    status: string,
-    message: string,
-    extra?: {
-      backup?: string
-      verification?: VerifyResult['details']
-      focusedTests?: Awaited<ReturnType<typeof checkUnknownBaseChanges>>
-    },
-  ): UpdateResult => {
-    const details = { status, message, preview: summarizePortUpdate(preview), ...extra }
-    return { content: [{ type: 'text', text: JSON.stringify(details) }], details }
-  }
-  if (params.operation === 'inspect-update' || params.operation === 'inspect-configure')
-    return updateResult(
-      'preview',
-      `Review the proposal. Without interactive UI, reply exactly: approve biome-anti-slop ${configuring ? 'configure' : 'update'} ${preview.hash}`,
-    )
-  if (preview.issues.length) return updateResult('blocked', 'The update requires manual review.')
-  if (!params.previewHash || params.previewHash !== preview.hash)
-    return updateResult('blocked', 'Inspect again and use the current preview.')
-  if (ctx.hasUI) {
+  configurationPath: string,
+): Promise<{
+  preview: UpdatePreview
+  bundleHash: string
+  collisions: string[]
+  newRules: string[]
+}> {
+  const names = [...bundledFiles, ...effectBundledFiles]
+  const incoming = await readBundledAntiSlop(names)
+  const paths = [...pluginPaths, ...effectPluginPaths]
+  const first = await inspectPortUpdate(
+    root,
+    incoming.files,
+    bundledFiles,
+    effectBundledFiles,
+    paths,
+    {},
+    configurationPath,
+  )
+  const conflicts: Record<string, 'incoming'> = {}
+  const rules: Record<string, 'enable'> = {}
+  const collisions: string[] = []
+  const newRules: string[] = []
+  for (const comparison of first.comparisons) {
     if (
-      !(await ctx.ui.confirm(
-        configuring ? 'Configure Biome anti-slop rule?' : 'Update Biome anti-slop port?',
-        JSON.stringify(summarizePortUpdate(preview), null, 2),
-      ))
-    )
-      return updateResult('declined', 'No files changed.')
-  } else if (!hasExplicitApproval(ctx, configuring ? 'configure' : 'update', preview.hash))
-    return updateResult('blocked', 'Explicit user approval of the current preview is required.')
-  if (!(await isTrustedTarget(root, ctx, pi, signal)))
-    return updateResult('blocked', 'Project trust changed during approval.')
-  const freshIncoming = await readBundledAntiSlop([...bundledFiles, ...effectBundledFiles])
-  const fresh = await inspect(freshIncoming.files)
-  if (fresh.hash !== preview.hash)
-    return updateResult('blocked', 'The target or bundled files changed during approval.')
-  const repository = await inspectRepository(root, pi, signal)
-  const config = await inspectBiomeConfiguration(root, repository.directories, pi, signal)
-  const focusedTests =
-    fresh.baseAvailable && !configuring
-      ? []
-      : await checkUnknownBaseChanges(fresh, freshIncoming.files, config.biomeBinary, config.version, pi, signal)
-  if (focusedTests.some((check) => check.status !== 'passed'))
-    return updateResult('blocked', 'A focused test failed or was unavailable. No files changed.', {
-      focusedTests,
-    })
-  const testedIncoming = await readBundledAntiSlop([...bundledFiles, ...effectBundledFiles])
-  const tested = await inspect(testedIncoming.files)
-  if (tested.hash !== preview.hash)
-    return updateResult('blocked', 'The target or bundled files changed during focused tests.', { focusedTests })
-  const backup = await applyPortUpdate(tested, true, signal)
+      comparison.base === null &&
+      comparison.incoming !== null &&
+      paths.includes(`./tools/biome/anti-slop/rules/${comparison.name}`)
+    ) {
+      rules[comparison.name] = 'enable'
+      newRules.push(comparison.name)
+    }
+    if (
+      comparison.local !== comparison.base &&
+      comparison.incoming !== comparison.base &&
+      comparison.local !== comparison.incoming
+    ) {
+      if (comparison.incoming === null)
+        throw new Error(`The locally modified file was removed upstream: ${comparison.name}`)
+      conflicts[comparison.name] = 'incoming'
+      collisions.push(comparison.name)
+    }
+  }
+  const preview = await inspectPortUpdate(
+    root,
+    incoming.files,
+    bundledFiles,
+    effectBundledFiles,
+    paths,
+    { conflicts, rules },
+    configurationPath,
+  )
+  return { preview, bundleHash: incoming.hash, collisions, newRules }
+}
+
+async function executeAntiSlopUpdate(args: string, ctx: ExtensionContext, pi: ExtensionAPI): Promise<void> {
   try {
-    if (focusedTests.length)
-      await writeFile(join(backup, 'focused-tests.backup'), JSON.stringify(focusedTests, null, 2), {
-        flag: 'wx',
-        mode: 0o600,
-      })
-    const verification = await verifyBiomeAntiSlop(
-      { root, directories: repository.directories, biomeBinary: config.biomeBinary, biomeVersion: config.version },
-      pi,
-      signal,
-    )
-    await writeFile(join(backup, 'verification.backup'), JSON.stringify(verification.details, null, 2), {
-      flag: 'wx',
-      mode: 0o600,
-    })
-    return updateResult(
-      configuring ? 'configured' : fresh.pending.length ? 'partial' : 'updated',
-      configuring
-        ? 'The option was changed. Review verification.'
-        : 'The update was applied. Review verification and pending decisions.',
-      { backup, verification: verification.details, focusedTests },
-    )
+    if (!ctx.hasUI) {
+      ctx.ui.notify('A confirmation dialog is required. No files changed.', 'error')
+      return
+    }
+    const options = parseAntiSlopArguments(args, false)
+    const target = await selectAntiSlopConfiguration(ctx.cwd, options.config, true)
+    if (!target.path || !(await isTrustedTarget(target.root, ctx, pi))) {
+      ctx.ui.notify('Project trust is not established for the selected target.', 'error')
+      return
+    }
+    const plan = await inspectCommandUpdate(target.root, target.path)
+    if (plan.preview.issues.length || plan.preview.pending.length) {
+      ctx.ui.notify([...plan.preview.issues, ...plan.preview.pending].join('\n'), 'error')
+      return
+    }
+    const removed = plan.preview.changes
+      .filter((change) => change.action === 'remove')
+      .map((change) => basename(change.path))
+    const message = [
+      `Config: ${target.path ? relative(await realpath(ctx.cwd), target.path) : basename(target.root)}`,
+      `Changes: ${plan.preview.changes.length}. New rules: ${plan.newRules.length}. Effect rules: ${plan.preview.effectEnabled ? 'enabled' : 'disabled'}`,
+      ...(plan.collisions.length
+        ? [`Overwrites: ${plan.collisions.join(', ')}`, 'Approval replaces these with incoming versions.']
+        : []),
+      ...(removed.length ? [`Removed files: ${removed.join(', ')}`] : []),
+    ].join('\n')
+    if (message.split('\n').length > 5 || message.split('\n').some((line) => line.length > 78)) {
+      ctx.ui.notify('The confirmation details do not fit. No files changed.', 'error')
+      return
+    }
+    if (!(await ctx.ui.confirm('Update Biome anti-slop rules?', message))) {
+      ctx.ui.notify('No files changed.', 'info')
+      return
+    }
+    const freshTarget = await selectAntiSlopConfiguration(ctx.cwd, options.config, true)
+    if (
+      freshTarget.root !== target.root ||
+      freshTarget.path !== target.path ||
+      !(await isTrustedTarget(target.root, ctx, pi))
+    ) {
+      ctx.ui.notify('Project trust or target changed during approval. No files changed.', 'error')
+      return
+    }
+    const fresh = await inspectCommandUpdate(target.root, target.path)
+    if (fresh.preview.hash !== plan.preview.hash || fresh.bundleHash !== plan.bundleHash) {
+      ctx.ui.notify('The target or bundled files changed during approval. No files changed.', 'error')
+      return
+    }
+    await applyCommandUpdate(fresh.preview)
+    ctx.ui.notify('Biome anti-slop rules were updated. Run Biome.', 'info')
   } catch (error) {
-    return updateResult(
-      'partial',
-      `Files changed, but verification could not be recorded: ${String(error)}. Backup: ${backup}.`,
-      { backup, focusedTests },
-    )
+    ctx.ui.notify(String(error), 'error')
   }
 }
 
-function formatInstallApproval(preview: InstallPreview): string {
-  const rules = preview.effectEnabled ? [...pluginPaths, ...effectPluginPaths] : pluginPaths
-
-  return [
-    `Project: ${preview.root}`,
-    `Biome: ${preview.biomeVersion}\nEffect rules: ${preview.effectEnabled ? 'enabled' : 'disabled'} (${preview.effectSelection})`,
-    `Rules:\n${rules.map((path) => `- ${basename(path, '.ts')}`).join('\n')}`,
-    `Not installed:\n${preview.missingRules.map((name) => `- ${name}`).join('\n')}`,
-    `Files: copy rules, licenses, and snapshot to tools/biome/anti-slop; ${preview.configurationBefore === null ? 'create' : 'back up and update'} ${relative(preview.root, preview.configurationPath)}.`,
-    `Limitations:\n${preview.gaps.map((gap) => `- ${gap}`).join('\n')}`,
-  ].join('\n\n')
+async function executeAntiSlopRemoval(args: string, ctx: ExtensionContext, pi: ExtensionAPI): Promise<void> {
+  try {
+    if (!ctx.hasUI) {
+      ctx.ui.notify('A confirmation dialog is required. No files changed.', 'error')
+      return
+    }
+    const options = parseAntiSlopArguments(args, false)
+    const target = await selectAntiSlopConfiguration(ctx.cwd, options.config, true)
+    if (!target.path || !(await isTrustedTarget(target.root, ctx, pi))) {
+      ctx.ui.notify('Project trust is not established for the selected target.', 'error')
+      return
+    }
+    const plan = await inspectCommandRemoval(target.root, target.path)
+    const lines = [
+      `Config: ${relative(await realpath(ctx.cwd), target.path)}`,
+      `Remove registration and ${plan.changes.length - 1} managed files.`,
+      'Existing configuration exclusions stay.',
+    ]
+    for (const path of plan.retained) {
+      const last = lines.at(-1) ?? ''
+      if (last.startsWith('Keep: ') && `${last}, ${path}`.length <= 78) lines[lines.length - 1] = `${last}, ${path}`
+      else lines.push(`Keep: ${path}`)
+    }
+    if (lines.length > 5 || lines.some((line) => line.length > 78)) {
+      ctx.ui.notify(
+        `Retained files do not fit in the confirmation. No files changed: ${plan.retained.join(', ')}`,
+        'error',
+      )
+      return
+    }
+    if (!(await ctx.ui.confirm('Remove Biome anti-slop rules?', lines.join('\n')))) {
+      ctx.ui.notify('No files changed.', 'info')
+      return
+    }
+    const freshTarget = await selectAntiSlopConfiguration(ctx.cwd, options.config, true)
+    if (
+      freshTarget.root !== target.root ||
+      freshTarget.path !== target.path ||
+      !(await isTrustedTarget(target.root, ctx, pi))
+    ) {
+      ctx.ui.notify('Project trust or target changed during approval. No files changed.', 'error')
+      return
+    }
+    const fresh = await inspectCommandRemoval(target.root, target.path)
+    if (fresh.hash !== plan.hash) {
+      ctx.ui.notify('The target changed during approval. No files changed.', 'error')
+      return
+    }
+    await applyCommandRemoval(fresh)
+    ctx.ui.notify('Biome anti-slop registration and managed files were removed.', 'info')
+  } catch (error) {
+    ctx.ui.notify(String(error), 'error')
+  }
 }
 
-function registerBiomeAntiSlopTool(pi: ExtensionAPI): void {
-  pi.registerTool({
-    name: 'biome_anti_slop',
-    label: 'Biome anti-slop',
-    description:
-      'Inspect, install, update, configure, or check an explicitly partial repository-owned Biome anti-slop port.',
-    promptSnippet: 'Inspect, install, update, configure, or check repository-owned Biome anti-slop rules.',
-    promptGuidelines: ['Inspect first. The port is incomplete and installation requires user approval.'],
-    parameters: Type.Object({
-      operation: Type.Union([
-        Type.Literal('inspect'),
-        Type.Literal('install'),
-        Type.Literal('check'),
-        Type.Literal('inspect-update'),
-        Type.Literal('update'),
-        Type.Literal('inspect-configure'),
-        Type.Literal('configure'),
-      ]),
-      root: Type.Optional(Type.String()),
-      previewHash: Type.Optional(Type.String()),
-      effect: Type.Optional(Type.Boolean()),
-      allowInTypeGuards: Type.Optional(Type.Boolean()),
-      decisions: Type.Optional(
-        Type.Object({
-          conflicts: Type.Optional(
-            Type.Record(Type.String(), Type.Union([Type.Literal('incoming'), Type.Literal('local')])),
-          ),
-          rules: Type.Optional(
-            Type.Record(Type.String(), Type.Union([Type.Literal('enable'), Type.Literal('disabled')])),
-          ),
-        }),
-      ),
-    }),
-    async execute(
-      _id: string,
-      params: BiomeToolParams,
-      signal: AbortSignal | undefined,
-      _onUpdate:
-        | AgentToolUpdateCallback<InstallResult['details'] | VerifyResult['details'] | UpdateResult['details']>
-        | undefined,
-      ctx: ExtensionToolContext,
-    ): Promise<InstallResult | VerifyResult | UpdateResult> {
-      const root = await realpath(resolve(ctx.cwd, params.root ?? '.'))
-      if (!(await isTrustedTarget(root, ctx, pi, signal))) {
-        const details = {
-          status: 'blocked',
-          message: 'Project trust is not established for the selected target.',
-          checks: [],
+function registerBiomeAntiSlopCommands(pi: ExtensionAPI): void {
+  pi.registerCommand('anti-slop-remove', {
+    description: 'Remove repository-owned Biome anti-slop rules.',
+    handler: async (args: string, ctx: ExtensionContext) => executeAntiSlopRemoval(args, ctx, pi),
+  })
+  pi.registerCommand('anti-slop-update', {
+    description: 'Update repository-owned Biome anti-slop rules.',
+    handler: async (args: string, ctx: ExtensionContext) => executeAntiSlopUpdate(args, ctx, pi),
+  })
+  pi.registerCommand('anti-slop-install', {
+    description: 'Install repository-owned Biome anti-slop rules.',
+    handler: async (args: string, ctx: ExtensionContext) => {
+      try {
+        if (!ctx.hasUI) {
+          ctx.ui.notify('A confirmation dialog is required. No files changed.', 'error')
+          return
         }
-        return { content: [{ type: 'text', text: JSON.stringify(details) }], details }
+        const options = parseAntiSlopArguments(args, true)
+        const target = await selectAntiSlopConfiguration(ctx.cwd, options.config)
+        if (!(await isTrustedTarget(target.root, ctx, pi))) {
+          ctx.ui.notify('Project trust is not established for the selected target.', 'error')
+          return
+        }
+        const preview = await inspectBiomeAntiSlop(target.root, pi, undefined, options.effect, target.path)
+        if (preview.issues.length) {
+          ctx.ui.notify(preview.issues.join('\n'), 'error')
+          return
+        }
+        const message = [
+          `Config: ${relative(await realpath(ctx.cwd), preview.configurationPath) || basename(preview.configurationPath)}`,
+          `Rules: ${pluginPaths.length + (options.effect ? effectPluginPaths.length : 0)}. Effect rules: ${options.effect ? 'enabled' : 'disabled'}`,
+          `Not installed: ${preview.missingRules[0]}`,
+          `Not installed: ${preview.missingRules[1]}`,
+          'Rule limitations: see tools/biome/anti-slop/UPSTREAM.md.',
+        ].join('\n')
+        if (message.split('\n').some((line) => line.length > 78)) {
+          ctx.ui.notify('The confirmation details do not fit. No files changed.', 'error')
+          return
+        }
+        if (!(await ctx.ui.confirm('Install Biome anti-slop rules?', message))) {
+          ctx.ui.notify('No files changed.', 'info')
+          return
+        }
+        const freshTarget = await selectAntiSlopConfiguration(ctx.cwd, options.config)
+        if (
+          freshTarget.root !== target.root ||
+          freshTarget.path !== target.path ||
+          !(await isTrustedTarget(target.root, ctx, pi))
+        ) {
+          ctx.ui.notify('Project trust or target changed during approval. No files changed.', 'error')
+          return
+        }
+        const fresh = await inspectBiomeAntiSlop(target.root, pi, undefined, options.effect, target.path)
+        if (fresh.hash !== preview.hash || fresh.issues.length) {
+          ctx.ui.notify('The target or bundled files changed during approval. No files changed.', 'error')
+          return
+        }
+        await installBiomeAntiSlop(fresh)
+        ctx.ui.notify('Biome anti-slop rules were installed. Run Biome.', 'info')
+      } catch (error) {
+        ctx.ui.notify(String(error), 'error')
       }
-      if (params.operation === 'check') {
-        const repository = await inspectRepository(root, pi, signal)
-        const config = await inspectBiomeConfiguration(root, repository.directories, pi, signal)
-        return verifyBiomeAntiSlop(
-          { root, directories: repository.directories, biomeBinary: config.biomeBinary, biomeVersion: config.version },
-          pi,
-          signal,
-        )
-      }
-      if (
-        params.operation === 'inspect-update' ||
-        params.operation === 'update' ||
-        params.operation === 'inspect-configure' ||
-        params.operation === 'configure'
-      )
-        return executePortChange(pi, root, params, ctx, signal)
-      const preview = await inspectBiomeAntiSlop(root, pi, signal, params.effect)
-      const result = (status: string, message: string): InstallResult => {
-        const details = { status, message, preview }
-        return { content: [{ type: 'text', text: JSON.stringify(details) }], details }
-      }
-
-      if (params.operation === 'inspect') {
-        return result(
-          'preview',
-          `Review the partial port and proposed files before installation. Without interactive UI, reply exactly: approve biome-anti-slop install ${preview.hash}`,
-        )
-      }
-      if (preview.issues.length) return result('blocked', 'The target requires manual review.')
-      if (!params.previewHash || params.previewHash !== preview.hash)
-        return result('blocked', 'Inspect again and use the current preview.')
-      if (ctx.hasUI) {
-        const approved = await ctx.ui.confirm('Install partial Biome anti-slop port?', formatInstallApproval(preview))
-        if (!approved) return result('declined', 'No files changed.')
-      } else if (!hasExplicitApproval(ctx, 'install', preview.hash)) {
-        return result('blocked', 'Explicit user approval of the current preview is required.')
-      }
-      if (!(await isTrustedTarget(preview.root, ctx, pi, signal)))
-        return result('blocked', 'Project trust changed during approval.')
-      const fresh = await inspectBiomeAntiSlop(preview.root, pi, signal, params.effect)
-      if (fresh.hash !== preview.hash) return result('blocked', 'The target or bundled files changed during approval.')
-      await installBiomeAntiSlop(fresh, signal)
-      return result('installed', 'The partial port was installed. Run Biome.')
     },
   })
 }
 
-export { registerBiomeAntiSlopTool }
+export { registerBiomeAntiSlopCommands }

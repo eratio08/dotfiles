@@ -15,7 +15,7 @@ The Oxc license is in `OXC-LICENSE`.
 
 The upstream anti-slop repository provides 23 rules: 18 generic rules and 5 Effect rules.
 The Biome port implements 16 generic rules and all 5 optional Effect rules.
-The installer includes Effect rules when the project declares Effect or when you select them explicitly.
+The `/anti-slop-install` command includes Effect rules only when you use `--effect`.
 The port does not implement `require-readable-spacing` or `require-safety-comment-for-type-assertion`.
 Tests cover upstream examples and selected boundary cases unless a row says otherwise.
 Passing tests do not prove complete parity.
