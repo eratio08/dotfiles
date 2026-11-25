@@ -6,6 +6,8 @@ Call each nested Ripwire tool from `codemode` with `await`.
 - Map one task with `tools.mcp__ripwire__explore`.
   For parallel agents, set `partition` to the number of agents, from 2 to 16.
   Review `overlap_max` and `split` before you distribute the shared core and agent slices.
+- Use `tools.mcp__ripwire__batch` to run up to 16 independent queries for the same repository.
+  It supports only a subset of read-only verbs.
 - Map a stack trace or build error with `tools.mcp__ripwire__from_trace`.
   Pass the raw trace text. Do not paraphrase it into a query.
   If the trace is in a file, use Pi `read` first.
