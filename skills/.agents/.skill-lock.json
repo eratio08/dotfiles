@@ -42,9 +42,10 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/domain-modeling/SKILL.md",
-      "skillFolderHash": "ea30ee454ba264543dbe40737973b1a5afb9f0e6",
+      "skillFolderHash": "db8ef024fb9a7b2022d57289359ae96cff0d8483",
       "installedAt": "2026-06-26T05:51:16.145Z",
-      "updatedAt": "2026-10-07T10:12:17.705Z"
+      "updatedAt": "2026-11-25T21:40:55.008Z",
+      "commit": "6f7f7831a625f040a8e06a0e7954826b87ce775a"
     },
     "gh-stack": {
       "source": "github/gh-stack",
@@ -199,9 +200,10 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/tt-a1i/archify.git",
       "skillPath": "archify/SKILL.md",
-      "skillFolderHash": "03645a096811664da641153a4a42e862c4a6bc62",
+      "skillFolderHash": "e91df37318f9adec8b39150a2738beb4cd22bad5",
       "installedAt": "2026-09-14T06:08:49.137Z",
-      "updatedAt": "2026-11-16T08:32:54.286Z"
+      "updatedAt": "2026-11-25T21:40:59.448Z",
+      "commit": "c8e5241c7d8b036ea959121d7bd1df564f2b9fdf"
     },
     "retro": {
       "source": "mattpocock/skills",
@@ -253,19 +255,10 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
       "skillPath": "skills/web-design-guidelines/SKILL.md",
-      "skillFolderHash": "3116f3e62dbd02b44a598b1aa690d2a8938e8f89",
+      "skillFolderHash": "8ff770c9b25b9fdb5a97503fc98d86b723813031",
       "installedAt": "2026-09-26T16:17:44.468Z",
-      "updatedAt": "2026-09-26T16:17:44.468Z"
-    },
-    "install-anti-slop": {
-      "source": "dmmulroy/anti-slop",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/dmmulroy/anti-slop.git",
-      "ref": "main",
-      "skillPath": "skills/install-anti-slop/SKILL.md",
-      "skillFolderHash": "97962dc9fad565ca7695bf57805d9d0138ce1def",
-      "installedAt": "2026-11-01T20:19:10.363Z",
-      "updatedAt": "2026-11-01T20:19:10.363Z"
+      "updatedAt": "2026-11-25T21:40:59.475Z",
+      "commit": "5a37a6329fbad3666c3207392a6a7c0110e92efb"
     },
     "socratic-tutor": {
       "source": "janestreet/agent_skills",
