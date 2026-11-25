@@ -138,18 +138,17 @@ function knownEvidence(
   visited.add(key)
   const declaration = binding.syntax().parent
   if (functionBoundary(binding.syntax()) !== boundary) return undefined
-  const annotation =
-    declaration?.kind === 'JS_FORMAL_PARAMETER'
-      ? declaration.typeAnnotation
-      : declaration?.kind === 'JS_VARIABLE_DECLARATOR'
-        ? declaration.variableAnnotation
-        : undefined
-  const type =
-    annotation?.kind === 'TS_TYPE_ANNOTATION'
-      ? annotation.ty
-      : annotation?.kind === 'TS_DEFINITE_VARIABLE_ANNOTATION'
-        ? annotation.typeAnnotation?.ty
-        : undefined
+  let type: AnyTsType | undefined
+  if (declaration?.kind === 'JS_FORMAL_PARAMETER') {
+    type = declaration.typeAnnotation?.ty
+  } else if (declaration?.kind === 'JS_VARIABLE_DECLARATOR') {
+    const annotation = declaration.variableAnnotation
+    if (annotation?.kind === 'TS_TYPE_ANNOTATION') {
+      type = annotation.ty
+    } else if (annotation?.kind === 'TS_DEFINITE_VARIABLE_ANNOTATION') {
+      type = annotation.typeAnnotation?.ty
+    }
+  }
   if (type) return broadTypeKind(type) ? undefined : { type }
   if (
     declaration?.kind !== 'JS_VARIABLE_DECLARATOR' ||

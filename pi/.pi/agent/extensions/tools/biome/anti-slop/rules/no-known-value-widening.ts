@@ -191,12 +191,12 @@ function knownCallArgument(
   if (visited.has(key)) return false
   visited.add(key)
   const declaration = binding.syntax().parent
-  const type =
-    declaration?.kind === 'JS_FORMAL_PARAMETER'
-      ? declaration.typeAnnotation?.ty
-      : declaration?.kind === 'JS_VARIABLE_DECLARATOR'
-        ? annotationType(declaration.variableAnnotation)
-        : undefined
+  let type: AnyTsType | undefined
+  if (declaration?.kind === 'JS_FORMAL_PARAMETER') {
+    type = declaration.typeAnnotation?.ty
+  } else if (declaration?.kind === 'JS_VARIABLE_DECLARATOR') {
+    type = annotationType(declaration.variableAnnotation)
+  }
   if (type) return !isUnsafeValueType(ctx.model, type)
   if (
     declaration?.kind !== 'JS_VARIABLE_DECLARATOR' ||
