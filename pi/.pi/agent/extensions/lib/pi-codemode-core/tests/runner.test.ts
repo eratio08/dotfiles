@@ -100,7 +100,7 @@ describe('code mode runner', () => {
         )
       },
     }
-    const runAndAbort = async (): Promise<unknown> => {
+    const runAndAbort = async (): Promise<void> => {
       const evaluation = Effect.runPromise(
         evaluateWithHost(core, host, 'export default async (api: QueueApi) => api.call("slow")', {
           ...options,
@@ -109,7 +109,7 @@ describe('code mode runner', () => {
       )
       await started
       controller.abort()
-      return await evaluation
+      await evaluation
     }
 
     //when
@@ -140,14 +140,14 @@ describe('code mode runner', () => {
         )
       },
     }
-    const interruptAfterStart = async (): Promise<unknown> => {
+    const interruptAfterStart = async (): Promise<void> => {
       const fiber = Effect.runFork(
         evaluateWithHost(core, host, 'export default async (api: QueueApi) => api.call("slow")', options),
       )
       const joined = Fiber.join(fiber)
       await started
       await Effect.runPromise(Fiber.interrupt(fiber))
-      return Effect.runPromise(joined)
+      await Effect.runPromise(joined)
     }
 
     //when

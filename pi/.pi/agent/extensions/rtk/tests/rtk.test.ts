@@ -102,16 +102,16 @@ test('should ignore non-Bash tool calls given another tool type', async () => {
   await shutdown(fake)
 })
 
-test('should ignore empty commands given an empty Bash command', async () => {
+test.each(['', null, 42])('should ignore Bash commands given invalid input %s', async (command) => {
   // given
   const fake = await startPi()
-  const event = { type: 'tool_call', toolName: 'bash', input: { command: '' } }
+  const event = { type: 'tool_call', toolName: 'bash', input: { command } }
 
   // when
   await fake.invokeEvent('tool_call', event)
 
   // then
-  assert.equal(event.input.command, '')
+  assert.equal(event.input.command, command)
   assert.deepEqual(fake.calls, [['--version']])
   await shutdown(fake)
 })

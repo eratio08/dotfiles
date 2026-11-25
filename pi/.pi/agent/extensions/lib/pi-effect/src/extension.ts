@@ -24,7 +24,7 @@ import type {
   UserBashEventResult,
 } from '@earendil-works/pi-coding-agent'
 import type { AutocompleteItem, KeyId } from '@earendil-works/pi-tui'
-import { Effect, Layer, ManagedRuntime, Schema } from 'effect'
+import { Effect, Layer, ManagedRuntime, Predicate, Schema } from 'effect'
 import type { Static, TSchema } from 'typebox'
 import * as PiApi from './pi.ts'
 
@@ -116,7 +116,7 @@ type PiEventOptions = {
 
 /** Runtime-neutral callback shape used by the Pi event registrar. */
 type PiEventCallback<Services, Failure> = {
-  run(event: unknown): Effect.Effect<unknown, Failure, Services | PiApi.PiServices>
+  run(event: ExtensionEvent): Effect.Effect<PiEventResult<PiEventName>, Failure, Services | PiApi.PiServices>
 }['run']
 
 /** Pi event registrar. */
@@ -412,11 +412,13 @@ function definePlugin<Services, Failure = PiExtensionError>(
   return definition
 }
 
-/** Entry point for defining a Pi Effect plugin and installing it as a Pi extension. */
-const PiExtension: {
+type PiExtensionDefinition = {
   define: typeof definePlugin
   install<Services, Failure = PiExtensionError>(plugin: PiPlugin<Services, Failure>): ExtensionFactory
-} = {
+}
+
+/** Entry point for defining a Pi Effect plugin and installing it as a Pi extension. */
+const PiExtension: PiExtensionDefinition = {
   /**
    * Adds contextual types to a plugin definition and preserves its layer service types.
    * @param definition Plugin definition to type.
@@ -550,7 +552,7 @@ function createPiUiAdapter(ui: ExtensionUIContext): PiApi.PiUiAdapter {
       content: Parameters<PiApi.PiUiAdapter['setWidget']>[1],
       options?: Parameters<PiApi.PiUiAdapter['setWidget']>[2],
     ) =>
-      typeof content === 'function'
+      Predicate.isFunction(content)
         ? ui.setWidget(key, content, options)
         : ui.setWidget(key, content ? [...content] : undefined, options),
     setFooter: (factory: Parameters<PiApi.PiUiAdapter['setFooter']>[0]) => ui.setFooter(factory),
@@ -626,7 +628,9 @@ type PiMessageRenderer = MessageRenderer
 type PiEntryRenderer = EntryRenderer
 
 type PiToolUpdateHandler = {
-  onUpdate(update: unknown): void
+  onUpdate(
+    update: Parameters<PiApi.PiToolContext['onUpdate']>[0] | Parameters<AgentToolUpdateCallback<unknown>>[0],
+  ): void
 }['onUpdate']
 
 type PiStableFacade = Pick<PiApi.Pi['Service'], 'messages' | 'tools' | 'flags' | 'process' | 'events' | 'model'>
@@ -656,7 +660,7 @@ function createPiOperationsService(api: ExtensionAPI): PiApi.PiOperationsService
         api.sendMessage(
           {
             ...message,
-            content: typeof message.content === 'string' ? message.content : [...message.content],
+            content: Predicate.isString(message.content) ? message.content : [...message.content],
             display: message.display ?? false,
           },
           options,
@@ -667,7 +671,7 @@ function createPiOperationsService(api: ExtensionAPI): PiApi.PiOperationsService
       options?: Parameters<PiApi.PiOperationsService['sendUserMessage']>[1],
     ) =>
       PiApi.piOperationTry('sendUserMessage', () =>
-        api.sendUserMessage(typeof content === 'string' ? content : [...content], options),
+        api.sendUserMessage(Predicate.isString(content) ? content : [...content], options),
       ),
     appendEntry: (customType: string, data?: Parameters<PiApi.PiOperationsService['appendEntry']>[1]) =>
       PiApi.piOperationTry('appendEntry', () => api.appendEntry(customType, data)),
@@ -690,7 +694,7 @@ function createPiOperationsService(api: ExtensionAPI): PiApi.PiOperationsService
       config?: Parameters<PiApi.PiOperationsService['registerProvider']>[1],
     ) =>
       PiApi.piOperationTry('registerProvider', () => {
-        if (typeof provider === 'string') {
+        if (Predicate.isString(provider)) {
           api.registerProvider(provider, config ?? {})
         } else {
           api.registerProvider(provider)
@@ -1019,7 +1023,11 @@ function toolContext(
     get tools(): ExtensionToolContext['tools'] {
       return tool.nativeContext.tools
     },
-    executeTool: (name: string, args: unknown, options?: ExecuteToolOptions) =>
+    executeTool: (
+      name: string,
+      args: Parameters<ExtensionToolContext['executeTool']>[1],
+      options?: ExecuteToolOptions,
+    ) =>
       Effect.tryPromise({
         try: () => tool.nativeContext.executeTool(name, args, options),
         catch: (cause: unknown) =>
@@ -1034,7 +1042,9 @@ function toolContext(
   }
 }
 
-function neutralResult(name: PiEventName): unknown {
+function neutralResult(
+  name: PiEventName,
+): PiEventResults['project_trust' | 'input' | 'tool_call' | 'session_before_tree'] | undefined {
   switch (name) {
     case 'project_trust':
       return { trusted: 'undecided' as const }
@@ -1099,18 +1109,30 @@ type PiRuntimeEventInvocation = {
 }
 
 type PiRuntimeEventOn = {
-  (name: 'session_shutdown', callback: (event: unknown, context: ExtensionContext) => Promise<unknown>): void
-  (name: PiEventName, callback: (event: unknown, context: PiRuntimeEventContext | undefined) => Promise<unknown>): void
+  (
+    name: 'session_shutdown',
+    callback: (
+      event: Extract<ExtensionEvent, { type: 'session_shutdown' }>,
+      context: ExtensionContext,
+    ) => Promise<void>,
+  ): void
+  (
+    name: PiEventName,
+    callback: (
+      event: ExtensionEvent,
+      context: PiRuntimeEventContext | undefined,
+    ) => Promise<PiEventResult<PiEventName>>,
+  ): void
 }
 
 function registerEventHandler<Services, Failure>(
   name: PiEventName,
   handler: PiEventCallback<Services, Failure>,
   policy: PiFailurePolicy,
-  rawEvent: unknown,
+  rawEvent: ExtensionEvent,
   invocation: PiRuntimeEventInvocation,
   invoke: Invoke<Services | PiApi.PiServices>,
-): Promise<unknown> {
+): Promise<PiEventResult<PiEventName>> {
   const program = Effect.suspend(() => handler(rawEvent))
   return invoke(program, invocation.effect, [invocation.signal]).catch((cause) => {
     if (policy === 'propagate') throw cause

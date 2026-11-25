@@ -3,6 +3,8 @@ import test from 'node:test'
 import { createWebSearchTool } from '../index.ts'
 
 import {
+  clampInt,
+  clampTimeout,
   hasWebSearchCredentials,
   parseSearchResponse,
   selectProvider,
@@ -14,6 +16,19 @@ test('should gate websearch registration on credentials given provider configura
   assert.equal(hasWebSearchCredentials({ EXA_API_KEY: 'x' } as NodeJS.ProcessEnv), true)
   assert.equal(hasWebSearchCredentials({ PARALLEL_API_KEY: 'x' } as NodeJS.ProcessEnv), true)
   assert.equal(hasWebSearchCredentials({ EXA_API_KEY: '   ' } as NodeJS.ProcessEnv), false)
+})
+
+test('should clamp finite values and use defaults given invalid limits', () => {
+  assert.equal(clampInt(undefined, 8, 20), 8)
+  assert.equal(clampInt(Number.NaN, 8, 20), 8)
+  assert.equal(clampInt(Number.POSITIVE_INFINITY, 8, 20), 8)
+  assert.equal(clampInt(-1, 8, 20), 1)
+  assert.equal(clampInt(30.5, 8, 20), 20)
+  assert.equal(clampTimeout(undefined), 30)
+  assert.equal(clampTimeout(Number.NaN), 30)
+  assert.equal(clampTimeout(Number.POSITIVE_INFINITY), 30)
+  assert.equal(clampTimeout(-1), 1)
+  assert.equal(clampTimeout(200), 120)
 })
 
 test('should select the configured provider given provider settings', () => {

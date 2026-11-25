@@ -19,7 +19,7 @@ test('should resolve the package entry point given a CommonJS consumer', () => {
 test('should expose fake extension helpers given the testing package subpath', () => {
   const packageRequire = createRequire(import.meta.url)
 
-  assert.equal(typeof createFakeExtensionApi, 'function')
+  assert.ok(createFakeExtensionApi().api)
   assert.equal(basename(packageRequire.resolve('@eratio/pi-effect-codemode/testing')), 'testing.js')
 })
 

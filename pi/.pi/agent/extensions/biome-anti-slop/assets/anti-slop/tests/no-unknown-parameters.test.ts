@@ -28,6 +28,98 @@ test('should match upstream no-unknown-parameters examples', async () => {
       ['type Guard = (value: unknown) => value is string;', 0],
       ['declare function isString(value: unknown): value is string;', 0],
       ['type Guards = { isString(value: unknown): value is string };', 0],
+      [
+        'import { Schema } from "effect"; const S = Schema.Struct({ id: Schema.String }); function decode(value: unknown) { return Schema.decodeUnknownResult(S)(value); }',
+        0,
+      ],
+      [
+        'import { Schema as S } from "effect"; function decode(value: unknown) { return S.decodeUnknownSync(S.Array(S.Unknown))(value); }',
+        0,
+      ],
+      [
+        'import { Schema } from "effect"; function decode(value: unknown) { return Schema.decodeUnknownResult(Schema.String)(value); }',
+        0,
+      ],
+      [
+        'import { Schema, Predicate } from "effect"; const S = Schema.declare(Predicate.isObject); function decode(value: unknown) { return Schema.decodeUnknownResult(S)(value); }',
+        0,
+      ],
+      [
+        'import { Schema } from "effect"; const S = Schema.UndefinedOr(Schema.declare(Array.isArray)); function decode(value: unknown) { return Schema.decodeUnknownResult(S)(value); }',
+        0,
+      ],
+      [
+        'import { Schema } from "effect"; const S = Schema.Struct({ id: Schema.String }).annotate({}).pipe(Schema.check(filter), Schema.refine(guard)); function decode(value: unknown) { return Schema.decodeUnknownResult(S)(value); }',
+        0,
+      ],
+      [
+        'import { Schema } from "effect"; const S = Schema.Struct({ id: Schema.String }).pipe(() => Schema.Unknown); function decode(value: unknown) { return Schema.decodeUnknownResult(S)(value); }',
+        1,
+      ],
+      [
+        'import { Schema } from "effect"; const S = Schema.Unknown.annotate({}).pipe(Schema.check(filter)); function decode(value: unknown) { return Schema.decodeUnknownResult(S)(value); }',
+        1,
+      ],
+      [
+        'import { Schema } from "effect"; const S = Schema.Union([Schema.Struct({ type: Schema.Literal("text") }), Schema.Struct({ type: Schema.String })]); function decode(value: unknown) { return Schema.decodeUnknownOption(S)(value); }',
+        0,
+      ],
+      [
+        'import { Schema } from "effect"; const S = Schema.Union([Schema.String, Schema.Unknown]); function decode(value: unknown) { return Schema.decodeUnknownOption(S)(value); }',
+        1,
+      ],
+      [
+        'import { Schema } from "effect"; const S = Schema.Union([Schema.String, ...items]); function decode(value: unknown) { return Schema.decodeUnknownOption(S)(value); }',
+        1,
+      ],
+      [
+        'import { Schema } from "effect"; const S = Schema.declare(() => true); function decode(value: unknown) { return Schema.decodeUnknownResult(S)(value); }',
+        1,
+      ],
+      [
+        'import { Schema } from "effect"; const Array = { isArray: () => true }; const S = Schema.declare(Array.isArray); function decode(value: unknown) { return Schema.decodeUnknownResult(S)(value); }',
+        1,
+      ],
+      [
+        'import { Schema } from "effect"; import { Predicate } from "fake"; const S = Schema.declare(Predicate.isObject); function decode(value: unknown) { return Schema.decodeUnknownResult(S)(value); }',
+        1,
+      ],
+      [
+        'import { Schema } from "effect"; const S = Schema.UndefinedOr(Schema.Unknown); function decode(value: unknown) { return Schema.decodeUnknownResult(S)(value); }',
+        1,
+      ],
+      [
+        'import { Schema as S } from "effect"; const primitive = S.Number; function decode(value: unknown) { return S.decodeUnknownOption(primitive)(value); }',
+        0,
+      ],
+      [
+        'import { Schema } from "fake"; function decode(value: unknown) { return Schema.decodeUnknownSync(Schema.String)(value); }',
+        1,
+      ],
+      [
+        'import { Schema } from "effect"; function decode(value: unknown) { return Schema.decodeUnknownSync(Schema.Unknown)(value); }',
+        1,
+      ],
+      [
+        'import { Schema } from "effect"; const S = Schema.Unknown; function decode(value: unknown) { return Schema.decodeUnknownSync(S)(value); }',
+        1,
+      ],
+      [
+        'import { Schema } from "effect"; const S = Schema.Struct({ id: Schema.String }); function decode(value: unknown) { log(value); return Schema.decodeUnknownResult(S)(value); }',
+        1,
+      ],
+      [
+        'import { Schema } from "fake"; const S = Schema.Struct({ id: Schema.String }); function decode(value: unknown) { return Schema.decodeUnknownResult(S)(value); }',
+        1,
+      ],
+      [
+        'import { Schema } from "effect"; const S = Schema.Struct({ id: Schema.String }); function decode(value: unknown, Schema: any) { return Schema.decodeUnknownResult(S)(value); }',
+        1,
+      ],
+      [
+        'import { Schema } from "effect"; const S = Schema.Struct({ id: Schema.String }); function decode(value: unknown) { return Schema.decodeUnknownResult(value)(S); }',
+        1,
+      ],
       ['function parse(value: string | number): void {}', 0],
       ['function parse(value: unknown): void {}', 1],
       ['function parse(value: string | unknown): void {}', 1],

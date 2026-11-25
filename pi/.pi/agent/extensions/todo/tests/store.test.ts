@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { Effect, ManagedRuntime } from 'effect'
+import { Effect, ManagedRuntime, Schema } from 'effect'
 import type { Todo } from '../src/extension.ts'
-import { TodoStore, TodoUpdateError } from '../src/extension.ts'
+import { TodoStore, TodoUpdateError, todoHostError } from '../src/extension.ts'
 
 const firstId = '018f0000-0000-7000-8000-000000000001'
 const secondId = '018f0000-0001-7000-8000-000000000002'
@@ -10,6 +10,15 @@ const secondId = '018f0000-0001-7000-8000-000000000002'
 function task(id: string, content: string): Todo {
   return { id, content, status: 'pending', dependsOn: [] }
 }
+
+test('should preserve the underlying host error given tagged and untagged causes', () => {
+  const cause = new Error('failed')
+  const wrapped = todoHostError('save', Schema.TaggedStruct('PiHostError', { cause: Schema.Unknown }).make({ cause }))
+  assert.equal(wrapped.message, 'Error: failed')
+  assert.equal(wrapped.cause, cause)
+  assert.equal(todoHostError('save', { message: 'plain failure' }).message, 'plain failure')
+  assert.equal(todoHostError('save', null).message, 'null')
+})
 
 test('should commit a successful transaction and report state changes given a mutating program', async () => {
   //given
@@ -54,7 +63,7 @@ test('should discard every draft mutation given a program that throws', async ()
   )
 
   //then
-  await assert.rejects(execution, (error: unknown) => {
+  await assert.rejects(execution, (error: Error) => {
     assert.ok(error instanceof TodoUpdateError)
     assert.equal(error.message, 'program failed')
     assert.equal(error.cause, cause)

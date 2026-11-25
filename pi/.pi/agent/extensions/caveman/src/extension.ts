@@ -15,8 +15,9 @@ const DEFAULT_MODE: CavemanMode = 'full'
 const MODE_SET = new Set<string>(VALID_MODES)
 
 function normalizeMode(value: unknown, fallback: CavemanMode | null = null): CavemanMode | null {
-  if (typeof value !== 'string') return fallback
-  const mode = value.trim().toLowerCase()
+  const decoded = Schema.decodeUnknownResult(Schema.String)(value)
+  if (Result.isFailure(decoded)) return fallback
+  const mode = decoded.success.trim().toLowerCase()
   if (mode === 'wenyan') return 'wenyan-full'
   return MODE_SET.has(mode) ? (mode as CavemanMode) : fallback
 }

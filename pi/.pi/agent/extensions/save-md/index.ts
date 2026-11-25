@@ -4,17 +4,19 @@ import { isAbsolute, relative, resolve } from 'node:path'
 import type { AssistantMessage } from '@earendil-works/pi-ai'
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent'
 
-function textContent(content: unknown): string {
+function textContent(content: AssistantMessage['content']): string {
   if (!Array.isArray(content)) return ''
 
   return content
     .filter(
       (block): block is { type: 'text'; text: string } =>
+        // biome-ignore lint/plugin: This extension does not use Effect, so it checks the value directly.
         typeof block === 'object' &&
         block !== null &&
         'type' in block &&
         block.type === 'text' &&
         'text' in block &&
+        // biome-ignore lint/plugin: This extension does not use Effect, so it checks the value directly.
         typeof block.text === 'string',
     )
     .map((block) => block.text)
@@ -67,6 +69,7 @@ function saveMarkdownExtension(pi: ExtensionAPI): void {
           flag: 'wx',
         })
       } catch (error) {
+        // biome-ignore lint/plugin: This extension does not use Effect, so it checks the value directly.
         if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'EEXIST') {
           ctx.ui.notify(`File already exists: ${path}`, 'error')
           return

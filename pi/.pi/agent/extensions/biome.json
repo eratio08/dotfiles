@@ -40,5 +40,7 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "plugins": ["./tools/biome/anti-slop/rules/anti-slop.ts"],
+  "overrides": [{"includes":["**/tools/biome/anti-slop/**"],"formatter":{"enabled":false},"linter":{"enabled":false},"assist":{"enabled":false}}]
 }

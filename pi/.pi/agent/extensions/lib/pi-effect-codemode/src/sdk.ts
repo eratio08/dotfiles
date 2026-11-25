@@ -30,7 +30,7 @@ import {
   type PiToolRegistry,
   type PiToolResult,
 } from '@eratio/pi-effect'
-import { Effect } from 'effect'
+import { Effect, Predicate } from 'effect'
 import { type Static, type TSchema, Type } from 'typebox'
 import { Check } from 'typebox/value'
 
@@ -185,7 +185,7 @@ type RegisteredTool<Services, _Failure> = {
 }
 
 function createToolOutput(
-  value: unknown,
+  value: Parameters<typeof formatValue>[0],
   outputLimits: OutputLimits,
   operations: Readonly<Record<string, number>>,
   toolSignal?: AbortSignal,
@@ -219,8 +219,7 @@ function createToolOutput(
         return outputPath
       },
       catch: (cause: unknown) =>
-        createProgramFailure({
-          _tag: toolSignal?.aborted ? 'cancellation' : 'serialize',
+        createProgramFailure(toolSignal?.aborted ? 'cancellation' : 'serialize', {
           operation: 'output',
           message: toolSignal?.aborted
             ? 'Saving the complete output was cancelled.'
@@ -456,8 +455,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
       const method = Object.hasOwn(options.methods, methodName) ? options.methods[methodName] : undefined
       if (method === undefined) {
         return Effect.fail(
-          createProgramFailure({
-            _tag: 'validation',
+          createProgramFailure('validation', {
             operation: methodName,
             message: `The operation ${methodName} is not defined.`,
           }),
@@ -466,8 +464,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
       if (method.parameters === undefined) {
         if (args.length !== 0) {
           return Effect.fail(
-            createProgramFailure({
-              _tag: 'validation',
+            createProgramFailure('validation', {
               operation: methodName,
               message: `The operation ${methodName} does not accept parameters.`,
             }),
@@ -484,8 +481,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
         : args.length === 1 && Check(method.parameters, args[0])
       if (!validParameters) {
         return Effect.fail(
-          createProgramFailure({
-            _tag: 'validation',
+          createProgramFailure('validation', {
             operation: methodName,
             message: `The parameters for operation ${methodName} are invalid.`,
           }),
@@ -493,10 +489,10 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
       }
       return method.execute((tupleParameters ? args : args[0]) as never, signal, runContext)
     },
-    invokeSync: (methodName: string, args: readonly unknown[]): unknown => {
+    invokeSync: (methodName: string, args: readonly unknown[]): string => {
       if (methodName !== 'help') return `The code mode method ${methodName} is not synchronous.`
       if (args.length === 0) return helpOverview
-      if (args.length === 1 && typeof args[0] === 'string') {
+      if (args.length === 1 && Predicate.isString(args[0])) {
         return (
           methodHelp.get(args[0]) ??
           `The operation ${args[0]} is not defined. Available operations: ${methodEntries.map(([name]) => name).join(', ')}.`
@@ -504,8 +500,9 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
       }
       return 'The help method accepts no arguments or one method name.'
     },
-    ...(options.errorCodec === undefined ? {} : { errorCodec: options.errorCodec }),
   }
+  if (options.errorCodec !== undefined) Object.assign(methodHandlers, { errorCodec: options.errorCodec })
+
   const runParameters = Type.Object({
     code: Type.String({ description: 'A TypeScript program that exports a default function.' }),
   })
@@ -518,7 +515,6 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
     name: options.toolName,
     label: options.label ?? options.toolName,
     description: options.description,
-    ...(options.executionMode === undefined ? {} : { executionMode: options.executionMode }),
     parameters: runParameters,
     promptSnippet: options.promptSnippet ?? `Run TypeScript against the ${options.toolName} API.`,
     promptGuidelines: [
@@ -545,7 +541,7 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
             const operations = new Map<string, number>()
             const trackedMethodHandlers = {
               ...methodHandlers,
-              invokeSync: (methodName: string, args: readonly unknown[]): unknown => {
+              invokeSync: (methodName: string, args: readonly unknown[]): string => {
                 operations.set(methodName, (operations.get(methodName) ?? 0) + 1)
                 return methodHandlers.invokeSync(methodName, args)
               },
@@ -566,8 +562,8 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
               filenamePrefix: options.toolName,
               timeoutMs: options.timeoutMs,
               signal: context.toolSignal,
-              ...(options.execution === undefined ? {} : { execution: options.execution }),
             }
+            if (options.execution !== undefined) Object.assign(runOptions, { execution: options.execution })
             const result = yield* Effect.provideService(
               core.evaluate(definition, code, runOptions),
               programService,
@@ -580,6 +576,8 @@ Call \`api.help("operation")\` for an operation signature and parameter schema.$
           : options.withRun(run, context.toolSignal)
       }),
   }
+  if (options.executionMode !== undefined) Object.assign(runTool, { executionMode: options.executionMode })
+
   const register = (registry: PiToolRegistry<Services>): Effect.Effect<void, PiRegistrationError> =>
     Effect.gen(function* () {
       yield* registry.register(runTool)

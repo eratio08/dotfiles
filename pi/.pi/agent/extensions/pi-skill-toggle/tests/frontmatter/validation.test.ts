@@ -10,6 +10,21 @@ import {
 const codec = new SimpleFrontmatterCodec()
 
 describe('frontmatter validation', () => {
+  test('should parse strings, booleans, and nulls given scalar fields', () => {
+    const doc = codec.parse(
+      ['---', "name: 'example'", 'description: true', 'disabled: false', 'missing: null', 'alias: ~', '---'].join('\n'),
+    )
+
+    assert.deepEqual(doc.fields, {
+      name: 'example',
+      description: true,
+      disabled: false,
+      missing: null,
+      alias: null,
+    })
+    assert.equal(deriveSkillMetadata('/skills/example/SKILL.md', doc).description, '')
+  })
+
   test('should report duplicate top-level keys given frontmatter with repeated keys', () => {
     //given
     const doc = codec.parse(

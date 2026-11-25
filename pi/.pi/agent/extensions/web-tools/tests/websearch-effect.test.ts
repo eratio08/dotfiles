@@ -20,7 +20,7 @@ import {
 type JsonRpcBody = {
   params: {
     name: string
-    arguments: Record<string, unknown>
+    arguments: { session_id?: string }
   }
 }
 
@@ -130,6 +130,7 @@ test('should keep an explicit provider given missing credentials', async () => {
   //given
   const writes: TemporaryOutputWrite[] = []
   let requestUrl = ''
+  let authorization: string | null = null
   const fetchImplementation: WebToolsFetch = async () =>
     new Response(JSON.stringify({ result: { content: [{ type: 'text', text: 'fallback provider' }] } }))
 
@@ -137,8 +138,9 @@ test('should keep an explicit provider given missing credentials', async () => {
   const result = await Effect.runPromise(
     Effect.provide(
       runWebSearch({ query: 'fallback' }, 'call-2', 'session-file'),
-      webSearchLayer(fetchImplementation, writes, { PI_WEBSEARCH_PROVIDER: 'parallel' }, (url) => {
+      webSearchLayer(fetchImplementation, writes, { PI_WEBSEARCH_PROVIDER: 'parallel' }, (url, init) => {
         requestUrl = url
+        authorization = new Headers(init.headers).get('Authorization')
       }),
     ),
   )
@@ -147,6 +149,26 @@ test('should keep an explicit provider given missing credentials', async () => {
   assert.equal(result.details.provider, 'parallel')
   assert.equal(result.content[0].text, 'fallback provider')
   assert.equal(requestUrl, 'https://search.parallel.ai/mcp')
+  assert.equal(authorization, null)
+})
+
+test('should omit contextMaxCharacters given an Exa request without a limit', async () => {
+  const writes: TemporaryOutputWrite[] = []
+  let argumentsObject: JsonRpcBody['params']['arguments'] | undefined
+  const fetchImplementation: WebToolsFetch = async () =>
+    new Response(JSON.stringify({ result: { content: [{ type: 'text', text: 'result' }] } }))
+
+  await Effect.runPromise(
+    Effect.provide(
+      runWebSearch({ query: 'example' }, 'call', null),
+      webSearchLayer(fetchImplementation, writes, { EXA_API_KEY: 'key' }, (_url, init) => {
+        argumentsObject = (JSON.parse(String(init.body)) as JsonRpcBody).params.arguments
+      }),
+    ),
+  )
+
+  assert.ok(argumentsObject)
+  assert.equal(Object.hasOwn(argumentsObject, 'contextMaxCharacters'), false)
 })
 
 test('should map invalid search response data given a malformed response', async () => {

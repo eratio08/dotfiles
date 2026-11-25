@@ -161,14 +161,19 @@ async function withLayerHarness<A>(
   }
 }
 
+type TestExtensionContext = { hasUI: boolean }
+type TestExtensionEvent = { model?: ContextTestModel }
+type TestEventHandler = (event: TestExtensionEvent, context: TestExtensionContext) => Promise<void>
+type TestCommandHandler = (args: string, context: TestExtensionContext) => Promise<void>
+
 type ExtensionHarness = {
-  commands: Map<string, (args: string, context: unknown) => Promise<void>>
-  events: Map<string, (event: unknown, context: unknown) => Promise<unknown>>
+  commands: Map<string, TestCommandHandler>
+  events: Map<string, TestEventHandler>
   modelChanges: ContextTestModel[]
   notifications: Notification[]
   statuses: Status[]
   savedEntries: Array<{ type: string; data: { mode: LowContextMode } }>
-  context: unknown
+  context: TestExtensionContext
   setEntries(entries: unknown[]): void
   setBranch(entries: unknown[]): void
 }
@@ -177,20 +182,17 @@ async function createExtensionHarness(options: LayerHarnessOptions = {}): Promis
   let activeModel = options.initialModel ?? model()
   let entries: unknown[] = []
   let branch: unknown[] | undefined
-  const commands = new Map<string, (args: string, context: unknown) => Promise<void>>()
-  const events = new Map<string, (event: unknown, context: unknown) => Promise<unknown>>()
+  const commands = new Map<string, TestCommandHandler>()
+  const events = new Map<string, TestEventHandler>()
   const modelChanges: ContextTestModel[] = []
   const notifications: Notification[] = []
   const statuses: Status[] = []
   const savedEntries: Array<{ type: string; data: { mode: LowContextMode } }> = []
   const api = {
-    on: (name: string, handler: (event: unknown, context: unknown) => Promise<unknown>): void => {
+    on: (name: string, handler: TestEventHandler): void => {
       events.set(name, handler)
     },
-    registerCommand: (
-      name: string,
-      definition: { handler: (args: string, context: unknown) => Promise<void> },
-    ): void => {
+    registerCommand: (name: string, definition: { handler: TestCommandHandler }): void => {
       commands.set(name, definition.handler)
     },
     appendEntry: (type: string, data: { mode: LowContextMode }): void => {
@@ -590,6 +592,13 @@ test('should restore the latest valid old or new mode given mixed session entrie
   assert.equal(restoreLowContextMode([legacyHigh]), 'off')
   assert.equal(restoreLowContextMode([legacyHigh, newOn, invalid]), 'on')
   assert.equal(restoreLowContextMode([newOff, legacyLow]), 'on')
+  assert.equal(restoreLowContextMode([null, 'invalid', { type: 'custom', data: null }], 'off'), 'off')
+  assert.equal(
+    restoreLowContextMode([
+      { type: 'custom', customType: 'low-context-mode', data: Object.assign([], { mode: 'off' }) },
+    ]),
+    'off',
+  )
 })
 
 test('should restore a legacy off mode given an active session branch', async () => {
@@ -617,10 +626,10 @@ test('should write the renamed entry given the renamed toggle command', async ()
 test('should warn without changing a virtual model given low context mode', async () => {
   const virtual = {
     ...model(1_000_000),
-    api: 'pi-virtual',
+    api: 'pi-virtual' as ContextTestModel['api'],
     provider: 'router',
     id: 'auto',
-  } as unknown as ContextTestModel
+  }
   const harness = await createExtensionHarness({ initialModel: virtual })
 
   await harness.events.get('session_start')?.({}, harness.context)

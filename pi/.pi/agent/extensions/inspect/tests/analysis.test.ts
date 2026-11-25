@@ -10,7 +10,7 @@ import {
   selectCurrentSession,
 } from '../src/extension.ts'
 
-function serializeSession(entries: readonly Record<string, unknown>[]): string {
+function serializeSession(entries: readonly object[]): string {
   const header = {
     type: 'session',
     version: 3,
@@ -20,6 +20,14 @@ function serializeSession(entries: readonly Record<string, unknown>[]): string {
   }
 
   return [header, ...entries].map((entry) => JSON.stringify(entry)).join('\n')
+}
+
+type TestMessageEntry<Message extends { role: string }> = {
+  type: 'message'
+  id: string
+  parentId: string | null
+  timestamp: string
+  message: Message & { timestamp: number }
 }
 
 function usage(input: number): Usage {
@@ -549,6 +557,15 @@ test('should count projected tool context and interactions once given a saved se
   assert.ok(shell)
   const contributions = analysis.requests.flatMap((request) => request.contributions)
   const attributed = contributions.filter((item) => item.toolName === 'shell')
+  assert.ok(attributed.length > 0)
+  const toolResult = attributed.find((item) => item.kind === 'tool-result')
+  assert.equal(toolResult?.isError, false)
+  assert.equal(toolResult?.toolCallId, 'call-repeat')
+  for (const contribution of contributions) {
+    for (const key of ['entryId', 'source', 'toolName', 'toolCallId', 'isError'] as const) {
+      assert.equal(Object.hasOwn(contribution, key), contribution[key] !== undefined)
+    }
+  }
   const sumTokens = (items: readonly { tokens: number }[]): number =>
     items.reduce((total, item) => total + item.tokens, 0)
   assert.equal(shell.estimatedContextExposureTokens, sumTokens(attributed))
@@ -840,11 +857,11 @@ test('should use effective replacement text given a context edit', () => {
 test('should render only the selected current context after compaction and edits', () => {
   //given
   let step = 0
-  const messageEntry = (
+  const messageEntry = <Message extends { role: string }>(
     id: string,
     parentId: string | null,
-    message: Record<string, unknown>,
-  ): Record<string, unknown> => {
+    message: Message,
+  ): TestMessageEntry<Message> => {
     step += 1
     const timestamp = 1767225600000 + step * 1000
     return {

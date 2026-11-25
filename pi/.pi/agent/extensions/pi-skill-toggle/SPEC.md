@@ -1,9 +1,11 @@
 ## Problem Statement
+
 Pi Skill Toggle currently changes a skill's invocation mode, but it does not remove the skill from Pi's loaded resources.
 A manual-only skill still loads and remains available through an explicit skill command.
 Users need a separate way to disable a skill without changing its invocation mode or files.
 
 ## Solution
+
 Add a skill enablement control beside the existing invocation-mode control.
 Store a disabled choice as a minus-prefixed exact skill path in Pi's top-level `skills` setting.
 Store the choice in the settings scope that matches the skill source.
@@ -11,6 +13,7 @@ On apply, write each changed settings file safely and reload Pi once after at le
 Keep disabled skills in the toggle list so users can enable them again.
 
 ## User Stories
+
 1. As a Pi user, I want to disable a skill completely, so that Pi does not load it after reload.
 2. As a Pi user, I want to enable a disabled skill, so that Pi can load it again when no other Pi rule excludes it.
 3. As a Pi user, I want separate enablement and invocation controls, so that I can choose whether Pi loads a skill and how Pi invokes it.
@@ -46,6 +49,7 @@ Keep disabled skills in the toggle list so users can enable them again.
 33. As a Pi user, I want multiple skill choices applied in one session, so that I can update several skills without reopening the list.
 
 ## Implementation Decisions
+
 - Use the domain terms `enablement`, `availability`, and `invocation mode` as defined in the extension glossary.
 - Keep invocation mode as `agent-invocable` or `manual-only` and continue to store it in skill frontmatter.
 - Represent enablement with the exact exclusion entry supported by Pi's top-level `skills` setting.
@@ -65,6 +69,7 @@ Keep disabled skills in the toggle list so users can enable them again.
 - Limit the first version to skills that the current inventory discovers.
 
 ## Testing Decisions
+
 - Good tests assert user-visible state, persisted settings, frontmatter, notifications, and reload behavior rather than private helper calls.
 - Use the existing command scenario harness as the primary seam and run the real inventory, planner, and writer against the in-memory file system.
 - Stub the Pi UI to supply the user's staged choices and stub reload to record whether the command reloaded Pi.
@@ -75,6 +80,7 @@ Keep disabled skills in the toggle list so users can enable them again.
 - Keep the tests in the existing Bun test setup and use the required `//given`, `//when`, and `//then` sections.
 
 ## Out of Scope
+
 - Changing the meaning of `agent-invocable` or `manual-only`.
 - Editing or deleting skill files as part of the new enablement control.
 - Changing Pi's settings schema or implementation.
@@ -84,6 +90,7 @@ Keep disabled skills in the toggle list so users can enable them again.
 - Adding bulk selection or a new command.
 
 ## Further Notes
+
 The extension area had no domain glossary or applicable ADR before this work.
 The glossary now defines enablement separately from invocation mode and effective availability.
 Pi's settings rules support exact minus-prefixed skill-path exclusions and apply them on reload.

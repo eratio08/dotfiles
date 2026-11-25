@@ -14,7 +14,7 @@ import {
   type PiUiService,
   type PiUiUnavailableError,
 } from '@eratio08/pi-effect'
-import { Context, Effect, Layer, Option, Schema } from 'effect'
+import { Context, Effect, Layer, Option, Predicate, Schema } from 'effect'
 
 class SkillTogglePlanner extends Context.Service<
   SkillTogglePlanner,
@@ -112,21 +112,23 @@ const apply = Effect.fn('SkillChangeWriter.apply')(function* (
 
   for (const change of changes) {
     const attempt = yield* applyChange(fs, change)
-    if (attempt._tag === 'applied') {
+    if (Predicate.isTagged(attempt, 'applied')) {
       result.applied.push(change)
       continue
     }
-    if (attempt._tag === 'conflict') {
+    if (Predicate.isTagged(attempt, 'conflict')) {
       result.errors.push({
         skill: change.skill,
         message: `${change.skill.name}: file changed while dialog was open; skipped`,
       })
       continue
     }
-    result.errors.push({
-      skill: change.skill,
-      message: `${change.skill.name}: ${attempt.error instanceof Error ? attempt.error.message : String(attempt.error)}`,
-    })
+    if (Predicate.isTagged(attempt, 'error')) {
+      result.errors.push({
+        skill: change.skill,
+        message: `${change.skill.name}: ${attempt.error instanceof Error ? attempt.error.message : String(attempt.error)}`,
+      })
+    }
   }
 
   return result
@@ -469,8 +471,11 @@ class SimpleFrontmatterCodec implements FrontmatterCodec {
   }
 }
 
-function parseYamlLikeFields(frontmatterText: string): Record<string, unknown> {
-  const fields: Record<string, unknown> = {}
+type FrontmatterScalar = string | boolean | null
+type FrontmatterFields = { [key: string]: FrontmatterScalar | undefined }
+
+function parseYamlLikeFields(frontmatterText: string): FrontmatterFields {
+  const fields: FrontmatterFields = {}
   for (const rawLine of frontmatterText.split(/\r?\n/)) {
     const line = rawLine.trim()
     if (!line || line.startsWith('#')) continue
@@ -483,7 +488,7 @@ function parseYamlLikeFields(frontmatterText: string): Record<string, unknown> {
   return fields
 }
 
-function parseScalar(raw: string): unknown {
+function parseScalar(raw: string): FrontmatterScalar {
   const value = raw.trim()
   if (value === 'true') return true
   if (value === 'false') return false
@@ -581,11 +586,7 @@ const FRONTMATTER_KEY_RE = /^([A-Za-z0-9_-]+)\s*:/
 function deriveSkillMetadata(
   filePath: string,
   doc: FrontmatterDocument,
-): {
-  name: string
-  description: string
-  diagnostics: SkillDiagnostic[]
-} {
+): Pick<SkillRecord, 'name' | 'description' | 'diagnostics'> {
   const diagnostics: SkillDiagnostic[] = []
   const parentDirName = basename(dirname(filePath))
   const name = stringField(doc.fields.name) || parentDirName
@@ -622,10 +623,7 @@ function hasDuplicateDisableModelInvocation(doc: FrontmatterDocument): boolean {
 }
 
 function getDuplicateFrontmatterKeys(doc: FrontmatterDocument): string[] {
-  return [...getTopLevelFrontmatterKeyCounts(doc)]
-    .filter(([, count]) => count > 1)
-    .map(([key]) => key)
-    .sort()
+  return [...getTopLevelFrontmatterKeyCounts(doc)].flatMap(([key, count]) => (count > 1 ? [key] : []))
 }
 
 function getTopLevelFrontmatterKeyCounts(doc: FrontmatterDocument): Map<string, number> {
@@ -643,8 +641,9 @@ function getTopLevelFrontmatterKeyCounts(doc: FrontmatterDocument): Map<string, 
   return counts
 }
 
-function stringField(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : ''
+function stringField(value: FrontmatterScalar | undefined): string {
+  if (!Predicate.isString(value)) return ''
+  return value.trim()
 }
 
 export {
@@ -692,7 +691,7 @@ class SkillInventory extends Context.Service<
   }
 >()('pi-skill-toggle/inventory/SkillInventory') {}
 
-function fallbackRecord(file: LocatedSkillFile, error: unknown): SkillRecord {
+function fallbackRecord(file: LocatedSkillFile, cause: unknown): SkillRecord {
   return {
     id: file.filePath,
     name: file.filePath.split('/').at(-2) ?? file.filePath,
@@ -702,7 +701,7 @@ function fallbackRecord(file: LocatedSkillFile, error: unknown): SkillRecord {
     source: file.source,
     editable: false,
     mode: 'agent-invocable',
-    diagnostics: [{ severity: 'error', message: error instanceof Error ? error.message : String(error) }],
+    diagnostics: [{ severity: 'error', message: cause instanceof Error ? cause.message : String(cause) }],
   }
 }
 
@@ -730,11 +729,11 @@ function loadRecord(
             diagnostics: metadata.diagnostics,
           }
         },
-        catch: (error: unknown) => error,
+        catch: (cause: unknown) => cause,
       })
     }),
     {
-      onFailure: (error: unknown) => fallbackRecord(file, error),
+      onFailure: (cause: unknown) => fallbackRecord(file, cause),
       onSuccess: (record: {
         id: string
         name: string
@@ -1016,7 +1015,7 @@ type FrontmatterDocument = {
   contentStart: number
   frontmatterText: string
   bodyText: string
-  fields: Record<string, unknown>
+  fields: FrontmatterFields
   lineEnding: '\n' | '\r\n'
 }
 
@@ -1272,7 +1271,9 @@ class SkillToggleOverlay {
       lines.push('')
       lines.push(this.theme.fg('muted', 'Diagnostics:'))
       for (const diagnostic of skill.diagnostics.slice(0, 4)) {
-        const color = diagnostic.severity === 'error' ? 'error' : diagnostic.severity === 'warning' ? 'warning' : 'dim'
+        let color: 'error' | 'warning' | 'dim' = 'dim'
+        if (diagnostic.severity === 'error') color = 'error'
+        else if (diagnostic.severity === 'warning') color = 'warning'
         lines.push(...wrap(`- ${diagnostic.message}`, width).map((line) => this.theme.fg(color, line)))
       }
     }

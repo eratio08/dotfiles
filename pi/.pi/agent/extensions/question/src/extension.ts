@@ -23,7 +23,7 @@ import {
   PiUi,
   PiUiUnavailableError,
 } from '@eratio/pi-effect'
-import { Effect, Option, Schema } from 'effect'
+import { Effect, Option, Predicate, Schema } from 'effect'
 import { type Static, Type } from 'typebox'
 
 type QuestionOption = {
@@ -617,7 +617,7 @@ const questionTool: QuestionToolDefinition = {
     const questions = Array.isArray(args.questions) ? args.questions : []
     const title = `${questions.length} question${questions.length === 1 ? '' : 's'}`
     const headers = questions
-      .map((question) => (typeof question?.header === 'string' ? question.header : undefined))
+      .map((question) => (Predicate.isString(question?.header) ? question.header : undefined))
       .filter((header): header is string => Boolean(header))
       .join(', ')
     let text = theme.fg('toolTitle', theme.bold('question ')) + theme.fg('muted', title)
@@ -675,4 +675,4 @@ const questionPlugin = PiExtension.define({
     context.tools.register(questionTool),
 })
 
-export { questionPlugin }
+export { type QuestionToolDetails, questionPlugin }

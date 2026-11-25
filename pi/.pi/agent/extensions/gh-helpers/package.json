@@ -7,8 +7,8 @@
     "test": "bun test tests/*.test.ts",
     "lint": "oxlint --config .oxlintrc.json .",
     "typecheck": "tsc --noEmit",
-    "check": "biome check --vcs-enabled=true --vcs-client-kind=git --vcs-use-ignore-file=true .",
-    "check:fix": "biome check --vcs-enabled=true --vcs-client-kind=git --vcs-use-ignore-file=true --write ."
+    "check": "biome check --vcs-enabled=true --vcs-client-kind=git --vcs-use-ignore-file=true --vcs-root=\"$(git rev-parse --show-toplevel)\" .",
+    "check:fix": "biome check --vcs-enabled=true --vcs-client-kind=git --vcs-use-ignore-file=true --vcs-root=\"$(git rev-parse --show-toplevel)\" --write ."
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"

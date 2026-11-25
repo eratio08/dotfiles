@@ -63,8 +63,19 @@ function replacementLayer(
 type ReadPdfTool = {
   name: string
   promptSnippet: string
-  execute: (...args: unknown[]) => Promise<unknown>
-  renderResult: (...args: unknown[]) => { render(width: number): string[] }
+  execute: (
+    toolCallId: string,
+    params: { path: string },
+    signal: AbortSignal | undefined,
+    onUpdate: undefined,
+    context: { cwd: string },
+  ) => Promise<ReadPdfToolResult>
+  renderResult: (
+    result: ReadPdfToolResult,
+    options: { expanded: boolean; isPartial: boolean },
+    theme: { fg: (role: string, text: string) => string },
+    context: { isError: boolean },
+  ) => { render(width: number): string[] }
 }
 
 type LoadedTool = {
@@ -81,13 +92,13 @@ function loadTool(): LoadedTool {
   let tool: ReadPdfTool | undefined
   let shutdown: (() => Promise<void>) | undefined
   readPdfExtension({
-    registerTool(candidate: unknown): void {
+    registerTool(candidate: { name: string }): void {
       tool = candidate as ReadPdfTool
     },
-    on(event: string, handler: unknown): void {
-      if (event === 'session_shutdown') shutdown = handler as () => Promise<void>
+    on(event: string, handler: () => Promise<void>): void {
+      if (event === 'session_shutdown') shutdown = handler
     },
-  } as unknown as ExtensionAPI)
+  } as ExtensionAPI)
   assert.ok(tool)
   assert.ok(shutdown)
   assert.equal(tool.name, 'read-pdf')

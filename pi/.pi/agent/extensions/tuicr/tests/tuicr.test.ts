@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { type ExecResult, type ExtensionAPI, initTheme } from '@earendil-works/pi-coding-agent'
-import { Effect, Layer, ManagedRuntime } from 'effect'
+import {
+  type AgentToolResult,
+  type ExecResult,
+  type ExtensionAPI,
+  initTheme,
+  type Theme,
+  type ToolDefinition,
+} from '@earendil-works/pi-coding-agent'
+import { Data, Effect, Layer, ManagedRuntime } from 'effect'
 import tuicrExtension from '../index.ts'
 import {
   buildTuicrArgs,
@@ -11,6 +18,7 @@ import {
   compareSessions,
   decodeHerdrPaneId,
   normalizeComments,
+  type ReviewScope,
   type SessionComparison,
   type SessionSelection,
   type SessionSummary,
@@ -32,21 +40,6 @@ type ExecCall = {
 type PiFixture = {
   readonly pi: ExtensionAPI
   readonly calls: ExecCall[]
-}
-
-type ToolResultLike = {
-  readonly content: readonly { readonly type: string; readonly text?: string }[]
-  readonly details?: unknown
-}
-
-type ToolRegistration = {
-  readonly name: string
-  readonly renderResult: (
-    result: ToolResultLike,
-    options: { readonly expanded: boolean; readonly isPartial?: boolean },
-    theme: { fg: (color: string, text: string) => string; bold: (text: string) => string },
-    context: { readonly isError: boolean },
-  ) => { render: (width: number) => readonly string[] }
 }
 
 function execResult(stdout = '', code = 0, stderr = ''): ExecResult {
@@ -87,7 +80,7 @@ function makePi(): PiFixture {
   const calls: ExecCall[] = []
   let sessionListCalls = 0
   const comments = [comment('user-comment'), comment('agent-comment', 'agent')]
-  const pi = {
+  const pi = Object.assign({} as ExtensionAPI, {
     exec: async (command: string, args: readonly string[], options: { signal: AbortSignal }): Promise<ExecResult> => {
       calls.push({ command, args, signal: options.signal })
       if (command === 'tuicr' && args[0] === '--help') {
@@ -109,7 +102,7 @@ function makePi(): PiFixture {
       if (command === 'herdr' && args[0] === 'pane') return execResult()
       throw new Error(`unexpected process: ${command} ${args.join(' ')}`)
     },
-  } as unknown as ExtensionAPI
+  })
   return { pi, calls }
 }
 
@@ -131,18 +124,18 @@ async function withHerdrEnvironment<T>(value: string | undefined, action: () => 
   }
 }
 
+type SessionComparisonResult = { comparison: SessionComparison; selection: SessionSelection }
+
 function compareAndSelect(
   before: readonly SessionSummary[],
   after: readonly SessionSummary[],
-): { comparison: SessionComparison; selection: SessionSelection } {
+): SessionComparisonResult {
   return { comparison: compareSessions(before, after), selection: selectSessionSlug(before, after) }
 }
 
-function buildReviewInvocation(scope: { readonly type: 'revisions'; readonly revset: string }): {
-  args: readonly string[]
-  command: string
-  blockingCommand: string
-} {
+type ReviewInvocation = { args: readonly string[]; command: string; blockingCommand: string }
+
+function buildReviewInvocation(scope: { readonly type: 'revisions'; readonly revset: string }): ReviewInvocation {
   return {
     args: buildTuicrArgs(scope),
     command: buildTuicrCommand(scope),
@@ -155,16 +148,19 @@ async function abortAfterTick(controller: AbortController): Promise<void> {
   controller.abort()
 }
 
-type RenderTheme = { fg: (color: string, text: string) => string; bold: (text: string) => string }
+type CommentRenderStates = { collapsed: readonly string[]; expanded: readonly string[] }
 
 function renderCommentStates(
-  tool: ToolRegistration,
-  result: ToolResultLike,
-  theme: RenderTheme,
-): { collapsed: readonly string[]; expanded: readonly string[] } {
+  tool: ToolDefinition,
+  result: AgentToolResult<unknown>,
+  theme: Theme,
+): CommentRenderStates {
+  const renderResult = tool.renderResult
+  assert.ok(renderResult)
+  const context = { isError: false } as Parameters<typeof renderResult>[3]
   return {
-    collapsed: tool.renderResult(result, { expanded: false }, theme, { isError: false }).render(120),
-    expanded: tool.renderResult(result, { expanded: true }, theme, { isError: false }).render(120),
+    collapsed: renderResult(result, { expanded: false, isPartial: false }, theme, context).render(120),
+    expanded: renderResult(result, { expanded: true, isPartial: false }, theme, context).render(120),
   }
 }
 
@@ -183,6 +179,12 @@ test('should build explicit and shell-safe review arguments given review options
   assert.equal(result.blockingCommand.includes(TUICR_COMPLETION_MARKER), false)
 })
 
+test('should reject invalid review scopes at the command boundary', () => {
+  for (const scope of [null, { type: 'revisions', revset: '  ' }]) {
+    assert.throws(() => buildTuicrArgs(scope as ReviewScope))
+  }
+})
+
 test('should compare sessions and reject ambiguous discovery given multiple sessions', () => {
   //given
   const before = [session('old', false)]
@@ -197,6 +199,7 @@ test('should compare sessions and reject ambiguous discovery given multiple sess
     ['one', 'two'],
   )
   assert.equal(result.selection._tag, 'ambiguous')
+  assert.equal(selectSessionSlug([], [])._tag, 'none')
 })
 
 test('should select an updated existing session given session metadata', () => {
@@ -208,7 +211,7 @@ test('should select an updated existing session given session metadata', () => {
   const result = selectSessionSlug(before, after)
 
   //then
-  assert.deepEqual(result, { _tag: 'found', session: after[0] })
+  assert.deepEqual(result, Data.taggedEnum<SessionSelection>().found({ session: after[0] }))
 })
 
 test('should normalize comments to user-authored records given raw comment data', () => {
@@ -298,7 +301,7 @@ test('should return no comments given that tuicr creates no persisted session', 
   //given
   await withHerdrEnvironment('1', async () => {
     const calls: Array<readonly string[]> = []
-    const pi = {
+    const pi = Object.assign({} as ExtensionAPI, {
       exec: async (command: string, args: readonly string[]): Promise<ExecResult> => {
         calls.push([command, ...args])
         if (command === 'tuicr') return execResult('[]')
@@ -306,7 +309,7 @@ test('should return no comments given that tuicr creates no persisted session', 
         if (args[1] === 'wait-output') return execResult(JSON.stringify({ result: { matched_line: `${args[4]}:0` } }))
         return execResult()
       },
-    } as unknown as ExtensionAPI
+    })
     const runtime = makeRuntime(pi)
 
     //when
@@ -331,7 +334,7 @@ test('should report the tuicr exit status and close the owned pane given process
   //given
   await withHerdrEnvironment('1', async () => {
     const calls: Array<readonly string[]> = []
-    const pi = {
+    const pi = Object.assign({} as ExtensionAPI, {
       exec: async (command: string, args: readonly string[]): Promise<ExecResult> => {
         calls.push([command, ...args])
         if (command === 'tuicr') return execResult('[]')
@@ -339,7 +342,7 @@ test('should report the tuicr exit status and close the owned pane given process
         if (args[1] === 'wait-output') return execResult(JSON.stringify({ result: { matched_line: `${args[4]}:7` } }))
         return execResult()
       },
-    } as unknown as ExtensionAPI
+    })
     const runtime = makeRuntime(pi, { discoveryAttempts: 1, discoveryDelayMs: 0 })
 
     //when
@@ -383,7 +386,7 @@ test('should close the pane given a launch failure after ownership starts', asyn
   await withHerdrEnvironment('1', async () => {
     const calls: Array<readonly string[]> = []
     let split = false
-    const pi = {
+    const pi = Object.assign({} as ExtensionAPI, {
       exec: async (command: string, args: readonly string[]): Promise<ExecResult> => {
         calls.push([command, ...args])
         if (command === 'tuicr') return execResult('[]')
@@ -394,7 +397,7 @@ test('should close the pane given a launch failure after ownership starts', asyn
         if (split && args[1] === 'run') return execResult('', 1, 'launch failed')
         return execResult()
       },
-    } as unknown as ExtensionAPI
+    })
     const runtime = makeRuntime(pi, { discoveryAttempts: 1, discoveryDelayMs: 0 })
 
     //when
@@ -418,7 +421,7 @@ test('should pass cancellation to the process effect given an aborted operation'
     const controller = new AbortController()
     let receivedSignal: AbortSignal | undefined
     const calls: Array<readonly string[]> = []
-    const pi = {
+    const pi = Object.assign({} as ExtensionAPI, {
       exec: async (command: string, args: readonly string[], options: { signal: AbortSignal }): Promise<ExecResult> => {
         calls.push([command, ...args])
         if (command === 'tuicr') return execResult('[]')
@@ -430,7 +433,7 @@ test('should pass cancellation to the process effect given an aborted operation'
         })
         throw new Error('unreachable')
       },
-    } as unknown as ExtensionAPI
+    })
     const runtime = makeRuntime(pi, { discoveryAttempts: 1, discoveryDelayMs: 0 })
     const pending = runtime.runPromise(
       Effect.gen(function* () {
@@ -453,21 +456,22 @@ test('should pass cancellation to the process effect given an aborted operation'
 
 test('should render collapsed and expanded comment results given both display states', () => {
   //given
-  let registration: unknown
-  const pi = {
-    registerTool(options: unknown): void {
-      registration = options
+  const registrations: Array<Parameters<ExtensionAPI['registerTool']>[0]> = []
+  const pi = Object.assign({} as ExtensionAPI, {
+    registerTool(options: Parameters<ExtensionAPI['registerTool']>[0]): void {
+      registrations.push(options)
     },
     on(): void {},
-  } as unknown as ExtensionAPI
+  })
   tuicrExtension(pi)
   initTheme()
-  const tool = registration as ToolRegistration
+  const tool = registrations[0]
+  assert.ok(tool)
   const theme = {
     fg: (_color: string, text: string): string => text,
     bold: (text: string): string => text,
-  }
-  const result: ToolResultLike = {
+  } as Theme
+  const result: AgentToolResult<unknown> = {
     content: [{ type: 'text', text: 'src/extension.ts:10: fix this' }],
     details: {
       paneId: 'window:pane',

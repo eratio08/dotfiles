@@ -4,12 +4,14 @@ import type {
   ExtensionContext,
   ExtensionFactory,
   ExtensionToolContext,
+  ProjectTrustContext,
   SessionManager,
   ToolDefinition,
   ToolInfo,
 } from '@earendil-works/pi-coding-agent'
 import type { AutocompleteItem } from '@earendil-works/pi-tui'
 
+// biome-ignore lint/plugin: Fake callbacks accept different event and result types.
 type FakeCallback = (event: unknown, context: unknown) => Promise<unknown> | unknown
 type FakeCommand = {
   readonly handler: (args: string, context: ExtensionContext) => Promise<void>
@@ -36,7 +38,12 @@ type FakeExtension = {
   /** Entry renderers registered by custom type. */
   readonly entryRenderers: Map<string, unknown>
   /** Invokes all handlers registered for an event and returns their results. */
-  readonly invokeEvent: (name: string, event: unknown, context?: ExtensionContext) => Promise<readonly unknown[]>
+  readonly invokeEvent: (
+    name: string,
+    // biome-ignore lint/plugin: Tests can supply different event payloads.
+    event: unknown,
+    context?: ExtensionContext | ProjectTrustContext,
+  ) => Promise<readonly unknown[]>
   /** Invokes a registered command. Rejects if the command name is unknown. */
   readonly invokeCommand: (name: string, args?: string, context?: ExtensionContext) => Promise<void>
   /** Invokes command completions, or returns `null` when no provider is registered. */
@@ -45,10 +52,11 @@ type FakeExtension = {
   readonly invokeTool: (
     name: string,
     toolCallId: string,
-    params: unknown,
+    params: Parameters<ToolDefinition['execute']>[1],
     context?: ExtensionToolContext,
     signal?: AbortSignal,
-    onUpdate?: (update: unknown) => void,
+    onUpdate?: Parameters<ToolDefinition['execute']>[3],
+    // biome-ignore lint/plugin: Fake tools can return different result types.
   ) => Promise<unknown>
 }
 
@@ -59,7 +67,7 @@ type FakeExtension = {
  * @returns A fake extension context with available UI and empty session state.
  */
 function createFakeExtensionContext(cwd = process.cwd()): ExtensionContext {
-  const sessionManager = {
+  const sessionManager: Partial<SessionManager> = {
     getCwd: () => cwd,
     getSessionId: () => 'fake-session',
     getSessionFile: () => undefined,
@@ -73,8 +81,8 @@ function createFakeExtensionContext(cwd = process.cwd()): ExtensionContext {
     getEntries: () => [],
     getTree: () => [],
     getSessionName: () => undefined,
-  } as unknown as SessionManager
-  const ui = {
+  }
+  const ui: Partial<ExtensionContext['ui']> = {
     select: async (): Promise<undefined> => undefined,
     confirm: async (): Promise<boolean> => false,
     input: async (): Promise<undefined> => undefined,
@@ -89,7 +97,7 @@ function createFakeExtensionContext(cwd = process.cwd()): ExtensionContext {
     setFooter: (): undefined => undefined,
     setHeader: (): undefined => undefined,
     setTitle: (): undefined => undefined,
-    custom: async (): Promise<undefined> => undefined,
+    custom: (async (): Promise<undefined> => undefined) as ExtensionContext['ui']['custom'],
     pasteToEditor: (_text: string): undefined => undefined,
     setEditorText: (_text: string): undefined => undefined,
     getEditorText: (): string => '',
@@ -97,19 +105,18 @@ function createFakeExtensionContext(cwd = process.cwd()): ExtensionContext {
     addAutocompleteProvider: (): undefined => undefined,
     setEditorComponent: (): undefined => undefined,
     getEditorComponent: (): undefined => undefined,
-    theme: undefined,
     getAllThemes: (): never[] => [],
     getTheme: (): undefined => undefined,
-    setTheme: (): { success: boolean } => ({ success: false }),
+    setTheme: (): ReturnType<ExtensionContext['ui']['setTheme']> => ({ success: false }),
     getToolsExpanded: (): boolean => false,
     setToolsExpanded: (): undefined => undefined,
   }
   return {
-    ui,
+    ui: ui as ExtensionContext['ui'],
     mode: 'tui',
     hasUI: true,
     cwd,
-    sessionManager,
+    sessionManager: sessionManager as SessionManager,
     modelRegistry: {} as never,
     model: undefined,
     scopedModels: [],
@@ -123,7 +130,7 @@ function createFakeExtensionContext(cwd = process.cwd()): ExtensionContext {
     getContextUsage: () => undefined,
     compact: () => undefined,
     getSystemPrompt: () => '',
-  } as unknown as ExtensionContext
+  }
 }
 
 /**
@@ -132,25 +139,33 @@ function createFakeExtensionContext(cwd = process.cwd()): ExtensionContext {
  */
 function createFakeExtensionApi(): FakeExtension {
   const events = new Map<string, FakeCallback[]>()
-  const eventBus = new Map<string, Array<(data: unknown) => void>>()
+  const eventBus = new Map<string, Array<Parameters<ExtensionAPI['events']['on']>[1]>>()
   const commands = new Map<string, FakeCommand>()
   const shortcuts = new Map<string, (context: ExtensionContext) => Promise<void> | void>()
   const flags = new Map<string, { value: boolean | string | undefined }>()
   const tools = new Map<string, ToolDefinition>()
   const messageRenderers = new Map<string, unknown>()
   const entryRenderers = new Map<string, unknown>()
-  const api = {
-    on: (name: string, callback: FakeCallback): void => {
+  const api: Partial<ExtensionAPI> = {
+    on: ((name: string, callback: FakeCallback): (() => void) => {
       const handlers = events.get(name) ?? []
       handlers.push(callback)
       events.set(name, handlers)
-    },
-    registerTool: (definition: ToolDefinition): void => {
+      let active = true
+      return () => {
+        if (!active) return
+        active = false
+        const index = handlers.indexOf(callback)
+        if (index >= 0) handlers.splice(index, 1)
+        if (handlers.length === 0) events.delete(name)
+      }
+    }) as ExtensionAPI['on'],
+    registerTool: ((definition: ToolDefinition): void => {
       tools.set(definition.name, definition)
-    },
-    registerCommand: (name: string, definition: FakeCommand): void => {
+    }) as ExtensionAPI['registerTool'],
+    registerCommand: ((name: string, definition: FakeCommand): void => {
       commands.set(name, definition)
-    },
+    }) as ExtensionAPI['registerCommand'],
     registerShortcut: (
       name: string,
       definition: { readonly handler: (context: ExtensionContext) => Promise<void> | void },
@@ -160,12 +175,15 @@ function createFakeExtensionApi(): FakeExtension {
     registerFlag: (name: string, definition: { readonly default?: boolean | string }): void => {
       flags.set(name, { value: definition.default })
     },
-    registerMessageRenderer: (name: string, renderer: unknown): void => {
+    registerMessageRenderer: ((
+      name: string,
+      renderer: Parameters<ExtensionAPI['registerMessageRenderer']>[1],
+    ): void => {
       messageRenderers.set(name, renderer)
-    },
-    registerEntryRenderer: (name: string, renderer: unknown): void => {
+    }) as ExtensionAPI['registerMessageRenderer'],
+    registerEntryRenderer: ((name: string, renderer: Parameters<ExtensionAPI['registerEntryRenderer']>[1]): void => {
       entryRenderers.set(name, renderer)
-    },
+    }) as ExtensionAPI['registerEntryRenderer'],
     sendMessage: (): void => undefined,
     sendUserMessage: (): void => undefined,
     appendEntry: (): void => undefined,
@@ -178,15 +196,15 @@ function createFakeExtensionApi(): FakeExtension {
     setActiveTools: (): void => undefined,
     getFlag: (name: string): boolean | string | undefined => flags.get(name)?.value,
     setModel: async (): Promise<boolean> => true,
-    getThinkingLevel: (): string => 'medium',
+    getThinkingLevel: (): ReturnType<ExtensionAPI['getThinkingLevel']> => 'medium',
     setThinkingLevel: (): void => undefined,
     registerProvider: (): void => undefined,
     unregisterProvider: (): void => undefined,
     events: {
-      emit: (channel: string, data: unknown): void => {
+      emit: (channel: string, data: Parameters<ExtensionAPI['events']['emit']>[1]): void => {
         for (const handler of eventBus.get(channel) ?? []) handler(data)
       },
-      on: (channel: string, handler: (data: unknown) => void): (() => void) => {
+      on: (channel: string, handler: Parameters<ExtensionAPI['events']['on']>[1]): (() => void) => {
         const handlers = eventBus.get(channel) ?? []
         handlers.push(handler)
         eventBus.set(channel, handlers)
@@ -202,7 +220,7 @@ function createFakeExtensionApi(): FakeExtension {
     },
   }
   const extension: FakeExtension = {
-    api: api as unknown as ExtensionAPI,
+    api: api as ExtensionAPI,
     events,
     commands,
     shortcuts,
@@ -210,7 +228,12 @@ function createFakeExtensionApi(): FakeExtension {
     tools,
     messageRenderers,
     entryRenderers,
-    invokeEvent: async (name: string, event: unknown, context = createFakeExtensionContext()) => {
+    invokeEvent: async (
+      name: string,
+      // biome-ignore lint/plugin: Tests can supply different event payloads.
+      event: unknown,
+      context: ExtensionContext | ProjectTrustContext = createFakeExtensionContext(),
+    ) => {
       const results: unknown[] = []
       for (const handler of events.get(name) ?? []) results.push(await handler(event, context))
       return results
@@ -228,7 +251,7 @@ function createFakeExtensionApi(): FakeExtension {
     invokeTool: async (
       name: string,
       toolCallId: string,
-      params: unknown,
+      params: Parameters<ToolDefinition['execute']>[1],
       context: ExtensionToolContext = {
         ...createFakeExtensionContext(),
         tools: [],
@@ -237,7 +260,7 @@ function createFakeExtensionApi(): FakeExtension {
         },
       },
       signal?: AbortSignal,
-      onUpdate?: (update: unknown) => void,
+      onUpdate?: Parameters<ToolDefinition['execute']>[3],
     ) => {
       const tool = tools.get(name)
       if (!tool) throw new Error(`Unknown fake tool: ${name}`)

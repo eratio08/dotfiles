@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   DEFAULT_MODE,
   getModeInstructions,
+  normalizeMode,
   parseCavemanCommand,
   parseModeChange,
   resolveSessionMode,
@@ -13,6 +14,15 @@ test('should parse command modes given command input', () => {
   assert.deepEqual(parseCavemanCommand('ultra'), { type: 'set-mode', mode: 'ultra' })
   assert.deepEqual(parseCavemanCommand('stop'), { type: 'set-mode', mode: 'off' })
   assert.equal(parseCavemanCommand('bogus').type, 'invalid')
+})
+
+test('should normalize mode strings and reject non-string input', () => {
+  assert.equal(normalizeMode(' WENYAN '), 'wenyan-full')
+  assert.equal(normalizeMode(null), null)
+  assert.equal(normalizeMode(42, 'lite'), 'lite')
+  assert.equal(normalizeMode(new String('full'), 'ultra'), 'ultra')
+  assert.equal(normalizeMode(Symbol('full')), null)
+  assert.equal(normalizeMode('invalid', 'off'), 'off')
 })
 
 test('should parse natural language toggles given toggle requests', () => {

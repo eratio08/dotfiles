@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { Pi, PiContext, type PiContextTag, type PiServices, PiSession, PiUi } from '@eratio/pi-effect'
-import { Context, Effect, Layer, Ref, Result, Schema, Semaphore } from 'effect'
+import { Context, Effect, Layer, Predicate, Ref, Result, Schema, Semaphore } from 'effect'
 
 const TODO_STATE_ENTRY = 'todo'
 const TODO_STATUSES = ['pending', 'in_progress', 'completed', 'omitted', 'blocked'] as const
@@ -205,7 +205,7 @@ function todoDescriptionLines(todo: Todo): string[] {
 }
 
 function getTodoHandoffSnapshot(todos: readonly Todo[]): Todo[] {
-  const openTodos = todos.filter(isOpenTodo).map((todo) => ({ ...todo, dependsOn: [...todo.dependsOn] }))
+  const openTodos = todos.filter(isOpenTodo)
   const openIds = new Set(openTodos.map((todo) => todo.id))
   return openTodos.map((todo) => ({
     ...todo,
@@ -303,13 +303,13 @@ function summarizeTodos(todos: readonly Todo[]): string {
 
 function migrateStoredTodo(value: StoredTodo): Todo {
   const details = value.details ?? value.description
-  return {
+  const todo: Todo = {
     id: value.id,
     content: value.content,
     status: value.status,
     dependsOn: [...value.dependsOn],
-    ...(details === undefined ? {} : { details }),
   }
+  return details === undefined ? todo : { ...todo, details }
 }
 
 function restoreTodoSnapshot(value: readonly Todo[]): Todo[] | undefined {
@@ -557,22 +557,22 @@ function decodeTodoValue<A>(decode: () => Result.Result<A, unknown>, invalidMess
     : Result.succeed(decoded.success.success)
 }
 
-function decodeInput(input: unknown): TodoResult<TodoInput> {
+function decodeInput(input: TodoInput): TodoResult<TodoInput> {
   return decodeTodoValue(() => Schema.decodeUnknownResult(TodoInputSchema)(input), 'Invalid todo input.')
 }
 
-function decodePatch(patch: unknown): TodoResult<TodoPatch> {
+function decodePatch(patch: TodoPatch): TodoResult<TodoPatch> {
   return decodeTodoValue(() => Schema.decodeUnknownResult(TodoPatchSchema)(patch), 'Invalid todo patch.')
 }
 
-function decodeShowOptions(options: unknown): TodoResult<TodoShowOptions> {
+function decodeShowOptions(options: TodoShowOptions | undefined): TodoResult<TodoShowOptions> {
   return decodeTodoValue(
     () => Schema.decodeUnknownResult(TodoShowOptionsSchema)(options ?? {}),
     'Invalid todo show options: provide task IDs, an array of statuses, and a positive integer limit.',
   )
 }
 
-function assertTodoId(id: unknown): TodoResult<TodoId> {
+function assertTodoId(id: TodoId): TodoResult<TodoId> {
   return decodeTodoValue(() => Schema.decodeUnknownResult(TodoIdSchema)(id), `Invalid todo ID: ${String(id)}.`)
 }
 
@@ -628,7 +628,7 @@ function recordMutation(
 
 const addTodoEffect = Effect.fnUntraced(function* (
   { draft, signal, onMutation }: TodoApiOptions,
-  input: unknown,
+  input: TodoInput,
 ): Effect.fn.Return<Todo, TodoUpdateError> {
   const aborted = assertNotAborted(signal)
   if (Result.isFailure(aborted)) return yield* todoResultEffect(aborted)
@@ -659,9 +659,9 @@ const addTodoEffect = Effect.fnUntraced(function* (
     content,
     status: 'pending',
     dependsOn: dependencies,
-    ...(value.details === undefined ? {} : { details: value.details }),
   }
-  const nextResult = commitDraft(draft, [...current, todo])
+  const newTodo = value.details === undefined ? todo : { ...todo, details: value.details }
+  const nextResult = commitDraft(draft, [...current, newTodo])
   if (Result.isFailure(nextResult)) return yield* todoResultEffect(nextResult)
   const mutation = recordMutation(onMutation, 'added')
   if (Result.isFailure(mutation)) return yield* todoResultEffect(mutation)
@@ -672,8 +672,8 @@ const addTodoEffect = Effect.fnUntraced(function* (
 
 const updateTodoEffect = Effect.fnUntraced(function* (
   { draft, signal, onMutation }: TodoApiOptions,
-  id: unknown,
-  patch: unknown,
+  id: TodoId,
+  patch: TodoPatch,
 ): Effect.fn.Return<Todo, TodoUpdateError> {
   const aborted = assertNotAborted(signal)
   if (Result.isFailure(aborted)) return yield* todoResultEffect(aborted)
@@ -724,7 +724,7 @@ const updateTodoEffect = Effect.fnUntraced(function* (
 
 const showTodosEffect = Effect.fnUntraced(function* (
   { draft, signal, onShow }: TodoApiOptions,
-  options: unknown,
+  options: TodoShowOptions | undefined,
 ): Effect.fn.Return<readonly Todo[], TodoUpdateError> {
   const aborted = assertNotAborted(signal)
   if (Result.isFailure(aborted)) return yield* todoResultEffect(aborted)
@@ -843,7 +843,7 @@ const completeTodoEffect = Effect.fnUntraced(function* ({
 
 const omitTodoEffect = Effect.fnUntraced(function* (
   { draft, signal, onMutation }: TodoApiOptions,
-  id: unknown,
+  id: TodoId,
 ): Effect.fn.Return<Todo, TodoUpdateError> {
   const aborted = assertNotAborted(signal)
   if (Result.isFailure(aborted)) return yield* todoResultEffect(aborted)
@@ -874,7 +874,7 @@ const omitTodoEffect = Effect.fnUntraced(function* (
 
 const restoreTodoEffect = Effect.fnUntraced(function* (
   { draft, signal, onMutation }: TodoApiOptions,
-  id: unknown,
+  id: TodoId,
 ): Effect.fn.Return<Todo, TodoUpdateError> {
   const aborted = assertNotAborted(signal)
   if (Result.isFailure(aborted)) return yield* todoResultEffect(aborted)
@@ -981,20 +981,15 @@ class TodoUiError extends Schema.TaggedError<TodoUiError>()('TodoUiError', {
 
 function todoHostError(operation: string, cause: unknown): TodoUiError {
   const original =
-    typeof cause === 'object' &&
-    cause !== null &&
-    '_tag' in cause &&
-    (cause._tag === 'PiHostError' || cause._tag === 'PiOperationsError') &&
+    Predicate.isObjectOrArray(cause) &&
+    (Predicate.isTagged(cause, 'PiHostError') || Predicate.isTagged(cause, 'PiOperationsError')) &&
     'cause' in cause
       ? cause.cause
       : cause
   const message =
     original instanceof Error
       ? original.message
-      : typeof original === 'object' &&
-          original !== null &&
-          'message' in original &&
-          typeof original.message === 'string'
+      : Predicate.isObjectOrArray(original) && 'message' in original && Predicate.isString(original.message)
         ? original.message
         : String(original)
   return new TodoUiError({
@@ -1109,7 +1104,7 @@ const reconcilePhase = Effect.fnUntraced(function* (
 })
 
 const handleResponse = Effect.fnUntraced(function* (
-  response: unknown,
+  response: PlannotatorStatusResponse,
   version: number,
 ): Effect.fn.Return<void, TodoUiError, TodoEffectsRequirements> {
   const result = Schema.decodeUnknownResult(PlannotatorStatusResponseSchema)(response)
@@ -1126,9 +1121,9 @@ const requestPlannotatorPhase = Effect.fn('requestPlannotatorPhase')(function* (
   const statusRequestVersion = yield* TodoStatusRequestVersion
   const version = yield* Ref.updateAndGet(statusRequestVersion.value, (current) => current + 1)
   let active = true
-  let earlyResponse: unknown
+  let earlyResponse: PlannotatorStatusResponse | undefined
   let hasEarlyResponse = false
-  let responseResolver: ((response: unknown | undefined) => void) | undefined
+  let responseResolver: ((response: PlannotatorStatusResponse | undefined) => void) | undefined
   const request: PlannotatorStatusRequest = {
     requestId: randomUUID(),
     action: 'plan-mode',
@@ -1143,9 +1138,9 @@ const requestPlannotatorPhase = Effect.fn('requestPlannotatorPhase')(function* (
       responseResolver(response)
     },
   }
-  const responseEffect = Effect.tryPromise<unknown | undefined, TodoUiError>({
+  const responseEffect = Effect.tryPromise<PlannotatorStatusResponse | undefined, TodoUiError>({
     try: (signal: AbortSignal) =>
-      new Promise<unknown | undefined>((resolve) => {
+      new Promise<PlannotatorStatusResponse | undefined>((resolve) => {
         let settled = false
         let timeout: ReturnType<typeof setTimeout> | undefined
         const cleanup = (): void => {
@@ -1153,7 +1148,7 @@ const requestPlannotatorPhase = Effect.fn('requestPlannotatorPhase')(function* (
           signal.removeEventListener('abort', abort)
           responseResolver = undefined
         }
-        const finish = (response: unknown | undefined): void => {
+        const finish = (response: PlannotatorStatusResponse | undefined): void => {
           if (settled) return
           settled = true
           active = false

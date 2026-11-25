@@ -1,7 +1,13 @@
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
-import { getCurrentSystemMessage, getCurrentTools, type SystemMessage, type Usage } from '@earendil-works/pi-ai'
+import {
+  getCurrentSystemMessage,
+  getCurrentTools,
+  type SystemMessage,
+  type ToolCall,
+  type Usage,
+} from '@earendil-works/pi-ai'
 import {
   type BuildSystemPromptOptions,
   buildSessionProjection,
@@ -15,6 +21,7 @@ import {
   type sessionEntryToContextMessages,
   type ToolInfo,
 } from '@earendil-works/pi-coding-agent'
+import { Option, Predicate, Schema, SchemaGetter } from 'effect'
 
 type CurrentSessionManager = Pick<
   SessionManager,
@@ -33,19 +40,27 @@ type ParsedSession = {
   projection: SessionProjection
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
+const StringOrUndefinedSchema = Schema.Unknown.pipe(
+  Schema.decodeTo(Schema.UndefinedOr(Schema.String), {
+    decode: SchemaGetter.transform((value) => (Predicate.isString(value) ? value : undefined)),
+    encode: SchemaGetter.transform((value) => value),
+  }),
+)
+
+const SessionRecordSchema = Schema.Struct({
+  type: Schema.optionalKey(StringOrUndefinedSchema),
+  id: Schema.optionalKey(StringOrUndefinedSchema),
+})
 
 function validateEntries(entries: SessionEntry[]): Map<string, SessionEntry> {
   const byId = new Map<string, SessionEntry>()
 
   for (const entry of entries) {
-    const record = entry as unknown as Record<string, unknown>
-    if (typeof record.id !== 'string' || record.id.length === 0) {
+    const record = entry
+    if (!Predicate.isString(record.id) || record.id.length === 0) {
       throw new Error('Session entry is missing a valid ID.')
     }
-    if (record.parentId !== null && typeof record.parentId !== 'string') {
+    if (record.parentId !== null && !Predicate.isString(record.parentId)) {
       throw new Error(`Session entry ${record.id} has an invalid parent ID.`)
     }
     if (byId.has(record.id)) {
@@ -104,7 +119,7 @@ function selectCurrentSession(sessionManager: CurrentSessionManager): ParsedSess
 function parseSavedSession(content: string, requestedLeafId?: string, filePath?: string): ParsedSession {
   if (!content.trim()) throw new Error('Session file is empty.')
 
-  const records: unknown[] = []
+  const records: (typeof SessionRecordSchema.Type)[] = []
   const lines = content.split(/\r?\n/)
 
   for (const [index, line] of lines.entries()) {
@@ -117,20 +132,21 @@ function parseSavedSession(content: string, requestedLeafId?: string, filePath?:
       throw new Error(`Session file contains malformed JSON on line ${index + 1}.`)
     }
 
-    if (!isRecord(record)) {
+    const decoded = Option.getOrUndefined(Schema.decodeUnknownOption(SessionRecordSchema)(record))
+    if (decoded === undefined) {
       throw new Error(`Session file line ${index + 1} is not a JSON object.`)
     }
-    records.push(record)
+    records.push(decoded)
   }
 
   const firstRecord = records[0]
-  if (!isRecord(firstRecord) || firstRecord.type !== 'session') {
+  if (firstRecord === undefined || firstRecord.type !== 'session') {
     throw new Error('Session file does not start with a Pi session header.')
   }
-  if (typeof firstRecord.id !== 'string' || firstRecord.id.length === 0) {
+  if (firstRecord.id === undefined || firstRecord.id.length === 0) {
     throw new Error('Session header is missing a valid session ID.')
   }
-  if (records.slice(1).some((record) => isRecord(record) && record.type === 'session')) {
+  if (records.slice(1).some((record) => record.type === 'session')) {
     throw new Error('Session file contains more than one session header.')
   }
 
@@ -167,7 +183,7 @@ function parseSavedSession(content: string, requestedLeafId?: string, filePath?:
   return {
     header,
     sessionId: header.id,
-    cwd: typeof header.cwd === 'string' ? header.cwd : '',
+    cwd: Predicate.isString(header.cwd) ? header.cwd : '',
     source: 'saved',
     filePath,
     entries,
@@ -405,8 +421,29 @@ function sumTokens(contributions: readonly Contribution[]): number {
   return contributions.reduce((sum, contribution) => sum + contribution.tokens, 0)
 }
 
-function safeJson(value: unknown): string {
+type ContextJsonValue =
+  | ToolCall['arguments']
+  | NonNullable<SystemMessage['toolsAdded']>
+  | NonNullable<SystemMessage['toolsAdded']>[number]
+
+function safeJson(value: ContextJsonValue): string {
   return JSON.stringify(value) ?? ''
+}
+
+function contributionFromDraft(draft: ContributionDraft, tokens: number): Contribution {
+  const contribution: Contribution = {
+    id: draft.id,
+    label: draft.label,
+    group: draft.group,
+    kind: draft.kind,
+    tokens,
+  }
+  if (draft.entryId !== undefined) contribution.entryId = draft.entryId
+  if (draft.source !== undefined) contribution.source = draft.source
+  if (draft.toolName !== undefined) contribution.toolName = draft.toolName
+  if (draft.toolCallId !== undefined) contribution.toolCallId = draft.toolCallId
+  if (draft.isError !== undefined) contribution.isError = draft.isError
+  return contribution
 }
 
 function allocateEstimate(totalTokens: number, drafts: readonly ContributionDraft[]): Contribution[] {
@@ -425,18 +462,7 @@ function allocateEstimate(totalTokens: number, drafts: readonly ContributionDraf
 
   const totalChars = drafts.reduce((sum, draft) => sum + draft.chars, 0)
   if (totalChars === 0) {
-    return drafts.map((draft, index) => ({
-      id: draft.id,
-      label: draft.label,
-      group: draft.group,
-      kind: draft.kind,
-      tokens: index === 0 ? totalTokens : 0,
-      ...(draft.entryId === undefined ? {} : { entryId: draft.entryId }),
-      ...(draft.source === undefined ? {} : { source: draft.source }),
-      ...(draft.toolName === undefined ? {} : { toolName: draft.toolName }),
-      ...(draft.toolCallId === undefined ? {} : { toolCallId: draft.toolCallId }),
-      ...(draft.isError === undefined ? {} : { isError: draft.isError }),
-    }))
+    return drafts.map((draft, index) => contributionFromDraft(draft, index === 0 ? totalTokens : 0))
   }
 
   const tokenShares = drafts.map((draft) => (totalTokens * draft.chars) / totalChars)
@@ -452,18 +478,7 @@ function allocateEstimate(totalTokens: number, drafts: readonly ContributionDraf
     remainder -= 1
   }
 
-  return drafts.map((draft, index) => ({
-    id: draft.id,
-    label: draft.label,
-    group: draft.group,
-    kind: draft.kind,
-    tokens: allocations[index] ?? 0,
-    ...(draft.entryId === undefined ? {} : { entryId: draft.entryId }),
-    ...(draft.source === undefined ? {} : { source: draft.source }),
-    ...(draft.toolName === undefined ? {} : { toolName: draft.toolName }),
-    ...(draft.toolCallId === undefined ? {} : { toolCallId: draft.toolCallId }),
-    ...(draft.isError === undefined ? {} : { isError: draft.isError }),
-  }))
+  return drafts.map((draft, index) => contributionFromDraft(draft, allocations[index] ?? 0))
 }
 
 function findUniqueSpan(prompt: string, text: string, key: string): PromptSpan | undefined {
@@ -473,10 +488,9 @@ function findUniqueSpan(prompt: string, text: string, key: string): PromptSpan |
   return { start, end: start + text.length, key }
 }
 
-function splitCurrentPrompt(
-  prompt: string,
-  options: BuildSystemPromptOptions,
-): { content: string; sections: Record<string, string> } {
+type CurrentPromptSections = { content: string; sections: Record<string, string> }
+
+function splitCurrentPrompt(prompt: string, options: BuildSystemPromptOptions): CurrentPromptSections {
   const spans: PromptSpan[] = []
 
   for (const [index, file] of (options.contextFiles ?? []).entries()) {
@@ -514,18 +528,18 @@ function buildCurrentSystemMessage(
   allTools: readonly Pick<ToolInfo, 'name' | 'description' | 'parameters'>[],
 ): SystemMessage {
   const activeTools = new Set(activeToolNames)
-  const toolsAdded = allTools
-    .filter((tool) => activeTools.has(tool.name))
-    .map(({ name, description, parameters }) => ({ name, description, parameters }))
+  const toolsAdded = allTools.flatMap(({ name, description, parameters }) =>
+    activeTools.has(name) ? [{ name, description, parameters }] : [],
+  )
   const sections = splitCurrentPrompt(prompt, options)
 
-  return {
+  const message: Pick<SystemMessage, 'role' | 'content' | 'sections' | 'toolsAdded'> = {
     role: 'system',
     content: sections.content,
-    ...(Object.keys(sections.sections).length === 0 ? {} : { sections: sections.sections }),
-    ...(toolsAdded.length === 0 ? {} : { toolsAdded }),
-    timestamp: Date.now(),
   }
+  if (Object.keys(sections.sections).length > 0) message.sections = sections.sections
+  if (toolsAdded.length > 0) message.toolsAdded = toolsAdded
+  return { ...message, timestamp: Date.now() }
 }
 
 function textContentDraft(text: string, fields: Omit<ContributionDraft, 'chars'>): ContributionDraft | undefined {
@@ -539,7 +553,7 @@ function contentDrafts(
   idPrefix: string,
   labelPrefix: string,
 ): ContributionDraft[] {
-  if (typeof content === 'string') {
+  if (Predicate.isString(content)) {
     const draft = textContentDraft(content, {
       ...fields,
       id: idPrefix,
@@ -809,7 +823,7 @@ function sectionDrafts(sectionName: string, section: string, tools: readonly { n
 function loadoutDrafts(systemMessage: SystemMessage): ContributionDraft[] {
   const drafts: ContributionDraft[] = []
   const content = systemMessage.content
-  if (typeof content === 'string') {
+  if (Predicate.isString(content)) {
     if (content) {
       drafts.push({
         id: 'system-content',
@@ -867,10 +881,9 @@ function loadoutDrafts(systemMessage: SystemMessage): ContributionDraft[] {
   return drafts
 }
 
-function makeLoadout(
-  systemMessages: readonly SystemMessage[],
-  fallbackSystemMessage?: SystemMessage,
-): { systemMessage?: SystemMessage; contributions: Contribution[]; tokens: number | null } {
+type Loadout = { systemMessage?: SystemMessage; contributions: Contribution[]; tokens: number | null }
+
+function makeLoadout(systemMessages: readonly SystemMessage[], fallbackSystemMessage?: SystemMessage): Loadout {
   const systemMessage = systemMessages.length > 0 ? getCurrentSystemMessage(systemMessages) : fallbackSystemMessage
   if (!systemMessage) return { contributions: [], tokens: null }
 
@@ -926,20 +939,21 @@ function createBaseline(
 ): Baseline {
   if (firstRequest) {
     const available = firstRequest.loadoutTokens !== null
-    return {
+    const baseline: Baseline = {
       available,
       source: available ? firstRequest.loadoutSource : 'unavailable',
       tokens: firstRequest.loadoutTokens,
       contributions: available
         ? firstRequest.contributions.filter((contribution) => contribution.entryId === undefined)
         : [],
-      ...(firstRequest.loadoutMessage === undefined ? {} : { systemMessage: firstRequest.loadoutMessage }),
     }
+    if (firstRequest.loadoutMessage !== undefined) baseline.systemMessage = firstRequest.loadoutMessage
+    return baseline
   }
 
   const systemMessage = firstSystemLoadout(session, fallbackSystemMessage)
   const loadout = systemMessage ? makeLoadout([], systemMessage) : undefined
-  return {
+  const baseline: Baseline = {
     available: loadout?.tokens !== null && loadout?.tokens !== undefined,
     source:
       loadout?.tokens === null || loadout?.tokens === undefined
@@ -950,8 +964,9 @@ function createBaseline(
           : 'saved',
     tokens: loadout?.tokens ?? null,
     contributions: loadout?.tokens === null || loadout?.tokens === undefined ? [] : loadout.contributions,
-    ...(loadout?.systemMessage === undefined ? {} : { systemMessage: toMessageView(loadout.systemMessage) }),
   }
+  if (loadout?.systemMessage !== undefined) baseline.systemMessage = toMessageView(loadout.systemMessage)
+  return baseline
 }
 
 function toolCallIds(messages: readonly MessageSource['message'][]): string[] {
@@ -1051,28 +1066,30 @@ function createEntryStatistics(
       (message): message is AssistantMessage => message.role === 'assistant',
     )?.usage
 
-    return [
-      {
-        entryId: sourceEntry.id,
-        entryType: sourceEntry.type,
-        ...(role === undefined ? {} : { role }),
-        ...(customType === undefined ? {} : { customType }),
-        timestamp: sourceEntry.timestamp,
-        contextStatus: 'current' as const,
-        messageAdditionTokens,
-        historicalTokens: messageTokens,
-        cumulativeRequestExposure: messageAdditionTokens,
-        exposureShare:
-          requestExposure.complete && requestExposure.tokens !== null && requestExposure.tokens > 0
-            ? (messageAdditionTokens / requestExposure.tokens) * 100
-            : null,
-        latestRequestIncluded: includedEntries.has(sourceEntry.id),
-        toolCallIds: toolCallIds(currentMessages),
-        rawMessages: messageViews,
-        effectiveMessages: messageViews,
-        ...(providerUsage === undefined ? {} : { providerUsage }),
-      },
-    ]
+    const identity: Pick<EntryStatistics, 'entryId' | 'entryType' | 'role' | 'customType'> = {
+      entryId: sourceEntry.id,
+      entryType: sourceEntry.type,
+    }
+    if (role !== undefined) identity.role = role
+    if (customType !== undefined) identity.customType = customType
+    const entry: EntryStatistics = {
+      ...identity,
+      timestamp: sourceEntry.timestamp,
+      contextStatus: 'current' as const,
+      messageAdditionTokens,
+      historicalTokens: messageTokens,
+      cumulativeRequestExposure: messageAdditionTokens,
+      exposureShare:
+        requestExposure.complete && requestExposure.tokens !== null && requestExposure.tokens > 0
+          ? (messageAdditionTokens / requestExposure.tokens) * 100
+          : null,
+      latestRequestIncluded: includedEntries.has(sourceEntry.id),
+      toolCallIds: toolCallIds(currentMessages),
+      rawMessages: messageViews,
+      effectiveMessages: messageViews,
+    }
+    if (providerUsage !== undefined) entry.providerUsage = providerUsage
+    return [entry]
   })
 }
 
@@ -1143,20 +1160,22 @@ function buildPromptStatistics(
       ) {
         continue
       }
-      const kind =
-        contribution.kind === 'instruction-file'
-          ? 'instruction-file'
-          : contribution.kind === 'unattributed'
-            ? 'unattributed'
-            : 'prompt-section'
-      const current = totals.get(contribution.id) ?? {
-        id: contribution.id,
-        label: contribution.label,
-        ...(contribution.source === undefined ? {} : { source: contribution.source }),
-        kind,
-        cumulativeRequestExposure: 0,
-        exposureShare: null,
-        latestRequestTokens: 0,
+      let kind: PromptStatistics['kind'] = 'prompt-section'
+      if (contribution.kind === 'instruction-file' || contribution.kind === 'unattributed') kind = contribution.kind
+      let current = totals.get(contribution.id)
+      if (current === undefined) {
+        const identity: Pick<PromptStatistics, 'id' | 'label' | 'source'> = {
+          id: contribution.id,
+          label: contribution.label,
+        }
+        if (contribution.source !== undefined) identity.source = contribution.source
+        current = {
+          ...identity,
+          kind,
+          cumulativeRequestExposure: 0,
+          exposureShare: null,
+          latestRequestTokens: 0,
+        }
       }
       current.cumulativeRequestExposure += contribution.tokens
       if (request === latest) current.latestRequestTokens += contribution.tokens
@@ -1207,21 +1226,27 @@ function buildToolStatistics(
   }
 
   return [...accumulators.entries()]
-    .map(([name, accumulator]) => ({
-      name,
-      ...(definitions.get(name) === undefined ? {} : { description: definitions.get(name)?.description }),
-      ...(definitions.get(name) === undefined ? {} : { parameterSchema: definitions.get(name)?.parameters }),
-      callCount: accumulator.callCount,
-      argumentTokens: accumulator.argumentTokens,
-      totalResultTokens: accumulator.resultTokens,
-      averageResultTokens: accumulator.resultTokens / (accumulator.resultCount || 1),
-      oneTimeInteractionTokens: accumulator.argumentTokens + accumulator.resultTokens,
-      estimatedContextExposureTokens: accumulator.estimatedContextExposureTokens,
-      estimatedDefinitionExposureTokens: accumulator.estimatedDefinitionExposureTokens,
-      estimatedPromptExposureTokens: accumulator.estimatedPromptExposureTokens,
-      estimatedArgumentExposureTokens: accumulator.estimatedArgumentExposureTokens,
-      estimatedResultExposureTokens: accumulator.estimatedResultExposureTokens,
-    }))
+    .map(([name, accumulator]) => {
+      const identity: Pick<ToolStatistics, 'name' | 'description' | 'parameterSchema'> = { name }
+      const definition = definitions.get(name)
+      if (definition !== undefined) {
+        identity.description = definition.description
+        identity.parameterSchema = definition.parameters
+      }
+      return {
+        ...identity,
+        callCount: accumulator.callCount,
+        argumentTokens: accumulator.argumentTokens,
+        totalResultTokens: accumulator.resultTokens,
+        averageResultTokens: accumulator.resultTokens / (accumulator.resultCount || 1),
+        oneTimeInteractionTokens: accumulator.argumentTokens + accumulator.resultTokens,
+        estimatedContextExposureTokens: accumulator.estimatedContextExposureTokens,
+        estimatedDefinitionExposureTokens: accumulator.estimatedDefinitionExposureTokens,
+        estimatedPromptExposureTokens: accumulator.estimatedPromptExposureTokens,
+        estimatedArgumentExposureTokens: accumulator.estimatedArgumentExposureTokens,
+        estimatedResultExposureTokens: accumulator.estimatedResultExposureTokens,
+      }
+    })
     .sort(
       (left, right) =>
         right.estimatedContextExposureTokens - left.estimatedContextExposureTokens ||
@@ -1264,29 +1289,34 @@ function analyzeSession(session: ParsedSession, options: AnalysisOptions = {}): 
   const knownTokens = loadout.tokens === null ? conversationTokens : (footprintTokens ?? conversationTokens)
   const hasContext = conversationMessages.length > 0 || loadout.systemMessage !== undefined
   const endpointEntry = session.projection.entries.at(-1)?.sourceEntry
-  const currentContext: RequestAnalysis | undefined = hasContext
-    ? {
-        index: 1,
-        responseEntryId: endpointAssistant?.entryId ?? endpointEntry?.id ?? session.leafId ?? '',
-        timestamp: endpointAssistant?.timestamp ?? endpointEntry?.timestamp ?? '',
-        footprintTokens,
-        loadoutSource: loadout.tokens === null ? 'unavailable' : fallback ? 'current-configuration' : 'saved',
-        ...(loadout.systemMessage === undefined ? {} : { loadoutMessage: toMessageView(loadout.systemMessage) }),
-        inputEntryIds: session.projection.entries
-          .filter((entry) => entry.messages.length > 0)
-          .map((entry) => entry.sourceEntry.id),
-        knownTokens,
-        loadoutTokens: loadout.tokens,
-        conversationTokens,
-        contributions,
-        ...(endpointAssistant === undefined
-          ? {}
-          : {
-              providerUsage: endpointAssistant.message.usage,
-              model: `${endpointAssistant.message.provider}/${endpointAssistant.message.model}`,
-            }),
-      }
-    : undefined
+  let currentContext: RequestAnalysis | undefined
+  if (hasContext) {
+    const request: Pick<
+      RequestAnalysis,
+      'index' | 'responseEntryId' | 'timestamp' | 'footprintTokens' | 'loadoutSource' | 'loadoutMessage'
+    > = {
+      index: 1,
+      responseEntryId: endpointAssistant?.entryId ?? endpointEntry?.id ?? session.leafId ?? '',
+      timestamp: endpointAssistant?.timestamp ?? endpointEntry?.timestamp ?? '',
+      footprintTokens,
+      loadoutSource: loadout.tokens === null ? 'unavailable' : fallback ? 'current-configuration' : 'saved',
+    }
+    if (loadout.systemMessage !== undefined) request.loadoutMessage = toMessageView(loadout.systemMessage)
+    currentContext = {
+      ...request,
+      inputEntryIds: session.projection.entries
+        .filter((entry) => entry.messages.length > 0)
+        .map((entry) => entry.sourceEntry.id),
+      knownTokens,
+      loadoutTokens: loadout.tokens,
+      conversationTokens,
+      contributions,
+    }
+    if (endpointAssistant !== undefined) {
+      currentContext.providerUsage = endpointAssistant.message.usage
+      currentContext.model = `${endpointAssistant.message.provider}/${endpointAssistant.message.model}`
+    }
+  }
   const requests = currentContext === undefined ? [] : [currentContext]
   const warnings: string[] = []
 
@@ -1330,11 +1360,14 @@ function analyzeSession(session: ParsedSession, options: AnalysisOptions = {}): 
   if (!requestExposure.complete)
     warnings.push('The request-context estimate is incomplete because one or more request loadouts are unavailable.')
 
-  return {
+  const identity: Pick<SessionAnalysis, 'sessionId' | 'cwd' | 'source' | 'filePath'> = {
     sessionId: session.sessionId,
     cwd: session.cwd,
     source: session.source,
-    ...(session.filePath === undefined ? {} : { filePath: session.filePath }),
+  }
+  if (session.filePath !== undefined) identity.filePath = session.filePath
+  return {
+    ...identity,
     selectedLeafId: session.leafId,
     analyzedAt: new Date().toISOString(),
     tokenEstimateMethod: 'Pi estimateTokens() and its character-based section and tool estimates',
@@ -1607,7 +1640,7 @@ function escapeHtml(value: string): string {
 }
 
 function stringValue(value: unknown, fallback = ''): string {
-  return typeof value === 'string' ? value : fallback
+  return Option.getOrElse(Schema.decodeUnknownOption(Schema.String)(value), () => fallback)
 }
 
 function formatTokens(value: number | null | undefined): string {
@@ -1625,6 +1658,7 @@ function formatPercent(value: number | null | undefined): string {
   return `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(value)}%`
 }
 
+// biome-ignore lint/plugin: Report content can contain arbitrary values.
 function jsonText(value: unknown): string {
   try {
     return JSON.stringify(value, null, 2) ?? String(value)
@@ -1637,8 +1671,61 @@ function getVisibleEntryMessages(entry: EntryStatistics): VisibleEntryMessage[] 
   return entry.effectiveMessages.map((message) => ({ message }))
 }
 
-function getContentBlocks(content: unknown): Record<string, unknown>[] {
-  return Array.isArray(content) ? content.filter(isRecord) : []
+const ContentBlockSchema = Schema.Union([
+  Schema.Struct({ type: Schema.Literal('text'), text: Schema.optionalKey(StringOrUndefinedSchema) }),
+  Schema.Struct({ type: Schema.Literal('thinking'), thinking: Schema.optionalKey(StringOrUndefinedSchema) }),
+  Schema.Struct({
+    type: Schema.Literal('image'),
+    mimeType: Schema.optionalKey(StringOrUndefinedSchema),
+    data: Schema.optionalKey(StringOrUndefinedSchema),
+  }),
+  Schema.Struct({
+    type: Schema.Literal('toolCall'),
+    id: Schema.optionalKey(StringOrUndefinedSchema),
+    name: Schema.optionalKey(StringOrUndefinedSchema),
+    arguments: Schema.optionalKey(Schema.Unknown),
+  }),
+  Schema.Struct({ type: Schema.optionalKey(StringOrUndefinedSchema) }),
+])
+
+type ContentBlock =
+  | { kind: 'text'; text: string }
+  | { kind: 'thinking'; thinking: string }
+  | { kind: 'image'; mimeType: string; data: string }
+  | { kind: 'toolCall'; id: string | undefined; name: string | undefined; arguments: unknown }
+  | { kind: 'unknown'; type: string }
+
+function parseContentBlock(value: unknown): ContentBlock | undefined {
+  const block = Option.getOrUndefined(Schema.decodeUnknownOption(ContentBlockSchema)(value))
+  if (block === undefined) return undefined
+
+  if (block.type === 'text') return { kind: 'text', text: 'text' in block ? (block.text ?? '') : '' }
+  if (block.type === 'thinking')
+    return { kind: 'thinking', thinking: 'thinking' in block ? (block.thinking ?? '') : '' }
+  if (block.type === 'image')
+    return {
+      kind: 'image',
+      mimeType: 'mimeType' in block ? (block.mimeType ?? '') : '',
+      data: 'data' in block ? (block.data ?? '') : '',
+    }
+  if (block.type === 'toolCall')
+    return {
+      kind: 'toolCall',
+      id: 'id' in block ? block.id : undefined,
+      name: 'name' in block ? block.name : undefined,
+      arguments: 'arguments' in block ? block.arguments : undefined,
+    }
+
+  return { kind: 'unknown', type: block.type ?? 'Unknown' }
+}
+
+function getContentBlocks(content: MessageView['content']): ContentBlock[] {
+  if (!Array.isArray(content)) return []
+
+  return content.flatMap((value) => {
+    const block = parseContentBlock(value)
+    return block === undefined ? [] : [block]
+  })
 }
 
 function createToolLinkTargets(analysis: SessionAnalysis): ToolLinkTargets {
@@ -1651,11 +1738,11 @@ function createToolLinkTargets(analysis: SessionAnalysis): ToolLinkTargets {
       const message = visible.message
       if (message.role === 'assistant') {
         for (const [blockIndex, block] of getContentBlocks(message.content).entries()) {
-          if (block.type === 'toolCall' && typeof block.id === 'string') {
+          if (block.kind === 'toolCall' && block.id !== undefined) {
             calls.set(block.id, `call-${entryIndex}-${messageIndex}-${blockIndex}`)
           }
         }
-      } else if (message.role === 'toolResult' && typeof message.toolCallId === 'string') {
+      } else if (message.role === 'toolResult' && Predicate.isString(message.toolCallId)) {
         results.set(message.toolCallId, `result-${entryIndex}-${messageIndex}`)
       }
     }
@@ -1770,10 +1857,9 @@ function renderToolPromptSources(
 ): string {
   const toolNames = [
     ...new Set(
-      contributions
-        .filter((item) => item.kind === 'tool-prompt')
-        .map((item) => item.toolName)
-        .filter((name): name is string => name !== undefined),
+      contributions.flatMap((item) =>
+        item.kind === 'tool-prompt' && item.toolName !== undefined ? [item.toolName] : [],
+      ),
     ),
   ].sort((left, right) => right.length - left.length)
   const lines = section.match(/[^\n]*\n|[^\n]+$/g) ?? []
@@ -1803,12 +1889,10 @@ function renderPromptSection(
   const matching = getSectionContributions(sectionName, text, contributions)
   const cost = sumTokens(matching)
   const label = sectionLabel(sectionName)
-  const content =
-    sectionName === 'project_context'
-      ? renderInstructionFiles(text, analysis, matching)
-      : sectionName === 'tools'
-        ? renderToolPromptSources(text, analysis, matching)
-        : `<pre>${escapeHtml(text)}</pre>`
+  let content: string
+  if (sectionName === 'project_context') content = renderInstructionFiles(text, analysis, matching)
+  else if (sectionName === 'tools') content = renderToolPromptSources(text, analysis, matching)
+  else content = `<pre>${escapeHtml(text)}</pre>`
   const metrics = contributionMetrics(analysis, matching, cost)
 
   const identifier = matching.map((item) => item.id).join(', ') || sectionName
@@ -1837,10 +1921,9 @@ function renderSystemSnapshot(
 ): string {
   if (!message) return '<p class="status-note">No saved system snapshot is available.</p>'
   const rows: string[] = []
-  const hasContent =
-    typeof message.content === 'string'
-      ? message.content.length > 0
-      : Array.isArray(message.content) && message.content.length > 0
+  const hasContent = Predicate.isString(message.content)
+    ? message.content.length > 0
+    : Array.isArray(message.content) && message.content.length > 0
   const contentContributions = contributions.filter((item) => item.kind === 'system-content')
   if (hasContent) {
     const cost = sumTokens(contentContributions)
@@ -1871,8 +1954,8 @@ function renderSystemSnapshot(
 function renderToolDefinitionDetails(
   name: string,
   label: string,
-  description: unknown,
-  parameters: unknown,
+  description: ToolStatistics['description'],
+  parameters: ToolStatistics['parameterSchema'],
   estimatedTokens: number,
   scopeLabel: string,
 ): string {
@@ -1899,15 +1982,14 @@ function renderToolContextDetails(analysis: SessionAnalysis, toolName: string): 
       )
     : '<p class="muted">No saved tool description or schema is available.</p>'
   const sections = message?.sections ?? {}
-  const toolPromptLines =
-    typeof sections.tools === 'string'
-      ? sections.tools
-          .split(/\r?\n/)
-          .filter((line) => line.startsWith(`- ${toolName}:`))
-          .join('\n')
-      : ''
+  const toolPromptLines = Predicate.isString(sections.tools)
+    ? sections.tools
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith(`- ${toolName}:`))
+        .join('\n')
+    : ''
   const promptText = [sections[`metering:tool-prompt:${toolName}`], toolPromptLines]
-    .filter((text): text is string => typeof text === 'string' && text.length > 0)
+    .filter((text): text is string => Predicate.isString(text) && text.length > 0)
     .join('\n')
   const promptTokens = sumTokens(
     contributions.filter((item) => item.kind === 'tool-prompt' && item.toolName === toolName),
@@ -1919,9 +2001,9 @@ function renderToolContextDetails(analysis: SessionAnalysis, toolName: string): 
   return `<section class="tool-context-details"><h4>Current tool context</h4><p class="subtle">These sources appear in the selected endpoint context.</p>${definitionContent}${promptContent}</section>`
 }
 
-function renderImage(block: Record<string, unknown>): string {
-  const mimeType = stringValue(block.mimeType).toLowerCase()
-  const data = stringValue(block.data)
+function renderImage(block: Extract<ContentBlock, { kind: 'image' }>): string {
+  const mimeType = block.mimeType.toLowerCase()
+  const data = block.data
   if (!data || !/^image\/(png|jpeg|webp|gif|bmp)$/.test(mimeType) || !/^[a-z\d+/=\r\n]+$/i.test(data)) {
     return '<p class="muted">[Image content is not available for safe inline display]</p>'
   }
@@ -1929,28 +2011,28 @@ function renderImage(block: Record<string, unknown>): string {
   return `<img class="image-preview" alt="Conversation image" loading="lazy" src="${escapeHtml(source)}">`
 }
 
-function renderPromptContent(content: unknown): string {
-  if (typeof content === 'string') return `<pre>${escapeHtml(content)}</pre>`
+function renderPromptContent(content: MessageView['content']): string {
+  if (Predicate.isString(content)) return `<pre>${escapeHtml(content)}</pre>`
   const blocks = getContentBlocks(content)
   if (blocks.length === 0) return `<pre>${escapeHtml(jsonText(content))}</pre>`
   return blocks
     .map((block) => {
-      if (block.type === 'text') return `<pre>${escapeHtml(stringValue(block.text))}</pre>`
-      if (block.type === 'image') return renderImage(block)
-      return `<p class="muted">[${escapeHtml(stringValue(block.type, 'Unknown'))} prompt block]</p>`
+      if (block.kind === 'text') return `<pre>${escapeHtml(block.text)}</pre>`
+      if (block.kind === 'image') return renderImage(block)
+      return `<p class="muted">[${escapeHtml(block.kind === 'unknown' ? block.type : block.kind)} prompt block]</p>`
     })
     .join('')
 }
 
 function renderToolCallBlock(
-  block: Record<string, unknown>,
+  block: Extract<ContentBlock, { kind: 'toolCall' }>,
   entryIndex: number,
   messageIndex: number,
   blockIndex: number,
   targets: ToolLinkTargets,
 ): string {
-  const toolName = stringValue(block.name, 'Unknown tool')
-  const toolCallId = stringValue(block.id, 'Unknown call ID')
+  const toolName = block.name ?? 'Unknown tool'
+  const toolCallId = block.id ?? 'Unknown call ID'
   const argumentsText = jsonText(block.arguments)
   const callTarget = `call-${entryIndex}-${messageIndex}-${blockIndex}`
   const resultTarget = targets.results.get(toolCallId)
@@ -1982,24 +2064,24 @@ function renderToolResultMessage(
 }
 
 function renderMessageContent(
-  content: unknown,
+  content: MessageView['content'],
   entryIndex: number,
   messageIndex: number,
   targets: ToolLinkTargets,
 ): string {
-  if (typeof content === 'string') return `<div class="message-text">${escapeHtml(content)}</div>`
+  if (Predicate.isString(content)) return `<div class="message-text">${escapeHtml(content)}</div>`
   const blocks = getContentBlocks(content)
   if (blocks.length === 0)
     return content === undefined ? '' : `<pre class="message-text">${escapeHtml(jsonText(content))}</pre>`
 
   return blocks
     .map((block, blockIndex) => {
-      if (block.type === 'text') return `<div class="message-text">${escapeHtml(stringValue(block.text))}</div>`
-      if (block.type === 'thinking')
-        return `<details class="message-detail"><summary>Thinking</summary><pre>${escapeHtml(stringValue(block.thinking))}</pre></details>`
-      if (block.type === 'toolCall') return renderToolCallBlock(block, entryIndex, messageIndex, blockIndex, targets)
-      if (block.type === 'image') return renderImage(block)
-      return `<p class="muted">[${escapeHtml(stringValue(block.type, 'Unknown'))} content block]</p>`
+      if (block.kind === 'text') return `<div class="message-text">${escapeHtml(block.text)}</div>`
+      if (block.kind === 'thinking')
+        return `<details class="message-detail"><summary>Thinking</summary><pre>${escapeHtml(block.thinking)}</pre></details>`
+      if (block.kind === 'toolCall') return renderToolCallBlock(block, entryIndex, messageIndex, blockIndex, targets)
+      if (block.kind === 'image') return renderImage(block)
+      return `<p class="muted">[${escapeHtml(block.type)} content block]</p>`
     })
     .join('')
 }
@@ -2055,20 +2137,17 @@ function renderEntry(
   const previewText =
     messages
       .map(({ message }) => {
-        if (typeof message.content === 'string') return message.content
-        if (typeof message.summary === 'string') return message.summary
-        if (typeof message.command === 'string') return message.command
+        if (Predicate.isString(message.content)) return message.content
+        if (Predicate.isString(message.summary)) return message.summary
+        if (Predicate.isString(message.command)) return message.command
         const text = getContentBlocks(message.content)
-          .map((block) =>
-            block.type === 'text'
-              ? stringValue(block.text)
-              : block.type === 'toolCall'
-                ? `Call ${stringValue(block.name) || 'tool'}`
-                : block.type === 'image'
-                  ? 'Image'
-                  : '',
-          )
-          .filter(Boolean)
+          .flatMap((block) => {
+            let preview = ''
+            if (block.kind === 'text') preview = block.text
+            else if (block.kind === 'toolCall') preview = `Call ${block.name || 'tool'}`
+            else if (block.kind === 'image') preview = 'Image'
+            return preview ? [preview] : []
+          })
           .join(' ')
         if (text) return text
         if (message.role === 'toolResult') return `Result from ${stringValue(message.toolName) || 'tool'}`
@@ -2127,10 +2206,10 @@ function renderConversationTab(
     for (const { message } of getVisibleEntryMessages(entry)) {
       if (message.role === 'assistant') {
         for (const block of getContentBlocks(message.content)) {
-          if (block.type === 'toolCall' && typeof block.id === 'string') callEntryIndexes.set(block.id, entryIndex)
+          if (block.kind === 'toolCall' && block.id !== undefined) callEntryIndexes.set(block.id, entryIndex)
         }
       }
-      if (message.role === 'toolResult' && typeof message.toolCallId === 'string') {
+      if (message.role === 'toolResult' && Predicate.isString(message.toolCallId)) {
         const results = resultEntryIndexesByCallId.get(message.toolCallId) ?? []
         results.push(entryIndex)
         resultEntryIndexesByCallId.set(message.toolCallId, results)
@@ -2256,12 +2335,10 @@ function renderLatestRequestComposition(
   const unattributedTokens = Math.max(0, totalTokens - groupTotal)
   tokensByGroup.set('unattributedContent', (tokensByGroup.get('unattributedContent') ?? 0) + unattributedTokens)
 
-  const entries = sourceGroupDescriptions
-    .map((group) => {
-      const tokens = tokensByGroup.get(group.key) ?? 0
-      return { ...group, tokens, share: (tokens / totalTokens) * 100 }
-    })
-    .filter((group) => group.tokens > 0)
+  const entries = sourceGroupDescriptions.flatMap((group) => {
+    const tokens = tokensByGroup.get(group.key) ?? 0
+    return tokens > 0 ? [{ ...group, tokens, share: (tokens / totalTokens) * 100 }] : []
+  })
   const segments = entries
     .map(
       (group) =>
@@ -2459,7 +2536,7 @@ function renderToolInvocationTable(analysis: SessionAnalysis, targets: ToolLinkT
       const callBlock = callEntry?.effectiveMessages
         .filter((message) => message.role === 'assistant')
         .flatMap((message) => getContentBlocks(message.content))
-        .find((block) => block.type === 'toolCall' && block.id === invocation.toolCallId)
+        .find((block) => block.kind === 'toolCall' && block.id === invocation.toolCallId)
       const resultMessage = resultEntry?.effectiveMessages.find(
         (message) => message.role === 'toolResult' && message.toolCallId === invocation.toolCallId,
       )
@@ -2473,9 +2550,10 @@ function renderToolInvocationTable(analysis: SessionAnalysis, targets: ToolLinkT
         ? `<a href="#${escapeHtml(resultTarget)}">Open tool result</a>`
         : '<span class="muted">No saved result</span>'
       const contextImpact = `<p class="subtle">Selected-context interaction estimate: ${tokenLabel(invocation.latestRequestTokens)}</p>`
-      const argumentsContent = callBlock
-        ? `<section class="invocation-content"><h5>Arguments</h5><pre>${escapeHtml(jsonText(callBlock.arguments))}</pre></section>`
-        : '<p class="muted">No saved arguments are available.</p>'
+      const argumentsContent =
+        callBlock?.kind === 'toolCall'
+          ? `<section class="invocation-content"><h5>Arguments</h5><pre>${escapeHtml(jsonText(callBlock.arguments))}</pre></section>`
+          : '<p class="muted">No saved arguments are available.</p>'
       const resultContent = resultMessage
         ? `<section class="invocation-content"><h5>Result text</h5>${renderPromptContent(resultMessage.content)}</section>`
         : '<p class="muted">No saved result text is available.</p>'
@@ -2534,7 +2612,9 @@ type MeteringReportServer = {
   close: () => Promise<void>
 }
 
-function openReportUrl(url: string, run: typeof execFile = execFile): Promise<void> {
+type BrowserOpenCommand = (command: string, args: string[], callback: (error: Error | null) => void) => void
+
+function openReportUrl(url: string, run: BrowserOpenCommand = execFile): Promise<void> {
   return new Promise((resolve, reject) => {
     run('open', [url], (error) => {
       if (error) reject(error)
@@ -2585,7 +2665,7 @@ function startMeteringReportServer(html: string): Promise<MeteringReportServer> 
     const onListening = (): void => {
       server.off('error', onError)
       const address = server.address()
-      if (!address || typeof address === 'string') {
+      if (!address || Predicate.isString(address)) {
         server.close()
         reject(new Error('The report server did not receive a local TCP address.'))
         return

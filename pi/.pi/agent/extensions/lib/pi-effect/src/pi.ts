@@ -6,6 +6,7 @@ import type {
   ExecResult,
   ExtensionAPI,
   ExtensionToolContext,
+  ExtensionUIContext,
   KeybindingsManager,
   ProviderConfig,
   SessionEntry,
@@ -23,7 +24,7 @@ import type {
   OverlayOptions,
   TUI,
 } from '@earendil-works/pi-tui'
-import { Context, Effect, Option, Schema, type Scope, Semaphore } from 'effect'
+import { Context, Effect, Option, Predicate, Schema, type Scope, Semaphore } from 'effect'
 import type { Static, TSchema } from 'typebox'
 import type { PiExtensionError } from './extension.ts'
 
@@ -226,7 +227,7 @@ type PiToolContext = PiContext & {
   readonly tools: ExtensionToolContext['tools']
   readonly executeTool: (
     name: string,
-    args: unknown,
+    args: Parameters<ExtensionToolContext['executeTool']>[1],
     options?: Parameters<ExtensionToolContext['executeTool']>[2],
   ) => Effect.Effect<Awaited<ReturnType<ExtensionToolContext['executeTool']>>, PiToolError>
   /** Execution mode selected for the current tool definition. */
@@ -296,7 +297,7 @@ function combinePiAbortSignals(...signals: PiInvocationSignals): AbortSignal | u
   const defined = signals.filter((signal): signal is AbortSignal => signal !== undefined)
   if (defined.length === 0) return undefined
   if (defined.length === 1) return defined[0]
-  if (typeof AbortSignal.any === 'function') return AbortSignal.any(defined)
+  if (Predicate.isFunction(AbortSignal.any)) return AbortSignal.any(defined)
 
   const controller = new AbortController()
   const abort = (): void => controller.abort()
@@ -523,7 +524,7 @@ type EffectSuccess<T> = T extends Effect.Effect<infer A, infer _E, infer _R> ? A
 
 type PiComponentWithDispose = Component & { dispose?: () => void }
 type PiWidgetFactory = (tui: TUI, theme: Theme) => PiComponentWithDispose
-type PiFooterFactory = (tui: TUI, theme: Theme, footerData: unknown) => PiComponentWithDispose
+type PiFooterFactory = NonNullable<Parameters<ExtensionUIContext['setFooter']>[0]>
 type PiHeaderFactory = (tui: TUI, theme: Theme) => PiComponentWithDispose
 
 /** Cancellation and timeout options for interactive UI dialogs. */
@@ -838,16 +839,19 @@ class PiUi extends Context.Service<PiUi, PiUiService>()('pi-effect/PiUi') {}
 /** Typed Effect wrapper for Pi's extension event bus. */
 type PiEventBus = {
   /** Emits data on a named event channel. */
-  readonly emit: (channel: string, data: unknown) => Effect.Effect<void, PiOperationsError>
+  readonly emit: (
+    channel: string,
+    data: Parameters<ExtensionAPI['events']['emit']>[1],
+  ) => Effect.Effect<void, PiOperationsError>
   /** Subscribes to a channel and returns an Effect that resolves to an unsubscribe Effect. */
   readonly on: (
     channel: string,
-    handler: (data: unknown) => void,
+    handler: Parameters<ExtensionAPI['events']['on']>[1],
   ) => Effect.Effect<Effect.Effect<void, PiOperationsError>, PiOperationsError>
   /** Subscribes to a channel until the current Effect scope closes. */
   readonly onScoped: (
     channel: string,
-    handler: (data: unknown) => void,
+    handler: Parameters<ExtensionAPI['events']['on']>[1],
   ) => Effect.Effect<void, PiOperationsError, Scope.Scope>
 }
 

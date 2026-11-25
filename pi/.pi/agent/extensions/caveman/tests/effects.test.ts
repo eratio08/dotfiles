@@ -3,15 +3,25 @@ import test from 'node:test'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 import { Effect, ManagedRuntime } from 'effect'
 import cavemanExtension from '../index.ts'
-import { Caveman, CavemanContext, CavemanHostError, CavemanLayer, getModeInstructions } from '../src/extension.ts'
+import {
+  Caveman,
+  CavemanContext,
+  CavemanHostError,
+  CavemanLayer,
+  type CavemanMode,
+  getModeInstructions,
+} from '../src/extension.ts'
 
 type MessageOptions = {
   deliverAs?: 'steer' | 'followUp'
   expandPromptTemplates?: boolean
 }
-type EventHandler = (event: unknown, ctx: ExtensionContext) => Promise<unknown>
-type CommandHandler = (args: string, ctx: ExtensionContext) => Promise<unknown>
-type AppendEntry = (customType: string, data?: unknown) => void
+type EventHandler = (
+  event: { source?: string; text?: string; systemPrompt?: string },
+  ctx: ExtensionContext,
+) => Promise<{ action?: string; systemPrompt?: string } | undefined>
+type CommandHandler = (args: string, ctx: ExtensionContext) => Promise<void>
+type AppendEntry = (customType: string, data?: { mode: CavemanMode }) => void
 type SendUserMessage = (content: string, options?: MessageOptions) => void
 
 type PiOverrides = { appendEntry?: AppendEntry; sendUserMessage?: SendUserMessage }
@@ -20,7 +30,7 @@ type TestHarness = {
   pi: ExtensionAPI
   events: Map<string, EventHandler>
   commands: Map<string, CommandHandler>
-  appended: Array<{ customType: string; data: unknown }>
+  appended: Array<{ customType: string; data: { mode: CavemanMode } | undefined }>
   messages: Array<{ content: string; options?: MessageOptions }>
 }
 
@@ -35,10 +45,11 @@ type ContextFixture = {
 function makePi(overrides: PiOverrides = {}): TestHarness {
   const events = new Map<string, EventHandler>()
   const commands = new Map<string, CommandHandler>()
-  const appended: Array<{ customType: string; data: unknown }> = []
+  const appended: Array<{ customType: string; data: { mode: CavemanMode } | undefined }> = []
   const messages: Array<{ content: string; options?: MessageOptions }> = []
   const appendEntry =
-    overrides.appendEntry ?? ((customType: string, data: unknown): number => appended.push({ customType, data }))
+    overrides.appendEntry ??
+    ((customType: string, data: { mode: CavemanMode } | undefined): number => appended.push({ customType, data }))
   const sendUserMessage =
     overrides.sendUserMessage ??
     ((content: string, options: MessageOptions | undefined): number => messages.push({ content, options }))
@@ -52,7 +63,7 @@ function makePi(overrides: PiOverrides = {}): TestHarness {
     },
     appendEntry,
     sendUserMessage,
-  } as unknown as ExtensionAPI
+  } as ExtensionAPI
 
   return { pi, events, commands, appended, messages }
 }
@@ -76,12 +87,12 @@ function makeContext(options: ContextOptions = {}): ContextFixture {
     },
   }
   const ctx = {
-    ui,
+    ui: ui as ExtensionContext['ui'],
     mode: hasUI ? 'tui' : 'print',
     hasUI,
     cwd: '/tmp/caveman-test',
-    sessionManager: { getBranch: () => entries },
-    modelRegistry: {},
+    sessionManager: { getBranch: () => entries } as ExtensionContext['sessionManager'],
+    modelRegistry: {} as ExtensionContext['modelRegistry'],
     model: undefined,
     scopedModels: [],
     signal: undefined,
@@ -93,7 +104,7 @@ function makeContext(options: ContextOptions = {}): ContextFixture {
     getContextUsage: () => undefined,
     compact: () => undefined,
     getSystemPrompt: () => '',
-  } as unknown as ExtensionContext
+  } as ExtensionContext
   return { ctx, statuses, notifications }
 }
 
@@ -234,8 +245,8 @@ test('should report persistence failures and keep the mode unchanged given a fai
     const rejection = runtime.runPromise(effect)
 
     //then
-    await assert.rejects(rejection, (error: unknown) => {
-      return error instanceof CavemanHostError && error.operation === 'appendEntry'
+    await assert.rejects(rejection, (cause: unknown) => {
+      return cause instanceof CavemanHostError && cause.operation === 'appendEntry'
     })
     const mode = await runtime.runPromise(
       Effect.gen(function* () {

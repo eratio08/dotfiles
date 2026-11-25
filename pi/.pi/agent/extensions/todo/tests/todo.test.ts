@@ -27,10 +27,14 @@ function todo(
   dependsOn: string[] = [],
   details?: string,
 ): Todo {
-  return { id, content, status, dependsOn, ...(details === undefined ? {} : { details }) }
+  const value: Todo = { id, content, status, dependsOn }
+  return details === undefined ? value : { ...value, details }
 }
 
-function sessionEntry(todos: readonly Todo[]): unknown {
+type LegacyTodo = Omit<Todo, 'details'> & { description: string }
+type TodoSnapshotEntry = { type: 'custom'; customType: 'todo'; data: { todos: readonly (Todo | LegacyTodo)[] } }
+
+function sessionEntry(todos: readonly (Todo | LegacyTodo)[]): TodoSnapshotEntry {
   return { type: 'custom', customType: 'todo', data: { todos } }
 }
 
@@ -43,7 +47,7 @@ test('should migrate legacy description fields given a restored snapshot', () =>
       status: 'pending',
       dependsOn: [],
       description: 'legacy details',
-    } as unknown as Todo,
+    },
   ])
 
   //when
@@ -51,6 +55,8 @@ test('should migrate legacy description fields given a restored snapshot', () =>
 
   //then
   assert.equal(todos[0]?.details, 'legacy details')
+  const withoutDetails = extractLatestTodoSnapshot([sessionEntry([todo(secondId, 'no details')])])
+  assert.equal('details' in (withoutDetails[0] ?? {}), false)
 })
 
 test('should restore the latest valid snapshot and derive blocked state given multiple snapshots', () => {

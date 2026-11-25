@@ -6,6 +6,7 @@ import test from 'node:test'
 import { initTheme } from '@earendil-works/pi-coding-agent'
 import { PiToolError } from '@eratio/pi-effect'
 import { createFakeExtensionContext, installFakePlugin } from '@eratio/pi-effect/testing'
+import { Predicate } from 'effect'
 import applyPatchExtension from '../index.ts'
 
 async function withTemporaryProject(run: (cwd: string) => Promise<void>): Promise<void> {
@@ -46,8 +47,8 @@ test('should preserve tool metadata and result details given an Effect adapter c
         'Use apply_patch only with an OpenCode-style patch enclosed by *** Begin Patch and *** End Patch.',
         'Use edit instead of apply_patch for precise changes within one existing file.',
       ])
-      assert.equal(typeof tool.renderCall, 'function')
-      assert.equal(typeof tool.renderResult, 'function')
+      assert.ok(Predicate.isFunction(tool.renderCall))
+      assert.ok(Predicate.isFunction(tool.renderResult))
 
       //when
       const result = await fake.invokeTool('apply_patch', 'patch-call', { patchText }, context)
@@ -112,9 +113,9 @@ test('should map parse failures to ApplyPatchError given invalid patch input', a
       const execution = fake.invokeTool('apply_patch', 'parse-call', { patchText: 'invalid patch' }, context)
 
       //then
-      await assert.rejects(execution, (error: unknown) => {
-        assert.ok(error instanceof PiToolError)
-        const failure = error.cause as { _tag?: string; operation?: string }
+      await assert.rejects(execution, (cause: unknown) => {
+        assert.ok(cause instanceof PiToolError)
+        const failure = cause.cause as { _tag?: string; operation?: string }
         assert.equal(failure._tag, 'ApplyPatchError')
         assert.equal(failure.operation, 'parse')
         return true
@@ -148,9 +149,9 @@ test('should map patch application failures to ApplyPatchError given a missing u
       const execution = fake.invokeTool('apply_patch', 'filesystem-call', { patchText }, context)
 
       //then
-      await assert.rejects(execution, (error: unknown) => {
-        assert.ok(error instanceof PiToolError)
-        const failure = error.cause as { _tag?: string; operation?: string }
+      await assert.rejects(execution, (cause: unknown) => {
+        assert.ok(cause instanceof PiToolError)
+        const failure = cause.cause as { _tag?: string; operation?: string }
         assert.equal(failure._tag, 'ApplyPatchError')
         assert.equal(failure.operation, 'apply')
         return true
@@ -199,9 +200,9 @@ test('should map filesystem failures to ApplyPatchError given a missing project 
       const execution = fake.invokeTool('apply_patch', 'filesystem-call', { patchText }, context)
 
       //then
-      await assert.rejects(execution, (error: unknown) => {
-        assert.ok(error instanceof PiToolError)
-        const failure = error.cause as { _tag?: string; operation?: string }
+      await assert.rejects(execution, (cause: unknown) => {
+        assert.ok(cause instanceof PiToolError)
+        const failure = cause.cause as { _tag?: string; operation?: string }
         assert.equal(failure._tag, 'ApplyPatchError')
         assert.equal(failure.operation, 'filesystem')
         return true

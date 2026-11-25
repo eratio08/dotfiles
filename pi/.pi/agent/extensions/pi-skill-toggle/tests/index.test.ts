@@ -2,8 +2,8 @@ import { describe, test } from 'bun:test'
 import { strict as assert } from 'node:assert'
 import piSkillToggle from '../index.ts'
 
-type CommandHandler = (args: string, ctx: unknown) => Promise<void>
-type EventHandler = (event: unknown, ctx: unknown) => Promise<void>
+type CommandHandler = (args: string, ctx: { hasUI: boolean }) => Promise<void>
+type EventHandler = (event: { type?: string }, ctx: { hasUI: boolean }) => Promise<void>
 
 async function createHarness(): Promise<{
   shutdown: () => Promise<void>

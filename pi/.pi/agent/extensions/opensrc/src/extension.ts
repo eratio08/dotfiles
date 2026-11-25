@@ -6,7 +6,21 @@ import { dirname, extname, isAbsolute, resolve } from 'node:path'
 import { isMainThread, parentPort, Worker } from 'node:worker_threads'
 import { Lang, parse, pattern } from '@ast-grep/napi'
 import { PiProcess, PiUi } from '@eratio/pi-effect'
-import { Context, Deferred, Effect, Fiber, Layer, Option, Ref, Schema, type Scope, Semaphore } from 'effect'
+import {
+  Context,
+  Deferred,
+  Effect,
+  Fiber,
+  Layer,
+  Match,
+  Option,
+  Predicate,
+  Ref,
+  Result,
+  Schema,
+  type Scope,
+  Semaphore,
+} from 'effect'
 import { glob } from 'glob'
 
 type SourceType = 'npm' | 'pypi' | 'crates' | 'repo'
@@ -121,8 +135,17 @@ class OpensrcFailure extends Error {
   }
 }
 
-function createOpensrcFailure(fields: OpensrcFailureFields): OpensrcFailure {
-  return new OpensrcFailure(fields)
+function createOpensrcFailure(fields: OpensrcFailureFields): OpensrcFailure
+function createOpensrcFailure(tag: OpensrcFailureTag, fields: Omit<OpensrcFailureFields, '_tag'>): OpensrcFailure
+function createOpensrcFailure(
+  fieldsOrTag: OpensrcFailureFields | OpensrcFailureTag,
+  fields?: Omit<OpensrcFailureFields, '_tag'>,
+): OpensrcFailure {
+  if (Predicate.isString(fieldsOrTag)) {
+    if (fields === undefined) throw new TypeError('Failure fields are required.')
+    return new OpensrcFailure({ ...fields, _tag: fieldsOrTag })
+  }
+  return new OpensrcFailure(fieldsOrTag)
 }
 
 type SourceDiff = {
@@ -243,11 +266,11 @@ function isContainedPath(root: string, candidate: string): boolean {
 }
 
 function filterFileEntries(entries: readonly FileEntry[], pattern?: string): readonly FileEntry[] {
-  const safeEntries = entries
-    .filter((entry) => isSafeEntryPath(entry.path))
-    .map((entry) => ({ ...entry, path: normalizeEntryPath(entry.path) }))
+  const safeEntries = entries.flatMap((entry) =>
+    isSafeEntryPath(entry.path) ? [{ ...entry, path: normalizeEntryPath(entry.path) }] : [],
+  )
   if (pattern === undefined) return safeEntries.sort(compareEntries)
-  const matchingPaths = safeEntries.filter((entry) => matchesGlob(entry.path, pattern)).map((entry) => entry.path)
+  const matchingPaths = safeEntries.flatMap((entry) => (matchesGlob(entry.path, pattern) ? [entry.path] : []))
   return safeEntries
     .filter((entry) => matchingPaths.some((path) => path === entry.path || path.startsWith(`${entry.path}/`)))
     .sort(compareEntries)
@@ -387,8 +410,8 @@ const OpensrcFailureSchema = Schema.Struct({
   cause: Schema.optional(Schema.Unknown),
 })
 
-function decodeOpensrcFailure(value: unknown): OpensrcFailure | undefined {
-  const decoded = Schema.decodeUnknownOption(OpensrcFailureSchema)(value)
+function decodeOpensrcFailure(cause: unknown): OpensrcFailure | undefined {
+  const decoded = Schema.decodeUnknownOption(OpensrcFailureSchema)(cause)
   return Option.isSome(decoded) ? createOpensrcFailure(decoded.value) : undefined
 }
 
@@ -421,12 +444,17 @@ const parseSourceIndex = Effect.fnUntraced(function* (input: string): Effect.fn.
   return yield* decodeSourceIndex(value)
 })
 
+const SourceIndexObjectSchema = Schema.declare(Predicate.isObject)
+const SourceIndexRecordsSchema = Schema.UndefinedOr(Schema.declare(Array.isArray))
+
 const decodeSourceIndex = Effect.fnUntraced(function* (value: unknown): Effect.fn.Return<SourceIndex, OpensrcFailure> {
-  if (!isRecord(value))
+  const decoded = Schema.decodeUnknownResult(SourceIndexObjectSchema)(value)
+  if (Result.isFailure(decoded))
     return yield* Effect.fail(sourceIndexFailure('Invalid opensrc source index: expected an object'))
-  const packages = yield* decodeRecordsEffect(value.packages, 'packages')
-  const repos = yield* decodeRecordsEffect(value.repos, 'repos')
-  if (value.packages === undefined && value.repos === undefined) {
+  const index = decoded.success
+  const packages = yield* decodeRecordsEffect(index.packages, 'packages')
+  const repos = yield* decodeRecordsEffect(index.repos, 'repos')
+  if (index.packages === undefined && index.repos === undefined) {
     return yield* Effect.fail(sourceIndexFailure('Invalid opensrc source index: expected packages or repos'))
   }
   return { packages, repos }
@@ -449,7 +477,7 @@ const normalizeRecordEffect = Effect.fnUntraced(function* (record: SourceIndexRe
   if (group === 'package' && type === 'repo') {
     return yield* Effect.fail(sourceIndexEntryFailure(group, record.name, 'invalid registry'))
   }
-  if (typeof type !== 'string' || !isSourceType(type)) {
+  if (!Predicate.isString(type) || !isSourceType(type)) {
     return yield* Effect.fail(sourceIndexEntryFailure(group, record.name, 'invalid type'))
   }
   const fetchedAt = record.fetchedAt ?? record.fetched_at
@@ -466,43 +494,46 @@ const normalizeRecordEffect = Effect.fnUntraced(function* (record: SourceIndexRe
 })
 
 const decodeRecordsEffect = Effect.fnUntraced(function* (value: unknown, group: string) {
-  if (value === undefined) return []
-  if (!Array.isArray(value)) {
+  const decoded = Schema.decodeUnknownResult(SourceIndexRecordsSchema)(value)
+  if (Result.isFailure(decoded)) {
     return yield* Effect.fail(sourceIndexFailure(`Invalid opensrc source index: ${group} must be an array`))
   }
+  if (decoded.success === undefined) return []
   const records: SourceIndexRecord[] = []
-  for (const [index, entry] of value.entries()) {
+  for (const [index, entry] of decoded.success.entries()) {
     records.push(yield* decodeRecordEffect(entry, group, index))
   }
   return records
 })
 
 const decodeRecordEffect = Effect.fnUntraced(function* (value: unknown, group: string, index: number) {
-  if (!isRecord(value)) {
+  const decoded = Schema.decodeUnknownResult(SourceIndexObjectSchema)(value)
+  if (Result.isFailure(decoded)) {
     return yield* Effect.fail(sourceIndexFailure(`Invalid opensrc ${group} entry ${index}: expected an object`))
   }
-  const name = value.name
-  const version = value.version
-  const path = value.path
-  const fetchedAt = value.fetchedAt ?? value.fetched_at
-  if (typeof name !== 'string' || name.length === 0) {
+  const record = decoded.success
+  const name = record.name
+  const version = record.version
+  const path = record.path
+  const fetchedAt = record.fetchedAt ?? record.fetched_at
+  if (!Predicate.isString(name) || name.length === 0) {
     return yield* Effect.fail(sourceIndexFailure(`Invalid opensrc ${group} entry ${index}: missing name`))
   }
-  if (typeof version !== 'string' || version.length === 0) {
+  if (!Predicate.isString(version) || version.length === 0) {
     return yield* Effect.fail(sourceIndexFailure(`Invalid opensrc ${group} entry ${name}: missing version`))
   }
-  if (typeof path !== 'string' || path.length === 0) {
+  if (!Predicate.isString(path) || path.length === 0) {
     return yield* Effect.fail(sourceIndexFailure(`Invalid opensrc ${group} entry ${name}: missing path`))
   }
-  if (typeof fetchedAt !== 'string' || fetchedAt.length === 0) {
+  if (!Predicate.isString(fetchedAt) || fetchedAt.length === 0) {
     return yield* Effect.fail(sourceIndexFailure(`Invalid opensrc ${group} entry ${name}: missing fetchedAt`))
   }
-  const registry = value.registry
-  const type = value.type
-  if (registry !== undefined && (typeof registry !== 'string' || !isPackageType(registry))) {
+  const registry = record.registry
+  const type = record.type
+  if (registry !== undefined && (!Predicate.isString(registry) || !isPackageType(registry))) {
     return yield* Effect.fail(sourceIndexFailure(`Invalid opensrc ${group} entry ${name}: invalid registry`))
   }
-  if (type !== undefined && (typeof type !== 'string' || !isSourceType(type))) {
+  if (type !== undefined && (!Predicate.isString(type) || !isSourceType(type))) {
     return yield* Effect.fail(sourceIndexFailure(`Invalid opensrc ${group} entry ${name}: invalid type`))
   }
   return {
@@ -510,7 +541,7 @@ const decodeRecordEffect = Effect.fnUntraced(function* (value: unknown, group: s
     version,
     path,
     fetchedAt,
-    fetched_at: typeof value.fetched_at === 'string' ? value.fetched_at : undefined,
+    fetched_at: Predicate.isString(record.fetched_at) ? record.fetched_at : undefined,
     registry: registry as SourceIndexRecord['registry'],
     type: type as SourceIndexRecord['type'],
   }
@@ -528,12 +559,8 @@ function compareNormalizedSources(left: Source, right: Source): number {
   return sourceKey(left).localeCompare(sourceKey(right))
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function sourceIndexFailure(message: string, cause?: unknown): OpensrcFailure {
-  return createOpensrcFailure({ _tag: 'parser', operation: 'source-index', message, cause })
+  return createOpensrcFailure('parser', { operation: 'source-index', message, cause })
 }
 
 function sourceIndexEntryFailure(group: string, name: string, detail: string): OpensrcFailure {
@@ -575,10 +602,7 @@ function parseSourceSpec(input: string): ParsedSpec {
   if (packageType === 'pypi') return parseRegistryPackage(body, 'pypi')
   if (packageType === 'crates') return parseRegistryPackage(body, 'crates')
   if (prefix === 'github' || prefix === 'gitlab' || prefix === 'bitbucket') {
-    return parseRepositoryShorthand(
-      body,
-      prefix === 'github' ? 'github.com' : prefix === 'gitlab' ? 'gitlab.com' : 'bitbucket.org',
-    )
+    return parseRepositoryShorthand(body, prefix === 'bitbucket' ? 'bitbucket.org' : `${prefix}.com`)
   }
   return invalidSourceSpec(`Unsupported source spec prefix: ${prefix}`)
 }
@@ -596,14 +620,14 @@ function parseNpm(value: string): ParsedSpec {
   if (!/^@[a-z0-9._~-]+\/[a-z0-9._~-]+$/i.test(name) && !/^[a-z0-9._~-]+$/i.test(name)) {
     return invalidSourceSpec(`Invalid npm package spec: ${value}`)
   }
-  return { type: 'npm', name, ...(version ? { version } : {}) }
+  return version ? { type: 'npm', name, version } : { type: 'npm', name }
 }
 
 function parseRegistryPackage(value: string, type: 'pypi' | 'crates'): ParsedSpec {
   const { name, version } = splitRegistryPackageVersion(value, type)
   const namePattern = type === 'pypi' ? /^[a-z0-9][a-z0-9._-]*$/i : /^[a-z][a-z0-9_-]*$/i
   if (!namePattern.test(name)) return invalidSourceSpec(`Invalid ${type} package spec: ${value}`)
-  return { type, name, ...(version ? { version } : {}) }
+  return version ? { type, name, version } : { type, name }
 }
 
 function parseRepositoryShorthand(value: string, host: string): ParsedSpec {
@@ -614,12 +638,9 @@ function parseRepositoryShorthand(value: string, host: string): ParsedSpec {
   }
   const [owner, name] = parts
   const normalizedName = name.replace(/\.git$/, '')
-  return {
-    type: 'repo',
-    name: `${host}/${owner}/${normalizedName}`,
-    ...(ref ? { ref } : {}),
-    repository: `https://${host}/${owner}/${normalizedName}`,
-  }
+  const parsed = { type: 'repo' as const, name: `${host}/${owner}/${normalizedName}` }
+  const repositoryUrl = `https://${host}/${owner}/${normalizedName}`
+  return ref ? { ...parsed, ref, repository: repositoryUrl } : { ...parsed, repository: repositoryUrl }
 }
 
 function parseRepositoryUrl(value: string): ParsedSpec {
@@ -633,15 +654,16 @@ function parseRepositoryUrl(value: string): ParsedSpec {
   const name = parts[1].replace(/\.git$/, '')
   if (!owner || !name) return invalidSourceSpec(`Invalid repository URL: ${value}`)
   const ref = repositoryUrlRef(host, parts.slice(2))
-  return {
-    type: 'repo',
-    name: `${host}/${owner}/${name}`,
-    ...(ref ? { ref } : {}),
-    repository: `https://${host}/${owner}/${name}`,
-  }
+  const parsed = { type: 'repo' as const, name: `${host}/${owner}/${name}` }
+  const repositoryUrl = `https://${host}/${owner}/${name}`
+  return ref ? { ...parsed, ref, repository: repositoryUrl } : { ...parsed, repository: repositoryUrl }
 }
 
-function splitPackageVersion(value: string, scoped: boolean): { name: string; version?: string } {
+type ParsedPackageVersion = Pick<ParsedSpec, 'name' | 'version'>
+
+type ParsedRepositoryRef = { repository: string; ref?: string }
+
+function splitPackageVersion(value: string, scoped: boolean): ParsedPackageVersion {
   const separator = scoped ? value.indexOf('@', 1) : findPackageVersionSeparator(value)
   if (separator < 0) return { name: value }
   const name = value.slice(0, separator)
@@ -650,7 +672,7 @@ function splitPackageVersion(value: string, scoped: boolean): { name: string; ve
   return { name, version }
 }
 
-function splitRegistryPackageVersion(value: string, type: 'pypi' | 'crates'): { name: string; version?: string } {
+function splitRegistryPackageVersion(value: string, type: 'pypi' | 'crates'): ParsedPackageVersion {
   const equality = type === 'pypi' ? value.indexOf('==') : -1
   if (equality >= 0) {
     const name = value.slice(0, equality)
@@ -661,7 +683,7 @@ function splitRegistryPackageVersion(value: string, type: 'pypi' | 'crates'): { 
   return splitPackageVersion(value, false)
 }
 
-function splitRepositoryRef(value: string): { repository: string; ref?: string } {
+function splitRepositoryRef(value: string): ParsedRepositoryRef {
   const at = value.indexOf('@')
   const hash = value.indexOf('#')
   const separator = at < 0 ? hash : hash < 0 ? at : Math.min(at, hash)
@@ -695,7 +717,7 @@ function isRepositoryShorthand(value: string): boolean {
 }
 
 function invalidSourceSpec(message: string, cause?: unknown): never {
-  throw createOpensrcFailure({ _tag: 'validation', operation: 'source-spec', message, cause })
+  throw createOpensrcFailure('validation', { operation: 'source-spec', message, cause })
 }
 
 type OpensrcContextValue = { readonly cwd: string }
@@ -812,8 +834,7 @@ function createChildEnvironment(environment: Readonly<Record<string, string | un
 }
 
 function mapPiFailure(command: string, cause: unknown): OpensrcFailure {
-  return createOpensrcFailure({
-    _tag: 'cli',
+  return createOpensrcFailure('cli', {
     operation: `exec ${command}`,
     message: cause instanceof Error ? cause.message : 'Process execution failed',
     cause,
@@ -859,10 +880,10 @@ function resolveOpensrcConfig(
 }
 
 const tokenlessGithubEnvironment = { GH_TOKEN: undefined, GITHUB_TOKEN: undefined }
-const githubCliEnvironment: Readonly<Record<string, string | undefined>> = {
+const githubCliEnvironment = {
   GH_HOST: 'github.com',
   ...tokenlessGithubEnvironment,
-}
+} as const
 
 function unauthenticatedGithubEnvironment(config: OpensrcConfig): Readonly<Record<string, string | undefined>> {
   const hasInheritedGithubToken =
@@ -891,8 +912,7 @@ const runOpensrcCommandEffect = Effect.fnUntraced(function* (
 const GithubLogin = Context.Reference<Effect.Effect<void, OpensrcFailure, PiHost>>('opensrc/GithubLogin', {
   defaultValue: () =>
     Effect.fail(
-      createOpensrcFailure({
-        _tag: 'cli',
+      createOpensrcFailure('cli', {
         operation: 'fetch',
         message:
           'A refreshable GitHub CLI login is required to fetch private repositories. Run `gh auth login --hostname github.com --expiring` and try again.',
@@ -911,7 +931,7 @@ const loginGithubEffect: Effect.Effect<void, OpensrcFailure, PiHost | PiUi> = Ef
       )
       .pipe(
         Effect.mapError(() =>
-          createOpensrcFailure({ _tag: 'cli', operation: 'fetch', message: 'GitHub sign-in is unavailable.' }),
+          createOpensrcFailure('cli', { operation: 'fetch', message: 'GitHub sign-in is unavailable.' }),
         ),
       )
     if (!approved) return yield* Effect.fail(cancellationFailure('fetch'))
@@ -936,8 +956,7 @@ const loginGithubEffect: Effect.Effect<void, OpensrcFailure, PiHost | PiUi> = Ef
       Fiber.join(login).pipe(
         Effect.flatMap(() =>
           Effect.fail(
-            createOpensrcFailure({
-              _tag: 'cli',
+            createOpensrcFailure('cli', {
               operation: 'fetch',
               message: 'GitHub sign-in did not provide a device code.',
             }),
@@ -947,16 +966,15 @@ const loginGithubEffect: Effect.Effect<void, OpensrcFailure, PiHost | PiUi> = Ef
     ).pipe(
       Effect.timeout('30 seconds'),
       Effect.mapError(() =>
-        createOpensrcFailure({
-          _tag: 'cli',
-          operation: 'fetch',
-          message: 'GitHub sign-in did not provide a device code.',
-        }),
+        createOpensrcFailure('cli', { operation: 'fetch', message: 'GitHub sign-in did not provide a device code.' }),
       ),
     )
 
-    const browserCommand =
-      process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'rundll32' : 'xdg-open'
+    const browserCommand = Match.value(process.platform).pipe(
+      Match.when('darwin', () => 'open'),
+      Match.when('win32', () => 'rundll32'),
+      Match.orElse(() => 'xdg-open'),
+    )
     const browserArgs =
       process.platform === 'win32'
         ? ['url.dll,FileProtocolHandler', 'https://github.com/login/device']
@@ -977,7 +995,7 @@ const loginGithubEffect: Effect.Effect<void, OpensrcFailure, PiHost | PiUi> = Ef
       )
       .pipe(
         Effect.mapError(() =>
-          createOpensrcFailure({ _tag: 'cli', operation: 'fetch', message: 'GitHub sign-in is unavailable.' }),
+          createOpensrcFailure('cli', { operation: 'fetch', message: 'GitHub sign-in is unavailable.' }),
         ),
       )
     if (!completed) return yield* Effect.fail(cancellationFailure('fetch'))
@@ -985,14 +1003,12 @@ const loginGithubEffect: Effect.Effect<void, OpensrcFailure, PiHost | PiUi> = Ef
     const result = yield* Fiber.join(login).pipe(
       Effect.timeout('5 minutes'),
       Effect.mapError(() =>
-        createOpensrcFailure({ _tag: 'cli', operation: 'fetch', message: 'GitHub sign-in did not complete.' }),
+        createOpensrcFailure('cli', { operation: 'fetch', message: 'GitHub sign-in did not complete.' }),
       ),
     )
     if (result.killed) return yield* Effect.fail(cancellationFailure('fetch'))
     if (result.code !== 0)
-      return yield* Effect.fail(
-        createOpensrcFailure({ _tag: 'cli', operation: 'fetch', message: 'GitHub sign-in failed.' }),
-      )
+      return yield* Effect.fail(createOpensrcFailure('cli', { operation: 'fetch', message: 'GitHub sign-in failed.' }))
   }),
 )
 
@@ -1023,8 +1039,7 @@ const fetchOneOpensrcSourceEffect = Effect.fnUntraced(function* (
   if (visibility.code !== 0) {
     const detail = result.stderr.trim().split('\n')[0] || 'OpenSrc could not fetch the repository.'
     return yield* Effect.fail(
-      createOpensrcFailure({
-        _tag: 'cli',
+      createOpensrcFailure('cli', {
         operation: 'fetch',
         message: `${detail} The GitHub CLI could not confirm repository visibility. Make sure that gh is installed and signed in to an account that can view the repository.`,
       }),
@@ -1050,8 +1065,7 @@ const fetchOneOpensrcSourceEffect = Effect.fnUntraced(function* (
     if (refreshedStatus.killed) return yield* Effect.fail(cancellationFailure('fetch'))
     if (refreshedStatus.code !== 0 || !hasRefreshableGithubCredential(refreshedStatus.stdout)) {
       return yield* Effect.fail(
-        createOpensrcFailure({
-          _tag: 'cli',
+        createOpensrcFailure('cli', {
           operation: 'fetch',
           message:
             'GitHub did not issue a refreshable credential. Private fetching requires a refreshable GitHub CLI login.',
@@ -1068,8 +1082,7 @@ const fetchOneOpensrcSourceEffect = Effect.fnUntraced(function* (
     if (refreshedVisibility.killed) return yield* Effect.fail(cancellationFailure('fetch'))
     if (refreshedVisibility.code !== 0 || refreshedVisibility.stdout.trim() !== 'true') {
       return yield* Effect.fail(
-        createOpensrcFailure({
-          _tag: 'cli',
+        createOpensrcFailure('cli', {
           operation: 'fetch',
           message: 'The new GitHub CLI login cannot confirm that the repository is private.',
         }),
@@ -1087,8 +1100,7 @@ const fetchOneOpensrcSourceEffect = Effect.fnUntraced(function* (
   const token = tokenResult.stdout.trim()
   if (tokenResult.code !== 0 || token.length === 0) {
     return yield* Effect.fail(
-      createOpensrcFailure({
-        _tag: 'cli',
+      createOpensrcFailure('cli', {
         operation: 'fetch',
         message: 'The GitHub CLI did not return a token. Run `gh auth status --hostname github.com` and try again.',
       }),
@@ -1116,8 +1128,7 @@ const OpenSrcCliLive: Layer.Layer<OpenSrcCli, never, PiHost | OpensrcConfigurati
         const version = parseVersion(result.stdout)
         if (version === undefined || compareVersion(version, MINIMUM_VERSION) < 0) {
           return yield* Effect.fail(
-            createOpensrcFailure({
-              _tag: 'cli',
+            createOpensrcFailure('cli', {
               operation: 'preflight',
               message: `The opensrc CLI must be version 0.7.3 or newer. Run \`${OPENSRC_INSTALL_COMMAND}\` with Node.js 24 or newer.`,
             }),
@@ -1135,8 +1146,7 @@ const OpenSrcCliLive: Layer.Layer<OpenSrcCli, never, PiHost | OpensrcConfigurati
         yield* validateResult('list', result)
         return yield* parseSourceIndex(result.stdout).pipe(
           Effect.mapError((cause) =>
-            createOpensrcFailure({
-              _tag: 'parser',
+            createOpensrcFailure('parser', {
               operation: 'list',
               message: cause.message || 'Unable to parse the opensrc source index.',
               cause,
@@ -1180,8 +1190,8 @@ const OpenSrcCliLive: Layer.Layer<OpenSrcCli, never, PiHost | OpensrcConfigurati
               onSuccess: () => ({ _tag: 'success' as const }),
             },
           )
-          if (outcome._tag !== 'failure') continue
-          if (outcome.failure._tag === 'cancellation') return yield* Effect.fail(outcome.failure)
+          if (!Predicate.isTagged(outcome, 'failure')) continue
+          if (Predicate.isTagged(outcome.failure, 'cancellation')) return yield* Effect.fail(outcome.failure)
           firstFailure ??= outcome.failure
         }
         if (firstFailure !== undefined) return yield* Effect.fail(firstFailure)
@@ -1205,13 +1215,16 @@ const OpenSrcCliLive: Layer.Layer<OpenSrcCli, never, PiHost | OpensrcConfigurati
 function hasRefreshableGithubCredential(output: string): boolean {
   try {
     const status: unknown = JSON.parse(output)
-    if (!isRecord(status) || !isRecord(status.hosts)) return false
+    if (!Predicate.isObject(status) || !Predicate.isObject(status.hosts)) return false
     const accounts = status.hosts['github.com']
     return (
       Array.isArray(accounts) &&
       accounts.some(
         (account) =>
-          isRecord(account) && account.active === true && account.state === 'success' && account.refreshable === true,
+          Predicate.isObject(account) &&
+          account.active === true &&
+          account.state === 'success' &&
+          account.refreshable === true,
       )
     )
   } catch {
@@ -1224,7 +1237,7 @@ const validateResult = Effect.fnUntraced(function* (operation: string, result: P
   if (result.code === 0) return
   const detail = result.stderr.trim().split('\n')[0] || `opensrc ${operation} failed with exit code ${result.code}`
   const message = operation === 'preflight' ? `${detail}. Run \`${OPENSRC_INSTALL_COMMAND}\` and try again.` : detail
-  return yield* Effect.fail(createOpensrcFailure({ _tag: 'cli', operation, message, cause: { code: result.code } }))
+  return yield* Effect.fail(createOpensrcFailure('cli', { operation, message, cause: { code: result.code } }))
 })
 
 function parseVersion(output: string): readonly [number, number, number] | undefined {
@@ -1247,7 +1260,7 @@ function expandHome(value: string, homeDirectory: string): string {
 }
 
 function cancellationFailure(operation: string): OpensrcFailure {
-  return createOpensrcFailure({ _tag: 'cancellation', operation, message: 'The opensrc operation was cancelled.' })
+  return createOpensrcFailure('cancellation', { operation, message: 'The opensrc operation was cancelled.' })
 }
 
 type SourceStoreMutation<A> = {
@@ -1275,8 +1288,7 @@ const refreshSourceStoreStateEffect = Effect.fnUntraced(function* (
   const index = yield* cli.list()
   const sources = yield* normalizeSources(index).pipe(
     Effect.mapError((cause) =>
-      createOpensrcFailure({
-        _tag: 'parser',
+      createOpensrcFailure('parser', {
         operation: 'source-store.refresh',
         message: cause.message || 'Unable to normalize the source index.',
         cause,
@@ -1344,21 +1356,13 @@ const resolveContainedPath = Effect.fnUntraced(function* (
 ): Effect.fn.Return<string, OpensrcFailure> {
   if (!isSafeRelativePath(filePath))
     return yield* Effect.fail(
-      createOpensrcFailure({
-        _tag: 'validation',
-        operation: 'path',
-        message: `Unsafe source path: ${filePath}`,
-      }),
+      createOpensrcFailure('validation', { operation: 'path', message: `Unsafe source path: ${filePath}` }),
     )
   const rootPath = normalizePath(root)
   const candidate = normalizePath(rootPath === '.' ? filePath : `${rootPath}/${filePath}`)
   if (!isContainedPath(rootPath, candidate))
     return yield* Effect.fail(
-      createOpensrcFailure({
-        _tag: 'validation',
-        operation: 'path',
-        message: `Source path escapes root: ${filePath}`,
-      }),
+      createOpensrcFailure('validation', { operation: 'path', message: `Source path escapes root: ${filePath}` }),
     )
   return candidate
 })
@@ -1394,11 +1398,7 @@ const buildTreeInterruptible = Effect.fnUntraced(function* (
 const validateTreeDepth = Effect.fnUntraced(function* (depth: number | undefined) {
   if (depth !== undefined && (!Number.isInteger(depth) || depth < 0)) {
     return yield* Effect.fail(
-      createOpensrcFailure({
-        _tag: 'validation',
-        operation: 'tree',
-        message: 'Tree depth must be a non-negative integer',
-      }),
+      createOpensrcFailure('validation', { operation: 'tree', message: 'Tree depth must be a non-negative integer' }),
     )
   }
   return depth ?? Number.POSITIVE_INFINITY
@@ -1511,8 +1511,7 @@ const createGrepContextEffect = Effect.fnUntraced(function* (
   const maxResults = options.maxResults ?? Number.MAX_SAFE_INTEGER
   if (!Number.isInteger(maxResults) || maxResults < 0) {
     return yield* Effect.fail(
-      createOpensrcFailure({
-        _tag: 'validation',
+      createOpensrcFailure('validation', {
         operation: 'grep',
         message: 'grep maxResults must be a non-negative integer',
       }),
@@ -1528,8 +1527,7 @@ const createGrepContextEffect = Effect.fnUntraced(function* (
         .sort((left, right) => left.source.localeCompare(right.source)),
     }),
     catch: (cause: unknown) =>
-      createOpensrcFailure({
-        _tag: 'validation',
+      createOpensrcFailure('validation', {
         operation: 'grep',
         message: `Invalid grep pattern: ${cause instanceof Error ? cause.message : String(cause)}`,
         cause,
@@ -1602,11 +1600,7 @@ const queryCheckpoint = Effect.fnUntraced(function* (state: QueryState, signal: 
 const ensureQueryActiveEffect = Effect.fnUntraced(function* (signal: AbortSignal) {
   if (signal.aborted) {
     return yield* Effect.fail(
-      createOpensrcFailure({
-        _tag: 'cancellation',
-        operation: 'query',
-        message: 'Operation aborted',
-      }),
+      createOpensrcFailure('cancellation', { operation: 'query', message: 'Operation aborted' }),
     )
   }
 })
@@ -1703,11 +1697,7 @@ const listFiles = Effect.fnUntraced(function* (
     const actualPath = yield* tryFileSystem('list', filePath, () => realpath(absolutePath))
     if (!isContainedPath(root, actualPath)) {
       return yield* Effect.fail(
-        createOpensrcFailure({
-          _tag: 'validation',
-          operation: 'path',
-          message: `Source path escapes root: ${filePath}`,
-        }),
+        createOpensrcFailure('validation', { operation: 'path', message: `Source path escapes root: ${filePath}` }),
       )
     }
     const metadata = yield* tryFileSystem('list', filePath, () => stat(actualPath))
@@ -1754,11 +1744,7 @@ const resolveContainedRealPath = Effect.fnUntraced(function* (root: string, file
   const actualPath = yield* tryFileSystem('realpath', filePath, () => realpath(candidate))
   if (!isContainedPath(root, actualPath)) {
     return yield* Effect.fail(
-      createOpensrcFailure({
-        _tag: 'validation',
-        operation: 'path',
-        message: `Source path escapes root: ${filePath}`,
-      }),
+      createOpensrcFailure('validation', { operation: 'path', message: `Source path escapes root: ${filePath}` }),
     )
   }
   return actualPath
@@ -1778,27 +1764,21 @@ const tryFileSystem = Effect.fnUntraced(function* <A>(
 const ensureNotAbortedEffect = Effect.fnUntraced(function* (signal: AbortSignal | undefined) {
   if (signal?.aborted === true) {
     return yield* Effect.fail(
-      createOpensrcFailure({
-        _tag: 'cancellation',
-        operation: 'filesystem',
-        message: 'Operation aborted',
-      }),
+      createOpensrcFailure('cancellation', { operation: 'filesystem', message: 'Operation aborted' }),
     )
   }
 })
 
 function mapFileSystemFailure(operation: string, path: string, cause: unknown): OpensrcFailure {
   const failure = decodeOpensrcFailure(cause)
-  if (failure?._tag === 'cancellation') {
-    return createOpensrcFailure({
-      _tag: 'cancellation',
+  if (failure !== undefined && Predicate.isTagged(failure, 'cancellation')) {
+    return createOpensrcFailure('cancellation', {
       operation,
       message: 'The opensrc operation was cancelled.',
       cause: failure,
     })
   }
-  return createOpensrcFailure({
-    _tag: 'filesystem',
+  return createOpensrcFailure('filesystem', {
     operation,
     message: failure?.message ?? (cause instanceof Error ? cause.message : `Unable to ${operation} source files`),
     cause: { path, failure: failure ?? cause },
@@ -2068,8 +2048,8 @@ const readSourceFilesOrErrorEffect = Effect.fnUntraced(function* (
     onSuccess: (entries: readonly FileEntry[]) => ({ _tag: 'success' as const, entries }),
   }).pipe(
     Effect.flatMap((outcome) => {
-      if (outcome._tag === 'failure') return Effect.fail(outcome.error)
-      if (outcome._tag === 'formatted') return Effect.succeed(undefined)
+      if (Predicate.isTagged(outcome, 'failure')) return Effect.fail(outcome.error)
+      if (Predicate.isTagged(outcome, 'formatted')) return Effect.succeed(undefined)
       return Effect.succeed(outcome.entries)
     }),
   )
@@ -2091,7 +2071,7 @@ const readSourceFileOrErrorEffect = Effect.fnUntraced(function* (
     onSuccess: (value: string) => ({ _tag: 'success' as const, value }),
   }).pipe(
     Effect.flatMap((outcome) => {
-      if (outcome._tag === 'failure') return Effect.fail(outcome.error)
+      if (Predicate.isTagged(outcome, 'failure')) return Effect.fail(outcome.error)
       return Effect.succeed(outcome.value)
     }),
   )
@@ -2156,8 +2136,8 @@ const fetchSourceMutationEffect = Effect.fnUntraced(function* (
     onFailure: (failure: OpensrcFailure) => ({ _tag: 'failure' as const, failure }),
     onSuccess: () => ({ _tag: 'success' as const }),
   })
-  if (outcome._tag === 'failure') {
-    if (outcome.failure._tag === 'cancellation' || outcome.failure.operation !== 'fetch') {
+  if (Predicate.isTagged(outcome, 'failure')) {
+    if (Predicate.isTagged(outcome.failure, 'cancellation') || outcome.failure.operation !== 'fetch') {
       return yield* Effect.fail(outcome.failure)
     }
     return { alreadyExists, failure: outcome.failure }
@@ -2411,8 +2391,7 @@ const evaluateAstParserInWorker = Effect.fnUntraced(function* (
           if (message.type === 'result') finishSuccess(message.matches)
           else
             finishFailure(
-              createOpensrcFailure({
-                _tag: 'parser',
+              createOpensrcFailure('parser', {
                 operation: 'astGrep',
                 message: message.message,
                 cause: { name: message.name, stack: message.stack },
@@ -2424,8 +2403,7 @@ const evaluateAstParserInWorker = Effect.fnUntraced(function* (
         const onExit = (code: number): void => {
           if (!settled)
             finishFailure(
-              createOpensrcFailure({
-                _tag: 'parser',
+              createOpensrcFailure('parser', {
                 operation: 'astGrep',
                 message: `The AST parser worker exited with code ${code}.`,
               }),
@@ -2451,7 +2429,7 @@ const evaluateAstParserInWorker = Effect.fnUntraced(function* (
 })
 
 const normalizeSpecsEffect = Effect.fnUntraced(function* (value: string | readonly string[]) {
-  const specs = typeof value === 'string' ? [value] : value
+  const specs = Predicate.isString(value) ? [value] : value
   const validSpecs = yield* assertStringArrayEffect('source specs', specs)
   if (validSpecs.length === 0)
     return yield* Effect.fail(validationFailure('fetch', 'At least one source spec is required.'))
@@ -2462,7 +2440,7 @@ const normalizeLanguagesEffect = Effect.fnUntraced(function* (
   value: string | readonly string[] | undefined,
 ): Effect.fn.Return<readonly string[], OpensrcFailure> {
   if (value === undefined) return []
-  const languages = typeof value === 'string' ? [value] : value
+  const languages = Predicate.isString(value) ? [value] : value
   return yield* assertStringArrayEffect('AST languages', languages).pipe(
     Effect.map((items) => items.map((language) => language.toLowerCase())),
   )
@@ -2481,7 +2459,7 @@ function inferredLanguage(filePath: string): readonly string[] {
 const decodeInputEffect = Effect.fnUntraced(function* <S extends Schema.ConstraintDecoder<unknown>>(
   operation: string,
   schema: S,
-  value: unknown,
+  value: S['Encoded'],
   message: string,
 ): Effect.fn.Return<S['Type'], OpensrcFailure> {
   return yield* Effect.try({
@@ -2496,34 +2474,34 @@ type AstGrepOptionsValue = Schema.Schema.Type<typeof AstGrepOptionsSchema>
 type CleanOptionsValue = Schema.Schema.Type<typeof CleanOptionsSchema>
 
 const decodeTreeOptionsEffect = Effect.fnUntraced(function* (
-  value: unknown,
+  value: TreeOptions,
 ): Effect.fn.Return<TreeOptionsValue, OpensrcFailure> {
   return yield* decodeInputEffect('tree', TreeOptionsSchema, value, 'Tree options must be an object.')
 })
 
 const decodeGrepOptionsEffect = Effect.fnUntraced(function* (
-  value: unknown,
+  value: GrepOptions,
 ): Effect.fn.Return<GrepOptionsValue, OpensrcFailure> {
   return yield* decodeInputEffect('grep', GrepOptionsSchema, value, 'Grep options must be an object.')
 })
 
 const decodeAstGrepOptionsEffect = Effect.fnUntraced(function* (
-  value: unknown,
+  value: AstGrepOptions,
 ): Effect.fn.Return<AstGrepOptionsValue, OpensrcFailure> {
   return yield* decodeInputEffect('astGrep', AstGrepOptionsSchema, value, 'AST options must be an object.')
 })
 
 const decodeCleanOptionsEffect = Effect.fnUntraced(function* (
-  value: unknown,
+  value: CleanOptions,
 ): Effect.fn.Return<CleanOptionsValue, OpensrcFailure> {
   return yield* decodeInputEffect('clean', CleanOptionsSchema, value, 'Clean options must be an object.')
 })
 
-const assertStringEffect = Effect.fnUntraced(function* (name: string, value: unknown) {
+const assertStringEffect = Effect.fnUntraced(function* (name: string, value: string) {
   return yield* decodeInputEffect('validation', Schema.NonEmptyString, value, `${name} must be a non-empty string.`)
 })
 
-const assertStringArrayEffect = Effect.fnUntraced(function* (name: string, value: unknown) {
+const assertStringArrayEffect = Effect.fnUntraced(function* (name: string, value: readonly string[]) {
   return yield* decodeInputEffect(
     'validation',
     Schema.Array(Schema.NonEmptyString),
@@ -2538,7 +2516,10 @@ function hasGlobMagic(value: string): boolean {
 
 function operationStopped(cause: unknown): OpensrcFailure | undefined {
   const failure = decodeOpensrcFailure(cause)
-  return failure !== undefined && (failure._tag === 'cancellation' || failure._tag === 'timeout') ? failure : undefined
+  return failure !== undefined &&
+    (Predicate.isTagged(failure, 'cancellation') || Predicate.isTagged(failure, 'timeout'))
+    ? failure
+    : undefined
 }
 
 function formatIndividualError(cause: unknown): string {
@@ -2548,20 +2529,15 @@ function formatIndividualError(cause: unknown): string {
 }
 
 function sourceNotFound(name: string): OpensrcFailure {
-  return createOpensrcFailure({
-    _tag: 'source-not-found',
-    operation: 'source',
-    message: `Cached source not found: ${name}`,
-  })
+  return createOpensrcFailure('source-not-found', { operation: 'source', message: `Cached source not found: ${name}` })
 }
 
 function validationFailure(operation: string, message: string, cause?: unknown): OpensrcFailure {
-  return createOpensrcFailure({ _tag: 'validation', operation, message, cause })
+  return createOpensrcFailure('validation', { operation, message, cause })
 }
 
 function filesystemFailure(operation: string, cause: unknown): OpensrcFailure {
-  return createOpensrcFailure({
-    _tag: 'filesystem',
+  return createOpensrcFailure('filesystem', {
     operation,
     message: cause instanceof Error ? cause.message : 'The source path is not accessible.',
     cause,

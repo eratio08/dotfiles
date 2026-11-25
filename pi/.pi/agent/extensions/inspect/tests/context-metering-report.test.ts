@@ -290,6 +290,59 @@ test('should escape untrusted prompt and conversation text given malicious sessi
   assert.equal(html.includes('<svg onload=alert("tool")>'), false)
 })
 
+test('should use the fallback description given a malformed tool description', () => {
+  const analysis = createAnalysis()
+  const definition = analysis.baseline.systemMessage?.toolsAdded?.[0]
+  assert.ok(definition)
+  Object.defineProperty(definition, 'description', { value: 42 })
+
+  const html = renderContextMeteringReport(analysis)
+
+  assert.ok(html.includes('No description saved.'))
+})
+
+test('should preserve content fallbacks given malformed and unknown blocks', () => {
+  const analysis = createAnalysis()
+  const entry = analysis.entries.find((item) => item.entryId === 'assistant-1')
+  assert.ok(entry)
+  const message = entry.effectiveMessages[0]
+  assert.ok(message)
+  message.content = [
+    null,
+    'not a block',
+    { type: 'text', text: 42 },
+    { type: 'thinking', thinking: null },
+    { type: 'image', mimeType: 'image/svg+xml', data: 'PHN2Zz4=' },
+    { type: 'toolCall', id: 12, name: null, arguments: { input: '<script>' } },
+    { type: 'future', data: 'ignored' },
+    { type: false },
+    { type: 'image', mimeType: 'image/png', data: 'AA==' },
+    Object.create({ type: 'text', text: 'inherited text' }),
+    {
+      type: 'text',
+      text: 'safe text',
+      get data(): never {
+        throw new Error('Unrelated data was read')
+      },
+    },
+  ]
+
+  const html = renderContextMeteringReport(analysis)
+
+  assert.ok(html.includes('<div class="message-text"></div>'))
+  assert.ok(html.includes('<summary>Thinking</summary><pre></pre>'))
+  assert.ok(html.includes('[Image content is not available for safe inline display]'))
+  assert.ok(html.includes('Unknown tool call'))
+  assert.ok(html.includes('Unknown call ID'))
+  assert.ok(html.includes('&lt;script&gt;'))
+  assert.ok(html.includes('[future content block]'))
+  assert.ok(html.includes('[Unknown content block]'))
+  assert.ok(html.includes('src="data:image/png;base64,AA=="'))
+  assert.ok(html.includes('safe text'))
+  assert.ok(html.includes('inherited text'))
+  assert.ok(html.includes('id="call-1-0-3"'))
+})
+
 test('should link parallel tool calls by call ID given matching tool results', () => {
   //given
   const analysis = createAnalysis()

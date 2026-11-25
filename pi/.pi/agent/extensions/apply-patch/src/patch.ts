@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { lstat, mkdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path'
-import { Cause, Context, Effect, Exit, Ref, Schema } from 'effect'
+import { Cause, Context, Effect, Exit, Predicate, Ref, Schema } from 'effect'
 
 class ApplyPatchError extends Schema.TaggedError<ApplyPatchError>()('ApplyPatchError', {
   operation: Schema.Literals(['parse', 'apply', 'filesystem']),
@@ -409,7 +409,7 @@ function createApplyPatchError(operation: 'parse' | 'apply' | 'filesystem', caus
 }
 
 function isFileSystemError(cause: unknown): cause is Error & { code: string } {
-  return cause instanceof Error && 'code' in cause && typeof cause.code === 'string'
+  return cause instanceof Error && 'code' in cause && Predicate.isString(cause.code)
 }
 
 function isMissingPathError(cause: unknown): boolean {

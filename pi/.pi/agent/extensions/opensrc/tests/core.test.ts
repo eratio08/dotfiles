@@ -4,6 +4,7 @@ import type { FileEntry, RawAstMatch, Source } from '../src/extension.ts'
 import {
   buildTree,
   buildTreeInterruptible,
+  decodeSourceIndex,
   diffSources,
   grepFiles,
   grepFilesInterruptible,
@@ -41,6 +42,49 @@ describe('opensrc core', () => {
 
     //then
     expect(result).toEqual({ packages: [], repos: [] })
+  })
+
+  test('should reject malformed source index values at each boundary', () => {
+    const cases = [
+      ['null', 'expected an object'],
+      ['[1]', 'expected an object'],
+      ['{}', 'expected packages or repos'],
+      ['{"packages":1}', 'packages must be an array'],
+      ['{"repos":[null]}', 'repos entry 0: expected an object'],
+      ['{"packages":[{}],"repos":1}', 'packages entry 0: missing name'],
+    ] as const
+
+    for (const [input, message] of cases) {
+      expect(() => Effect.runSync(parseSourceIndex(input))).toThrow(message)
+    }
+  })
+
+  test('should preserve source index access order and inherited fields', () => {
+    const accesses: string[] = []
+    const record = Object.setPrototypeOf(
+      { version: '1', path: 'packages/zod', fetchedAt: '2026-01-01' },
+      { name: 'zod' },
+    )
+    const packages = [record]
+    Object.defineProperty(packages, 'entries', {
+      get: () => {
+        accesses.push('entries')
+        return Array.prototype.entries
+      },
+    })
+    const index = {
+      get packages(): typeof packages {
+        accesses.push('packages')
+        return packages
+      },
+      get repos(): never[] {
+        accesses.push('repos')
+        return []
+      },
+    }
+
+    expect(Effect.runSync(decodeSourceIndex(index))).toMatchObject({ packages: [{ name: 'zod' }], repos: [] })
+    expect(accesses).toEqual(['packages', 'entries', 'repos', 'packages'])
   })
 
   test('should normalize package and repository records and calculate source diffs given source records', () => {
@@ -87,6 +131,8 @@ describe('opensrc core', () => {
       'crates:serde@1.0.0',
       'owner/repo@main',
       'gitlab:team/repo',
+      'bitbucket:team/repo@branch',
+      'https://github.com/team/repo/tree/main',
     ]
 
     //when
@@ -100,7 +146,11 @@ describe('opensrc core', () => {
       { type: 'crates', name: 'serde', version: '1.0.0' },
       { type: 'repo', name: 'github.com/owner/repo', ref: 'main', repository: 'https://github.com/owner/repo' },
       { type: 'repo', name: 'gitlab.com/team/repo', repository: 'https://gitlab.com/team/repo' },
+      { type: 'repo', name: 'bitbucket.org/team/repo', ref: 'branch', repository: 'https://bitbucket.org/team/repo' },
+      { type: 'repo', name: 'github.com/team/repo', ref: 'main', repository: 'https://github.com/team/repo' },
     ])
+    expect(Object.keys(result[4])).toEqual(['type', 'name', 'ref', 'repository'])
+    expect(Object.keys(result[5])).toEqual(['type', 'name', 'repository'])
   })
 
   test('should match a source by name and version given a requested version', () => {

@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { Data } from 'effect'
 import * as Program from '../src/program.ts'
 import * as WorkerProtocol from '../src/worker-protocol.ts'
 
@@ -33,10 +34,31 @@ describe('code mode contracts', () => {
     expect(error).toMatchObject({ _tag: 'validation', operation: 'options' })
   })
 
+  test('should preserve the failure marker and fields given either constructor form', () => {
+    const tag = 'invoke' as const
+    const fields = { operation: 'read', message: 'Read failed.', cause: { detail: 'not found' } }
+    const legacy = Program.createProgramFailure({ _tag: tag, ...fields })
+    const tagged = Program.createProgramFailure(tag, fields)
+    const conflictingFields = Program.createProgramFailure('other', fields)
+
+    expect(tagged).toEqual(legacy)
+    expect(Object.keys(tagged)).toEqual(Object.keys(legacy))
+    expect(Program.isProgramFailure(tagged)).toBe(true)
+    expect(
+      Program.isProgramFailure(
+        new Proxy(tagged, {
+          get: () => {
+            throw new Error('inaccessible')
+          },
+        }),
+      ),
+    ).toBe(false)
+    expect(Program.createProgramFailure(tag, conflictingFields)._tag).toBe(tag)
+  })
+
   test('should preserve tagged failures given worker transport', () => {
     //given
-    const failure = Program.createProgramFailure({
-      _tag: 'invoke',
+    const failure = Program.createProgramFailure('invoke', {
       operation: 'read',
       message: 'Read failed.',
       cause: { detail: 'not found' },
@@ -63,7 +85,7 @@ describe('code mode contracts', () => {
 
   test('should return a deserialize failure given malformed worker data', () => {
     //given
-    const malformed = { kind: 'failure', failure: { _tag: 'invoke' } } as unknown as WorkerProtocol.WorkerError
+    const malformed = { kind: 'failure', failure: Data.taggedEnum<{ _tag: 'invoke' }>().invoke() }
 
     //when
     const decoded = WorkerProtocol.deserializeProgramError(malformed)

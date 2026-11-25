@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import type { execFile } from 'node:child_process'
 import test from 'node:test'
 import { openReportUrl, startMeteringReportServer } from '../src/extension.ts'
 
@@ -74,11 +73,11 @@ test('should pass the report URL as one argument to macOS open given a browser U
   const url = 'http://127.0.0.1:43127/3f24df4f-8bdd-4f90-8ca3-63431dbf44ad'
   let command = ''
   let args: readonly string[] = []
-  const run = ((commandArg: string, arguments_: string[], callback: (error: Error | null) => void): void => {
+  const run = (commandArg: string, arguments_: string[], callback: (error: Error | null) => void): void => {
     command = commandArg
     args = arguments_
     callback(null)
-  }) as unknown as typeof execFile
+  }
 
   //when
   await openReportUrl(url, run)

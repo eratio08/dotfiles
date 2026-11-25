@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { Predicate } from 'effect'
 
 const handoffDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const handoffSourceDir = resolve(handoffDir, 'src')
@@ -16,8 +17,8 @@ const todoState: typeof import('../../todo/src/extension.ts') = await import(
 )
 for (const name of ['extractLatestTodoSnapshot', 'getTodoHandoffSnapshot', 'formatTodoContext'] as const) {
   assert.equal(
-    typeof todoState[name],
-    'function',
+    Predicate.isFunction(todoState[name]),
+    true,
     `todo state module must export ${name}; check the import path in handoff/src/extension.ts`,
   )
 }

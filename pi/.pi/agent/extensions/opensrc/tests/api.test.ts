@@ -46,18 +46,30 @@ const entries: readonly FileEntry[] = [
   { path: 'src/index.ts', type: 'file', size: 18 },
 ]
 
-const contents: Readonly<Record<string, string>> = {
-  'README.md': 'parse documentation',
-  'src/index.ts': 'export const parse = () => 1',
-}
+const contents = new Map<string, string>([
+  ['README.md', 'parse documentation'],
+  ['src/index.ts', 'export const parse = () => 1'],
+])
 
 const failure = (operation: string, message: string, cause?: unknown): OpensrcFailure =>
-  createOpensrcFailure({
-    _tag: 'filesystem',
-    operation,
-    message,
-    cause,
-  })
+  createOpensrcFailure('filesystem', { operation, message, cause })
+
+test('should preserve failure fields given either constructor form', () => {
+  const tag = 'filesystem' as const
+  const cause = new Error('disk error')
+  const fields = { operation: 'read', message: 'failed', cause }
+  const legacy = createOpensrcFailure({ _tag: tag, ...fields })
+  const tagged = createOpensrcFailure(tag, fields)
+
+  expect(tagged._tag).toBe(legacy._tag)
+  expect(tagged.operation).toBe(legacy.operation)
+  expect(tagged.message).toBe(legacy.message)
+  expect(tagged.cause).toBe(cause)
+  const noCause = { operation: 'read', message: 'failed' }
+  const legacyWithoutCause = createOpensrcFailure({ _tag: tag, ...noCause })
+  const taggedWithoutCause = createOpensrcFailure(tag, noCause)
+  expect(Object.hasOwn(taggedWithoutCause, 'cause')).toBe(Object.hasOwn(legacyWithoutCause, 'cause'))
+})
 
 describe('opensrc API', () => {
   test('should query files, trees, grep, AST matches, reads, sources, and fetches given OpenSrc services', async () => {
@@ -77,10 +89,12 @@ describe('opensrc API', () => {
               ((pattern === '**/*.ts' || pattern === 'src/*.ts') && entry.path.endsWith('.ts')),
           ),
         ),
-      read: (_root: string, path: string) =>
-        contents[path] === undefined
+      read: (_root: string, path: string) => {
+        const content = contents.get(path)
+        return content === undefined
           ? Effect.fail(failure('read', `Missing ${path}`, { path, marker: 'filesystem-cause' }))
-          : Effect.succeed(contents[path]),
+          : Effect.succeed(content)
+      },
       realPath: (_root: string, path?: string) => Effect.succeed(`/tmp/opensrc-api-home/sources/zod/${path ?? ''}`),
     }
     const store: SourceStoreService = {
@@ -188,7 +202,7 @@ describe('opensrc API', () => {
     expect(observed.hasMissingSource).toBe(false)
     expect(observed.foundSource).toEqual(source)
     expect(observed.missingSource).toBeUndefined()
-    expect(observed.read).toBe(contents['src/index.ts'])
+    expect(observed.read).toBe('export const parse = () => 1')
     expect(observed.files.map((entry) => entry.path)).toEqual(['src/index.ts'])
     expect(observed.tree.children).toContainEqual(expect.objectContaining({ name: 'README.md', type: 'file' }))
     expect(observed.grep[0]).toMatchObject({ file: 'README.md', line: 1 })

@@ -11,6 +11,7 @@ It registers one TypeScript runner tool from the supplied method definitions.
 The generated API includes synchronous `api.help()` and `api.help("operation")` methods.
 
 ## Create a code-mode tool
+
 A TypeBox schema describes the input that a method accepts.
 A TypeScript signature shows how a code-mode program calls the method.
 An Effect describes work that can use plugin services and return typed failures.
@@ -69,6 +70,7 @@ export default PiExtension.install(
 ```
 
 ## Tool output
+
 Each successful run includes an `operations` field in its result details.
 The field lists each declared method that the submitted code called and its call count.
 Calls to `api.help()` do not appear in these counts.
@@ -79,10 +81,11 @@ If a run fails, Pi shows the error text, and the expanded view also shows the su
 If output is truncated, the expanded view shows the truncated text and the path to the complete result file.
 
 ### Example output
+
 For the `tasks` tool above, the submitted code is:
 
 ```typescript
-export default async (api: tasksApi) => api.add({ title: "Review" })
+export default async (api: tasksApi) => api.add({ title: 'Review' })
 ```
 
 The collapsed call for this run looks like this:
@@ -109,6 +112,7 @@ Result
 ```
 
 ## Help API
+
 `createTool()` adds one helper to the generated API.
 The helper returns strings and has two call forms: `api.help()` and `api.help("operation")`.
 The helper is not a separate Pi tool. The SDK registers one runner tool under `toolName`.
@@ -116,37 +120,40 @@ The method name `help` is reserved, so `methods` cannot define an operation with
 Calls to `api.help()` and `api.help("operation")` appear as `help` in the `operations` count.
 
 ### Overview help
+
 `api.help()` returns an overview of the API.
 A `ToolDefinition` is the configuration object that `createTool()` reads.
 The SDK builds the overview from these fields:
 
-| Input | Generated output |
-| --- | --- |
-| `toolName` | Names the overview and the generated API and program types. |
-| `description` | Appears below the overview heading. |
-| Each method name and `description` | Creates the operation list and its descriptions. |
-| `examples` | Adds an Examples section with the configured code examples. |
+| Input                              | Generated output                                            |
+| ---------------------------------- | ----------------------------------------------------------- |
+| `toolName`                         | Names the overview and the generated API and program types. |
+| `description`                      | Appears below the overview heading.                         |
+| Each method name and `description` | Creates the operation list and its descriptions.            |
+| `examples`                         | Adds an Examples section with the configured code examples. |
 
 The overview does not include `typeDeclarations`, method signatures, or parameter schemas.
 The SDK adds the API type name, the program type name, and a prompt to call `api.help("operation")` for method details.
 
 ### Operation help
+
 `api.help("operation")` returns details for one operation.
 The operation name must match a key in `methods`, such as `"add"`.
 The SDK builds the response from these method fields:
 
-| Input | Generated output |
-| --- | --- |
-| `toolName`, the operation name, and `signature` | Create the response heading. |
-| `description` | Explains what the operation does. |
-| `typeDeclarations` | Adds a Type declarations section when the field has content. |
-| `parameters` | Adds a formatted JSON schema when the method has a parameter schema. |
+| Input                                           | Generated output                                                     |
+| ----------------------------------------------- | -------------------------------------------------------------------- |
+| `toolName`, the operation name, and `signature` | Create the response heading.                                         |
+| `description`                                   | Explains what the operation does.                                    |
+| `typeDeclarations`                              | Adds a Type declarations section when the field has content.         |
+| `parameters`                                    | Adds a formatted JSON schema when the method has a parameter schema. |
 
 The response does not include configured examples.
 The SDK checks method arguments against `parameters` before it calls the handler.
 If the operation name is unknown, the SDK returns an error that lists the available names.
 
 ### TypeScript declarations
+
 The SDK starts the program declarations with `typeDeclarations` when the field has content.
 It adds a generated API interface with both help call forms and one method signature for each entry in `methods`.
 It also adds a generated program type that receives the generated API interface.
@@ -155,6 +162,7 @@ The help method runs inside the submitted program and returns a string.
 The outer Pi tool shows a help string only when the submitted program returns it.
 
 ### Overview output example
+
 For the `tasks` tool above, `api.help()` returns:
 
 ````text
@@ -181,6 +189,7 @@ export default async (api: tasksApi) => api.add({ title: "Review" })
 ````
 
 ### Operation help example
+
 For the `tasks` tool above, `api.help("add")` returns:
 
 ````text
@@ -212,6 +221,7 @@ Parameter schema:
 ````
 
 ## Method definitions
+
 `signature` is appended to the API type named from `toolName`, such as `tasksApi`.
 `parameters` is the TypeBox schema for a method argument, and the SDK checks supplied values before it runs the handler.
 Omit `parameters` and use `()` in `signature` when a method takes no arguments.
@@ -226,6 +236,7 @@ The `Services` generic lists additional service requirements.
 Pi runtime services are available to method handlers and the `withRun` callback without listing them in that generic.
 
 ### Scope one tool run
+
 Set the third generic for `createTool` when methods need one context shared by every call in a program.
 A non-`void` context requires `withRun`.
 Set `withRun` to wrap the complete program run, including output formatting, and pass the context to `run(context)`. The callback also receives the active tool signal when one is available.
@@ -233,6 +244,7 @@ The SDK passes that context to every method handler in the run.
 If `withRun` is omitted with the default `void` context, the SDK passes `undefined` and keeps the existing execution mode.
 
 ## Runtime settings
+
 `timeoutMs` sets the evaluation deadline.
 `promptSnippet` overrides the generated short tool hint.
 `promptGuidelines` replaces the generated tool usage rules.

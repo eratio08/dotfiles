@@ -29,10 +29,11 @@ function createHarness(directory: string, sessionManager: SessionManager, browse
   let commandHandler: CommandHandler | undefined
   let registeredCommandName: string | undefined
   let shutdownHandler: ((context: ExtensionCommandContext) => Promise<void>) | undefined
+  // biome-ignore lint/plugin: The test fake implements only the API used by this extension.
   const api = {
     on: (
       _event: string,
-      handler: (event: unknown, context: ExtensionCommandContext) => Promise<void>,
+      handler: (event: { type: 'session_shutdown' }, context: ExtensionCommandContext) => Promise<void>,
     ): (() => void) => {
       shutdownHandler = async (context: ExtensionCommandContext): Promise<void> => {
         await handler({ type: 'session_shutdown' }, context)
@@ -54,6 +55,7 @@ function createHarness(directory: string, sessionManager: SessionManager, browse
 
   if (!commandHandler || registeredCommandName !== 'inspect') throw new Error('Inspect command was not registered.')
 
+  // biome-ignore lint/plugin: The test fake implements only the context used by this extension.
   const context = {
     mode: 'tui',
     hasUI: true,
@@ -68,7 +70,9 @@ function createHarness(directory: string, sessionManager: SessionManager, browse
         notices.push({ message, type })
       },
       setWidget: (key: string, content: string[] | undefined, options?: { placement?: Widget['placement'] }): void => {
-        widgets.push({ key, content, ...(options?.placement ? { placement: options.placement } : {}) })
+        const widget: Widget = { key, content }
+        if (options?.placement) widget.placement = options.placement
+        widgets.push(widget)
       },
     },
   } as unknown as ExtensionCommandContext

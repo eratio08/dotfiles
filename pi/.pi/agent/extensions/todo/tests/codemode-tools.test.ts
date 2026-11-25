@@ -35,7 +35,8 @@ test('should register Todo tools with object update parameters in the codemode n
 
   const updateTool = fake.tools.get('todo_update')
   assert.ok(updateTool)
-  assert.equal(Reflect.get(updateTool.parameters, 'type'), 'object')
+  assert.ok('type' in updateTool.parameters)
+  assert.equal(updateTool.parameters.type, 'object')
 })
 
 test('should return sorted matching todos with details given a filtered todo_show request', async () => {
@@ -109,10 +110,7 @@ test('should return sorted matching todos with details given a filtered todo_sho
 test('should add and update todos through the native tools given valid inputs', async () => {
   const fake = await installFakePlugin(todoExtension)
   const persistedEntries: Array<{ customType: string; data: unknown }> = []
-  const extensionApi = fake.api as unknown as {
-    appendEntry: (customType: string, data?: unknown) => void
-  }
-  extensionApi.appendEntry = (customType: string, data?: unknown): void => {
+  fake.api.appendEntry = (customType: string, data?: Parameters<typeof fake.api.appendEntry>[1]): void => {
     persistedEntries.push({ customType, data })
   }
   await fake.invokeEvent('session_start', { type: 'session_start' })
@@ -170,10 +168,7 @@ test('should add and update todos through the native tools given valid inputs', 
 test('should reject invalid dependency updates without committing given an unknown dependency', async () => {
   const fake = await installFakePlugin(todoExtension)
   const persistedEntries: Array<{ customType: string; data: unknown }> = []
-  const extensionApi = fake.api as unknown as {
-    appendEntry: (customType: string, data?: unknown) => void
-  }
-  extensionApi.appendEntry = (customType: string, data?: unknown): void => {
+  fake.api.appendEntry = (customType: string, data?: Parameters<typeof fake.api.appendEntry>[1]): void => {
     persistedEntries.push({ customType, data })
   }
   await fake.invokeEvent('session_start', { type: 'session_start' })
@@ -189,7 +184,7 @@ test('should reject invalid dependency updates without committing given an unkno
       id: addedTodo.id,
       patch: { dependsOn: [unknownDependency] },
     }),
-    (error: unknown) => {
+    (error: Error) => {
       const failure = error instanceof PiToolError ? error.cause : error
       assert.ok(failure instanceof TodoUiError)
       assert.equal(failure.operation, 'update')
@@ -209,10 +204,7 @@ test('should reject invalid dependency updates without committing given an unkno
 test('should start and complete ready todos through native tools given pending work', async () => {
   const fake = await installFakePlugin(todoExtension)
   const persistedEntries: Array<{ customType: string; data: unknown }> = []
-  const extensionApi = fake.api as unknown as {
-    appendEntry: (customType: string, data?: unknown) => void
-  }
-  extensionApi.appendEntry = (customType: string, data?: unknown): void => {
+  fake.api.appendEntry = (customType: string, data?: Parameters<typeof fake.api.appendEntry>[1]): void => {
     persistedEntries.push({ customType, data })
   }
   await fake.invokeEvent('session_start', { type: 'session_start' })
@@ -223,7 +215,7 @@ test('should start and complete ready todos through native tools given pending w
   const secondAdded = (await fake.invokeTool('todo_add', 'add-second-call', { content: 'second ready task' })) as {
     structuredContent: Todo
   }
-  await assert.rejects(fake.invokeTool('todo_complete', 'complete-before-start-call', {}), (error: unknown) => {
+  await assert.rejects(fake.invokeTool('todo_complete', 'complete-before-start-call', {}), (error: Error) => {
     const failure = error instanceof PiToolError ? error.cause : error
     assert.ok(failure instanceof TodoUiError)
     assert.equal(failure.operation, 'complete')
@@ -243,7 +235,7 @@ test('should start and complete ready todos through native tools given pending w
   assert.deepEqual(startedResult.details, { id: started.id })
   assert.equal(persistedEntries.length, 3)
 
-  await assert.rejects(fake.invokeTool('todo_next', 'active-next-call', {}), (error: unknown) => {
+  await assert.rejects(fake.invokeTool('todo_next', 'active-next-call', {}), (error: Error) => {
     const failure = error instanceof PiToolError ? error.cause : error
     assert.ok(failure instanceof TodoUiError)
     assert.equal(failure.operation, 'next')
@@ -278,7 +270,7 @@ test('should start and complete ready todos through native tools given pending w
     allDone: true,
   })
 
-  await assert.rejects(fake.invokeTool('todo_next', 'no-ready-call', {}), (error: unknown) => {
+  await assert.rejects(fake.invokeTool('todo_next', 'no-ready-call', {}), (error: Error) => {
     const failure = error instanceof PiToolError ? error.cause : error
     assert.ok(failure instanceof TodoUiError)
     assert.equal(failure.operation, 'next')
@@ -301,10 +293,7 @@ test('should start and complete ready todos through native tools given pending w
 test('should omit, restore, and clear todos through native tools with dependencies', async () => {
   const fake = await installFakePlugin(todoExtension)
   const persistedEntries: Array<{ customType: string; data: unknown }> = []
-  const extensionApi = fake.api as unknown as {
-    appendEntry: (customType: string, data?: unknown) => void
-  }
-  extensionApi.appendEntry = (customType: string, data?: unknown): void => {
+  fake.api.appendEntry = (customType: string, data?: Parameters<typeof fake.api.appendEntry>[1]): void => {
     persistedEntries.push({ customType, data })
   }
   await fake.invokeEvent('session_start', { type: 'session_start' })

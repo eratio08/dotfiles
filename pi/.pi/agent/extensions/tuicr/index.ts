@@ -13,7 +13,7 @@ import {
   truncateHead,
 } from '@earendil-works/pi-coding-agent'
 import { Text } from '@earendil-works/pi-tui'
-import { type Effect, Layer, ManagedRuntime, Schema } from 'effect'
+import { type Effect, Layer, ManagedRuntime, Predicate, Schema } from 'effect'
 import { type Static, Type } from 'typebox'
 import {
   type CommentData,
@@ -57,13 +57,13 @@ function resultText(result: {
   return text?.text ?? ''
 }
 
-function failureMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    const message = (error as { message?: unknown }).message
-    if (typeof message === 'string') return message
+function failureMessage(cause: unknown): string {
+  if (cause instanceof Error) return cause.message
+  if (Predicate.isObjectOrArray(cause) && 'message' in cause) {
+    const message = cause.message
+    if (Predicate.isString(message)) return message
   }
-  return String(error)
+  return String(cause)
 }
 
 function reviewText(details: TuicrToolDetails): string {

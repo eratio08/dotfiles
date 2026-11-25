@@ -1,7 +1,9 @@
 import { expect, test } from 'bun:test'
-import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
+import type { ExtensionAPI, ExtensionContext, ExtensionEvent } from '@earendil-works/pi-coding-agent'
 import { Effect } from 'effect'
-import { PiExtension } from '../src/extension.ts'
+import { type PiEventName, type PiEventResultMap, PiExtension } from '../src/extension.ts'
+
+type FakeEventCallback = (event: ExtensionEvent, context: ExtensionContext) => Promise<PiEventResultMap[PiEventName]>
 
 function fakeContext(): ExtensionContext {
   const sessionManager: Partial<ExtensionContext['sessionManager']> = {
@@ -49,11 +51,11 @@ function fakeContext(): ExtensionContext {
     setToolsExpanded: () => undefined,
   }
   return {
-    ui,
+    ui: ui as ExtensionContext['ui'],
     mode: 'print',
     hasUI: false,
     cwd: '/tmp',
-    sessionManager,
+    sessionManager: sessionManager as ExtensionContext['sessionManager'],
     modelRegistry: {} as never,
     model: undefined,
     scopedModels: [],
@@ -67,14 +69,12 @@ function fakeContext(): ExtensionContext {
     getContextUsage: () => undefined,
     compact: () => undefined,
     getSystemPrompt: () => '',
-  } as unknown as ExtensionContext
+  }
 }
 
-function fakeApi(
-  callbacks: Map<string, (event: unknown, context: ExtensionContext) => Promise<unknown>>,
-): ExtensionAPI {
+function fakeApi(callbacks: Map<string, FakeEventCallback>): ExtensionAPI {
   const api: Partial<ExtensionAPI> = {
-    on: ((name: string, callback: (event: unknown, context: ExtensionContext) => Promise<unknown>): void => {
+    on: ((name: string, callback: FakeEventCallback): void => {
       callbacks.set(name, callback)
     }) as ExtensionAPI['on'],
     registerTool: () => undefined,
@@ -101,7 +101,7 @@ function fakeApi(
     unregisterProvider: () => undefined,
     events: { emit: () => undefined, on: () => () => undefined },
   }
-  return api as unknown as ExtensionAPI
+  return api as ExtensionAPI
 }
 
 test('should run setup once and dispose on shutdown given PiExtension.install', async () => {
@@ -114,7 +114,7 @@ test('should run setup once and dispose on shutdown given PiExtension.install', 
         setupRuns += 1
       }),
   })
-  const callbacks = new Map<string, (event: unknown, context: ExtensionContext) => Promise<unknown>>()
+  const callbacks = new Map<string, FakeEventCallback>()
   const factory = PiExtension.install(plugin)
 
   //when

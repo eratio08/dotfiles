@@ -611,8 +611,7 @@ describe('opensrc effects', () => {
       preflight: () => Effect.void,
       list: () => {
         listCalls += 1
-        if (listCalls === 3)
-          return Effect.fail(createOpensrcFailure({ _tag: 'cli', operation: 'list', message: 'failed' }))
+        if (listCalls === 3) return Effect.fail(createOpensrcFailure('cli', { operation: 'list', message: 'failed' }))
         const index: SourceIndex = listCalls === 1 ? { packages: [source] } : { packages: [changed] }
         return Effect.succeed(index)
       },

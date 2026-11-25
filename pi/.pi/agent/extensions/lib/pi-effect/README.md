@@ -120,15 +120,15 @@ The setup program receives a registration context with these registries.
 Each registry calls the matching Pi extension method.
 See [Pi's extension documentation](https://github.com/earendil-works/pi/blob/v0.99.1/packages/coding-agent/docs/extensions.md#choose-an-integration-point) for the native registration methods.
 
-| EffectJS registry | Pi extension method | Purpose |
-| --- | --- | --- |
-| `events.on` | `pi.on` | Registers a typed Pi event handler. |
-| `commands.register` | `pi.registerCommand` | Registers a command and optional argument completions. |
-| `shortcuts.register` | `pi.registerShortcut` | Registers a keyboard shortcut. |
-| `flags.register` | `pi.registerFlag` | Registers a boolean or string flag. |
-| `tools.register` | `pi.registerTool` | Registers an EffectJS tool. |
-| `renderers.message` | `pi.registerMessageRenderer` | Registers a custom message renderer. |
-| `renderers.entry` | `pi.registerEntryRenderer` | Registers a custom session entry renderer. |
+| EffectJS registry    | Pi extension method          | Purpose                                                |
+| -------------------- | ---------------------------- | ------------------------------------------------------ |
+| `events.on`          | `pi.on`                      | Registers a typed Pi event handler.                    |
+| `commands.register`  | `pi.registerCommand`         | Registers a command and optional argument completions. |
+| `shortcuts.register` | `pi.registerShortcut`        | Registers a keyboard shortcut.                         |
+| `flags.register`     | `pi.registerFlag`            | Registers a boolean or string flag.                    |
+| `tools.register`     | `pi.registerTool`            | Registers an EffectJS tool.                            |
+| `renderers.message`  | `pi.registerMessageRenderer` | Registers a custom message renderer.                   |
+| `renderers.entry`    | `pi.registerEntryRenderer`   | Registers a custom session entry renderer.             |
 
 Each registration method returns an EffectJS program that fails with `PiRegistrationError` when Pi rejects the registration.
 Use `yield*` inside the setup program to run registration programs in order.
@@ -147,11 +147,11 @@ yield* events.on(
 
 The available policies are:
 
-| Policy | Behavior when the handler fails |
-| --- | --- |
-| `propagate` | Returns the failure to Pi. |
-| `neutral` | Ignores the failed handler result and keeps the event neutral. |
-| `failClosed` | Rejects the action. |
+| Policy       | Behavior when the handler fails                                |
+| ------------ | -------------------------------------------------------------- |
+| `propagate`  | Returns the failure to Pi.                                     |
+| `neutral`    | Ignores the failed handler result and keeps the event neutral. |
+| `failClosed` | Rejects the action.                                            |
 
 The adapter uses neutral handling for observation and transform events by default.
 The adapter uses fail-closed handling for `tool_call` by default.
@@ -180,19 +180,19 @@ Callable tools are tools that Pi lets another tool run.
 
 The main service tags are:
 
-| Service tag | Provides |
-| --- | --- |
-| `Pi` | Groups all services that the extension can use. |
-| `PiContext` | Provides mode, UI availability, working directory, model state, and EffectJS operations for idle state, trust, messages, context usage, abort, shutdown, compaction, and prompt reads. |
-| `PiSessionContext` | Provides the current session snapshot and operations to read entries, branches, context entries, and labels. |
-| `PiCommandContext` | Provides system prompt options and controls for forking, tree navigation, session switching, and reloading. |
-| `PiToolContext` | Provides the current tool call, validated parameters, abort signal, progress updates, callable tools, nested calls, and execution mode. |
-| `PiSession` | Provides operations for session entries, branches, labels, names, and context entries. |
-| `PiMessages` | Sends custom messages and user messages. |
-| `PiUi` | Provides dialogs, notifications, widgets, editor access, themes, and TUI operations. |
-| `PiTools` | Reads all tools and replaces the active tool list. |
-| `PiFlags` | Reads execution-time flag values. |
-| `PiProcess` | Runs a process through Pi. |
+| Service tag        | Provides                                                                                                                                                                               |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Pi`               | Groups all services that the extension can use.                                                                                                                                        |
+| `PiContext`        | Provides mode, UI availability, working directory, model state, and EffectJS operations for idle state, trust, messages, context usage, abort, shutdown, compaction, and prompt reads. |
+| `PiSessionContext` | Provides the current session snapshot and operations to read entries, branches, context entries, and labels.                                                                           |
+| `PiCommandContext` | Provides system prompt options and controls for forking, tree navigation, session switching, and reloading.                                                                            |
+| `PiToolContext`    | Provides the current tool call, validated parameters, abort signal, progress updates, callable tools, nested calls, and execution mode.                                                |
+| `PiSession`        | Provides operations for session entries, branches, labels, names, and context entries.                                                                                                 |
+| `PiMessages`       | Sends custom messages and user messages.                                                                                                                                               |
+| `PiUi`             | Provides dialogs, notifications, widgets, editor access, themes, and TUI operations.                                                                                                   |
+| `PiTools`          | Reads all tools and replaces the active tool list.                                                                                                                                     |
+| `PiFlags`          | Reads execution-time flag values.                                                                                                                                                      |
+| `PiProcess`        | Runs a process through Pi.                                                                                                                                                             |
 
 The `Pi` facade also provides `model.set` and the low-level Pi event bus.
 Pi's [extension documentation](https://github.com/earendil-works/pi/blob/v0.99.1/packages/coding-agent/docs/extensions.md#choose-an-integration-point) describes `pi.events` as the API for communication between extensions.
@@ -273,20 +273,20 @@ const summarizeTool: EffectToolDefinition<
 }
 ```
 
-| EffectJS field | Pi field | Purpose |
-| --- | --- | --- |
-| `name` | `name` | Names the tool in model tool calls. |
-| `label` | `label` | Gives the tool a human-readable label in Pi's interface. |
-| `description` | `description` | Helps the model choose the tool. |
-| `parameters` | `parameters` | Defines the tool inputs with a TypeBox schema. |
-| `promptSnippet` | `promptSnippet` | Adds one-line text to the default available-tools section. |
-| `promptGuidelines` | `promptGuidelines` | Adds guidance to the model prompt while the tool is active. |
-| `exposure` | `exposure` | `direct` (default): Pi declares the tool to the model while active, and other tools can call it through `executeTool`. `model-only`: Pi declares the tool while active, but other tools cannot call it through `executeTool`. `codemode`: Pi's built-in `codemode` tool lists it. Other tools can call it through `executeTool` whenever it is registered. Pi declares it to the model only when active. `deferred`: Other tools can call it through `executeTool` whenever it is registered. The built-in `codemode` tool does not list it. `tool_search` can find and activate it. `hidden`: Pi registers it but makes it unreachable. Re-register it as `hidden` to withdraw it. Pi cannot unregister tools. |
-| `namespace` | `namespace` | Groups related tools, such as tools from one MCP server. Pi's built-in `codemode` lists each namespace above its tools. |
-| `annotations` | `annotations` | Provides MCP-style hints through `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint`. Permission extensions can inspect these author-provided hints. Pi does not verify them. |
-| `outputSchema` | `outputSchema` | Declares the schema for `structuredContent`. |
-| `prepareLoadout` | `ToolDefinition.prepareLoadout` | Pi calls this callback when active tools change. It can return `descriptions` for model-facing text and `hiddenDeclarations` to omit declarations from a model request while tools stay active and callable. |
-| `execute` | `execute` | Runs the tool with validated parameters and returns its result as an EffectJS program. |
+| EffectJS field     | Pi field                        | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------ | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`             | `name`                          | Names the tool in model tool calls.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `label`            | `label`                         | Gives the tool a human-readable label in Pi's interface.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `description`      | `description`                   | Helps the model choose the tool.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `parameters`       | `parameters`                    | Defines the tool inputs with a TypeBox schema.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `promptSnippet`    | `promptSnippet`                 | Adds one-line text to the default available-tools section.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `promptGuidelines` | `promptGuidelines`              | Adds guidance to the model prompt while the tool is active.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `exposure`         | `exposure`                      | `direct` (default): Pi declares the tool to the model while active, and other tools can call it through `executeTool`. `model-only`: Pi declares the tool while active, but other tools cannot call it through `executeTool`. `codemode`: Pi's built-in `codemode` tool lists it. Other tools can call it through `executeTool` whenever it is registered. Pi declares it to the model only when active. `deferred`: Other tools can call it through `executeTool` whenever it is registered. The built-in `codemode` tool does not list it. `tool_search` can find and activate it. `hidden`: Pi registers it but makes it unreachable. Re-register it as `hidden` to withdraw it. Pi cannot unregister tools. |
+| `namespace`        | `namespace`                     | Groups related tools, such as tools from one MCP server. Pi's built-in `codemode` lists each namespace above its tools.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `annotations`      | `annotations`                   | Provides MCP-style hints through `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint`. Permission extensions can inspect these author-provided hints. Pi does not verify them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `outputSchema`     | `outputSchema`                  | Declares the schema for `structuredContent`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `prepareLoadout`   | `ToolDefinition.prepareLoadout` | Pi calls this callback when active tools change. It can return `descriptions` for model-facing text and `hiddenDeclarations` to omit declarations from a model request while tools stay active and callable.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `execute`          | `execute`                       | Runs the tool with validated parameters and returns its result as an EffectJS program.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 See Pi's [tool documentation](https://github.com/earendil-works/pi/blob/v0.99.1/packages/coding-agent/docs/extensions.md#tools) for native field behavior.
 

@@ -470,16 +470,18 @@ function getTodoDisplayTree(todos: readonly Todo[]): Array<{ todo: Todo; depth: 
   return rows
 }
 
+type TodoDisplayWindow = {
+  visible: Array<{ todo: Todo; depth: number }>
+  before: string[]
+  after: string[]
+}
+
 function getTodoDisplayWindow(
   displayTree: Array<{ todo: Todo; depth: number }>,
   lastActiveTodoId: Todo['id'] | undefined,
   allDone: boolean,
   theme: TodoTheme,
-): {
-  visible: Array<{ todo: Todo; depth: number }>
-  before: string[]
-  after: string[]
-} {
+): TodoDisplayWindow {
   const maxVisible = 5
   const visibleCount = Math.min(displayTree.length, maxVisible)
   const activeIndex = displayTree.findIndex(({ todo }) => todo.status === 'in_progress')

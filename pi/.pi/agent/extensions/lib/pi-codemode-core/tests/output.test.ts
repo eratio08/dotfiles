@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { formatValue, serializeOutput, truncateOutput } from '../src/output.ts'
 
+type CircularOutput = { self?: CircularOutput }
+
 describe('code mode output', () => {
   test('should format primitive and JSON values given supported input', () => {
     //given
@@ -15,7 +17,7 @@ describe('code mode output', () => {
 
   test('should fall back to string conversion given a circular value', () => {
     //given
-    const value: Record<string, unknown> = {}
+    const value: CircularOutput = {}
     value.self = value
 
     //when

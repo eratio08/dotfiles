@@ -4,7 +4,7 @@ import { createRequire } from 'node:module'
 import { basename } from 'node:path'
 import * as Core from '@eratio/pi-codemode-core'
 import * as Output from '@eratio/pi-codemode-core/output'
-import { Effect, Layer, ManagedRuntime } from 'effect'
+import { Effect, Layer, ManagedRuntime, Predicate } from 'effect'
 
 describe('package exports', () => {
   test('should load the root and output entry points given package imports', () => {
@@ -15,10 +15,10 @@ describe('package exports', () => {
     const coreExportNames = Object.keys(Core)
 
     //then
-    expect(typeof Core.ProgramOperationInvoker).toBe('function')
-    expect(typeof Core.createProgramRunner).toBe('function')
-    expect(typeof Core.createProgramFailure).toBe('function')
-    expect(typeof Output.serializeOutput).toBe('function')
+    expect(Predicate.isFunction(Core.ProgramOperationInvoker)).toBe(true)
+    expect(Predicate.isFunction(Core.createProgramRunner)).toBe(true)
+    expect(Predicate.isFunction(Core.createProgramFailure)).toBe(true)
+    expect(Predicate.isFunction(Output.serializeOutput)).toBe(true)
     expect(coreExportNames.sort()).toEqual([
       'ProgramOperationInvoker',
       'createProgramFailure',

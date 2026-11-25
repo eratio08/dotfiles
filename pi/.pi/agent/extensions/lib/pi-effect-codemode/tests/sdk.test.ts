@@ -19,6 +19,7 @@ import {
   PiToolContext as PiToolContextService,
   PiToolError,
   type ProgramFailure,
+  type ProgramWireValue,
   type RegisteredTool,
 } from '../src/index.ts'
 
@@ -71,7 +72,7 @@ const createEchoTool = (
     toolName,
     description: 'Run TypeScript against the echo API.',
     timeoutMs: 10_000,
-    ...(execution === undefined ? {} : { execution }),
+    execution,
     outputLimits: outputLimits ?? { maxBytes: 1_000, maxLines: 40 },
     typeDeclarations: 'type EchoInput = { text: string }',
     methods: {
@@ -158,6 +159,47 @@ test('should pass the execution mode given a registered Pi tool', async () => {
 
   //then
   assert.equal(extension.tools.get('sequential')?.executionMode, 'sequential')
+  const defaultExtension = await installTool(createEchoTool())
+  const defaultTool = defaultExtension.tools.get('echo')
+  assert.ok(defaultTool)
+  assert.equal(Object.hasOwn(defaultTool, 'executionMode'), false)
+})
+
+test('should preserve a method failure given a worker error codec', async () => {
+  const codecCalls: string[] = []
+  const tool = createTool<never, { message: string }>({
+    toolName: 'codec',
+    description: 'Run TypeScript against an API with an error codec.',
+    timeoutMs: 10_000,
+    errorCodec: {
+      encode: (cause: { message: string }) => {
+        codecCalls.push('encode')
+        return cause.message
+      },
+      decode: (value: ProgramWireValue) => {
+        codecCalls.push('decode')
+        return { message: String(value) }
+      },
+    },
+    methods: {
+      fail: defineMethod({
+        description: 'Return a failure.',
+        signature: '(): Promise<void>',
+        execute: () => Effect.fail({ message: 'host failure' }),
+      }),
+    },
+  })
+  const extension = await installTool(tool)
+  const invocation = extension.invokeTool('codec', 'codec-call', {
+    code: 'export default async (api: codecApi) => api.fail()',
+  })
+
+  await assert.rejects(invocation, (cause: unknown) => {
+    assert.ok(cause instanceof PiToolError)
+    assert.deepEqual(cause.cause, { message: 'host failure' })
+    return true
+  })
+  assert.deepEqual(codecCalls, ['encode', 'decode'])
 })
 
 test('should pass custom prompt text and guidelines given tool registration', async () => {
@@ -407,11 +449,11 @@ test('should enforce the configured timeout given a long-running method', async 
   })
 
   //then
-  await assert.rejects(invocation, (error: unknown) => {
-    assert.ok(error instanceof PiToolError)
-    const cause = error.cause as ProgramFailure
-    assert.equal(cause._tag, 'timeout')
-    assert.match(cause.message, /timed out after 25ms/)
+  await assert.rejects(invocation, (cause: unknown) => {
+    assert.ok(cause instanceof PiToolError)
+    const failure = cause.cause as ProgramFailure
+    assert.equal(failure._tag, 'timeout')
+    assert.match(failure.message, /timed out after 25ms/)
     return true
   })
 })

@@ -209,7 +209,7 @@ test('should clean staged files given a commit that fails', async () => {
     //then
     await assert.rejects(
       execution,
-      (error: unknown) => error instanceof ApplyPatchError && error.operation === 'filesystem',
+      (cause: unknown) => cause instanceof ApplyPatchError && cause.operation === 'filesystem',
     )
     assert.equal(await readFile(join(directory, 'blocker'), 'utf8'), 'not a directory\n')
     assert.deepEqual(await readdir(directory), ['blocker'])
@@ -239,7 +239,7 @@ test('should classify a missing project root as a filesystem failure given a mis
     //then
     await assert.rejects(
       execution,
-      (error: unknown) => error instanceof ApplyPatchError && error.operation === 'filesystem',
+      (cause: unknown) => cause instanceof ApplyPatchError && cause.operation === 'filesystem',
     )
   } finally {
     await rm(directory, { recursive: true, force: true })

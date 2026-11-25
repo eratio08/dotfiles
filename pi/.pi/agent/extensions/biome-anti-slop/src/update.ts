@@ -60,7 +60,7 @@ function snapshotDigest(snapshot: Omit<PortSnapshot, 'digest'>): string {
   return createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')
 }
 
-function makePortSnapshot(files: Map<string, Buffer>, effectEnabled: boolean, plugins: string[]): string {
+function createPortSnapshot(files: Map<string, Buffer>, effectEnabled: boolean, plugins: string[]): string {
   const provenance = files.get('UPSTREAM.md')?.toString('utf8') ?? ''
   const upstreamRevision = provenance.match(/upstream revision is `([^\x60]+)`/i)?.[1]
   const portRevision = provenance.match(/port revision is `([^\x60]+)`/i)?.[1]
@@ -251,7 +251,7 @@ async function inspectPortUpdate(
       issues.push(`Invalid rule decision: ${name}`)
   }
   const nextFiles = new Map([...incoming].filter(([name]) => selected.has(name)))
-  const nextSnapshot = makePortSnapshot(
+  const nextSnapshot = createPortSnapshot(
     nextFiles,
     base.effectEnabled,
     pluginPaths.filter((path) => nextFiles.has(path.slice('./tools/biome/anti-slop/rules/'.length))),
@@ -578,8 +578,8 @@ async function applyApprovedChanges(root: string, changes: UpdateChange[], creat
 export {
   applyCommandRemoval,
   applyCommandUpdate,
+  createPortSnapshot,
   inspectCommandRemoval,
   inspectPortUpdate,
-  makePortSnapshot,
   type UpdatePreview,
 }

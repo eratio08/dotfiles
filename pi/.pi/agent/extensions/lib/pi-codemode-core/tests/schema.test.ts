@@ -1,7 +1,15 @@
 import { describe, expect, test } from 'bun:test'
-import { Schema } from 'effect'
+import { Data, Schema } from 'effect'
 import * as Program from '../src/program.ts'
 import * as WorkerProtocol from '../src/worker-protocol.ts'
+
+type WireFailureFixtures = Data.TaggedEnum<{
+  unknown: { operation: string; message: string }
+  custom: { operation: string; message: string; cause: { retryable: boolean } }
+  invoke: { operation: string; message: string; cause: () => undefined }
+}>
+
+const wireFailureFixtures = Data.taggedEnum<WireFailureFixtures>()
 
 const definition = {
   apiName: 'ExampleApi',
@@ -86,12 +94,12 @@ describe('code mode schemas', () => {
 
     //then
     expect(decoded.map((value) => value._tag)).toEqual([...tags])
-    expect(() => decode([...values, { _tag: 'unknown', operation: 'test', message: 'failure' }])).toThrow()
+    expect(() => decode([...values, wireFailureFixtures.unknown({ operation: 'test', message: 'failure' })])).toThrow()
   })
 
   test('should accept failure wire data given structured-cloneable values', () => {
     //given
-    const value = { _tag: 'custom', operation: 'test', message: 'failure', cause: { retryable: false } }
+    const value = wireFailureFixtures.custom({ operation: 'test', message: 'failure', cause: { retryable: false } })
     const decode = Schema.decodeUnknownSync(WorkerProtocol.CodeModeFailureWireValueSchema)
 
     //when
@@ -105,7 +113,7 @@ describe('code mode schemas', () => {
     //given
     const value = {
       kind: 'failure',
-      failure: { _tag: 'invoke', operation: 'test', message: 'failure', cause: () => undefined },
+      failure: wireFailureFixtures.invoke({ operation: 'test', message: 'failure', cause: () => undefined }),
     }
 
     //when

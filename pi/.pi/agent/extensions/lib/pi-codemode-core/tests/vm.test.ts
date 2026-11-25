@@ -84,6 +84,33 @@ describe('code mode VM', () => {
     await expect(result).rejects.toMatchObject({ _tag: 'transport', operation: 'add' })
   })
 
+  test('should preserve exception details when optional properties are inherited or throw', async () => {
+    const filename = createCodeModeFilename('/tmp', 'exception', 4)
+    const api = createCodeModeApi(
+      definition.methods,
+      () => 1,
+      async () => 'ok',
+    )
+    const sources = [
+      `export default () => { const error = Object.create({ name: 'InheritedError' }); error.message = 'bad'; throw error }`,
+      `export default () => { throw { message: 'bad', get stack() { throw new Error('inaccessible') } } }`,
+    ]
+
+    const inherited = transformCodeModeProgram(createCodeModeJiti(), definition, sources[0], filename)
+    await expect(runCodeModeVm(inherited, api, filename, 1000)).rejects.toMatchObject({
+      _tag: 'invoke',
+      message: 'bad',
+      name: 'InheritedError',
+    })
+
+    const inaccessible = transformCodeModeProgram(createCodeModeJiti(), definition, sources[1], filename)
+    await expect(runCodeModeVm(inaccessible, api, filename, 1000)).rejects.toMatchObject({
+      _tag: 'invoke',
+      message: 'bad',
+      stack: undefined,
+    })
+  })
+
   test('should reject the program given a missing default export', async () => {
     //given
     const jiti = createCodeModeJiti()

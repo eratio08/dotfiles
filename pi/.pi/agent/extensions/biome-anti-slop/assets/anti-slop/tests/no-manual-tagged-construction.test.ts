@@ -34,6 +34,16 @@ test('should match upstream no-manual-tagged-construction examples', async () =>
       ['const x = { _tag: 1 };', 0],
       ['Match.when({ _tag: "Ready" }, action);', 0],
       ['const x = { _tag: "Ready", value: { _tag: "Inner" } };', 2],
+      ['expect(actual).toMatchObject({ _tag: "Ready", value: { _tag: "Inner" } });', 0],
+      ['expect(actual).rejects.toMatchObject({ _tag: "Failure" });', 0],
+      ['expect(actual).toEqual({ _tag: "Ready" });', 0],
+      ['expect.objectContaining({ value: { _tag: "Inner" } });', 0],
+      ['expect(actual).toMatchObject([{ _tag: "Ready" }]);', 0],
+      ['expect({ _tag: "Actual" }).toEqual({ _tag: "Expected" });', 1],
+      ['other.toMatchObject({ _tag: "Ready" });', 1],
+      ['expect(actual).toMatchObject(make({ _tag: "Ready" }));', 1],
+      ['expect(actual).toMatchObject({ value: () => ({ _tag: "Ready" }) });', 1],
+      ['expect(actual).toMatchObject({ _tag: "Ready" }, { _tag: "Extra" });', 2],
     ]
     await expectBiomeCases(biome, installedRoot ?? temp, temp, cases, 'instead of writing a literal')
   } finally {

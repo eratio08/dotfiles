@@ -26,9 +26,9 @@ import { editBiomeConfiguration } from './biome-config.ts'
 import {
   applyCommandRemoval,
   applyCommandUpdate,
+  createPortSnapshot,
   inspectCommandRemoval,
   inspectPortUpdate,
-  makePortSnapshot,
   type UpdatePreview,
 } from './update.ts'
 
@@ -610,7 +610,7 @@ async function installBiomeAntiSlop(preview: InstallPreview, signal?: AbortSigna
     await withFileMutationQueue(snapshot, async () => {
       await writeFile(
         snapshot,
-        makePortSnapshot(
+        createPortSnapshot(
           assets.files,
           preview.effectEnabled,
           preview.effectEnabled ? [...pluginPaths, ...effectPluginPaths] : pluginPaths,

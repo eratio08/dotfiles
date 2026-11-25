@@ -63,6 +63,30 @@ function knownValue(
   return knownValue(ctx, declaration.initializer?.expression, visited)
 }
 
+function sameBoundTypeReference(
+  ctx: SemanticRuleContext,
+  source: AnyTsType | undefined,
+  target: AnyTsType | undefined,
+): boolean {
+  if (
+    source?.kind !== 'TS_REFERENCE_TYPE' ||
+    target?.kind !== 'TS_REFERENCE_TYPE' ||
+    source.name?.kind !== 'JS_REFERENCE_IDENTIFIER' ||
+    target.name?.kind !== 'JS_REFERENCE_IDENTIFIER' ||
+    source.typeArguments?.tsTypeArgumentList.length ||
+    target.typeArguments?.tsTypeArgumentList.length
+  )
+    return false
+
+  const sourceBinding = ctx.model.binding(source.name)
+  const targetBinding = ctx.model.binding(target.name)
+  return (
+    sourceBinding !== undefined &&
+    targetBinding !== undefined &&
+    bindingKey(sourceBinding) === bindingKey(targetBinding)
+  )
+}
+
 function reportFlow(
   ctx: SemanticRuleContext,
   expression: AnyJsExpression | undefined,
@@ -74,6 +98,12 @@ function reportFlow(
   if (!target) return
   const unwrapped = unwrapArrayExpression(expression)
   if ((target === 'open dictionary' || target === 'generic container') && isEmptyObject(unwrapped)) return
+  if (unwrapped?.kind === 'JS_IDENTIFIER_EXPRESSION' && unwrapped.name) {
+    const declaration = ctx.model.binding(unwrapped.name)?.syntax().parent
+    const sourceType =
+      declaration?.kind === 'JS_VARIABLE_DECLARATOR' ? annotationType(declaration.variableAnnotation) : undefined
+    if (sameBoundTypeReference(ctx, sourceType, type)) return
+  }
   if (!knownValue(ctx, expression)) return
   registerDiagnostic(
     expression,
@@ -161,12 +191,12 @@ function knownCallArgument(
   if (visited.has(key)) return false
   visited.add(key)
   const declaration = binding.syntax().parent
-  const type =
-    declaration?.kind === 'JS_FORMAL_PARAMETER'
-      ? declaration.typeAnnotation?.ty
-      : declaration?.kind === 'JS_VARIABLE_DECLARATOR'
-        ? annotationType(declaration.variableAnnotation)
-        : undefined
+  let type: AnyTsType | undefined
+  if (declaration?.kind === 'JS_FORMAL_PARAMETER') {
+    type = declaration.typeAnnotation?.ty
+  } else if (declaration?.kind === 'JS_VARIABLE_DECLARATOR') {
+    type = annotationType(declaration.variableAnnotation)
+  }
   if (type) return !isUnsafeValueType(ctx.model, type)
   if (
     declaration?.kind !== 'JS_VARIABLE_DECLARATOR' ||

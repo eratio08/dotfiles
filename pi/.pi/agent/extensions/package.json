@@ -6,7 +6,11 @@
     "lib/*"
   ],
   "overrides": {
-    "undici": "^8.9.0"
+    "undici": "^8.9.0",
+    "@biomejs/biome": "2.6.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.4"
   },
   "scripts": {
     "check": "bun run --filter '*' check",

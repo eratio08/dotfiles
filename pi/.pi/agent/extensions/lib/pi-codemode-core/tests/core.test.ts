@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Clock, Context, Effect, Fiber, Layer, ManagedRuntime, Schema } from 'effect'
+import { Clock, Context, Effect, Fiber, Layer, ManagedRuntime, Predicate, Schema } from 'effect'
 import type {
   ProgramDefinition,
   ProgramFailure,
@@ -51,8 +51,7 @@ type TaggedHostFailure = {
   readonly code: number
 }
 
-const taggedHostFailureSchema = Schema.Struct({
-  _tag: Schema.Literal('HostMissing'),
+const taggedHostFailureSchema = Schema.TaggedStruct('HostMissing', {
   operation: Schema.Literal('fetch'),
   message: Schema.String,
   code: Schema.Number,
@@ -61,10 +60,9 @@ const taggedHostFailureSchema = Schema.Struct({
 const hostErrorCodec: ProgramOperationErrorCodec<HostFailure> = {
   encode: (failure: HostFailure) => ({ code: failure.code, message: failure.message }),
   decode: (value: ProgramWireValue) => {
-    if (typeof value !== 'object' || value === null || Array.isArray(value))
-      throw new TypeError('Invalid host failure.')
+    if (!Predicate.isObject(value)) throw new TypeError('Invalid host failure.')
     const record = value as { readonly code?: ProgramWireValue; readonly message?: ProgramWireValue }
-    if (typeof record.code !== 'string' || typeof record.message !== 'string')
+    if (!Predicate.isString(record.code) || !Predicate.isString(record.message))
       throw new TypeError('Invalid host failure.')
     return { code: record.code, message: record.message }
   },
@@ -488,7 +486,7 @@ describe('code mode core', () => {
 
   test('should preserve ProgramFailure host failures given worker execution', async () => {
     //given
-    const failure = createProgramFailure({ _tag: 'host', operation: 'wait', message: 'Host failed.' })
+    const failure = createProgramFailure('host', { operation: 'wait', message: 'Host failed.' })
     const core = createProgramRunner<never, typeof failure>()
     const host: ProgramOperationInvoker<never, typeof failure> = {
       invoke: () => Effect.fail(failure),
@@ -537,12 +535,11 @@ describe('code mode core', () => {
 
   test('should round-trip tagged host failures given an error codec', async () => {
     //given
-    const failure: TaggedHostFailure = {
-      _tag: 'HostMissing',
+    const failure: TaggedHostFailure = taggedHostFailureSchema.make({
       operation: 'fetch',
       message: 'not found',
       code: 42,
-    }
+    })
     const codecCalls = { encode: 0, decode: 0 }
     const errorCodec: ProgramOperationErrorCodec<TaggedHostFailure> = {
       encode: (error: TaggedHostFailure) => {
@@ -579,12 +576,11 @@ describe('code mode core', () => {
 
   test('should expose encoded data given worker code catches a tagged host failure', async () => {
     //given
-    const failure: TaggedHostFailure = {
-      _tag: 'HostMissing',
+    const failure: TaggedHostFailure = taggedHostFailureSchema.make({
       operation: 'fetch',
       message: 'not found',
       code: 42,
-    }
+    })
     const codecCalls = { encode: 0, decode: 0 }
     const errorCodec: ProgramOperationErrorCodec<TaggedHostFailure> = {
       encode: (error: TaggedHostFailure) => {

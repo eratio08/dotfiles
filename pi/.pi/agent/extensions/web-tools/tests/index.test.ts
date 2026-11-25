@@ -4,7 +4,9 @@ import webToolsExtension from '../index.ts'
 
 type RegisteredTool = { name: string }
 
-type ExtensionHandler = (event: unknown) => unknown
+type ExtensionHandler = (
+  event: { toolName: string; input: { url?: string } } | undefined,
+) => Promise<{ block: boolean; reason: string } | undefined>
 
 type TestExtensionApi = {
   tools: RegisteredTool[]

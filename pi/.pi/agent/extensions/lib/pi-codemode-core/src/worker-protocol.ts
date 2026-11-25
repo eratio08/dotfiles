@@ -135,7 +135,7 @@ const CodeModeWorkerHostErrorValueSchema = Schema.Struct({
   value: CodeModeWireValueSchema,
 })
 
-const CodeModeWorkerHostErrorShapeSchema = Schema.Struct({
+const CodeModeWorkerHostErrorEnvelopeSchema = Schema.Struct({
   kind: Schema.Literal('host'),
   value: Schema.Unknown,
 })
@@ -268,8 +268,7 @@ function serializeProgramError<E>(cause: unknown, codec?: ProgramOperationErrorC
   if (isCodeModeHostError<E>(cause)) {
     if (codec === undefined)
       return serializeProgramError(
-        createProgramFailure({
-          _tag: 'serialize',
+        createProgramFailure('serialize', {
           operation: 'host-error',
           message: 'The code mode host error codec is required for worker execution.',
         }),
@@ -280,8 +279,7 @@ function serializeProgramError<E>(cause: unknown, codec?: ProgramOperationErrorC
       return { kind: 'host', value }
     } catch (codecCause) {
       return serializeProgramError(
-        createProgramFailure({
-          _tag: 'serialize',
+        createProgramFailure('serialize', {
           operation: 'host-error',
           message: 'The code mode host error codec could not encode the host failure.',
           cause: codecCause,
@@ -307,15 +305,15 @@ function serializeProgramError<E>(cause: unknown, codec?: ProgramOperationErrorC
 }
 
 function deserializeCodeModeHostError<E>(
+  // biome-ignore lint/plugin: Worker errors must be decoded before use.
   error: unknown,
   codec: ProgramOperationErrorCodec<E> | undefined,
 ): ProgramFailure<string> | CodeModeHostError<E> {
-  let shape: { readonly kind: 'host'; readonly value: unknown }
+  let envelope: { readonly kind: 'host'; readonly value: unknown }
   try {
-    shape = Schema.decodeUnknownSync(CodeModeWorkerHostErrorShapeSchema)(error)
+    envelope = Schema.decodeUnknownSync(CodeModeWorkerHostErrorEnvelopeSchema)(error)
   } catch {
-    return createProgramFailure({
-      _tag: 'deserialize',
+    return createProgramFailure('deserialize', {
       operation: 'host-error',
       message: 'The code mode worker returned an invalid host error.',
       cause: error,
@@ -324,26 +322,23 @@ function deserializeCodeModeHostError<E>(
 
   let decoded: { readonly kind: 'host'; readonly value: ProgramWireValue }
   try {
-    decoded = Schema.decodeUnknownSync(CodeModeWorkerHostErrorValueSchema)(shape)
+    decoded = Schema.decodeUnknownSync(CodeModeWorkerHostErrorValueSchema)(envelope)
   } catch {
-    return createProgramFailure({
-      _tag: 'deserialize',
+    return createProgramFailure('deserialize', {
       operation: 'host-error',
       message: 'The code mode worker returned a non-wire host error.',
       cause: error,
     })
   }
   if (codec === undefined)
-    return createProgramFailure({
-      _tag: 'deserialize',
+    return createProgramFailure('deserialize', {
       operation: 'host-error',
       message: 'The code mode host error codec is required to decode a worker failure.',
     })
   try {
     return createCodeModeHostError(codec.decode(decoded.value))
   } catch (cause) {
-    return createProgramFailure({
-      _tag: 'deserialize',
+    return createProgramFailure('deserialize', {
       operation: 'host-error',
       message: 'The code mode host error codec could not decode the host failure.',
       cause,
@@ -351,22 +346,22 @@ function deserializeCodeModeHostError<E>(
   }
 }
 
+// biome-ignore lint/plugin: Worker errors must be decoded before use.
 function deserializeCodeModeWorkerError(error: unknown): ProgramFailure<string> | CodeModeEncodedHostError {
   try {
     const decoded = Schema.decodeUnknownSync(CodeModeWorkerHostErrorValueSchema)(error)
     return createCodeModeEncodedHostError(decoded.value)
   } catch {
-    let shape: { readonly kind: 'host'; readonly value: unknown }
+    let envelope: { readonly kind: 'host'; readonly value: unknown }
     try {
-      shape = Schema.decodeUnknownSync(CodeModeWorkerHostErrorShapeSchema)(error)
+      envelope = Schema.decodeUnknownSync(CodeModeWorkerHostErrorEnvelopeSchema)(error)
     } catch {
       return deserializeProgramError(error)
     }
-    return createProgramFailure({
-      _tag: 'deserialize',
+    return createProgramFailure('deserialize', {
       operation: 'host-error',
       message: 'The code mode worker returned a non-wire host error.',
-      cause: shape,
+      cause: envelope,
     })
   }
 }
@@ -374,12 +369,16 @@ function deserializeCodeModeWorkerError(error: unknown): ProgramFailure<string> 
 /**
  * Decodes a worker error payload as a program failure or, with a codec, a typed operation error.
  */
+// biome-ignore lint/plugin: Worker errors must be decoded before use.
 function deserializeProgramError(error: unknown): ProgramFailure<string>
 function deserializeProgramError<E>(
+  // biome-ignore lint/plugin: Worker errors must be decoded before use.
   error: unknown,
   codec: ProgramOperationErrorCodec<E> | undefined,
 ): ProgramFailure<string> | E
+// biome-ignore lint/plugin: Worker errors must be decoded before use.
 function deserializeProgramError<E>(error: unknown, codec: ProgramOperationErrorCodec<E>): ProgramFailure<string> | E
+// biome-ignore lint/plugin: Worker errors must be decoded before use.
 function deserializeProgramError<E>(error: unknown, codec?: ProgramOperationErrorCodec<E>): ProgramFailure<string> | E {
   let decoded: WorkerError
   try {
@@ -389,22 +388,19 @@ function deserializeProgramError<E>(error: unknown, codec?: ProgramOperationErro
     try {
       kind = Schema.decodeUnknownSync(CodeModeWorkerErrorKindSchema)(error)
     } catch {
-      return createProgramFailure({
-        _tag: 'deserialize',
+      return createProgramFailure('deserialize', {
         operation: 'deserialize',
         message: 'The code mode worker returned an unknown error.',
       })
     }
     if (kind.kind === 'host') return deserializeCodeModeHostError(error, codec) as ProgramFailure<string> | E
     if (kind.kind === 'failure')
-      return createProgramFailure({
-        _tag: 'deserialize',
+      return createProgramFailure('deserialize', {
         operation: 'deserialize',
         message: 'The code mode worker returned an invalid failure.',
         cause: error,
       })
-    return createProgramFailure({
-      _tag: 'deserialize',
+    return createProgramFailure('deserialize', {
       operation: 'deserialize',
       message: 'The code mode worker returned invalid error data.',
       cause: error,
@@ -416,16 +412,14 @@ function deserializeProgramError<E>(error: unknown, codec?: ProgramOperationErro
     return isCodeModeHostError<E>(hostError) ? hostError.value : hostError
   }
   if (decoded.kind === 'failure')
-    return createProgramFailure({
-      _tag: decoded.failure._tag,
+    return createProgramFailure(decoded.failure._tag, {
       operation: decoded.failure.operation,
       message: decoded.failure.message,
       cause: decoded.failure.cause,
       name: decoded.failure.name,
       stack: decoded.failure.stack,
     })
-  return createProgramFailure({
-    _tag: 'invoke',
+  return createProgramFailure('invoke', {
     operation: 'evaluate',
     message: decoded.message,
     name: decoded.name,
@@ -434,6 +428,7 @@ function deserializeProgramError<E>(error: unknown, codec?: ProgramOperationErro
   })
 }
 
+// biome-ignore lint/plugin: Thrown values can have any type.
 function cloneCodeModeCause(value: unknown): ProgramWireValue {
   if (value === undefined) return undefined
   try {
@@ -465,7 +460,7 @@ export {
   CodeModeWorkerFailureMessageSchema,
   CodeModeWorkerFailureSchema,
   CodeModeWorkerFailureValueSchema,
-  CodeModeWorkerHostErrorShapeSchema,
+  CodeModeWorkerHostErrorEnvelopeSchema,
   CodeModeWorkerHostErrorValueSchema,
   type CodeModeWorkerMessage,
   CodeModeWorkerMessageSchema,

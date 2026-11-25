@@ -1,6 +1,6 @@
 import type { PiContextTag, PiExtensionError, PiRegistrationContext, PiStableServices } from '@eratio/pi-effect'
 import { PiContext, PiExtension, PiProcess } from '@eratio/pi-effect'
-import { Effect } from 'effect'
+import { Effect, Predicate } from 'effect'
 
 function normalizeRewrite(command: string, stdout: string): string | null {
   const rewritten = stdout.trim()
@@ -32,7 +32,7 @@ const rtk = PiExtension.install(
             }
 
             const command = event.input?.command
-            if (typeof command !== 'string' || !command) {
+            if (!Predicate.isString(command) || !command) {
               return Effect.void
             }
 

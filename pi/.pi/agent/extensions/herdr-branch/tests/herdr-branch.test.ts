@@ -526,7 +526,15 @@ test('should stop before agent start given Herdr rejects the pane split', async 
   }
 })
 
-test('should stop before agent start given Herdr omits the split pane ID', async () => {
+const invalidSplitResponses = [
+  '{}',
+  'null',
+  'not json',
+  '{"result":{"pane":{"pane_id":42}}}',
+  '{"result":{"pane":{"pane_id":"   "}}}',
+]
+
+test.each(invalidSplitResponses)('should stop before agent start given invalid split response %s', async (output) => {
   //given
   const tempDirectory = await mkdtemp(join(tmpdir(), 'herdr-fork-test-'))
   const sessionFile = join(tempDirectory, 'session.jsonl')
@@ -542,7 +550,7 @@ test('should stop before agent start given Herdr omits the split pane ID', async
   const calls: Array<{ command: string; args: string[] }> = []
   fake.api.exec = async (command: string, args: string[]): Promise<ExecResult> => {
     calls.push({ command, args: [...args] })
-    return { stdout: '{}', stderr: '', code: 0, killed: false }
+    return { stdout: output, stderr: '', code: 0, killed: false }
   }
 
   try {

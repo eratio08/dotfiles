@@ -1,7 +1,7 @@
 import { isMainThread, MessagePort, parentPort, receiveMessageOnPort } from 'node:worker_threads'
 import { Schema } from 'effect'
 import { createProgramFailure } from './program.ts'
-import { createCodeModeApi, runCodeModeVm } from './vm.ts'
+import { type CodeModeAsyncInvoker, type CodeModeSyncInvoker, createCodeModeApi, runCodeModeVm } from './vm.ts'
 import {
   type CodeModeAsyncResponse,
   CodeModeAsyncResponseSchema,
@@ -16,18 +16,18 @@ import {
 } from './worker-protocol.ts'
 
 type CodeModePendingCall = {
-  readonly resolve: (value: unknown) => void
+  readonly resolve: (value: Extract<CodeModeAsyncResponse, { ok: true }>['value']) => void
   readonly reject: (cause: unknown) => void
 }
 
 function runCodeModeWorker(): void {
   if (parentPort === null) return
+  // biome-ignore lint/plugin: Worker messages must be decoded before use.
   parentPort.once('message', (message: unknown) => {
     const start = decodeCodeModeWorkerStart(message)
     if (start === undefined) {
       postCodeModeWorkerError(
-        createProgramFailure({
-          _tag: 'transport',
+        createProgramFailure('transport', {
           operation: 'start',
           message: 'The code mode worker received an invalid start message.',
         }),
@@ -43,11 +43,10 @@ function runCodeModeWorker(): void {
   })
 }
 
-function createCodeModeWorkerApi(
-  start: CodeModeWorkerStart,
-): Readonly<Record<string, (...args: readonly unknown[]) => unknown>> {
+function createCodeModeWorkerApi(start: CodeModeWorkerStart): ReturnType<typeof createCodeModeApi> {
   const pending = new Map<number, CodeModePendingCall>()
   let nextCallId = 1
+  // biome-ignore lint/plugin: Worker messages must be decoded before use.
   parentPort?.on('message', (message: unknown) => {
     let response: CodeModeAsyncResponse
     try {
@@ -55,8 +54,7 @@ function createCodeModeWorkerApi(
     } catch {
       for (const call of pending.values())
         call.reject(
-          createProgramFailure({
-            _tag: 'transport',
+          createProgramFailure('transport', {
             operation: 'async-response',
             message: 'The code mode worker received an invalid response type.',
           }),
@@ -68,8 +66,7 @@ function createCodeModeWorkerApi(
     if (call === undefined) {
       for (const pendingCall of pending.values())
         pendingCall.reject(
-          createProgramFailure({
-            _tag: 'transport',
+          createProgramFailure('transport', {
             operation: 'async-response',
             message: 'The code mode worker received an unknown response id.',
           }),
@@ -82,15 +79,14 @@ function createCodeModeWorkerApi(
     else call.reject(deserializeCodeModeWorkerError(response.error))
   })
 
-  const invokeSync = (method: string, args: readonly unknown[]): unknown => {
+  const invokeSync: CodeModeSyncInvoker = (method: string, args: readonly unknown[]) => {
     const id = nextCallId++
     const state = new Int32Array(start.syncState)
     Atomics.store(state, 0, 0)
     try {
       start.syncPort.postMessage({ type: 'sync-call', id, method, args } satisfies CodeModeSyncRequest)
     } catch (cause) {
-      throw createProgramFailure({
-        _tag: 'serialize',
+      throw createProgramFailure('serialize', {
         operation: 'sync-call',
         message: 'The code mode worker could not send a synchronous call.',
         cause,
@@ -103,15 +99,13 @@ function createCodeModeWorkerApi(
         try {
           message = Schema.decodeUnknownSync(CodeModeSyncResponseSchema)(response.message)
         } catch {
-          throw createProgramFailure({
-            _tag: 'transport',
+          throw createProgramFailure('transport', {
             operation: 'sync-response',
             message: 'The code mode worker received an invalid synchronous response.',
           })
         }
         if (message.id !== id)
-          throw createProgramFailure({
-            _tag: 'transport',
+          throw createProgramFailure('transport', {
             operation: 'sync-response',
             message: 'The code mode worker received an invalid synchronous response.',
           })
@@ -123,7 +117,7 @@ function createCodeModeWorkerApi(
     }
   }
 
-  const invokeAsync = (method: string, args: readonly unknown[]): Promise<unknown> => {
+  const invokeAsync: CodeModeAsyncInvoker = (method: string, args: readonly unknown[]) => {
     const id = nextCallId++
     return new Promise((resolve, reject) => {
       pending.set(id, { resolve, reject })
@@ -132,8 +126,7 @@ function createCodeModeWorkerApi(
       } catch (cause) {
         pending.delete(id)
         reject(
-          createProgramFailure({
-            _tag: 'serialize',
+          createProgramFailure('serialize', {
             operation: 'async-call',
             message: 'The code mode worker could not send an asynchronous call.',
             cause,
@@ -146,13 +139,12 @@ function createCodeModeWorkerApi(
   return createCodeModeApi(start.methods, invokeSync, invokeAsync)
 }
 
-function postCodeModeWorkerResult(value: unknown): void {
+function postCodeModeWorkerResult(value: Extract<CodeModeWorkerMessage, { type: 'result' }>['value']): void {
   try {
     parentPort?.postMessage({ type: 'result', value } satisfies CodeModeWorkerMessage)
   } catch (cause) {
     postCodeModeWorkerError(
-      createProgramFailure({
-        _tag: 'serialize',
+      createProgramFailure('serialize', {
         operation: 'result',
         message: 'The code mode worker could not serialize its result.',
         cause,
@@ -180,6 +172,7 @@ function postCodeModeWorkerError(cause: unknown): void {
   }
 }
 
+// biome-ignore lint/plugin: Worker messages must be decoded before use.
 function decodeCodeModeWorkerStart(value: unknown): CodeModeWorkerStart | undefined {
   try {
     const decoded = Schema.decodeUnknownSync(CodeModeWorkerStartSchema)(value)

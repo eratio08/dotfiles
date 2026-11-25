@@ -1,8 +1,8 @@
 import { resolve } from 'node:path'
 import { createContext, Script } from 'node:vm'
-import { Schema } from 'effect'
+import { type Effect, Predicate, Schema } from 'effect'
 import { createJiti } from 'jiti'
-import type { ProgramDefinition, ProgramMethod } from './program.ts'
+import type { ProgramDefinition, ProgramMethod, ProgramOperationInvoker } from './program.ts'
 import {
   createProgramFailure,
   isCodeModeEncodedHostError,
@@ -12,16 +12,20 @@ import {
 } from './program.ts'
 
 type CodeModeJiti = ReturnType<typeof createJiti>
-type CodeModeApiFunction = (...args: readonly unknown[]) => unknown
-
-type CodeModeSyncInvoker = (method: string, args: readonly unknown[]) => unknown
-type CodeModeAsyncInvoker = (method: string, args: readonly unknown[]) => Promise<unknown>
+type CodeModeSyncInvoker = NonNullable<ProgramOperationInvoker<never, never>['invokeSync']>
+type CodeModeAsyncInvoker = (
+  method: string,
+  args: readonly unknown[],
+) => Promise<Effect.Success<ReturnType<ProgramOperationInvoker<never, never>['invoke']>>>
+type CodeModeApiFunction = (...args: Parameters<CodeModeSyncInvoker>[1]) => ReturnType<CodeModeSyncInvoker>
 
 type CodeModeVmModule = {
   exports: {
     default?: unknown
   }
 }
+
+type CodeModeExceptionInput = { readonly name?: unknown; readonly stack?: unknown }
 
 type CodeModeExceptionData = {
   readonly message: string
@@ -49,8 +53,7 @@ function createCodeModeFilename(cwd: string, filenamePrefix: string, evaluationI
 
 function validateCodeModeImports(code: string): ProgramFailure | undefined {
   if (/(?:^|[;\n\r])\s*import\s*(?:\(|(?:type\s+)?(?:[\s\S]*?from\s*)?['"])/m.test(code))
-    return createProgramFailure({
-      _tag: 'validation',
+    return createProgramFailure('validation', {
       operation: 'import',
       message: 'External and dynamic imports are not supported in code mode programs.',
     })
@@ -93,11 +96,10 @@ function createCodeModeApi(
 }
 
 function createCodeModeSyncMethod(method: string, invokeSync: CodeModeSyncInvoker): CodeModeApiFunction {
-  return (...args: readonly unknown[]): unknown => {
+  return (...args: readonly unknown[]): ReturnType<CodeModeSyncInvoker> => {
     const value = invokeSync(method, args)
     if (isCodeModePromiseLike(value))
-      throw createProgramFailure({
-        _tag: 'transport',
+      throw createProgramFailure('transport', {
         operation: method,
         message: `The synchronous code mode method ${method} returned a Promise.`,
       })
@@ -106,7 +108,8 @@ function createCodeModeSyncMethod(method: string, invokeSync: CodeModeSyncInvoke
 }
 
 function createCodeModeAsyncMethod(method: string, invokeAsync: CodeModeAsyncInvoker): CodeModeApiFunction {
-  return (...args: readonly unknown[]): Promise<unknown> => Promise.resolve().then(() => invokeAsync(method, args))
+  return (...args: readonly unknown[]): ReturnType<CodeModeAsyncInvoker> =>
+    Promise.resolve().then(() => invokeAsync(method, args))
 }
 
 async function runCodeModeVm(
@@ -117,6 +120,7 @@ async function runCodeModeVm(
   startedAt = performance.now(),
   signal?: AbortSignal,
   remainingTimeoutMs: () => number = () => remainingCodeModeTimeout(startedAt, timeoutMs),
+  // biome-ignore lint/plugin: Programs can return any value.
 ): Promise<unknown> {
   const module: CodeModeVmModule = { exports: Object.create(null) as { default?: unknown } }
   const context = createCodeModeContext(api, module)
@@ -127,9 +131,8 @@ async function runCodeModeVm(
     throw createCodeModeExceptionFailure(cause, 'compile', 'The TypeScript program could not be compiled.')
   }
 
-  if (typeof module.exports.default !== 'function')
-    throw createProgramFailure({
-      _tag: 'validation',
+  if (!Predicate.isFunction(module.exports.default))
+    throw createProgramFailure('validation', {
       operation: 'default-export',
       message: 'The TypeScript program must export a callable default function.',
     })
@@ -179,10 +182,12 @@ function createCodeModeContext(api: Readonly<Record<string, CodeModeApiFunction>
 }
 
 async function awaitCodeModeResult(
+  // biome-ignore lint/plugin: Programs can return any value.
   result: unknown,
   remainingTimeoutMs: () => number,
   timeoutMs: number,
   signal: AbortSignal | undefined,
+  // biome-ignore lint/plugin: Programs can return any value.
 ): Promise<unknown> {
   if (!isCodeModePromiseLike(result)) return result
   let timeoutId: ReturnType<typeof setTimeout> | undefined
@@ -190,8 +195,7 @@ async function awaitCodeModeResult(
   const timeout = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
       reject(
-        createProgramFailure({
-          _tag: 'timeout',
+        createProgramFailure('timeout', {
           operation: 'await',
           message: `The code mode program timed out after ${timeoutMs}ms.`,
         }),
@@ -204,8 +208,7 @@ async function awaitCodeModeResult(
       : new Promise<never>((_, reject) => {
           const abort = (): void =>
             reject(
-              createProgramFailure({
-                _tag: 'cancellation',
+              createProgramFailure('cancellation', {
                 operation: 'await',
                 message: 'The code mode program was cancelled.',
               }),
@@ -232,43 +235,47 @@ function createCodeModeExceptionFailure(cause: unknown, operation: string, fallb
   let error: CodeModeExceptionData | undefined
   try {
     const decoded = Schema.decodeUnknownSync(CodeModeExceptionSchema)(cause)
+    const original = cause as CodeModeExceptionInput
     error = {
       message: decoded.message,
-      name: decodeCodeModeExceptionProperty(cause, 'name') ?? decoded.name,
-      stack: decodeCodeModeExceptionProperty(cause, 'stack') ?? decoded.stack,
+      name: decodeCodeModeExceptionProperty(original, 'name') ?? decoded.name,
+      stack: decodeCodeModeExceptionProperty(original, 'stack') ?? decoded.stack,
     }
   } catch {
     try {
       const decoded = Schema.decodeUnknownSync(CodeModeExceptionMessageSchema)(cause)
+      const original = cause as CodeModeExceptionInput
       error = {
         message: decoded.message,
-        name: decodeCodeModeExceptionProperty(cause, 'name'),
-        stack: decodeCodeModeExceptionProperty(cause, 'stack'),
+        name: decodeCodeModeExceptionProperty(original, 'name'),
+        stack: decodeCodeModeExceptionProperty(original, 'stack'),
       }
     } catch {
       error = undefined
     }
   }
-  return createProgramFailure({
-    _tag: operation === 'compile' ? 'compile' : 'invoke',
+  return createProgramFailure(operation === 'compile' ? 'compile' : 'invoke', {
     operation,
-    message: error?.message ?? (typeof cause === 'string' ? cause : fallbackMessage),
+    message: error?.message ?? (Predicate.isString(cause) ? cause : fallbackMessage),
     name: error?.name,
     stack: error?.stack,
     cause,
   })
 }
 
-function decodeCodeModeExceptionProperty(value: unknown, property: 'name' | 'stack'): string | undefined {
+function decodeCodeModeExceptionProperty(
+  value: CodeModeExceptionInput,
+  property: 'name' | 'stack',
+): string | undefined {
   try {
-    return Schema.decodeUnknownSync(Schema.optional(Schema.String))(Reflect.get(value as object, property))
+    return Schema.decodeUnknownSync(Schema.optional(Schema.String))(value[property])
   } catch {
     return undefined
   }
 }
 
 function isCodeModePromiseLike(value: unknown): value is PromiseLike<unknown> {
-  return typeof value === 'object' && value !== null && 'then' in value && typeof value.then === 'function'
+  return Predicate.isObjectOrArray(value) && 'then' in value && Predicate.isFunction(value.then)
 }
 
 export {

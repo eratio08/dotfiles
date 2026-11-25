@@ -26,6 +26,23 @@ test('should match upstream known-value widening examples', async () => {
     }
 
     const cases: Array<[string, number]> = [
+      [
+        'type Fields = Record<string, string>; function parse(): Fields { const fields: Fields = {}; fields.name = "x"; return fields; }',
+        0,
+      ],
+      ['function parse(): unknown { const value: string = "x"; return value; }', 1],
+      [
+        'type Fields<T> = Record<string, T>; function parse(): Fields<unknown> { const value: Fields<string> = {}; return value; }',
+        1,
+      ],
+      [
+        'type Fields = unknown; function parse(): Fields { type Fields = string; const value: Fields = "x"; return value; }',
+        1,
+      ],
+      [
+        'type Fields = Record<string, string>; function parse(): Fields { const fields: Fields = { name: "x" }; return fields; }',
+        1,
+      ],
       ['type Command = () => void; const startCommand = () => {}; const commands: Record<string, Command> = {};', 0],
       [
         'type Command = () => void; const startCommand = () => {}; type Index<T> = Record<string, T>; const commands: Index<Command> = {};',

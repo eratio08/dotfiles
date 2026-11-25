@@ -195,7 +195,7 @@ function isTextualMime(mime: string): boolean {
 }
 
 function clampTimeout(timeout: number | undefined): number {
-  if (typeof timeout !== 'number' || !Number.isFinite(timeout)) return DEFAULT_TIMEOUT_SECONDS
+  if (timeout === undefined || !Number.isFinite(timeout)) return DEFAULT_TIMEOUT_SECONDS
   return Math.min(MAX_TIMEOUT_SECONDS, Math.max(1, Math.floor(timeout)))
 }
 
@@ -270,7 +270,7 @@ function exaUrl(apiKey: string | undefined): string {
 }
 
 function clampInt(value: number | undefined, fallback: number, max: number): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+  if (value === undefined || !Number.isFinite(value)) return fallback
   return Math.min(max, Math.max(1, Math.floor(value)))
 }
 
@@ -830,6 +830,11 @@ const runWebSearch = Effect.fn('runWebSearch')(function* (
     params.contextMaxCharacters === undefined
       ? undefined
       : clampInt(params.contextMaxCharacters, 10000, MAX_CONTEXT_CHARACTERS)
+  const headers: Record<string, string> = {}
+  if (provider === 'parallel') {
+    headers['User-Agent'] = 'pi-web-tools'
+    if (config.PARALLEL_API_KEY) headers.Authorization = `Bearer ${config.PARALLEL_API_KEY}`
+  }
   const request =
     provider === 'parallel'
       ? {
@@ -840,10 +845,7 @@ const runWebSearch = Effect.fn('runWebSearch')(function* (
             search_queries: [params.query],
             session_id: sessionFile ?? toolCallId,
           },
-          headers: {
-            'User-Agent': 'pi-web-tools',
-            ...(config.PARALLEL_API_KEY ? { Authorization: `Bearer ${config.PARALLEL_API_KEY}` } : {}),
-          },
+          headers,
         }
       : {
           url: exaUrl(config.EXA_API_KEY),
@@ -853,10 +855,12 @@ const runWebSearch = Effect.fn('runWebSearch')(function* (
             type: params.type ?? 'auto',
             numResults,
             livecrawl: params.livecrawl ?? 'fallback',
-            ...(contextMaxCharacters ? { contextMaxCharacters } : {}),
           },
-          headers: {},
+          headers,
         }
+  if (provider === 'exa' && contextMaxCharacters) {
+    Object.assign(request.argumentsObject, { contextMaxCharacters })
+  }
   const response = yield* http.request(
     request.url,
     {

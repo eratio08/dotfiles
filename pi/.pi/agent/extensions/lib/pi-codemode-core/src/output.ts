@@ -1,3 +1,5 @@
+import { Predicate } from 'effect'
+
 /**
  * Sets the maximum UTF-8 byte and line counts for formatted output.
  */
@@ -22,6 +24,7 @@ const TRUNCATION_NOTICE = '... output truncated ...'
 /**
  * Formats a value and truncates it to the configured byte and line limits.
  */
+// biome-ignore lint/plugin: Output can contain any value.
 function serializeOutput(value: unknown, limits: OutputLimits): SerializedOutput {
   const output = formatValue(value)
   return truncateOutput(output, limits)
@@ -30,10 +33,11 @@ function serializeOutput(value: unknown, limits: OutputLimits): SerializedOutput
 /**
  * Formats values for display, with string, JSON, and fallback handling.
  */
+// biome-ignore lint/plugin: This formatter accepts arbitrary values.
 function formatValue(value: unknown): string {
   if (value === undefined) return 'undefined'
   if (value === null) return 'null'
-  if (typeof value === 'string') return value
+  if (Predicate.isString(value)) return value
   try {
     const formatted = JSON.stringify(value, null, 2)
     return formatted === undefined ? String(value) : formatted

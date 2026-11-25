@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import type { ExecResult } from '@earendil-works/pi-coding-agent'
 import { PiExtension } from '@eratio/pi-effect'
 import { createFakeExtensionApi, createFakeExtensionContext, type FakeExtension } from '@eratio/pi-effect/testing'
-import { Effect } from 'effect'
+import { Effect, Match } from 'effect'
 import { createOpensrcNativePlugin } from '../index.ts'
 import type {
   OpensrcConfig,
@@ -64,7 +64,11 @@ async function createOpensrcNativeHarness(piHost?: PiHostService): Promise<{
   readonly fetchStarted: Promise<void>
   readonly fetchWasCancelled: () => boolean
   readonly failOn: (operation: string | undefined) => void
-  readonly invoke: (name: string, params: unknown, signal?: AbortSignal) => Promise<unknown>
+  readonly invoke: (
+    name: string,
+    params: Parameters<FakeExtension['invokeTool']>[2],
+    signal?: AbortSignal,
+  ) => ReturnType<FakeExtension['invokeTool']>
   readonly shutdown: () => Promise<void>
 }> {
   const fake = createFakeExtensionApi()
@@ -147,7 +151,7 @@ async function createOpensrcNativeHarness(piHost?: PiHostService): Promise<{
     failOn: (operation: string | undefined) => {
       failedOperation = operation
     },
-    invoke: (name: string, params: unknown, signal?: AbortSignal) =>
+    invoke: (name: string, params: Parameters<FakeExtension['invokeTool']>[2], signal?: AbortSignal) =>
       fake.invokeTool(name, 'opensrc-native-test', params, undefined, signal),
     shutdown: async () => {
       await fake.invokeEvent('session_shutdown', { type: 'session_shutdown', reason: 'test' })
@@ -533,7 +537,7 @@ test('isolates private GitHub tokens in a mixed native fetch', async () => {
       ['gitlab:team/project'],
     ])
     expect(
-      fetches.filter((request) => request.environment.GITHUB_TOKEN !== undefined).map((request) => request.args[1]),
+      fetches.flatMap((request) => (request.environment.GITHUB_TOKEN !== undefined ? [request.args[1]] : [])),
     ).toEqual(['acme/private'])
     expect(requests.flatMap((request) => request.args)).not.toContain(token)
     const ghRequests = requests.filter((request) => request.command === 'gh')
@@ -582,7 +586,7 @@ test('should complete a private fetch given an interactive refreshable GitHub lo
     exec: (request: PiExecutionRequest) => {
       requests.push(request)
       if (request.detached)
-        return Effect.fail(createOpensrcFailure({ _tag: 'cli', operation: 'browser', message: 'browser unavailable' }))
+        return Effect.fail(createOpensrcFailure('cli', { operation: 'browser', message: 'browser unavailable' }))
       if (request.command === 'opensrc-test' && request.args[0] === '--version')
         return Effect.succeed({ stdout: 'opensrc 0.7.3', stderr: '', code: 0, killed: false })
       if (request.command === 'opensrc-test' && request.args[0] === 'list')
@@ -662,7 +666,11 @@ test('should complete a private fetch given an interactive refreshable GitHub lo
     expect(browserOpenedBeforeCodePrompt).toBe(true)
     expect(requests).toContainEqual(
       expect.objectContaining({
-        command: process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'rundll32' : 'xdg-open',
+        command: Match.value(process.platform).pipe(
+          Match.when('darwin', () => 'open'),
+          Match.when('win32', () => 'rundll32'),
+          Match.orElse(() => 'xdg-open'),
+        ),
         args:
           process.platform === 'win32'
             ? ['url.dll,FileProtocolHandler', 'https://github.com/login/device']
@@ -671,7 +679,7 @@ test('should complete a private fetch given an interactive refreshable GitHub lo
       }),
     )
     expect(JSON.stringify(result)).not.toContain('ABCD-1234')
-    expect(requests.filter((request) => request.command === 'gh').map((request) => request.args.slice(0, 2))).toEqual([
+    expect(requests.flatMap((request) => (request.command === 'gh' ? [request.args.slice(0, 2)] : []))).toEqual([
       ['repo', 'view'],
       ['auth', 'status'],
       ['auth', 'login'],

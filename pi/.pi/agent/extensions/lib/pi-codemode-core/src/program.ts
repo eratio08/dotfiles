@@ -1,4 +1,4 @@
-import { Context, type Effect, Schema } from 'effect'
+import { Context, type Effect, Predicate, Schema } from 'effect'
 
 const createCodeModeNonEmptyStringSchema = (message: string): Schema.Codec<string> =>
   Schema.String.annotate({ message }).pipe(
@@ -43,6 +43,7 @@ type ProgramOperationInvokerRequirement<R, E> = {
  */
 type ProgramOperationInvoker<R, E> = {
   readonly invoke: (method: string, args: readonly unknown[], signal: AbortSignal) => Effect.Effect<unknown, E, R>
+  // biome-ignore lint/plugin: Host methods can return any value.
   readonly invokeSync?: (method: string, args: readonly unknown[]) => unknown
   readonly errorCodec?: ProgramOperationErrorCodec<E>
 }
@@ -206,19 +207,34 @@ const CodeModeEncodedHostErrorSchema = Schema.Struct({
 /**
  * Creates a branded, tagged program failure from its fields.
  */
-function createProgramFailure<const Tag extends string>(fields: ProgramFailureFields<Tag>): ProgramFailure<Tag> {
-  const failure = { ...fields } as ProgramFailure<Tag>
+function createProgramFailure<const Tag extends string>(fields: ProgramFailureFields<Tag>): ProgramFailure<Tag>
+function createProgramFailure<const Tag extends string>(
+  tag: Tag,
+  fields: Omit<ProgramFailureFields<Tag>, '_tag'>,
+): ProgramFailure<Tag>
+function createProgramFailure<const Tag extends string>(
+  fieldsOrTag: ProgramFailureFields<Tag> | Tag,
+  fields?: Omit<ProgramFailureFields<Tag>, '_tag'>,
+): ProgramFailure<Tag> {
+  let failure: ProgramFailureFields<Tag>
+  if (Predicate.isString(fieldsOrTag)) {
+    if (fields === undefined) throw new TypeError('Failure fields are required.')
+    failure = { _tag: fieldsOrTag, ...fields }
+    failure = { ...failure, _tag: fieldsOrTag }
+  } else {
+    failure = { ...fieldsOrTag }
+  }
   Object.defineProperty(failure, codeModeFailureMarker, { value: true })
-  return failure
+  return failure as ProgramFailure<Tag>
 }
 
 /**
  * Narrows a value to a branded `ProgramFailure` after marker and schema checks.
  */
 function isProgramFailure(value: unknown): value is ProgramFailure {
-  if (value === null || typeof value !== 'object') return false
+  if (!Predicate.isObjectOrArray(value)) return false
   try {
-    if (Reflect.get(value, codeModeFailureMarker) !== true) return false
+    if ((value as { readonly [codeModeFailureMarker]?: unknown })[codeModeFailureMarker] !== true) return false
   } catch {
     return false
   }
@@ -415,8 +431,7 @@ function validateProgramDefinition(value: unknown): ProgramFailure | undefined {
     Schema.decodeUnknownSync(CodeModeDefinitionSchema)(value)
     return undefined
   } catch (cause) {
-    return createProgramFailure({
-      _tag: 'validation',
+    return createProgramFailure('validation', {
       operation: 'definition',
       message: getCodeModeSchemaFailureMessage(cause, 'The code mode definition is invalid.'),
     })
@@ -431,8 +446,7 @@ function validateProgramRunOptions(value: unknown): ProgramFailure | undefined {
     Schema.decodeUnknownSync(CodeModeRunOptionsSchema)(value)
     return undefined
   } catch (cause) {
-    return createProgramFailure({
-      _tag: 'validation',
+    return createProgramFailure('validation', {
       operation: 'options',
       message: getCodeModeSchemaFailureMessage(cause, 'The code mode run options are invalid.'),
     })

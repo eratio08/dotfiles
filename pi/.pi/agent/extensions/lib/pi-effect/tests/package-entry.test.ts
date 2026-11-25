@@ -3,6 +3,7 @@ import { createRequire } from 'node:module'
 import { basename } from 'node:path'
 import * as packageEntry from '@eratio/pi-effect'
 import * as testingEntry from '@eratio/pi-effect/testing'
+import { Predicate } from 'effect'
 
 type PackagePeerModules = {
   readonly effect: typeof import('effect')
@@ -20,7 +21,7 @@ test('should import package entry points given an ESM consumer', () => {
   const entries = [packageEntry, testingEntry]
 
   //when
-  const entriesAreObjects = entries.every((entry) => typeof entry === 'object')
+  const entriesAreObjects = entries.every((entry) => Predicate.isObjectOrArray(entry) || entry === null)
 
   //then
   if (!entriesAreObjects) {

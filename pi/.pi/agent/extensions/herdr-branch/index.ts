@@ -31,11 +31,12 @@ const extensionPath = fileURLToPath(import.meta.url)
 
 function parsePaneId(output: string): string | undefined {
   try {
-    const response = JSON.parse(output) as {
-      result?: { pane?: { pane_id?: unknown } }
-    }
-    const paneId = response?.result?.pane?.pane_id
-    return typeof paneId === 'string' && paneId.trim().length > 0 ? paneId : undefined
+    const response = Schema.decodeUnknownSync(
+      Schema.Struct({ result: Schema.Struct({ pane: Schema.Struct({ pane_id: Schema.String }) }) }),
+    )(JSON.parse(output))
+    const paneId = response.result.pane.pane_id
+
+    return paneId.trim().length > 0 ? paneId : undefined
   } catch {
     return undefined
   }

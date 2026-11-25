@@ -6,7 +6,9 @@ import { cloneTodos, createTodoApi } from '../src/extension.ts'
 
 type TodoMutation = Parameters<NonNullable<Parameters<typeof createTodoApi>[0]['onMutation']>>[0]
 
-function createDraft(initial: readonly Todo[] = []): { draft: TodoTransactionDraft; snapshot: () => Todo[] } {
+type TestTodoDraft = { draft: TodoTransactionDraft; snapshot: () => Todo[] }
+
+function createDraft(initial: readonly Todo[] = []): TestTodoDraft {
   let todos = cloneTodos(initial)
   const draft: TodoTransactionDraft = {
     snapshot: () => cloneTodos(todos),

@@ -2,24 +2,29 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { visibleWidth } from '@earendil-works/pi-tui'
 import { PiToolError } from '@eratio/pi-effect'
+import type { FakeExtension } from '@eratio/pi-effect/testing'
+import { Predicate } from 'effect'
 import todoExtension from '../index.ts'
 import type { Todo } from '../src/extension.ts'
 import { extractLatestTodoSnapshot, TODO_STATE_ENTRY, TodoUiError } from '../src/extension.ts'
 
-type EventHandler = (event: unknown, ctx: unknown) => Promise<unknown> | unknown
+type EventHandler = NonNullable<ReturnType<FakeExtension['events']['get']>>[number]
 type Renderable = { render: (width: number) => string[] }
 type Theme = {
   fg: (color: string, text: string) => string
   bold: (text: string) => string
   strikethrough: (text: string) => string
 }
+type Keybindings = { matches: () => boolean; getKeys: () => string[] }
+type WidgetFactory = (tui: undefined, theme: Theme) => Renderable
+type WidgetContent = string[] | WidgetFactory | undefined
 type SentMessage = {
   message: { customType: string; content: string; display: boolean }
   options?: { triggerTurn?: boolean; deliverAs?: 'steer' | 'nextTurn' }
 }
 type RegisteredTool = {
   name?: string
-  execute: (...args: unknown[]) => Promise<unknown>
+  execute: (...args: unknown[]) => ReturnType<FakeExtension['invokeTool']>
 }
 type TodoToolResult<T = unknown> = { readonly structuredContent: T }
 type RegisteredCommand = { handler: (...args: unknown[]) => Promise<void> }
@@ -35,10 +40,10 @@ type HarnessOptions = {
 
 type Harness = {
   ready: Promise<unknown>
-  ctx: Record<string, unknown>
+  ctx: object
   events: Map<string, EventHandler>
   sentMessages: SentMessage[]
-  widgets: Map<string, string[] | undefined>
+  widgets: Map<string, WidgetContent>
   notifications: string[]
   notificationLevels: Array<string | undefined>
   customView: () => Renderable | undefined
@@ -55,7 +60,7 @@ type Harness = {
 function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = {}): Harness {
   const events = new Map<string, EventHandler>()
   const sentMessages: SentMessage[] = []
-  const widgets = new Map<string, string[] | undefined>()
+  const widgets = new Map<string, WidgetContent>()
   const notifications: string[] = []
   const notificationLevels: Array<string | undefined> = []
   let customView: Renderable | undefined
@@ -84,7 +89,7 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
     registerTool(tool: RegisteredTool): void {
       if (tool.name) registeredTools.set(tool.name, tool)
     },
-    appendEntry(customType: string, data: unknown): void {
+    appendEntry(customType: string, data: Parameters<FakeExtension['api']['appendEntry']>[1]): void {
       fail('appendEntry')
       const entry = {
         type: 'custom',
@@ -109,7 +114,10 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
     },
     setActiveTools(): void {},
     events: {
-      emit(channel: string, request: { respond: (response: unknown) => void }): void {
+      emit(
+        channel: string,
+        request: { respond: (response: { status: 'handled'; result: { phase: Phase } }) => void },
+      ): void {
         fail('emit')
         if (channel !== 'plannotator:request') return
         const response = phaseResponses.shift()
@@ -127,7 +135,7 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
     mode: 'tui',
     ui: {
       theme,
-      setWidget(key: string, content: string[] | undefined): void {
+      setWidget(key: string, content: WidgetContent): void {
         widgets.set(key, content)
       },
       notify(message: string, level?: string): void {
@@ -140,10 +148,10 @@ function harness(branch: unknown[] = [], idle = true, options: HarnessOptions = 
         return options.toolsExpanded ?? false
       },
       async custom(
-        factory: (tui: unknown, theme: Theme, keybindings: unknown, done: () => void) => unknown,
+        factory: (tui: undefined, theme: Theme, keybindings: Keybindings, done: () => void) => Renderable,
       ): Promise<undefined> {
         if (options.customError !== undefined) throw options.customError
-        customView = factory(undefined, theme, keybindings, () => {}) as Renderable
+        customView = factory(undefined, theme, keybindings, () => {})
         return undefined
       },
     },
@@ -240,9 +248,9 @@ async function restoreTodos(value: ReturnType<typeof harness>): Promise<void> {
 async function executeTodoTool(
   value: Harness,
   name: string,
-  params: unknown = {},
+  params: Parameters<FakeExtension['invokeTool']>[2] = {},
   signal?: AbortSignal,
-): Promise<unknown> {
+): ReturnType<FakeExtension['invokeTool']> {
   const tool = value.registeredToolByName(name)
   assert.ok(tool)
   return tool.execute(`${name}-call`, params, signal, undefined, value.ctx)
@@ -611,8 +619,8 @@ test('should restore the live plan in a fresh runtime given navigation to an old
   assert.equal(value.sentMessages[0]?.options?.triggerTurn, false)
   assert.match(message.content, /Current task: none/)
   assert.match(message.content, /Tasks: 0 remaining, 0 blocked, 2 complete, 0 omitted\./)
-  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
-  assert.ok(widgetFactory)
+  const widgetFactory = value.widgets.get('todo')
+  assert.ok(Predicate.isFunction(widgetFactory))
   const widgetLines = widgetFactory(undefined, value.theme).render(120)
   assert.match(widgetLines[0] ?? '', /^ {2}\[✓\] finished child task/)
   assert.match(widgetLines[1] ?? '', /^ {4}↳ \[✓\] finished child follow-up/)
@@ -642,8 +650,8 @@ test('centers the active task through completion and shows the completed tail', 
   }))
   const value = harness([{ type: 'custom', customType: TODO_STATE_ENTRY, data: { todos } }], true)
   await restoreTodos(value)
-  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
-  assert.ok(widgetFactory)
+  const widgetFactory = value.widgets.get('todo')
+  assert.ok(Predicate.isFunction(widgetFactory))
   assert.deepEqual(widgetFactory(undefined, value.theme).render(120), [
     '↑ 7 earlier tasks',
     '  [✓] task 8',
@@ -655,10 +663,8 @@ test('centers the active task through completion and shows the completed tail', 
   ])
 
   await executeTodoTool(value, 'todo_complete')
-  const updatedWidgetFactory = value.widgets.get('todo') as unknown as
-    | ((tui: unknown, theme: Theme) => Renderable)
-    | undefined
-  assert.ok(updatedWidgetFactory)
+  const updatedWidgetFactory = value.widgets.get('todo')
+  assert.ok(Predicate.isFunction(updatedWidgetFactory))
   assert.deepEqual(updatedWidgetFactory(undefined, value.theme).render(120), [
     '↑ 7 earlier tasks',
     '  [✓] task 8',
@@ -675,10 +681,8 @@ test('centers the active task through completion and shows the completed tail', 
     true,
   )
   await restoreTodos(completedRuntime)
-  const completedWidgetFactory = completedRuntime.widgets.get('todo') as unknown as
-    | ((tui: unknown, theme: Theme) => Renderable)
-    | undefined
-  assert.ok(completedWidgetFactory)
+  const completedWidgetFactory = completedRuntime.widgets.get('todo')
+  assert.ok(Predicate.isFunction(completedWidgetFactory))
   assert.deepEqual(completedWidgetFactory(undefined, completedRuntime.theme).render(120), [
     '↑ 15 earlier tasks',
     '  [✓] task 16',
@@ -699,10 +703,8 @@ test('marks hidden tasks at the compact widget boundaries', async () => {
     }))
     const value = harness([{ type: 'custom', customType: TODO_STATE_ENTRY, data: { todos } }], true)
     await restoreTodos(value)
-    const widgetFactory = value.widgets.get('todo') as unknown as
-      | ((tui: unknown, theme: Theme) => Renderable)
-      | undefined
-    assert.ok(widgetFactory)
+    const widgetFactory = value.widgets.get('todo')
+    assert.ok(Predicate.isFunction(widgetFactory))
 
     const lines = widgetFactory(undefined, value.theme).render(120)
 
@@ -750,8 +752,8 @@ test('should show omitted history without orphaned indentation given a centered 
   ]
   const value = harness([{ type: 'custom', customType: TODO_STATE_ENTRY, data: { todos } }], true)
   await restoreTodos(value)
-  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
-  assert.ok(widgetFactory)
+  const widgetFactory = value.widgets.get('todo')
+  assert.ok(Predicate.isFunction(widgetFactory))
 
   const lines = widgetFactory(undefined, value.theme).render(120)
 
@@ -810,8 +812,8 @@ test('should preserve open task states given tree navigation with a branch summa
       { content: 'blocked task', status: 'blocked' },
     ],
   )
-  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
-  assert.ok(widgetFactory)
+  const widgetFactory = value.widgets.get('todo')
+  assert.ok(Predicate.isFunction(widgetFactory))
   const lines = widgetFactory(undefined, value.theme).render(120)
   const activeTask = lines.find((line) => line.includes('active task'))
   const blockedTask = lines.find((line) => line.includes('blocked task'))
@@ -874,8 +876,8 @@ test('should preserve newly added tasks given tree navigation with an older snap
   )
 
   //then
-  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
-  assert.ok(widgetFactory)
+  const widgetFactory = value.widgets.get('todo')
+  assert.ok(Predicate.isFunction(widgetFactory))
   const lines = widgetFactory(undefined, value.theme).render(120)
   assert.ok(lines.some((line) => line.includes('active task')))
   assert.ok(lines.some((line) => line.includes('new task one')))
@@ -952,7 +954,7 @@ test('should keep the live plan given a failed tree snapshot append', async () =
   const execution = Promise.resolve(branchChange({ type: 'session_tree' }, value.ctx))
 
   //then
-  await assert.rejects(execution, (error: unknown) => {
+  await assert.rejects(execution, (error: Error) => {
     assert.ok(error instanceof TodoUiError)
     assert.equal(error.operation, 'append-entry')
     assert.equal(error.cause, cause)
@@ -998,7 +1000,7 @@ test('should keep the saved plan given a failed tree status summary', async () =
   const execution = Promise.resolve(branchChange({ type: 'session_tree' }, value.ctx))
 
   //then
-  await assert.rejects(execution, (error: unknown) => {
+  await assert.rejects(execution, (error: Error) => {
     assert.ok(error instanceof TodoUiError)
     assert.equal(error.operation, 'send-message')
     assert.equal(error.cause, cause)
@@ -1155,7 +1157,7 @@ test('should return typed errors given a host that cannot append a snapshot', as
   const execution = executeTodoTool(value, 'todo_add', { content: 'not persisted' })
 
   //then
-  await assert.rejects(execution, (error: unknown) => {
+  await assert.rejects(execution, (error: Error) => {
     const typed = error instanceof PiToolError ? error.cause : error
     assert.ok(typed instanceof TodoUiError)
     assert.equal(typed.operation, 'append-entry')
@@ -1178,7 +1180,7 @@ test('should return typed errors given a host callback failure during compaction
   const execution = Promise.resolve(compact({ type: 'session_compact', willRetry: false }, value.ctx))
 
   //then
-  await assert.rejects(execution, (error: unknown) => {
+  await assert.rejects(execution, (error: Error) => {
     assert.ok(error instanceof TodoUiError)
     assert.equal(error.operation, 'send-message')
     assert.equal(error.cause, cause)
@@ -1314,7 +1316,7 @@ test('should not send a success message given a failed clear transaction', async
   const execution = command('', value.ctx)
 
   //then
-  await assert.rejects(execution, (error: unknown) => {
+  await assert.rejects(execution, (error: Error) => {
     assert.ok(error instanceof TodoUiError)
     assert.equal(error.operation, 'append-entry')
     assert.equal(error.cause, cause)
@@ -1349,8 +1351,8 @@ test('should indent expanded todo details by dependency depth given nested tasks
     { toolsExpanded: true },
   )
   await restoreTodos(value)
-  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
-  assert.ok(widgetFactory)
+  const widgetFactory = value.widgets.get('todo')
+  assert.ok(Predicate.isFunction(widgetFactory))
 
   //when
   const lines = widgetFactory(undefined, value.theme).render(120)
@@ -1405,8 +1407,8 @@ test('should show blocked tasks under pending dependencies given completed prere
     true,
   )
   await restoreTodos(value)
-  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
-  assert.ok(widgetFactory)
+  const widgetFactory = value.widgets.get('todo')
+  assert.ok(Predicate.isFunction(widgetFactory))
 
   const lines = widgetFactory(undefined, value.theme).render(120)
   const serveIndex = lines.findIndex((line) => line.includes('Demo: Serve a sample WAV endpoint'))
@@ -1442,8 +1444,8 @@ test('should render todo details given tool output expanded after widget creatio
     { toolsExpanded: false },
   )
   await restoreTodos(value)
-  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
-  assert.ok(widgetFactory)
+  const widgetFactory = value.widgets.get('todo')
+  assert.ok(Predicate.isFunction(widgetFactory))
   const widget = widgetFactory(undefined, value.theme)
   assert.doesNotMatch(widget.render(120).join('\n'), /first details/)
   value.setToolsExpanded(true)
@@ -1473,8 +1475,8 @@ test('should hide todo details given tool output collapsed after widget creation
     { toolsExpanded: true },
   )
   await restoreTodos(value)
-  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
-  assert.ok(widgetFactory)
+  const widgetFactory = value.widgets.get('todo')
+  assert.ok(Predicate.isFunction(widgetFactory))
   const widget = widgetFactory(undefined, value.theme)
   value.setToolsExpanded(false)
 
@@ -1503,8 +1505,8 @@ test('should keep expanded todo details within the widget width given a narrow t
     { toolsExpanded: true },
   )
   await restoreTodos(value)
-  const widgetFactory = value.widgets.get('todo') as unknown as ((tui: unknown, theme: Theme) => Renderable) | undefined
-  assert.ok(widgetFactory)
+  const widgetFactory = value.widgets.get('todo')
+  assert.ok(Predicate.isFunction(widgetFactory))
 
   //when
   const lines = widgetFactory(undefined, value.theme).render(3)
@@ -1525,7 +1527,7 @@ test('should report typed UI errors given a /todos command failure', async () =>
   const execution = command('', value.ctx)
 
   //then
-  await assert.rejects(execution, (error: unknown) => {
+  await assert.rejects(execution, (error: Error) => {
     assert.ok(error instanceof TodoUiError)
     assert.equal(error.operation, 'show')
     assert.equal(error.message, 'Error: viewer failed')
@@ -1545,7 +1547,7 @@ test('should report typed UI errors given a failure reading tool output expansio
   const execution = restoreTodos(value)
 
   //then
-  await assert.rejects(execution, (error: unknown) => {
+  await assert.rejects(execution, (error: Error) => {
     assert.ok(error instanceof TodoUiError)
     assert.equal(error.operation, 'update')
     assert.equal(error.message, 'Error: tool expansion state failed')

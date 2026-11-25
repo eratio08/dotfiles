@@ -21,14 +21,11 @@ const definition = {
 } as const
 
 const operationInvoker = {
-  invoke: (_method: string, args: readonly unknown[]) =>
-    Effect.succeed(Number(args[0]) + Number(args[1])),
+  invoke: (_method: string, args: readonly unknown[]) => Effect.succeed(Number(args[0]) + Number(args[1])),
 }
 
 const core = createProgramRunner<never, never>()
-const runtime = ManagedRuntime.make(
-  Layer.succeed(ProgramOperationInvoker<never, never>(), operationInvoker),
-)
+const runtime = ManagedRuntime.make(Layer.succeed(ProgramOperationInvoker<never, never>(), operationInvoker))
 const source = 'export default async (api: MathApi) => api.add(2, 3)'
 const result = await runtime.runPromise(
   core.evaluate(definition, source, {

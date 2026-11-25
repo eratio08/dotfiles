@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from '@earendil-works/pi-coding-agent'
+import type {
+  ExtensionAPI,
+  ExtensionCommandContext,
+  ExtensionContext,
+  SessionEntry,
+} from '@earendil-works/pi-coding-agent'
 import handoffExtension from '../index.ts'
-import { HANDOFF_MODEL_APPLIED_ENTRY, HANDOFF_MODEL_ENTRY } from '../src/extension.ts'
+import { getHandoffMessages, HANDOFF_MODEL_APPLIED_ENTRY, HANDOFF_MODEL_ENTRY } from '../src/extension.ts'
 
 type Action =
   | { kind: 'append'; customType: string; data: unknown }
@@ -17,11 +22,13 @@ type HarnessOptions = {
   restoredModel?: unknown
 }
 
+type EventHandler = (event: { type?: string }, ctx: ExtensionContext) => Promise<void>
+
 type Harness = {
   pi: ExtensionAPI
   command: (args: string, ctx: ExtensionCommandContext) => Promise<void>
-  beforeAgentStart: (event: unknown, ctx: ExtensionContext) => Promise<unknown>
-  sessionShutdown: (event: unknown, ctx: ExtensionContext) => Promise<unknown>
+  beforeAgentStart: EventHandler
+  sessionShutdown: EventHandler
   actions: Action[]
   notifications: Array<{ message: string; type: string | undefined }>
   navigation: Array<{ targetId: string; options: unknown }>
@@ -87,26 +94,29 @@ function makeHarness(options: HarnessOptions = {}): Harness {
   const thinkingLevels: string[] = []
   const model = { provider: 'test-provider', id: 'test-model' }
   const pendingModel = options.restoredModel
-  const events = new Map<string, (event: unknown, ctx: ExtensionContext) => Promise<unknown>>()
+  const events = new Map<string, EventHandler>()
   let command: Harness['command'] | undefined
 
   const pi = {
-    on(event: string, handler: (event: unknown, ctx: ExtensionContext) => Promise<unknown>): void {
+    on(event: string, handler: EventHandler): void {
       events.set(event, handler)
     },
     registerCommand(_name: string, options: { handler: Harness['command'] }): void {
       command = options.handler
     },
-    appendEntry(customType: string, data: unknown): void {
+    appendEntry(customType: string, data: Parameters<ExtensionAPI['appendEntry']>[1]): void {
       actions.push({ kind: 'append', customType, data })
     },
-    sendMessage(message: unknown, options: unknown): void {
+    sendMessage(
+      message: Parameters<ExtensionAPI['sendMessage']>[0],
+      options: Parameters<ExtensionAPI['sendMessage']>[1],
+    ): void {
       actions.push({ kind: 'message', message, options })
     },
     sendUserMessage(content: string): void {
       actions.push({ kind: 'user', content })
     },
-    setModel: async (value: unknown): Promise<boolean> => {
+    setModel: async (value: Parameters<ExtensionAPI['setModel']>[0]): Promise<boolean> => {
       setModelCalls.push(value)
       return true
     },
@@ -116,12 +126,14 @@ function makeHarness(options: HarnessOptions = {}): Harness {
     getThinkingLevel(): 'medium' {
       return 'medium'
     },
-  } as unknown as ExtensionAPI
+  } as ExtensionAPI
 
   handoffExtension(pi)
 
   const context = {
+    ...({} as ExtensionCommandContext),
     ui: {
+      ...({} as ExtensionContext['ui']),
       custom: async <T>(): Promise<T> => {
         if (options.promptError) {
           throw options.promptError
@@ -140,14 +152,14 @@ function makeHarness(options: HarnessOptions = {}): Harness {
       getSessionFile: () => sessionFile,
       getSessionId: () => sessionId,
       getEntries: () => branch,
-    },
-    modelRegistry: {
-      find: () => pendingModel,
+    } as ExtensionContext['sessionManager'],
+    modelRegistry: Object.assign({} as ExtensionContext['modelRegistry'], {
+      find: () => pendingModel as ReturnType<ExtensionContext['modelRegistry']['find']>,
       complete: async (): Promise<never> => {
         throw new Error('model completion should not run in this harness')
       },
-    },
-    model,
+    }),
+    model: model as ExtensionContext['model'],
     scopedModels: [],
     thinkingLevel: 'high',
     signal: undefined,
@@ -155,7 +167,10 @@ function makeHarness(options: HarnessOptions = {}): Harness {
     waitForIdle: async (): Promise<void> => {
       waitForIdleCalls += 1
     },
-    navigateTree: async (targetId: string, navigationOptions: unknown): Promise<{ cancelled: boolean }> => {
+    navigateTree: async (
+      targetId: string,
+      navigationOptions: Parameters<ExtensionCommandContext['navigateTree']>[1],
+    ): Promise<{ cancelled: boolean }> => {
       navigation.push({ targetId, options: navigationOptions })
       return { cancelled: options.navigationCancelled ?? false }
     },
@@ -163,7 +178,7 @@ function makeHarness(options: HarnessOptions = {}): Harness {
       newSessionCalls += 1
       throw new Error('newSession must not be called')
     },
-  } as unknown as ExtensionCommandContext
+  } as ExtensionCommandContext
 
   const beforeAgentStart = events.get('before_agent_start')
   const sessionShutdown = events.get('session_shutdown')
@@ -192,6 +207,33 @@ function makeHarness(options: HarnessOptions = {}): Harness {
     },
   }
 }
+
+test('should keep message order and the latest summary given a compacted branch', () => {
+  const before = { role: 'user', content: 'old', timestamp: 1 }
+  const kept = { role: 'user', content: 'kept', timestamp: 2 }
+  const after = { role: 'user', content: 'new', timestamp: 3 }
+  const branch = [
+    { type: 'message', id: 'old', message: before },
+    { type: 'custom', id: 'custom' },
+    { type: 'message', id: 'kept', message: kept },
+    {
+      type: 'compaction',
+      id: 'compact',
+      firstKeptEntryId: 'kept',
+      summary: 'summary',
+      tokensBefore: 10,
+      timestamp: '2024-01-01T00:00:00Z',
+    },
+    { type: 'message', id: 'after', message: after },
+  ] as SessionEntry[]
+
+  assert.deepEqual(getHandoffMessages(branch.slice(0, 3)), [before, kept])
+  assert.deepEqual(getHandoffMessages(branch), [
+    { role: 'compactionSummary', summary: 'summary', tokensBefore: 10, timestamp: Date.parse('2024-01-01T00:00:00Z') },
+    kept,
+    after,
+  ])
+})
 
 test('should branch in the current session and preserve continuation ordering given a handoff request', async () => {
   //given
@@ -302,7 +344,7 @@ test('should report generation failures and avoid navigation given a failed gene
 test('should dispose the runtime once given repeated shutdown events', async () => {
   //given
   const harness = makeHarness()
-  const context = harness.context as unknown as ExtensionContext
+  const context = harness.context
 
   //when
   await harness.sessionShutdown({}, context)
@@ -328,11 +370,17 @@ test('should restore the pending model given the next agent turn', async () => {
   const context = {
     ...({} as ExtensionContext),
     hasUI: true,
-    ui: { notify: (message: string, type?: string) => harness.notifications.push({ message, type }) },
-    sessionManager: { getBranch: () => [pendingModel] },
-    modelRegistry: { find: () => ({ provider: 'test-provider', id: 'test-model' }) },
+    ui: {
+      ...({} as ExtensionContext['ui']),
+      notify: (message: string, type?: string) => harness.notifications.push({ message, type }),
+    },
+    sessionManager: { getBranch: () => [pendingModel] } as ExtensionContext['sessionManager'],
+    modelRegistry: Object.assign({} as ExtensionContext['modelRegistry'], {
+      find: () =>
+        ({ provider: 'test-provider', id: 'test-model' }) as ReturnType<ExtensionContext['modelRegistry']['find']>,
+    }),
     signal: undefined,
-  } as unknown as ExtensionContext
+  } as ExtensionContext
 
   //when
   await harness.beforeAgentStart({}, context)

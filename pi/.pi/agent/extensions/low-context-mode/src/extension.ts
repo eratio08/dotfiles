@@ -1,6 +1,6 @@
 import type { Api, Model } from '@earendil-works/pi-ai'
 import { Pi, PiContext, type PiContextTag, type PiExtensionError, PiSession, PiUi } from '@eratio08/pi-effect'
-import { Context, Effect, Layer, Ref, Schema } from 'effect'
+import { Context, Effect, Layer, Predicate, Ref, Schema } from 'effect'
 
 const LOW_CONTEXT_WINDOW = 272_000
 
@@ -15,8 +15,10 @@ type LowContextModeModel = {
   readonly contextWindow: number
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
+function isLowContextRecord(
+  value: unknown,
+): value is { type?: unknown; customType?: unknown; data?: unknown; mode?: unknown } {
+  return Predicate.isObjectOrArray(value)
 }
 
 function isLowContextMode(value: unknown): value is LowContextMode {
@@ -41,7 +43,7 @@ function parseLowContextCommand(args: string, currentMode: LowContextMode): LowC
 function restoreLowContextMode(branch: readonly unknown[], fallback: LowContextMode = 'on'): LowContextMode {
   let mode = fallback
   for (const value of branch) {
-    if (!isRecord(value) || value.type !== 'custom' || !isRecord(value.data)) {
+    if (!isLowContextRecord(value) || value.type !== 'custom' || !isLowContextRecord(value.data)) {
       continue
     }
     if (value.customType === LOW_CONTEXT_MODE_ENTRY && isLowContextMode(value.data.mode)) {

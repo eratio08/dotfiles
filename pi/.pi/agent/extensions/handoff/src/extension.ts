@@ -6,7 +6,7 @@ import type {
   SessionEntry,
 } from '@earendil-works/pi-coding-agent'
 import { BorderedLoader, convertToLlm, serializeConversation } from '@earendil-works/pi-coding-agent'
-import { Context, Effect, Layer, ManagedRuntime, Schema } from 'effect'
+import { Context, Effect, Layer, ManagedRuntime, Predicate, Schema } from 'effect'
 
 type SessionMessage = Extract<SessionEntry, { type: 'message' }>['message']
 
@@ -35,22 +35,17 @@ const HANDOFF_MODEL_APPLIED_ENTRY = 'handoff-model-applied'
 type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
 type HandoffModelState = { provider: string; modelId: string; thinkingLevel: ThinkingLevel }
+type HandoffModelInput = { provider?: unknown; modelId?: unknown; thinkingLevel?: unknown }
 
 const THINKING_LEVELS: readonly ThinkingLevel[] = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
 
 function isThinkingLevel(value: unknown): value is ThinkingLevel {
-  return typeof value === 'string' && THINKING_LEVELS.includes(value as ThinkingLevel)
+  return Predicate.isString(value) && THINKING_LEVELS.includes(value as ThinkingLevel)
 }
 
-function parseHandoffModelState(value: unknown): HandoffModelState | undefined {
-  if (!value || typeof value !== 'object') {
-    return undefined
-  }
-
-  const provider = (value as { provider?: unknown }).provider
-  const modelId = (value as { modelId?: unknown }).modelId
-  const thinkingLevel = (value as { thinkingLevel?: unknown }).thinkingLevel
-  if (typeof provider !== 'string' || typeof modelId !== 'string' || !isThinkingLevel(thinkingLevel)) {
+function parseHandoffModelState(value: HandoffModelInput): HandoffModelState | undefined {
+  const { provider, modelId, thinkingLevel } = value
+  if (!Predicate.isString(provider) || !Predicate.isString(modelId) || !isThinkingLevel(thinkingLevel)) {
     return undefined
   }
 
@@ -60,15 +55,16 @@ function parseHandoffModelState(value: unknown): HandoffModelState | undefined {
 function getPendingHandoffModel(entries: readonly unknown[]): { id: string; state: HandoffModelState } | undefined {
   let pending: { id: string; state: HandoffModelState } | undefined
   for (const entry of entries) {
-    if (!entry || typeof entry !== 'object' || (entry as { type?: unknown }).type !== 'custom') {
+    if (!Predicate.isObjectOrArray(entry) || (entry as { type?: unknown }).type !== 'custom') {
       continue
     }
 
     const customType = (entry as { customType?: unknown }).customType
     if (customType === HANDOFF_MODEL_ENTRY) {
       const id = (entry as { id?: unknown }).id
-      const state = parseHandoffModelState((entry as { data?: unknown }).data)
-      pending = typeof id === 'string' && state ? { id, state } : undefined
+      const data = (entry as { data?: unknown }).data
+      const state = Predicate.isObjectOrArray(data) ? parseHandoffModelState(data as HandoffModelInput) : undefined
+      pending = Predicate.isString(id) && state ? { id, state } : undefined
       continue
     }
     if (customType === HANDOFF_MODEL_APPLIED_ENTRY && pending) {
@@ -125,19 +121,21 @@ function getHandoffMessages(branch: readonly SessionEntry[]): HandoffMessage[] {
       break
     }
   }
-  if (compactionIndex < 0) {
-    return branch.map(entryToMessage).filter((message): message is HandoffMessage => message !== undefined)
+  if (compactionIndex >= 0) {
+    const compaction = branch[compactionIndex]
+    const firstKeptIndex =
+      compaction.type === 'compaction' ? branch.findIndex((entry) => entry.id === compaction.firstKeptEntryId) : -1
+    branch = [
+      compaction,
+      ...(firstKeptIndex >= 0 ? branch.slice(firstKeptIndex, compactionIndex) : []),
+      ...branch.slice(compactionIndex + 1),
+    ]
   }
 
-  const compaction = branch[compactionIndex]
-  const firstKeptIndex =
-    compaction.type === 'compaction' ? branch.findIndex((entry) => entry.id === compaction.firstKeptEntryId) : -1
-  const compactedBranch = [
-    compaction,
-    ...(firstKeptIndex >= 0 ? branch.slice(firstKeptIndex, compactionIndex) : []),
-    ...branch.slice(compactionIndex + 1),
-  ]
-  return compactedBranch.map(entryToMessage).filter((message): message is HandoffMessage => message !== undefined)
+  return branch.flatMap((entry) => {
+    const message = entryToMessage(entry)
+    return message === undefined ? [] : [message]
+  })
 }
 
 function getBranchPointId(branch: readonly SessionEntry[]): string | undefined {

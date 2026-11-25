@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { ExecResult, ExtensionAPI } from '@earendil-works/pi-coding-agent'
-import { Context, Effect, Layer, Ref, Result, Schema } from 'effect'
+import { Context, Data, Effect, flow, Layer, Predicate, Ref, Result, Schema } from 'effect'
 
 const HERDR_ENV_VALUE = '1'
 const HERDR_COMMAND = 'herdr'
@@ -88,13 +88,15 @@ type SessionSelection =
   | { readonly _tag: 'none' }
   | { readonly _tag: 'ambiguous'; readonly sessions: readonly SessionSummary[] }
 
+const SessionSelection = Data.taggedEnum<SessionSelection>()
+
 type SessionComparison = {
   readonly added: readonly SessionSummary[]
   readonly removed: readonly SessionSummary[]
   readonly unchanged: readonly SessionSummary[]
 }
 
-function hasHerdrEnvironment(value: unknown): boolean {
+function hasHerdrEnvironment(value: string | undefined): boolean {
   return value === HERDR_ENV_VALUE
 }
 
@@ -114,25 +116,25 @@ function selectActiveSession(sessions: readonly SessionSummary[]): SessionSelect
   const active = sessions.filter((session) => session.active)
   if (active.length === 1) {
     const session = active[0]
-    if (session) return { _tag: 'found', session }
+    if (session) return SessionSelection.found({ session })
   }
-  if (active.length > 1) return { _tag: 'ambiguous', sessions: active }
-  return { _tag: 'none' }
+  if (active.length > 1) return SessionSelection.ambiguous({ sessions: active })
+  return SessionSelection.none()
 }
 
 function selectNewSession(before: readonly SessionSummary[], after: readonly SessionSummary[]): SessionSelection {
   const added = compareSessions(before, after).added
   if (added.length === 1) {
     const session = added[0]
-    if (session) return { _tag: 'found', session }
+    if (session) return SessionSelection.found({ session })
   }
-  if (added.length > 1) return { _tag: 'ambiguous', sessions: added }
-  return { _tag: 'none' }
+  if (added.length > 1) return SessionSelection.ambiguous({ sessions: added })
+  return SessionSelection.none()
 }
 
 function selectSessionSlug(before: readonly SessionSummary[], after: readonly SessionSummary[]): SessionSelection {
   const newSession = selectNewSession(before, after)
-  if (newSession._tag !== 'none') return newSession
+  if (!Predicate.isTagged(newSession, 'none')) return newSession
 
   const updated = after.filter((candidate) =>
     before.some(
@@ -141,19 +143,15 @@ function selectSessionSlug(before: readonly SessionSummary[], after: readonly Se
   )
   if (updated.length === 1) {
     const session = updated[0]
-    if (session) return { _tag: 'found', session }
+    if (session) return SessionSelection.found({ session })
   }
-  if (updated.length > 1) return { _tag: 'ambiguous', sessions: updated }
+  if (updated.length > 1) return SessionSelection.ambiguous({ sessions: updated })
   return selectActiveSession(after)
 }
 
-function decodeSessionList(value: unknown): Result.Result<readonly SessionSummary[], Schema.SchemaError> {
-  return Schema.decodeUnknownResult(SessionListSchema)(value)
-}
+const decodeSessionList = Schema.decodeUnknownResult(SessionListSchema)
 
-function decodeCommentList(value: unknown): Result.Result<readonly CommentData[], Schema.SchemaError> {
-  return Schema.decodeUnknownResult(CommentListSchema)(value)
-}
+const decodeCommentList = Schema.decodeUnknownResult(CommentListSchema)
 
 function isUserComment(comment: CommentData, userAuthor = 'user'): boolean {
   const author = comment.author?.trim()
@@ -164,17 +162,16 @@ function normalizeComments(comments: readonly CommentData[], userAuthor = 'user'
   return comments.filter((comment) => isUserComment(comment, userAuthor))
 }
 
-function decodeHerdrPaneId(value: unknown): string | null {
-  const decoded = Schema.decodeUnknownResult(HerdrPaneSplitResponseSchema)(value)
-  return Result.isSuccess(decoded) ? decoded.success.result.pane.pane_id : null
-}
+const decodeHerdrPaneId = flow(Schema.decodeUnknownResult(HerdrPaneSplitResponseSchema), (decoded) =>
+  Result.isSuccess(decoded) ? decoded.success.result.pane.pane_id : null,
+)
 
-function buildReviewScopeArgs(scope: unknown): readonly string[] {
+function buildReviewScopeArgs(scope: ReviewScope): readonly string[] {
   const decoded = Schema.decodeUnknownSync(ReviewScopeSchema)(scope)
   return decoded.type === 'working-tree' ? ['--working-tree'] : ['--revisions', decoded.revset]
 }
 
-function buildTuicrArgs(scope: unknown, useStdout = false): readonly string[] {
+function buildTuicrArgs(scope: ReviewScope, useStdout = false): readonly string[] {
   return ['tui', ...buildReviewScopeArgs(scope), ...(useStdout ? ['--stdout'] : [])]
 }
 
@@ -194,12 +191,12 @@ function buildShellCommand(command: string, args: readonly string[] = []): strin
   return [command, ...args].map(shellQuote).join(' ')
 }
 
-function buildTuicrCommand(scope: unknown, useStdout = false): string {
+function buildTuicrCommand(scope: ReviewScope, useStdout = false): string {
   return buildShellCommand(TUICR_COMMAND, buildTuicrArgs(scope, useStdout))
 }
 
 function buildTuicrBlockingCommand(
-  scope: unknown,
+  scope: ReviewScope,
   completionMarker = TUICR_COMPLETION_MARKER,
   useStdout = false,
 ): string {
@@ -425,8 +422,8 @@ const TuicrLayer: Layer.Layer<Tuicr, never, TuicrPi | TuicrConfig> = Layer.effec
       for (let attempt = 0; attempt < discoveryAttempts; attempt += 1) {
         const after = yield* readSessions(repo)
         const selection = selectSessionSlug(before, after)
-        if (selection._tag === 'found') return selection.session
-        if (selection._tag === 'ambiguous') {
+        if (Predicate.isTagged(selection, 'found')) return selection.session
+        if (Predicate.isTagged(selection, 'ambiguous')) {
           return yield* stateFailure('session-discovery', 'multiple relevant tuicr sessions were found')
         }
 

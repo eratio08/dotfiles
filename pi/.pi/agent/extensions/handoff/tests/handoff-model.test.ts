@@ -67,3 +67,16 @@ assert.equal(
   ]),
   undefined,
 )
+
+assert.equal(
+  getPendingHandoffModel([null, { ...handoffEntry, data: { ...handoffEntry.data, provider: 42 } }]),
+  undefined,
+)
+assert.equal(
+  getPendingHandoffModel([{ ...handoffEntry, data: { ...handoffEntry.data, thinkingLevel: null } }]),
+  undefined,
+)
+assert.deepEqual(getPendingHandoffModel([{ ...handoffEntry, data: Object.assign([], handoffEntry.data) }]), {
+  id: 'handoff-1',
+  state: handoffEntry.data,
+})

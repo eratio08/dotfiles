@@ -10,12 +10,20 @@ import piOmmExtension from '../index.ts'
 
 type OmmAddTasksTool = {
   readonly name: string
-  readonly execute: (toolCallId: string, params: { summaries: string[] }, signal?: AbortSignal) => Promise<unknown>
+  readonly execute: (
+    toolCallId: string,
+    params: { summaries: string[] },
+    signal?: AbortSignal,
+  ) => Promise<Pi.AgentToolResult<{ summaries: string[] }>>
 }
 
 type OmmListTaskTool = {
   readonly name: string
-  readonly execute: (toolCallId: string, params: { limit?: number }, signal?: AbortSignal) => Promise<unknown>
+  readonly execute: (
+    toolCallId: string,
+    params: { limit?: number },
+    signal?: AbortSignal,
+  ) => Promise<Pi.AgentToolResult<{ summaries: string[] }>>
   readonly renderResult: (
     result: { content: Array<{ type: string; text?: string }>; details?: unknown },
     options: { expanded: boolean; isPartial: boolean },
@@ -28,14 +36,14 @@ type OmmListTaskTool = {
   ) => Tui.Text
 }
 
-function registerOmmTaskTool(exec: Pi.ExtensionAPI['exec'], name: string): unknown {
-  const registeredTools = new Map<string, unknown>()
+function registerOmmTaskTool(exec: Pi.ExtensionAPI['exec'], name: string): OmmAddTasksTool | OmmListTaskTool {
+  const registeredTools = new Map<string, OmmAddTasksTool | OmmListTaskTool>()
   const pi = {
     exec,
     registerTool(tool: { name: string }): void {
-      registeredTools.set(tool.name, tool)
+      registeredTools.set(tool.name, tool as OmmAddTasksTool | OmmListTaskTool)
     },
-  } as unknown as Pi.ExtensionAPI
+  } as Pi.ExtensionAPI
 
   piOmmExtension(pi)
 

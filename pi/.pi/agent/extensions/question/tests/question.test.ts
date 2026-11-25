@@ -1,8 +1,10 @@
 import { expect, test } from 'bun:test'
 import { initTheme } from '@earendil-works/pi-coding-agent'
+import { getKeybindings } from '@earendil-works/pi-tui'
 import type { PiCustomFactory } from '@eratio/pi-effect'
 import { createFakeExtensionContext, type FakeExtension, installFakePlugin } from '@eratio/pi-effect/testing'
 import questionExtension from '../index.ts'
+import type { QuestionToolDetails } from '../src/extension.ts'
 
 type QuestionOutcome = {
   answers: string[][]
@@ -19,13 +21,13 @@ function createQuestionContext(
   } = {},
 ): Parameters<FakeExtension['invokeTool']>[3] {
   const context = createFakeExtensionContext()
-  const tui = { requestRender: (): void => undefined } as unknown as Parameters<PiCustomFactory<unknown>>[0]
+  const tui = { requestRender: (): void => undefined } as Parameters<PiCustomFactory<unknown>>[0]
   const theme = {
     fg: (_color: string, text: string): string => text,
     bg: (_color: string, text: string): string => text,
     bold: (text: string): string => text,
-  } as unknown as Parameters<PiCustomFactory<unknown>>[1]
-  const keybindings = { matches: (): boolean => false } as unknown as Parameters<PiCustomFactory<unknown>>[2]
+  } as Parameters<PiCustomFactory<unknown>>[1]
+  const keybindings = getKeybindings() as Parameters<PiCustomFactory<unknown>>[2]
   return {
     ...context,
     hasUI: options.hasUI ?? context.hasUI,
@@ -62,7 +64,9 @@ function createQuestionContext(
   }
 }
 
-function renderQuestionViews(extension: FakeExtension, details: unknown): { collapsed: string; expanded: string } {
+type QuestionViews = { collapsed: string; expanded: string }
+
+function renderQuestionViews(extension: FakeExtension, details: QuestionToolDetails): QuestionViews {
   initTheme('dark')
   const tool = extension.tools.get('question')
   const renderResult = tool?.renderResult
@@ -75,7 +79,7 @@ function renderQuestionViews(extension: FakeExtension, details: unknown): { coll
   const theme = {
     fg: (_color: string, text: string): string => text,
     bold: (text: string): string => text,
-  } as unknown as Parameters<PiCustomFactory<unknown>>[1]
+  } as Parameters<PiCustomFactory<unknown>>[1]
   const context = { lastComponent: undefined } as Parameters<typeof renderResult>[3]
   const render = (expanded: boolean): string =>
     renderResult(result, { expanded, isPartial: false }, theme, { ...context, expanded })
@@ -158,6 +162,24 @@ test('should show full question data when expanded given a successful result', a
   expect(views.expanded).toContain('Answer: Yes')
 })
 
+test('should render valid headers given partial question inputs', async () => {
+  const extension = await installFakePlugin(questionExtension)
+  const renderCall = extension.tools.get('question')?.renderCall
+  if (!renderCall) throw new Error('Question call renderer was not registered.')
+  const args = { questions: [{ header: 'Ready' }, { header: 42 }] }
+  const theme = {
+    fg: (_color: string, text: string): string => text,
+    bold: (text: string): string => text,
+  } as Parameters<typeof renderCall>[1]
+  const context = { lastComponent: undefined } as Parameters<typeof renderCall>[2]
+
+  const output = renderCall(args, theme, context).render(80).join('\n')
+
+  expect(output).toContain('2 questions')
+  expect(output).toContain('Ready')
+  expect(output).not.toContain('42')
+})
+
 test('should terminate with a cancelled result given user dismissal', async () => {
   //given
   const extension = await installFakePlugin(questionExtension)
@@ -208,8 +230,8 @@ test('should reject with a typed input error given no questions', async () => {
   const invocation = extension.invokeTool('question', 'tool-3', params, context)
 
   //then
+  await expect(invocation).rejects.toHaveProperty('_tag', 'PiToolError')
   await expect(invocation).rejects.toMatchObject({
-    _tag: 'PiToolError',
     message: 'No questions provided',
   })
 })
@@ -232,8 +254,8 @@ test('should reject with a typed UI error given unavailable UI', async () => {
   const invocation = extension.invokeTool('question', 'tool-4', params, context)
 
   //then
+  await expect(invocation).rejects.toHaveProperty('_tag', 'PiToolError')
   await expect(invocation).rejects.toMatchObject({
-    _tag: 'PiToolError',
     message: 'question requires interactive mode',
   })
 })
@@ -258,8 +280,8 @@ test('should clear the blocked state given a custom UI failure', async () => {
   const invocation = extension.invokeTool('question', 'tool-5', params, context)
 
   //then
+  await expect(invocation).rejects.toHaveProperty('_tag', 'PiToolError')
   await expect(invocation).rejects.toMatchObject({
-    _tag: 'PiToolError',
     message: 'Custom UI failed.',
   })
   expect(events).toEqual([{ active: true, label: 'Waiting for answer' }, { active: false }])

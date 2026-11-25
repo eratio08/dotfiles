@@ -86,6 +86,15 @@ test('should reject malformed JSON given a damaged session file', () => {
   assert.match(error instanceof Error ? error.message : '', /malformed JSON on line 5/)
 })
 
+test('should reject invalid records and headers given malformed session values', () => {
+  assert.throws(() => parseSavedSession('null'), /line 1 is not a JSON object/)
+  assert.throws(() => parseSavedSession('[]'), /line 1 is not a JSON object/)
+  assert.throws(() => parseSavedSession('{"type":"session","id":42}'), /missing a valid session ID/)
+  assert.throws(() => parseSavedSession('{"type":"session","id":""}'), /missing a valid session ID/)
+  assert.throws(() => parseSavedSession('{"type":42,"id":"session"}'), /does not start with a Pi session header/)
+  assert.throws(() => parseSavedSession(`${sessionJsonl}\n{"type":"session"}`), /more than one session header/)
+})
+
 test('should reject a missing leaf given an unknown entry ID', () => {
   //given
   const content = sessionJsonl

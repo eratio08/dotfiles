@@ -28,7 +28,7 @@ function parseInspectArguments(args: string): InspectArguments {
     throw new Error('Usage: /inspect [<session-file> [--leaf <entry-id>]]')
   }
 
-  return { sessionFile, ...(leafId ? { leafId } : {}) }
+  return leafId ? { sessionFile, leafId } : { sessionFile }
 }
 
 async function createInspectReport(

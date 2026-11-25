@@ -30,12 +30,12 @@ function renderAstGrepTestTool(
   const renderResult = tool.renderResult
   const summary = toolName === 'ast_grep_search' ? 'Search completed.' : 'Rewrite completed.'
   const result = {
-    content: [{ type: 'text', text: output }],
+    content: [{ type: 'text' as const, text: output }],
     details: { output, summary, truncated: false },
-  } as unknown as Parameters<typeof renderResult>[0]
+  }
   const options = { expanded, isPartial: false } as Parameters<typeof renderResult>[1]
-  const theme = { fg: (_color: string, text: string): string => text } as unknown as Parameters<typeof renderResult>[2]
-  const context = { lastComponent: undefined } as unknown as Parameters<typeof renderResult>[3]
+  const theme = { fg: (_color: string, text: string): string => text } as Parameters<typeof renderResult>[2]
+  const context = { lastComponent: undefined } as Parameters<typeof renderResult>[3]
 
   return renderResult(result, options, theme, context).render(40)
 }
@@ -68,6 +68,8 @@ test('should pass search options to ast-grep given valid search parameters', asy
       content: [{ type: 'text', text: 'match' }],
       details: { output: 'match', summary: 'Search completed.', truncated: false },
     })
+    expect(result).not.toHaveProperty('details.fullOutputPath')
+    expect(result).not.toHaveProperty('details.truncationNotice')
   })
 })
 
@@ -139,8 +141,8 @@ test('should fail the tool given a nonzero ast-grep exit', async () => {
     const result = extension.invokeTool('ast_grep_search', 'search-call', { pattern: '$NODE' })
 
     //then
+    await expect(result).rejects.toHaveProperty('_tag', 'PiToolError')
     await expect(result).rejects.toMatchObject({
-      _tag: 'PiToolError',
       tool: 'ast_grep_search',
       operation: 'execute',
       message: 'ast-grep command failed: invalid pattern',

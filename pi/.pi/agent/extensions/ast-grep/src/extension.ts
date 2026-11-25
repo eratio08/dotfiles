@@ -128,16 +128,17 @@ function createAstGrepToolResult(
 ): PiToolResult<AstGrepDetails> {
   const formattedOutput = formatAstGrepOutput(truncation, fullOutputPath)
   const hasOutput = output.length > 0
+  const details = {
+    output: truncation.content,
+    summary: hasOutput ? successSummary : emptyOutput,
+    truncated: truncation.truncated,
+  }
+  if (fullOutputPath) Object.assign(details, { fullOutputPath })
+  if (formattedOutput.notice) Object.assign(details, { truncationNotice: formattedOutput.notice })
 
   return {
     content: [{ type: 'text', text: hasOutput ? formattedOutput.text : emptyOutput }],
-    details: {
-      output: truncation.content,
-      summary: hasOutput ? successSummary : emptyOutput,
-      truncated: truncation.truncated,
-      ...(fullOutputPath ? { fullOutputPath } : {}),
-      ...(formattedOutput.notice ? { truncationNotice: formattedOutput.notice } : {}),
-    },
+    details,
   }
 }
 

@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Predicate } from 'effect'
 import type { ProgramDefinition, ProgramFailure, ProgramOperationInvoker } from '../../src/index.ts'
 import { createProgramFailure, isProgramFailure } from '../../src/index.ts'
 
@@ -209,11 +209,7 @@ function runFixtureAction<T>(signal: AbortSignal, method: string, action: () => 
     const abort = (): void =>
       resume(
         Effect.fail(
-          createProgramFailure({
-            _tag: 'cancellation',
-            operation: method,
-            message: 'The fixture host call was cancelled.',
-          }),
+          createProgramFailure('cancellation', { operation: method, message: 'The fixture host call was cancelled.' }),
         ),
       )
     if (signal.aborted) {
@@ -234,13 +230,14 @@ function runFixtureAction<T>(signal: AbortSignal, method: string, action: () => 
   })
 }
 
+// biome-ignore lint/plugin: Fixture arguments are validated before use.
 function requireFixtureString(method: string, value: unknown): string {
-  if (typeof value !== 'string') throw createFixtureFailure(method, 'The fixture argument must be a string.')
+  if (!Predicate.isString(value)) throw createFixtureFailure(method, 'The fixture argument must be a string.')
   return value
 }
 
 function createFixtureFailure(operation: string, message: string): ProgramFailure {
-  return createProgramFailure({ _tag: 'validation', operation, message })
+  return createProgramFailure('validation', { operation, message })
 }
 
 export {

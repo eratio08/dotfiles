@@ -2,11 +2,13 @@ import { expect, test } from 'bun:test'
 import type {
   ExecuteToolOptions,
   ExtensionAPI,
+  ExtensionCommandContext,
   ExtensionContext,
   ExtensionToolContext,
   ProjectTrustContext,
   ToolLoadout,
 } from '@earendil-works/pi-coding-agent'
+import { SessionManager } from '@earendil-works/pi-coding-agent'
 import { Context, Effect, Layer, Schema } from 'effect'
 import { type Static, Type } from 'typebox'
 import {
@@ -38,6 +40,22 @@ const inputEvent = {
 async function shutdown(fake: Awaited<ReturnType<typeof installFakePlugin>>): Promise<void> {
   await fake.invokeEvent('session_shutdown', { type: 'session_shutdown', reason: 'quit' })
 }
+
+test('should stop invoking an unsubscribed fake event handler', async () => {
+  const fake = createFakeExtensionApi()
+  let calls = 0
+  const handler = async (): Promise<void> => {
+    calls += 1
+  }
+  const unsubscribe = fake.api.on('session_start', handler)
+  fake.api.on('session_start', handler)
+
+  unsubscribe()
+  unsubscribe()
+  await fake.invokeEvent('session_start', { type: 'session_start', reason: 'startup' })
+
+  expect(calls).toBe(1)
+})
 
 test('should preserve event results and provide the current invocation context given an event invocation', async () => {
   //given
@@ -112,7 +130,7 @@ test('should accept void effects given a side-effect-only event handler', async 
 
   try {
     //when
-    await fake.invokeEvent('session_start', { type: 'session_start' })
+    await fake.invokeEvent('session_start', { type: 'session_start', reason: 'startup' })
 
     //then
     expect(handled).toBe(true)
@@ -146,7 +164,7 @@ test('should map invocation context read failures to PiOperationsError given a f
   } as ExtensionContext
 
   //when
-  const execution = fake.invokeEvent('session_start', { type: 'session_start' }, context)
+  const execution = fake.invokeEvent('session_start', { type: 'session_start', reason: 'startup' }, context)
 
   //then
   await expect(execution).rejects.toMatchObject({
@@ -217,7 +235,7 @@ test('should map session snapshot failures to PiOperationsError given a failing 
   } as ExtensionContext
 
   //when
-  const execution = fake.invokeEvent('session_start', { type: 'session_start' }, context)
+  const execution = fake.invokeEvent('session_start', { type: 'session_start', reason: 'startup' }, context)
 
   //then
   await expect(execution).rejects.toMatchObject({
@@ -256,7 +274,7 @@ test('should map session context read failures to PiOperationsError given a fail
   } as ExtensionContext
 
   //when
-  const execution = fake.invokeEvent('session_start', { type: 'session_start' }, context)
+  const execution = fake.invokeEvent('session_start', { type: 'session_start', reason: 'startup' }, context)
 
   //then
   await expect(execution).rejects.toMatchObject({
@@ -287,8 +305,8 @@ test('should keep Pi services stable given multiple invocation contexts', async 
   const fake = await installFakePlugin(PiExtension.install(plugin))
 
   //when
-  await fake.invokeEvent('session_start', { type: 'session_start' })
-  await fake.invokeEvent('session_start', { type: 'session_start' })
+  await fake.invokeEvent('session_start', { type: 'session_start', reason: 'startup' })
+  await fake.invokeEvent('session_start', { type: 'session_start', reason: 'startup' })
   await shutdown(fake)
 
   //then
@@ -309,7 +327,7 @@ test('should model the Pi event bus given Effect operations', async () => {
         yield* events.on('session_start', () =>
           Effect.gen(function* () {
             const pi = yield* Pi
-            const unsubscribe = yield* pi.events.on('custom', (data: unknown) => received.push(data))
+            const unsubscribe = yield* pi.events.on('custom', (data) => received.push(data))
             yield* pi.events.emit('custom', { value: 1 })
             yield* unsubscribe
             yield* pi.events.emit('custom', { value: 2 })
@@ -320,7 +338,7 @@ test('should model the Pi event bus given Effect operations', async () => {
   const fake = await installFakePlugin(PiExtension.install(plugin))
 
   //when
-  await fake.invokeEvent('session_start', { type: 'session_start' })
+  await fake.invokeEvent('session_start', { type: 'session_start', reason: 'startup' })
   await shutdown(fake)
 
   //then
@@ -338,7 +356,7 @@ test('should clean up event bus subscriptions given a closed scope', async () =>
           const pi = yield* Pi
           yield* Effect.scoped(
             Effect.gen(function* () {
-              yield* pi.events.onScoped('custom', (data: unknown) => received.push(data))
+              yield* pi.events.onScoped('custom', (data) => received.push(data))
               yield* pi.events.emit('custom', { value: 1 })
             }),
           )
@@ -349,7 +367,7 @@ test('should clean up event bus subscriptions given a closed scope', async () =>
   const fake = await installFakePlugin(PiExtension.install(plugin))
 
   //when
-  await fake.invokeEvent('session_start', { type: 'session_start' })
+  await fake.invokeEvent('session_start', { type: 'session_start', reason: 'startup' })
   await shutdown(fake)
 
   //then
@@ -377,7 +395,7 @@ test('should map event bus failures to PiOperationsError given a failed Pi API c
   }
 
   //when
-  const execution = fake.invokeEvent('session_start', { type: 'session_start' })
+  const execution = fake.invokeEvent('session_start', { type: 'session_start', reason: 'startup' })
 
   //then
   await expect(execution).rejects.toMatchObject({
@@ -411,15 +429,12 @@ test('should return a typed error given an unsupported custom UI operation', asy
       select: async () => undefined,
       confirm: async () => false,
       input: async () => undefined,
+      notify: () => undefined,
     },
-  } as unknown as ProjectTrustContext
+  } satisfies ProjectTrustContext
 
   //when
-  const execution = fake.invokeEvent(
-    'project_trust',
-    { type: 'project_trust' },
-    trustContext as unknown as ExtensionContext,
-  )
+  const execution = fake.invokeEvent('project_trust', { type: 'project_trust', cwd: '/workspace' }, trustContext)
 
   //then
   await expect(execution).rejects.toBeInstanceOf(PiUiUnavailableError)
@@ -481,7 +496,7 @@ test('should capture event handler construction failures given a synchronous thr
   const fake = await installFakePlugin(PiExtension.install(plugin))
 
   //when
-  const execution = fake.invokeEvent('session_start', { type: 'session_start' })
+  const execution = fake.invokeEvent('session_start', { type: 'session_start', reason: 'startup' })
 
   //then
   await expect(execution).rejects.toThrow('handler construction failed')
@@ -557,16 +572,9 @@ test('should provide tool identity, progress updates, and a final result given t
   const registered = fake.tools.get('test-tool')
 
   //when
-  const result = await fake.invokeTool(
-    'test-tool',
-    'call-1',
-    { query: 'search' },
-    undefined,
-    undefined,
-    (update: unknown) => {
-      updates.push(update)
-    },
-  )
+  const result = await fake.invokeTool('test-tool', 'call-1', { query: 'search' }, undefined, undefined, (update) => {
+    updates.push(update)
+  })
   await shutdown(fake)
 
   //then
@@ -753,7 +761,11 @@ test('should expose callable tools and forward nested execution given a tool con
     get tools(): ExtensionToolContext['tools'] {
       return nativeCallableTools
     },
-    executeTool: async (name: string, args: unknown, options?: ExecuteToolOptions) => {
+    executeTool: async (
+      name: string,
+      args: Parameters<ExtensionToolContext['executeTool']>[1],
+      options?: ExecuteToolOptions,
+    ) => {
       nestedCallCount += 1
       if (nestedCallCount > 1) throw new Error('nested invocation failed')
       nestedCallName = name
@@ -886,7 +898,7 @@ test('should map tools-expanded UI read failures to PiOperationsError given a fa
   } as ExtensionContext
 
   //when
-  const execution = fake.invokeEvent('session_start', { type: 'session_start' }, context)
+  const execution = fake.invokeEvent('session_start', { type: 'session_start', reason: 'startup' }, context)
 
   //then
   await expect(execution).rejects.toMatchObject({
@@ -940,7 +952,7 @@ test('should forward Effect cancellation to Pi API promises given AbortSignal su
   const context = { ...createFakeExtensionContext(), signal: contextController.signal } as ExtensionContext
 
   //when
-  const execution = fake.invokeEvent('session_start', { type: 'session_start' }, context)
+  const execution = fake.invokeEvent('session_start', { type: 'session_start', reason: 'startup' }, context)
 
   //then
   await expect(execution).rejects.toBeDefined()
@@ -1035,30 +1047,16 @@ test('should run command completions and dispose a scoped layer once given repea
       }),
   })
   const fake = await installFakePlugin(PiExtension.install(plugin))
-  const manager = {
-    getCwd: () => '/replacement',
-    getSessionId: () => 'replacement',
-    getSessionFile: () => undefined,
-    getSessionDir: () => '/replacement',
-    getLeafId: () => null,
-    getLeafEntry: () => undefined,
-    getEntry: () => undefined,
-    getBranch: () => [],
-    buildContextEntries: () => [],
-    getLabel: () => undefined,
-    getEntries: () => [],
-    getTree: () => [],
-    getSessionName: () => undefined,
-  }
-  const commandContext = {
+  const manager = SessionManager.inMemory('/replacement')
+  const commandContext: ExtensionContext & Partial<ExtensionCommandContext> = {
     ...createFakeExtensionContext(),
-    getSystemPromptOptions: () => ({}),
+    getSystemPromptOptions: () => ({ cwd: '/replacement' }),
     waitForIdle: async () => undefined,
-    newSession: async (options?: { setup?: (session: typeof manager) => Promise<void> }) => {
+    newSession: async (options?: Parameters<ExtensionCommandContext['newSession']>[0]) => {
       if (options?.setup) await options.setup(manager)
       return { cancelled: false }
     },
-  } as unknown as ExtensionContext
+  }
 
   //when
   const completions = await fake.invokeCommandCompletions('test-command', 'al')
@@ -1068,7 +1066,7 @@ test('should run command completions and dispose a scoped layer once given repea
 
   //then
   expect(completions).toEqual([{ value: 'alpha', label: 'alpha' }])
-  expect(systemPromptOptions).toEqual({})
+  expect(systemPromptOptions).toEqual({ cwd: '/replacement' })
   expect(replacementCwd).toBe('/replacement')
   expect(releases).toBe(1)
 })
