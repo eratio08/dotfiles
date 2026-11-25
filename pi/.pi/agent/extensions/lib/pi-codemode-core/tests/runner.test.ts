@@ -25,6 +25,35 @@ const evaluateWithHost = <R, E>(
   Effect.provideService(core.evaluate(definition, code, runOptions), Core.ProgramOperationInvoker<R, E>(), host)
 
 describe('code mode runner', () => {
+  test('should time out given a callable thenable that never settles', async () => {
+    let started = false
+    const core = Core.createProgramRunner<never, never>()
+    const host: Core.ProgramOperationInvoker<never, never> = {
+      invoke: () => {
+        started = true
+        return Effect.succeed('unused')
+      },
+    }
+    const code =
+      'export default (api: QueueApi) => { api.call("started").catch(() => {}); const result = () => {}; result.then = () => {}; return result }'
+
+    const result = Effect.runPromise(
+      evaluateWithHost(core, host, code, { ...options, timeoutMs: 100, execution: 'in-process' }),
+    )
+
+    let watchdog: ReturnType<typeof setTimeout> | undefined
+    const guard = new Promise<never>((_, reject) => {
+      watchdog = setTimeout(() => reject(new Error('Evaluation did not complete.')), 500)
+    })
+
+    try {
+      await expect(Promise.race([result, guard])).rejects.toMatchObject({ _tag: 'timeout' })
+      expect(started).toBe(true)
+    } finally {
+      clearTimeout(watchdog)
+    }
+  }, 2000)
+
   test('should run host calls in offer order given concurrent API calls', async () => {
     //given
     const events: string[] = []

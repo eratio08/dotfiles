@@ -275,7 +275,11 @@ function decodeCodeModeExceptionProperty(
 }
 
 function isCodeModePromiseLike(value: unknown): value is PromiseLike<unknown> {
-  return Predicate.isObjectOrArray(value) && 'then' in value && Predicate.isFunction(value.then)
+  return (
+    (Predicate.isObjectOrArray(value) || Predicate.isFunction(value)) &&
+    'then' in value &&
+    Predicate.isFunction(value.then)
+  )
 }
 
 export {
