@@ -214,6 +214,22 @@ async function inspectRepository(
   return { directories, gitStatus: git.stdout, repositoryFiles, issues }
 }
 
+function isSupportedBiomeVersion(version: string): boolean {
+  const match =
+    /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([\da-z-]+(?:\.[\da-z-]+)*))?(?:\+[\da-z-]+(?:\.[\da-z-]+)*)?$/i.exec(
+      version,
+    )
+  if (!match || match[4]?.split('.').some((identifier) => /^0\d+$/.test(identifier))) return false
+
+  const components = [Number(match[1]), Number(match[2]), Number(match[3])]
+  if (!components.every(Number.isSafeInteger)) return false
+
+  const [major = 0, minor = 0, patch = 0] = components
+  const comparison = major - 2 || minor - 6 || patch - 4
+
+  return comparison > 0 || (comparison === 0 && match[4] === undefined)
+}
+
 async function inspectBiomeConfiguration(
   target: string,
   directories: string[],
@@ -290,16 +306,17 @@ async function inspectBiomeConfiguration(
     }
     break
   }
-  if (!version) issues.push('Biome 2.6.4 is not installed in the target or workspace.')
-  if (version && version !== '2.6.4') issues.push(`Biome 2.6.4 is required; found ${version}.`)
-  if (version === '2.6.4') {
+  const supportedVersion = isSupportedBiomeVersion(version)
+  if (!version) issues.push('Biome 2.6.4 or newer is not installed in the target or workspace.')
+  if (version && !supportedVersion) issues.push(`Biome 2.6.4 or newer is required; found ${version}.`)
+  if (supportedVersion) {
     try {
       await access(biomeBinary, constants.X_OK)
     } catch {
       issues.push('The target Biome executable is unavailable.')
     }
   }
-  if (configurationBefore !== null && version === '2.6.4') {
+  if (configurationBefore !== null && supportedVersion) {
     try {
       const args = ['inspect', 'config', '--colors=off']
       if (!nestedConfiguration) args.push('--config-path', configurationPath)

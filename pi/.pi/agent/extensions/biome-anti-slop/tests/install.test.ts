@@ -6,6 +6,64 @@ import { join, resolve } from 'node:path'
 import type { ExecOptions, ExecResult } from '@earendil-works/pi-coding-agent'
 import { createFakeExtensionContext, installFakePlugin } from '@eratio/pi-effect/testing'
 
+test('should accept Biome versions at or above the minimum given a target configuration', async () => {
+  const project = await mkdtemp(join(tmpdir(), 'biome-anti-slop-version-'))
+
+  try {
+    await mkdir(join(project, 'node_modules/@biomejs/biome'), { recursive: true })
+    await mkdir(join(project, 'node_modules/.bin'))
+    await symlink(resolve('node_modules/.bin/biome'), join(project, 'node_modules/.bin/biome'))
+    await writeFile(join(project, '.gitignore'), 'node_modules/\n')
+    await writeFile(join(project, 'biome.json'), '{"root":true}\n')
+    expect(spawnSync('git', ['init', '-q', project]).status).toBe(0)
+    expect(spawnSync('git', ['add', '.gitignore', 'biome.json'], { cwd: project }).status).toBe(0)
+
+    const factory = (await import('../index.ts')).default
+    const extension = await installFakePlugin(factory)
+    let inspected = false
+    extension.api.exec = async (command: string, args: string[], options?: ExecOptions): Promise<ExecResult> => {
+      if (args[0] === 'inspect' && args[1] === 'config') inspected = true
+      const result = spawnSync(command, args, { cwd: options?.cwd, encoding: 'utf8' })
+      return { stdout: result.stdout ?? '', stderr: result.stderr ?? '', code: result.status ?? -1, killed: false }
+    }
+    const context = createFakeExtensionContext(project)
+    context.hasUI = true
+    context.ui.confirm = async (): Promise<boolean> => false
+    let notification = ''
+    context.ui.notify = (message: string): void => {
+      notification = message
+    }
+
+    for (const [version, supported] of [
+      ['2.6.3', false],
+      ['2.6.4-rc.1', false],
+      ['2.6.5-rc.01', false],
+      ['02.6.4', false],
+      ['2.6.4', true],
+      ['2.6.4+build.1', true],
+      ['2.6.5-rc.1', true],
+      ['2.6.5', true],
+      ['2.10.0', true],
+      ['3.0.0', true],
+      ['invalid', false],
+    ] as const) {
+      inspected = false
+      notification = ''
+      await writeFile(join(project, 'node_modules/@biomejs/biome/package.json'), JSON.stringify({ version }))
+      await extension.invokeCommand('anti-slop-install', '', context)
+      expect(inspected).toBe(supported)
+      expect(notification).toContain(supported ? 'No files changed.' : 'Biome 2.6.4')
+    }
+
+    await writeFile(join(project, 'node_modules/@biomejs/biome/package.json'), '{"version":"2.6.5"}')
+    await rm(join(project, 'node_modules/.bin/biome'))
+    await extension.invokeCommand('anti-slop-install', '', context)
+    expect(notification).toContain('The target Biome executable is unavailable.')
+  } finally {
+    await rm(project, { recursive: true, force: true })
+  }
+}, 30000)
+
 test('should install approved rules given a simple repository', async () => {
   const temp = await mkdtemp(join(tmpdir(), 'biome-anti-slop-install-'))
   const project = join(temp, 'project')
@@ -308,12 +366,12 @@ test('should install approved rules given a simple repository', async () => {
     expect(spawnSync('git', ['init', '-q', missing]).status).toBe(0)
     context.cwd = missing
     await extension.invokeCommand('anti-slop-install', '', context)
-    expect(notification).toContain('Biome 2.6.4 is not installed')
+    expect(notification).toContain('Biome 2.6.4 or newer is not installed')
     await expect(readFile(join(missing, 'biome.json'))).rejects.toThrow()
     await mkdir(join(missing, 'node_modules/@biomejs/biome'), { recursive: true })
     await writeFile(join(missing, 'node_modules/@biomejs/biome/package.json'), '{"version":"2.5.0"}')
     await extension.invokeCommand('anti-slop-install', '', context)
-    expect(notification).toContain('Biome 2.6.4 is required')
+    expect(notification).toContain('Biome 2.6.4 or newer is required')
   } finally {
     await rm(temp, { recursive: true, force: true })
   }
