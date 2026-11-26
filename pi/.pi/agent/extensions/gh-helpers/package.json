@@ -14,7 +14,7 @@
     "@earendil-works/pi-coding-agent": "*"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.12",
+    "@biomejs/biome": "2.6.9",
     "@oxlint/plugins": "1.90.0",
     "@types/bun": "^1.4.2",
     "oxlint": "1.90.0",

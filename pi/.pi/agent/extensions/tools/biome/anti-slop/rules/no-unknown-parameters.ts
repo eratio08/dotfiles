@@ -7,11 +7,10 @@ import {
   type JsRestParameter,
   registerDiagnostic,
   type SemanticRuleContext,
-  semantic,
   type TsThisParameter,
 } from '@biomejs/runtime/plugin'
 import { type Parameter, parameterName, predicateSubject } from './parameter-contract.ts'
-import { containsUnknown, decodeAsciiEscapes, memberTarget, unwrapExpression } from './shared.ts'
+import { containsUnknown, decodeAsciiEscapes, memberTarget, semantic, unwrapExpression } from './shared.ts'
 
 function checkParameter(node: Parameter, context: SemanticRuleContext): void {
   const type = node.typeAnnotation?.ty

@@ -6,11 +6,10 @@ import {
   type JsCallExpression,
   registerDiagnostic,
   type SemanticRuleContext,
-  semantic,
 } from '@biomejs/runtime/plugin'
 import { arrayMethodTarget, isKnownArrayExpression, unwrapArrayExpression } from './array-method.ts'
 import { enclosingReducer, referencesAccumulator } from './reducer.ts'
-import { decodeAsciiEscapes } from './shared.ts'
+import { decodeAsciiEscapes, semantic } from './shared.ts'
 
 function isGlobalCopyOwner(ctx: SemanticRuleContext, expression: AnyJsExpression, name: string): boolean {
   const node = unwrapArrayExpression(expression)

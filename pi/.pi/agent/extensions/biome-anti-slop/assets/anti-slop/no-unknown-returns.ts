@@ -5,12 +5,12 @@ import {
   defineRule,
   registerDiagnostic,
   type SemanticRuleContext,
-  semantic,
   type TsConstructorType,
   type TsFunctionType,
   type TsReturnTypeAnnotation,
   type TsTypeAnnotation,
 } from '@biomejs/runtime/plugin'
+import { semantic } from './shared.ts'
 import { matchesResolvedType } from './widening-types.ts'
 
 function checkReturn(type: AnyTsType | undefined, context: SemanticRuleContext): void {

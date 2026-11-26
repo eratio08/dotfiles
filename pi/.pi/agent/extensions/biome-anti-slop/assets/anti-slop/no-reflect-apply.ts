@@ -5,9 +5,8 @@ import {
   type JsCallExpression,
   registerDiagnostic,
   type SemanticRuleContext,
-  semantic,
 } from '@biomejs/runtime/plugin'
-import { decodeAsciiEscapes, memberTarget, unwrapExpression } from './shared.ts'
+import { decodeAsciiEscapes, memberTarget, semantic, unwrapExpression } from './shared.ts'
 
 export const noReflectApply = defineRule({
   query: semantic('JS_CALL_EXPRESSION'),

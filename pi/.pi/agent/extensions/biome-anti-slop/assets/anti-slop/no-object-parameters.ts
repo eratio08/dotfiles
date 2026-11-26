@@ -6,10 +6,10 @@ import {
   type JsRestParameter,
   registerDiagnostic,
   type SemanticRuleContext,
-  semantic,
   type TsThisParameter,
 } from '@biomejs/runtime/plugin'
 import { type Parameter, parameterName } from './parameter-contract.ts'
+import { semantic } from './shared.ts'
 import { matchesResolvedType } from './widening-types.ts'
 
 function checkParameter(node: Parameter, context: SemanticRuleContext): void {

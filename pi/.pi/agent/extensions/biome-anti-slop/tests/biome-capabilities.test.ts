@@ -4,7 +4,7 @@ import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-test('should expose plugin severity, suppression, and comment limits given Biome 2.6.4', async () => {
+test('should expose plugin severity, suppression, and comment limits given Biome 2.6.9', async () => {
   const temp = await mkdtemp(join(tmpdir(), 'biome-anti-slop-capabilities-'))
   const biome = process.env.ANTI_SLOP_BIOME ?? resolve('node_modules/.bin/biome')
   const config = async (plugins: string[]): Promise<void> => {
@@ -75,7 +75,7 @@ test('should expose plugin severity, suppression, and comment limits given Biome
     await writeFile(input, source)
     const fix = spawnSync(biome, ['lint', '--write', '--config-path', temp, input], { encoding: 'utf8' })
     expect(fix.error).toBeUndefined()
-    expect(fix.status).toBe(0)
+    expect(fix.status).toBe(1)
     expect(fix.stderr).toContain('factory.token() requires the spelling')
     expect(await readFile(input, 'utf8')).toBe(source)
   } finally {

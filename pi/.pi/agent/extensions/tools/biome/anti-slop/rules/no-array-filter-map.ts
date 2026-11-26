@@ -5,9 +5,9 @@ import {
   type JsCallExpression,
   registerDiagnostic,
   type SemanticRuleContext,
-  semantic,
 } from '@biomejs/runtime/plugin'
 import { arrayMethodTarget, isKnownArrayExpression, unwrapArrayExpression } from './array-method.ts'
+import { semantic } from './shared.ts'
 
 export const noArrayFilterMap = defineRule({
   query: semantic('JS_CALL_EXPRESSION'),

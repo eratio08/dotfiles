@@ -12,7 +12,7 @@
     "@earendil-works/pi-coding-agent": "*"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.12",
+    "@biomejs/biome": "2.6.9",
     "@types/node": "^24.10.1",
     "typescript": "^5.9.3"
   },

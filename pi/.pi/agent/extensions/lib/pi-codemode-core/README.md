@@ -51,6 +51,7 @@ The returned Effect produces the program result and can fail with `ProgramFailur
 ### `ProgramDefinition`
 
 A definition describes the API available to a program:
+
 - `apiName` names the TypeScript type used by the program's `api` argument.
 - `programName` names the program.
 - `declarations` provides TypeScript declarations for the API.

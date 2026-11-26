@@ -9,8 +9,8 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@biomejs/biome": "2.6.4",
-    "@biomejs/runtime": "2.6.4",
+    "@biomejs/biome": "2.6.9",
+    "@biomejs/runtime": "2.6.9",
     "@eratio/pi-effect": "file:../lib/pi-effect"
   },
   "peerDependencies": {

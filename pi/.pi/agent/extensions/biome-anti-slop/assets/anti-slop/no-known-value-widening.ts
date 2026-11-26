@@ -15,13 +15,12 @@ import {
   type JsVariableDeclarator,
   registerDiagnostic,
   type SemanticRuleContext,
-  semantic,
   type TsAsExpression,
   type TsDeclareFunctionDeclaration,
   type TsTypeAssertionExpression,
 } from '@biomejs/runtime/plugin'
 import { unwrapArrayExpression } from './array-method.ts'
-import { bindingKey, containsUnknown, decodeAsciiEscapes, isEmptyObject } from './shared.ts'
+import { bindingKey, containsUnknown, decodeAsciiEscapes, isEmptyObject, semantic } from './shared.ts'
 import { classifyWideningTarget, isUnsafeValueType } from './widening-types.ts'
 
 type LocalFunction =

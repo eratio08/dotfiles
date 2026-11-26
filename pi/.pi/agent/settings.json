@@ -39,7 +39,8 @@
   "treeFilterMode": "no-tools",
   "enabledModels": [
     "github-copilot/gpt-6-luna",
-    "github-copilot/gpt-6.1-terra"
+    "github-copilot/gpt-6.1-terra",
+    "github-copilot/gemini-4-neon"
   ],
   "skills": [
     "~/.local/state/sparness/opencode/skills",

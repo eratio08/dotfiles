@@ -6,7 +6,7 @@ The port is not a complete replacement for anti-slop.
 The rule results and known gaps are in `assets/anti-slop/UPSTREAM.md`.
 
 The extension requires Biome `2.6.4` or newer.
-The port was tested with Biome `2.6.4`.
+The port was tested with Biome `2.6.4` and `2.6.9`.
 It does not install or upgrade Biome.
 The target also needs compatible `@biomejs/runtime` declarations if its TypeScript check includes the installed plugin source.
 

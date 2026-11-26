@@ -5,13 +5,13 @@ import {
   defineRule,
   registerDiagnostic,
   type SemanticRuleContext,
-  semantic,
   type TsIndexSignatureClassMember,
   type TsIndexSignatureTypeMember,
   type TsMappedType,
   type TsObjectType,
   type TsReferenceType,
 } from '@biomejs/runtime/plugin'
+import { semantic } from './shared.ts'
 import { isUnsafeValueType, unsafeDictionaryValue } from './widening-types.ts'
 
 type DictionaryType = TsReferenceType | TsObjectType | TsMappedType

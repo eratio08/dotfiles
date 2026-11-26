@@ -4,10 +4,9 @@ import {
   defineRule,
   registerDiagnostic,
   type SemanticRuleContext,
-  semantic,
   type TsTypeAliasDeclaration,
 } from '@biomejs/runtime/plugin'
-import { decodeAsciiEscapes } from './shared.ts'
+import { decodeAsciiEscapes, semantic } from './shared.ts'
 import { matchesResolvedType } from './widening-types.ts'
 
 export const unknownTypeAlias = defineRule({

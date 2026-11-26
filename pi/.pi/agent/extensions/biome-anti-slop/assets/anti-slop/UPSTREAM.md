@@ -6,7 +6,7 @@ Do not treat it as a complete replacement for anti-slop.
 The source is the [upstream anti-slop repository](https://github.com/dmmulroy/anti-slop).
 The upstream revision is `13909c9e07590f5a85d93c62712259fe14a883f7`.
 The port revision is `prototype-18`.
-The tested Biome version is `2.6.4`.
+The tested Biome versions are `2.6.4` and `2.6.9`.
 The upstream license is in `LICENSE`.
 The accumulating-spread companion uses [Oxc](https://github.com/oxc-project/oxc/blob/c42d6397eab5b2d5bb2bd6746c57bc2a9cad21bd/crates/oxc_linter/src/rules/oxc/no_accumulating_spread.rs).
 The Oxc license is in `OXC-LICENSE`.
@@ -132,7 +132,7 @@ A tagged value uses `_tag` to identify its kind.
 
 ## Limitations
 
-The latest Biome release checked by this port is `2.6.4`.
+The latest Biome release checked by this port is `2.6.9`.
 
 Its JavaScript plugin API omits initial leading comments and has no whitespace insertion API.
 The port therefore omits the safety-comment and spacing rules.

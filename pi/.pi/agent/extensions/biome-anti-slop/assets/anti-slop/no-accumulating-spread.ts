@@ -7,10 +7,9 @@ import {
   type JsSpread,
   registerDiagnostic,
   type SemanticRuleContext,
-  semantic,
 } from '@biomejs/runtime/plugin'
 import { enclosingReducer } from './reducer.ts'
-import { bindingKey } from './shared.ts'
+import { bindingKey, semantic } from './shared.ts'
 
 function isLoopAccumulator(node: JsSpread, binding: Binding, context: SemanticRuleContext): boolean {
   const declaration = binding.syntax().parent

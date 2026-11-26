@@ -8,11 +8,10 @@ import {
   defineRule,
   registerDiagnostic,
   type SemanticRuleContext,
-  semantic,
   type TsAsExpression,
   type TsTypeAssertionExpression,
 } from '@biomejs/runtime/plugin'
-import { bindingKey, decodeAsciiEscapes, unwrapExpression } from './shared.ts'
+import { bindingKey, decodeAsciiEscapes, semantic, unwrapExpression } from './shared.ts'
 
 type BroadTypeKind = 'top' | 'object' | 'record'
 type KnownEvidence = { type: AnyTsType | undefined }

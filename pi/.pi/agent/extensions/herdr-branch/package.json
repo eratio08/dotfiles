@@ -14,7 +14,7 @@
     "typebox": "*"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.12",
+    "@biomejs/biome": "2.6.9",
     "@types/bun": "^1.4.2",
     "@types/node": "^24.10.1",
     "typescript": "^5.9.3"

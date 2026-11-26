@@ -1,4 +1,23 @@
 import type { AnyJsExpression, AnyTsType, Binding } from '@biomejs/runtime/plugin'
+import * as BiomePlugin from '@biomejs/runtime/plugin'
+
+type BiomeSemanticContext = typeof BiomePlugin extends { semantic: unknown }
+  ? 'semantic'
+  : BiomePlugin.SemanticRuleContext
+type BiomeSemanticQuery<K extends keyof BiomePlugin.JsNodeByKind> = ReturnType<
+  typeof BiomePlugin.defineRule<BiomePlugin.JsNodeByKind[K], BiomeSemanticContext>
+>['query']
+
+const biomeSemanticRuntime = BiomePlugin as typeof BiomePlugin & {
+  semantic?: <K extends keyof BiomePlugin.JsNodeByKind>(kind: K) => BiomeSemanticQuery<K>
+  ast: <K extends keyof BiomePlugin.JsNodeByKind>(kind: K, options: { semantic: true }) => BiomeSemanticQuery<K>
+}
+
+export function semantic<K extends keyof BiomePlugin.JsNodeByKind>(kind: K): BiomeSemanticQuery<K> {
+  return biomeSemanticRuntime.semantic
+    ? biomeSemanticRuntime.semantic(kind)
+    : biomeSemanticRuntime.ast(kind, { semantic: true })
+}
 
 export function decodeAsciiEscapes(value: string): string {
   return value.replace(

@@ -6,9 +6,8 @@ import {
   type JsIdentifierExpression,
   registerDiagnostic,
   type SemanticRuleContext,
-  semantic,
 } from '@biomejs/runtime/plugin'
-import { decodeAsciiEscapes, memberTarget, unwrapExpression } from './shared.ts'
+import { decodeAsciiEscapes, memberTarget, semantic, unwrapExpression } from './shared.ts'
 
 function isFrameworkObject(object: JsIdentifierExpression, context: SemanticRuleContext): boolean {
   if (!object.name) return false
