@@ -260,17 +260,6 @@
       "updatedAt": "2026-11-26T07:26:12.003Z",
       "commit": "5a37a6329fbad3666c3207392a6a7c0110e92efb"
     },
-    "install-anti-slop": {
-      "source": "dmmulroy/anti-slop",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/dmmulroy/anti-slop.git",
-      "ref": "main",
-      "skillPath": "skills/install-anti-slop/SKILL.md",
-      "skillFolderHash": "7fdaa6312dac0ec3a6929933dc45d516bb4a7b71",
-      "installedAt": "2026-11-01T20:19:10.363Z",
-      "updatedAt": "2026-11-26T07:26:12.547Z",
-      "commit": "63dbb09f73438e550a6991dc6d778f979ffbf183"
-    },
     "socratic-tutor": {
       "source": "janestreet/agent_skills",
       "sourceType": "github",
