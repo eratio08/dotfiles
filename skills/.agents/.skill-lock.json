@@ -44,7 +44,7 @@
       "skillPath": "skills/engineering/domain-modeling/SKILL.md",
       "skillFolderHash": "db8ef024fb9a7b2022d57289359ae96cff0d8483",
       "installedAt": "2026-06-26T05:51:16.145Z",
-      "updatedAt": "2026-11-25T21:40:55.008Z",
+      "updatedAt": "2026-11-26T07:26:04.364Z",
       "commit": "6f7f7831a625f040a8e06a0e7954826b87ce775a"
     },
     "gh-stack": {
@@ -202,8 +202,8 @@
       "skillPath": "archify/SKILL.md",
       "skillFolderHash": "e91df37318f9adec8b39150a2738beb4cd22bad5",
       "installedAt": "2026-09-14T06:08:49.137Z",
-      "updatedAt": "2026-11-25T21:40:59.448Z",
-      "commit": "c8e5241c7d8b036ea959121d7bd1df564f2b9fdf"
+      "updatedAt": "2026-11-26T07:26:11.952Z",
+      "commit": "d6b0f71f25a3337ed2fcd09c973cacf67be7baba"
     },
     "retro": {
       "source": "mattpocock/skills",
@@ -257,8 +257,19 @@
       "skillPath": "skills/web-design-guidelines/SKILL.md",
       "skillFolderHash": "8ff770c9b25b9fdb5a97503fc98d86b723813031",
       "installedAt": "2026-09-26T16:17:44.468Z",
-      "updatedAt": "2026-11-25T21:40:59.475Z",
+      "updatedAt": "2026-11-26T07:26:12.003Z",
       "commit": "5a37a6329fbad3666c3207392a6a7c0110e92efb"
+    },
+    "install-anti-slop": {
+      "source": "dmmulroy/anti-slop",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/dmmulroy/anti-slop.git",
+      "ref": "main",
+      "skillPath": "skills/install-anti-slop/SKILL.md",
+      "skillFolderHash": "7fdaa6312dac0ec3a6929933dc45d516bb4a7b71",
+      "installedAt": "2026-11-01T20:19:10.363Z",
+      "updatedAt": "2026-11-26T07:26:12.547Z",
+      "commit": "63dbb09f73438e550a6991dc6d778f979ffbf183"
     },
     "socratic-tutor": {
       "source": "janestreet/agent_skills",
@@ -269,6 +280,16 @@
       "skillFolderHash": "13f2666c7b404ce5a0a4b93a3613b99e415a48bc",
       "installedAt": "2026-11-12T09:41:37.679Z",
       "updatedAt": "2026-11-12T09:41:37.679Z"
+    },
+    "security-audit": {
+      "source": "cloudflare/security-audit-skill",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/cloudflare/security-audit-skill.git",
+      "commit": "c1c8a8c1471069fb0e188eeaff69b8e8db6564a8",
+      "skillPath": "skills/security-audit/SKILL.md",
+      "skillFolderHash": "ccbc33ed119b28c3ef7b44a7e2081ab191ad63af",
+      "installedAt": "2026-11-16T12:10:04.093Z",
+      "updatedAt": "2026-11-16T12:10:04.093Z"
     }
   },
   "dismissed": {
